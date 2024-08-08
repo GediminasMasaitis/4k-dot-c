@@ -1,0 +1,7 @@
+.vs
+.vscode
+.idea
+
+build
+*.o
+*.c.temp*
