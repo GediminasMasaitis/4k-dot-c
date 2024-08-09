@@ -9,8 +9,9 @@ The plan is to make a <= 4096 byte UCI engine executable, without:
 
 ### Current specifications
 Executable size:
-* 32 bit: 335 bytes
-* 64 bit: 414 bytes
+
+* 32 bit: 4992 bytes
+* 64 bit: 3872 bytes
 
 ## Thanks
 * **zamfofex** for helping with initial set up of a minimal Hello World executable and helping with 64 bit compilation

@@ -16,3 +16,11 @@ Start of UCI
 32 bit: 335 bytes
 
 64 bit: 414 bytes
+
+### 0.4
+
+Port 4ku base chess
+
+32 bit: 4992 bytes
+
+64 bit: 3872 bytes

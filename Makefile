@@ -16,6 +16,14 @@ all:
 	ls -la ./build
 	./build/4k-dot-c
 
+debug:
+	mkdir -p build
+	gcc -c -g 4k.c
+	gcc -o ./build/4k-dot-c 4k.o
+	rm *.o
+	ls -la ./build
+	./build/4k-dot-c
+
 format:
 	dos2unix ./*.*
 	clang-format -i ./4k.c
