@@ -24,3 +24,11 @@ Port 4ku base chess
 32 bit: 4992 bytes
 
 64 bit: 3872 bytes
+
+### 0.5
+
+All static functions, gcc 14.2
+
+32- bit currently broken
+
+64 bit: 2528 bytes

@@ -122,19 +122,6 @@ typedef struct {
     bool flipped;
 } Position;
 
-//typedef struct {
-//    i32 castling[4] = { true, true, true, true };
-//    u64 colour[2] = { 0xFFFFull, 0xFFFF000000000000ull };
-//    u64 pieces[6] = { 0xFF00000000FF00ull,
-//                     0x4200000000000042ull,
-//                     0x2400000000000024ull,
-//                     0x8100000000000081ull,
-//                     0x800000000000008ull,
-//                     0x1000000000000010ull };
-//    u64 ep = 0;
-//    i32 flipped = false;
-//} Position;
-
 u64 diag_mask[64];
 
 static u64 flip_bb(u64 bb) {
@@ -163,39 +150,39 @@ static i32 lsb(u64 bb) {
     return index;
 }
 
-u64 west(const u64 bb) {
+static u64 west(const u64 bb) {
     return bb >> 1 & ~0x8080808080808080ull;
 }
 
-u64 east(const u64 bb) {
+static u64 east(const u64 bb) {
     return bb << 1 & ~0x101010101010101ull;
 }
 
-u64 north(const u64 bb) {
+static u64 north(const u64 bb) {
     return bb << 8;
 }
 
-u64 south(const u64 bb) {
+static u64 south(const u64 bb) {
     return bb >> 8;
 }
 
-u64 nw(const u64 bb) {
+static u64 nw(const u64 bb) {
     return north(west(bb));
 }
 
-u64 ne(const u64 bb) {
+static u64 ne(const u64 bb) {
     return north(east(bb));
 }
 
-u64 sw(const u64 bb) {
+static u64 sw(const u64 bb) {
     return south(west(bb));
 }
 
-u64 se(const u64 bb) {
+static u64 se(const u64 bb) {
     return south(east(bb));
 }
 
-u64 ray(const i32 sq, const u64 blockers, u64 (*f)(u64)) {
+static u64 ray(const i32 sq, const u64 blockers, u64 (*f)(u64)) {
     u64 mask = f(1ull << sq);
     mask |= f(mask & ~blockers);
     mask |= f(mask & ~blockers);
@@ -206,37 +193,34 @@ u64 ray(const i32 sq, const u64 blockers, u64 (*f)(u64)) {
     return mask;
 }
 
-u64 xattack(const i32 sq, const u64 blockers, const u64 dir_mask) {
+static u64 xattack(const i32 sq, const u64 blockers, const u64 dir_mask) {
     return dir_mask & ((blockers & dir_mask) - (1ull << sq) ^ flip_bb(flip_bb(blockers & dir_mask) - flip_bb(1ull << sq)));
 }
 
-u64 bishop(const i32 sq, const u64 blockers) {
+static u64 bishop(const i32 sq, const u64 blockers) {
     return xattack(sq, blockers, diag_mask[sq]) | xattack(sq, blockers, flip_bb(diag_mask[sq ^ 56]));
 }
 
-u64 rook(const i32 sq, const u64 blockers) {
+static u64 rook(const i32 sq, const u64 blockers) {
     return xattack(sq, blockers, 1ull << sq ^ 0x101010101010101ull << sq % 8) | ray(sq, blockers, east) |
            ray(sq, blockers, west);
 }
 
-u64 knight(const i32 sq, const u64) {
+static u64 knight(const i32 sq, const u64 blockers) {\
+    (void)blockers;
     const u64 bb = 1ull << sq;
     return (bb << 15 | bb >> 17) & ~0x8080808080808080ull | (bb << 17 | bb >> 15) & ~0x101010101010101ull |
            (bb << 10 | bb >> 6) & 0xFCFCFCFCFCFCFCFCull | (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full;
 }
 
-u64 king(const i32 sq, const u64) {
+static u64 king(const i32 sq, const u64 blockers) {
+    (void)blockers;
     const u64 bb = 1ull << sq;
     return bb << 8 | bb >> 8 | (bb >> 1 | bb >> 9 | bb << 7) & ~0x8080808080808080ull |
            (bb << 1 | bb << 9 | bb >> 7) & ~0x101010101010101ull;
 }
 
-// TODO
-//i32 operator==(const Move &lhs, const Move &rhs) {
-//    return !memcmp(&rhs, &lhs, 3);
-//}
-
-void move_str(char *str, const Move *move, const i32 flip) {
+static void move_str(char *str, const Move *move, const i32 flip) {
     str[0] = 'a' + move->from % 8;
     str[1] = '1' + (move->from / 8 ^ 7 * flip);
     str[2] = 'a' + move->to % 8;
@@ -250,26 +234,26 @@ void move_str(char *str, const Move *move, const i32 flip) {
     }
 }
 
-i32 piece_on(const Position *pos, const i32 sq) {
+static i32 piece_on(const Position *pos, const i32 sq) {
     for (i32 i = Pawn; i < None; ++i)
         if (pos->pieces[i] & 1ull << sq)
             return i;
     return None;
 }
 
-void swapu64(u64 *lhs, u64 *rhs) {
+static void swapu64(u64 *lhs, u64 *rhs) {
     u64 temp = *lhs;
     *lhs = *rhs;
     *rhs = temp;
 }
 
-void swapbool(bool* lhs, bool* rhs) {
+static void swapbool(bool* lhs, bool* rhs) {
     bool temp = *lhs;
     *lhs = *rhs;
     *rhs = temp;
 }
 
-void flip_pos(Position *pos) {
+static void flip_pos(Position *pos) {
     pos->flipped ^= 1;
     pos->colour[0] = flip_bb(pos->colour[0]);
     pos->colour[1] = flip_bb(pos->colour[1]);
@@ -283,7 +267,7 @@ void flip_pos(Position *pos) {
     pos->ep = flip_bb(pos->ep);
 }
 
-i32 is_attacked(const Position *pos, const i32 sq, const i32 them) {
+static i32 is_attacked(const Position *pos, const i32 sq, const i32 them) {
     const u64 bb = 1ull << sq;
     const u64 pawns = pos->colour[them] & pos->pieces[Pawn];
     const u64 pawn_attacks = them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns);
@@ -293,7 +277,7 @@ i32 is_attacked(const Position *pos, const i32 sq, const i32 them) {
            king(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] & pos->pieces[King];
 }
 
-i32 makemove(Position *pos, const Move *move) {
+static i32 makemove(Position *pos, const Move *move) {
     const u64 from = 1ull << move->from;
     const u64 to = 1ull << move->to;
     const u64 mask = from | to;
@@ -348,7 +332,7 @@ i32 makemove(Position *pos, const Move *move) {
     return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
 }
 
-void generate_pawn_moves(Move *const movelist, i32 *num_moves, u64 to_mask, const i32 offset) {
+static void generate_pawn_moves(Move *const movelist, i32 *num_moves, u64 to_mask, const i32 offset) {
     while (to_mask) {
         const u8 to = lsb(to_mask);
         to_mask &= to_mask - 1;
@@ -363,7 +347,7 @@ void generate_pawn_moves(Move *const movelist, i32 *num_moves, u64 to_mask, cons
     }
 }
 
-void generate_piece_moves(Move *const movelist,
+static void generate_piece_moves(Move *const movelist,
                           i32 *num_moves,
                           const Position *pos,
                           const i32 piece,
@@ -382,7 +366,7 @@ void generate_piece_moves(Move *const movelist,
     }
 }
 
-i32 movegen(const Position *pos, Move *const movelist, const i32 only_captures) {
+static i32 movegen(const Position *pos, Move *const movelist, const i32 only_captures) {
     i32 num_moves = 0;
     const u64 all = pos->colour[0] | pos->colour[1];
     const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
