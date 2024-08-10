@@ -11,91 +11,91 @@
 #define ssize_t int
 #endif
 
+#define u64 unsigned long long
+#define i32 int
+#define u8 unsigned char
+#define bool char
+
 #define NULL ((void *)0)
 #define false 0
 #define true 1
 
 enum {
-  stdin = 0,
-  stdout = 1,
-  stderr = 2,
+    stdin = 0,
+    stdout = 1,
+    stderr = 2,
 };
 
 ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
-  ssize_t ret;
+    ssize_t ret;
 #if ARCH64
-  asm volatile("syscall"
-               : "=a"(ret)
-               : "a"(call), "D"(arg1), "S"(arg2), "d"(arg3)
-               : "rcx", "r11", "memory");
+    asm volatile("syscall"
+        : "=a"(ret)
+        : "a"(call), "D"(arg1), "S"(arg2), "d"(arg3)
+        : "rcx", "r11", "memory");
 #else
-  asm volatile("int $0x80"
-               : "=a"(ret)
-               : "a"(call), "b"(arg1), "c"(arg2), "d"(arg3)
-               : "memory");
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(call), "b"(arg1), "c"(arg2), "d"(arg3)
+        : "memory");
 #endif
-  return ret;
+    return ret;
 }
 
-static int strlen(char *string) {
-  int length = 0;
-  while (string[length]) {
-    length++;
-  }
-  return length;
+static int strlen(char* string) {
+    int length = 0;
+    while (string[length]) {
+        length++;
+    }
+    return length;
 }
 
-static void puts(char *string) {
+static void puts(char* string) {
 #if ARCH64
-  _sys(1, stdout, (ssize_t)string, strlen(string));
+    _sys(1, stdout, (ssize_t)string, strlen(string));
 #else
-  _sys(4, stdout, (ssize_t)string, strlen(string));
+    _sys(4, stdout, (ssize_t)string, strlen(string));
 #endif
 }
 
-static char *gets(char *string0) {
-  char *string;
-  string = string0;
-  while (true) {
+static bool getw(char* string) {
+    while (true) {
 #if ARCH64
-    int result = _sys(0, stdin, (ssize_t)string, 1);
+        int result = _sys(0, stdin, (ssize_t)string, 1);
 #else
-    int result = _sys(3, stdin, (ssize_t)string, 1);
+        int result = _sys(3, stdin, (ssize_t)string, 1);
 #endif
-    if (result < 1) {
-      if (string == string0) {
-        return NULL;
-      }
-      break;
+        if (result < 1) {
+            // EXIT
+            _sys(1, 0, 0, 0);
+        }
+        if (*string == '\n')
+        {
+            *string = 0;
+            return false;
+        } else if (*string == ' ')
+        {
+            *string = 0;
+            return true;
+        }
+        string++;
     }
-    if (*string == '\n') {
-      break;
-    }
-    string++;
-  }
-  *string = 0;
-  return string0;
 }
 
-static int strcmp(char *lhs, char *rhs) {
-  while (*lhs || *rhs) {
-    if (*lhs != *rhs) {
-      return 1;
+static int strcmp(char* lhs, char* rhs) {
+    while (*lhs || *rhs) {
+        if (*lhs != *rhs) {
+            return 1;
+        }
+        lhs++;
+        rhs++;
     }
-    lhs++;
-    rhs++;
-  }
-  return 0;
+    return 0;
 }
 
 #pragma endregion
 
 #pragma region base
-
-#define u64 unsigned long long
-#define i32 int
-#define u8 unsigned char
-#define bool char
 
 enum
 {
@@ -182,7 +182,7 @@ static u64 se(const u64 bb) {
     return south(east(bb));
 }
 
-static u64 ray(const i32 sq, const u64 blockers, u64 (*f)(u64)) {
+static u64 ray(const i32 sq, const u64 blockers, u64(*f)(u64)) {
     u64 mask = f(1ull << sq);
     mask |= f(mask & ~blockers);
     mask |= f(mask & ~blockers);
@@ -203,24 +203,25 @@ static u64 bishop(const i32 sq, const u64 blockers) {
 
 static u64 rook(const i32 sq, const u64 blockers) {
     return xattack(sq, blockers, 1ull << sq ^ 0x101010101010101ull << sq % 8) | ray(sq, blockers, east) |
-           ray(sq, blockers, west);
+        ray(sq, blockers, west);
 }
 
-static u64 knight(const i32 sq, const u64 blockers) {\
-    (void)blockers;
+static u64 knight(const i32 sq, const u64 blockers) {
+    \
+        (void)blockers;
     const u64 bb = 1ull << sq;
     return (bb << 15 | bb >> 17) & ~0x8080808080808080ull | (bb << 17 | bb >> 15) & ~0x101010101010101ull |
-           (bb << 10 | bb >> 6) & 0xFCFCFCFCFCFCFCFCull | (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full;
+        (bb << 10 | bb >> 6) & 0xFCFCFCFCFCFCFCFCull | (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full;
 }
 
 static u64 king(const i32 sq, const u64 blockers) {
     (void)blockers;
     const u64 bb = 1ull << sq;
     return bb << 8 | bb >> 8 | (bb >> 1 | bb >> 9 | bb << 7) & ~0x8080808080808080ull |
-           (bb << 1 | bb << 9 | bb >> 7) & ~0x101010101010101ull;
+        (bb << 1 | bb << 9 | bb >> 7) & ~0x101010101010101ull;
 }
 
-static void move_str(char *str, const Move *move, const i32 flip) {
+static void move_str(char* str, const Move* move, const i32 flip) {
     str[0] = 'a' + move->from % 8;
     str[1] = '1' + (move->from / 8 ^ 7 * flip);
     str[2] = 'a' + move->to % 8;
@@ -234,14 +235,14 @@ static void move_str(char *str, const Move *move, const i32 flip) {
     }
 }
 
-static i32 piece_on(const Position *pos, const i32 sq) {
+static i32 piece_on(const Position* pos, const i32 sq) {
     for (i32 i = Pawn; i < None; ++i)
         if (pos->pieces[i] & 1ull << sq)
             return i;
     return None;
 }
 
-static void swapu64(u64 *lhs, u64 *rhs) {
+static void swapu64(u64* lhs, u64* rhs) {
     u64 temp = *lhs;
     *lhs = *rhs;
     *rhs = temp;
@@ -253,7 +254,7 @@ static void swapbool(bool* lhs, bool* rhs) {
     *rhs = temp;
 }
 
-static void flip_pos(Position *pos) {
+static void flip_pos(Position* pos) {
     pos->flipped ^= 1;
     pos->colour[0] = flip_bb(pos->colour[0]);
     pos->colour[1] = flip_bb(pos->colour[1]);
@@ -263,21 +264,21 @@ static void flip_pos(Position *pos) {
     for (i32 i = Pawn; i < None; ++i) {
         pos->pieces[i] = flip_bb(pos->pieces[i]);
     }
-        
+
     pos->ep = flip_bb(pos->ep);
 }
 
-static i32 is_attacked(const Position *pos, const i32 sq, const i32 them) {
+static i32 is_attacked(const Position* pos, const i32 sq, const i32 them) {
     const u64 bb = 1ull << sq;
     const u64 pawns = pos->colour[them] & pos->pieces[Pawn];
     const u64 pawn_attacks = them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns);
     return pawn_attacks & bb || pos->colour[them] & pos->pieces[Knight] & knight(sq, 0) ||
-           bishop(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] & (pos->pieces[Bishop] | pos->pieces[Queen]) ||
-           rook(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] & (pos->pieces[Rook] | pos->pieces[Queen]) ||
-           king(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] & pos->pieces[King];
+        bishop(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] & (pos->pieces[Bishop] | pos->pieces[Queen]) ||
+        rook(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] & (pos->pieces[Rook] | pos->pieces[Queen]) ||
+        king(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] & pos->pieces[King];
 }
 
-static i32 makemove(Position *pos, const Move *move) {
+static i32 makemove(Position* pos, const Move* move) {
     const u64 from = 1ull << move->from;
     const u64 to = 1ull << move->to;
     const u64 mask = from | to;
@@ -332,27 +333,28 @@ static i32 makemove(Position *pos, const Move *move) {
     return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
 }
 
-static void generate_pawn_moves(Move *const movelist, i32 *num_moves, u64 to_mask, const i32 offset) {
+static void generate_pawn_moves(Move* const movelist, i32* num_moves, u64 to_mask, const i32 offset) {
     while (to_mask) {
         const u8 to = lsb(to_mask);
         to_mask &= to_mask - 1;
         const u8 from = to + offset;
         if (to > 55) {
-            movelist[(*num_moves)++] = (Move){from, to, Queen};
-            movelist[(*num_moves)++] = (Move){from, to, Rook};
-            movelist[(*num_moves)++] = (Move){from, to, Bishop};
-            movelist[(*num_moves)++] = (Move){from, to, Knight};
-        } else
-            movelist[(*num_moves)++] = (Move){from, to, None};
+            movelist[(*num_moves)++] = (Move){ from, to, Queen };
+            movelist[(*num_moves)++] = (Move){ from, to, Rook };
+            movelist[(*num_moves)++] = (Move){ from, to, Bishop };
+            movelist[(*num_moves)++] = (Move){ from, to, Knight };
+        }
+        else
+            movelist[(*num_moves)++] = (Move){ from, to, None };
     }
 }
 
-static void generate_piece_moves(Move *const movelist,
-                          i32 *num_moves,
-                          const Position *pos,
-                          const i32 piece,
-                          const u64 to_mask,
-                          u64(*f)(const i32, const u64)) {
+static void generate_piece_moves(Move* const movelist,
+    i32* num_moves,
+    const Position* pos,
+    const i32 piece,
+    const u64 to_mask,
+    u64(*f)(const i32, const u64)) {
     u64 copy = pos->colour[0] & pos->pieces[piece];
     while (copy) {
         const u8 fr = lsb(copy);
@@ -361,12 +363,12 @@ static void generate_piece_moves(Move *const movelist,
         while (moves) {
             const u8 to = lsb(moves);
             moves &= moves - 1;
-            movelist[(*num_moves)++] = (Move){fr, to, None};
+            movelist[(*num_moves)++] = (Move){ fr, to, None };
         }
     }
 }
 
-static i32 movegen(const Position *pos, Move *const movelist, const i32 only_captures) {
+static i32 movegen(const Position* pos, Move* const movelist, const i32 only_captures) {
     i32 num_moves = 0;
     const u64 all = pos->colour[0] | pos->colour[1];
     const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
@@ -374,7 +376,7 @@ static i32 movegen(const Position *pos, Move *const movelist, const i32 only_cap
     generate_pawn_moves(movelist, &num_moves, north(pawns) & ~all & (only_captures ? 0xFF00000000000000ull : ~0ull), -8);
     if (!only_captures)
         generate_pawn_moves(movelist, &num_moves, north(north(pawns & 0xFF00) & ~all) & ~all, -16);
-    generate_pawn_moves(movelist,&num_moves, nw(pawns) & (pos->colour[1] | pos->ep), -7);
+    generate_pawn_moves(movelist, &num_moves, nw(pawns) & (pos->colour[1] | pos->ep), -7);
     generate_pawn_moves(movelist, &num_moves, ne(pawns) & (pos->colour[1] | pos->ep), -9);
     generate_piece_moves(movelist, &num_moves, pos, Knight, to_mask, knight);
     generate_piece_moves(movelist, &num_moves, pos, Bishop, to_mask, bishop);
@@ -383,9 +385,9 @@ static i32 movegen(const Position *pos, Move *const movelist, const i32 only_cap
     generate_piece_moves(movelist, &num_moves, pos, Queen, to_mask, bishop);
     generate_piece_moves(movelist, &num_moves, pos, King, to_mask, king);
     if (!only_captures && pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true))
-        movelist[num_moves++] = (Move){4, 6, None};
+        movelist[num_moves++] = (Move){ 4, 6, None };
     if (!only_captures && pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true))
-        movelist[num_moves++] = (Move){4, 2, None};
+        movelist[num_moves++] = (Move){ 4, 2, None };
     return num_moves;
 }
 
@@ -394,43 +396,65 @@ static i32 movegen(const Position *pos, Move *const movelist, const i32 only_cap
 #pragma region engine
 
 void _start() {
-    Position pos = {
-        .castling = { true, true, true, true },
-        .colour = { 0xFFFFull, 0xFFFF000000000000ull },
-        .pieces = { 0xFF00000000FF00ull,
-                    0x4200000000000042ull,
-                    0x2400000000000024ull,
-                    0x8100000000000081ull,
-                    0x800000000000008ull,
-                    0x1000000000000010ull
-                  },
-        .ep = 0
-    };
-
+    char line[256];
+    Position pos;
     Move moves[256];
-    i32 num_moves = movegen(&pos, moves, false);
-    for(i32 i = 0; i < num_moves; i++) {
-        char str[6];
-        move_str(str, &moves[i], false);
-        puts(str);
-        puts("\n");
+    i32 num_moves;
+    char move_name[256];
+
+    // Generate used attack masks
+    for (i32 i = 0; i < 64; ++i)
+        diag_mask[i] = ray(i, 0, ne) | ray(i, 0, sw);
+
+    // UCI loop
+    while (true) {
+        getw(line);
+        if (!strcmp(line, "uci")) {
+            puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
+        }
+        else if (!strcmp(line, "isready")) {
+            puts("readyok\n");
+        }
+        else if (!strcmp(line, "position")) {
+            pos = (Position){
+                .castling = { true, true, true, true },
+                .colour = { 0xFFFFull, 0xFFFF000000000000ull },
+                .pieces = { 0xFF00000000FF00ull,
+                            0x4200000000000042ull,
+                            0x2400000000000024ull,
+                            0x8100000000000081ull,
+                            0x800000000000008ull,
+                            0x1000000000000010ull
+                          },
+                .ep = 0
+            };
+
+            while (true)
+            {
+                bool line_continue = getw(line);
+                num_moves = movegen(&pos, moves, false);
+                for (i32 i = 0; i < num_moves; i++) {
+                    move_str(move_name, &moves[i], false);
+                    if (!strcmp(line, move_name)) {
+                        makemove(&pos, &moves[i]);
+                        break;
+                    }
+                }
+                if (!line_continue) {
+                    break;
+                }
+            }
+        } else if (!strcmp(line, "go")) {
+            movegen(&pos, moves, false);
+            move_str(move_name, &moves[0], pos.flipped);
+            puts("bestmove ");
+            puts(move_name);
+            puts("\n");
+        }
     }
 
-
-  char line[256];
-
-  // UCI loop
-  while (true) {
-    gets(line);
-    if (!strcmp(line, "uci")) {
-      puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
-    } else if (!strcmp(line, "isready")) {
-      puts("readyok\n");
-    }
-  }
-
-  // Exit
-  _sys(1, 0, 0, 0);
+    // Exit
+    _sys(1, 0, 0, 0);
 }
 
 #pragma endregion
