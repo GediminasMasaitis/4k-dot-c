@@ -38,3 +38,9 @@ All static functions, gcc 14.2
 UCI compliant engine which prints the first move
 
 64 bit: 3776 bytes
+
+### 0.7
+
+Add perft
+
+64 bit: 3776 bytes

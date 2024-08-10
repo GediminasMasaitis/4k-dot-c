@@ -7,6 +7,10 @@ ifeq ($(ARCH), 32)
 	LDFILE = 32bit.ld
 endif
 
+ifeq ($(FULL), true)
+	CFLAGS += -DFULL
+endif
+
 all:
 	mkdir -p build
 	gcc $(CFLAGS) -c 4k.c

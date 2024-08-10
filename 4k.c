@@ -93,6 +93,76 @@ static int strcmp(char* lhs, char* rhs) {
     return 0;
 }
 
+static int stoi(char* string)
+{
+    int result = 0;
+    while(true) {
+        if (!*string) {
+            return result;
+        }
+        if (*string < '0' || *string > '9') {
+            return -1;
+        }
+        result *= 10;
+        result += *string - '0';
+        string++;
+    }
+}
+
+#define printf(format, ...) _printf(format, (size_t []) {__VA_ARGS__})
+
+static void _printf(char *format, size_t *args)
+{
+    int value;
+    char buffer[16], * string;
+
+    while(true)
+    {
+        if (!*format) {
+            break;
+        }
+        if (*format != '%')
+        {
+#if ARCH64
+            _sys(1, stdout, (ssize_t)format, 1);
+#else
+            _sys(4, stdout, (ssize_t)format, 1);
+#endif
+            format++;
+            continue;
+        }
+
+        format++;
+        switch (*format++)
+        {
+        case 's':
+            puts((char*)*args);
+            break;
+        case 'i':
+            value = *args;
+            if (value < 0)
+            {
+                puts("-");
+                value *= -1;
+            }
+            string = buffer + sizeof buffer - 1;
+            *string-- = 0;
+            for (;;)
+            {
+                *string = '0' + value % 10;
+                value /= 10;
+                if (!value) {
+                    break;
+                }
+                string--;
+            }
+            puts(string);
+            break;
+        }
+        args++;
+    }
+}
+
 #pragma endregion
 
 #pragma region base
@@ -395,12 +465,50 @@ static i32 movegen(const Position* pos, Move* const movelist, const i32 only_cap
 
 #pragma region engine
 
+static u64 perft(const Position *pos, const i32 depth) {
+    if (depth == 0) {
+        return 1;
+    }
+
+    u64 nodes = 0;
+    Move moves[256];
+    const i32 num_moves = movegen(pos, moves, false);
+
+    for (i32 i = 0; i < num_moves; ++i) {
+        Position npos = *pos;
+
+        // Check move legality
+        if (!makemove(&npos, &moves[i])) {
+            continue;
+        }
+
+        nodes += perft(&npos, depth - 1);
+    }
+
+    return nodes;
+}
+
 void _start() {
     char line[256];
     Position pos;
     Move moves[256];
     i32 num_moves;
     char move_name[256];
+
+#if FULL
+    pos = (Position){
+        .castling = { true, true, true, true },
+        .colour = { 0xFFFFull, 0xFFFF000000000000ull },
+        .pieces = { 0xFF00000000FF00ull,
+                    0x4200000000000042ull,
+                    0x2400000000000024ull,
+                    0x8100000000000081ull,
+                    0x800000000000008ull,
+                    0x1000000000000010ull
+                },
+        .ep = 0
+    };
+#endif
 
     // Generate used attack masks
     for (i32 i = 0; i < 64; ++i)
@@ -451,6 +559,15 @@ void _start() {
             puts(move_name);
             puts("\n");
         }
+#if FULL
+        else if (!strcmp(line, "perft")) {
+            char depth_str[4];
+            getw(depth_str);
+            const i32 depth = stoi(depth_str);
+            const u64 nodes = perft(&pos, depth);
+            printf("info depth %i nodes %i\n", depth, nodes);
+        }
+#endif
     }
 
     // Exit
