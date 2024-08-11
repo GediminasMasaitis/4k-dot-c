@@ -82,6 +82,21 @@ static bool getw(char* string) {
     }
 }
 
+typedef struct {
+    ssize_t tv_sec;  // seconds
+    ssize_t tv_nsec; // nanoseconds
+} timespec;
+
+static u64 time() {
+    timespec tp;
+#if ARCH64
+    _sys(228, 0, (ssize_t)&tp, 0);
+#else
+    _sys(265, 0, (ssize_t)&tp, 0);
+#endif
+    return tp.tv_sec * 1000 + tp.tv_nsec / 10000000;
+}
+
 static int strcmp(char* lhs, char* rhs) {
     while (*lhs || *rhs) {
         if (*lhs != *rhs) {
@@ -277,8 +292,7 @@ static u64 rook(const i32 sq, const u64 blockers) {
 }
 
 static u64 knight(const i32 sq, const u64 blockers) {
-    \
-        (void)blockers;
+    (void)blockers;
     const u64 bb = 1ull << sq;
     return (bb << 15 | bb >> 17) & ~0x8080808080808080ull | (bb << 17 | bb >> 15) & ~0x101010101010101ull |
         (bb << 10 | bb >> 6) & 0xFCFCFCFCFCFCFCFCull | (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full;
@@ -564,8 +578,12 @@ void _start() {
             char depth_str[4];
             getw(depth_str);
             const i32 depth = stoi(depth_str);
+            const u64 start = time();
             const u64 nodes = perft(&pos, depth);
-            printf("info depth %i nodes %i\n", depth, nodes);
+            const u64 end = time();
+            const i32 elapsed = end - start;
+            const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
+            printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, end - start);
         }
 #endif
     }

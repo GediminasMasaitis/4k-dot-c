@@ -14,7 +14,6 @@ endif
 all:
 	mkdir -p build
 	gcc $(CFLAGS) -c 4k.c
-	strip -x 4k.o
 	ld -T $(LDFILE) -o ./build/4k-dot-c 4k.o
 	rm *.o
 	ls -la ./build

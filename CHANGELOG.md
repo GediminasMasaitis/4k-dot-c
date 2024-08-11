@@ -44,3 +44,12 @@ UCI compliant engine which prints the first move
 Add perft
 
 64 bit: 3776 bytes
+
+
+### 0.8
+
+Perft NPS
+
+64 bit: 3776 bytes
+
+Perft: 16843009 nps
