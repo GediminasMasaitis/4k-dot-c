@@ -207,8 +207,6 @@ typedef struct {
     bool flipped;
 } Position;
 
-u64 diag_mask[64];
-
 static u64 flip_bb(u64 bb) {
     //return __builtin_bswap64(bb);
     return ((bb & 0x00000000000000FFULL) << 56) |
@@ -278,17 +276,12 @@ static u64 ray(const i32 sq, const u64 blockers, u64(*f)(u64)) {
     return mask;
 }
 
-static u64 xattack(const i32 sq, const u64 blockers, const u64 dir_mask) {
-    return dir_mask & ((blockers & dir_mask) - (1ull << sq) ^ flip_bb(flip_bb(blockers & dir_mask) - flip_bb(1ull << sq)));
-}
-
 static u64 bishop(const i32 sq, const u64 blockers) {
-    return xattack(sq, blockers, diag_mask[sq]) | xattack(sq, blockers, flip_bb(diag_mask[sq ^ 56]));
+    return ray(sq, blockers, nw) | ray(sq, blockers, ne) | ray(sq, blockers, sw) | ray(sq, blockers, se);
 }
 
 static u64 rook(const i32 sq, const u64 blockers) {
-    return xattack(sq, blockers, 1ull << sq ^ 0x101010101010101ull << sq % 8) | ray(sq, blockers, east) |
-        ray(sq, blockers, west);
+    return ray(sq, blockers, north) | ray(sq, blockers, east) | ray(sq, blockers, south) | ray(sq, blockers, west);
 }
 
 static u64 knight(const i32 sq, const u64 blockers) {
@@ -523,10 +516,6 @@ void _start() {
         .ep = 0
     };
 #endif
-
-    // Generate used attack masks
-    for (i32 i = 0; i < 64; ++i)
-        diag_mask[i] = ray(i, 0, ne) | ray(i, 0, sw);
 
     // UCI loop
     while (true) {
