@@ -42,6 +42,17 @@ ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
     return ret;
 }
 
+static void* memcpy(void* dest, const void* src, size_t n) {
+    char* d = dest;
+    const char* s = src;
+
+    for (size_t i = 0; i < n; i++) {
+        d[i] = s[i];
+    }
+
+    return dest;
+}
+
 static int strlen(char* string) {
     int length = 0;
     while (string[length]) {
@@ -545,7 +556,7 @@ void _start() {
                 bool line_continue = getw(line);
                 num_moves = movegen(&pos, moves, false);
                 for (i32 i = 0; i < num_moves; i++) {
-                    move_str(move_name, &moves[i], false);
+                    move_str(move_name, &moves[i], pos.flipped);
                     if (!strcmp(line, move_name)) {
                         makemove(&pos, &moves[i]);
                         break;
@@ -556,11 +567,18 @@ void _start() {
                 }
             }
         } else if (!strcmp(line, "go")) {
-            movegen(&pos, moves, false);
-            move_str(move_name, &moves[0], pos.flipped);
-            puts("bestmove ");
-            puts(move_name);
-            puts("\n");
+            num_moves = movegen(&pos, moves, false);
+            for (i32 move_index = 0; move_index < num_moves; move_index++) {
+                Position npos;
+                memcpy(&npos, &pos, sizeof(Position));
+                if(makemove(&npos, &moves[move_index])) {
+                    move_str(move_name, &moves[move_index], pos.flipped);
+                    puts("bestmove ");
+                    puts(move_name);
+                    puts("\n");
+                    break;
+                }
+            }
         }
 #if FULL
         else if (!strcmp(line, "perft")) {

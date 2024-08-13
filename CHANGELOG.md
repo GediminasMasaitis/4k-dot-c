@@ -61,3 +61,10 @@ Remove hyperbola quintessence
 64 bit: 3217 bytes
 
 Perft: info depth 6 nodes 119060324 time 20995 nps 16843009
+
+
+### 0.10
+
+Fix legal movegen
+
+64 bit: 3313 bytes
