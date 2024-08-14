@@ -505,6 +505,8 @@ static i32 eval(Position *pos) {
     for (i32 p = 0; p < 6; p++) {
       score += count(pos->colour[0] & pos->pieces[p]) * material[p];
     }
+
+    score = -score;
     flip_pos(pos);
   }
   return score;

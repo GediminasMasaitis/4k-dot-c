@@ -76,9 +76,23 @@ Material evaluation
 64 bit: 3490 bytes
 
 ```py
-Score of 4k.c-0.10 vs 4k.c-0.9: 858 - 0 - 9142  [0.543] 10000
-...      4k.c-0.10 playing White: 404 - 0 - 4596  [0.540] 5000
-...      4k.c-0.10 playing Black: 454 - 0 - 4546  [0.545] 5000
+Score of 4k.c-0.11 vs 4k.c-0.10: 858 - 0 - 9142  [0.543] 10000
+...      4k.c-0.11 playing White: 404 - 0 - 4596  [0.540] 5000
+...      4k.c-0.11 playing Black: 454 - 0 - 4546  [0.545] 5000
 ...      White vs Black: 404 - 454 - 9142  [0.497] 10000
 Elo difference: 29.9 +/- 1.9, LOS: 100.0 %, DrawRatio: 91.4 %
+```
+
+### 0.12
+
+Fix evaluation
+
+64 bit: 3498 bytes
+
+```py
+Score of 4k.c-0.12 vs 4k.c-0.11: 181 - 43 - 9776  [0.507] 10000
+...      4k.c-0.12 playing White: 91 - 18 - 4891  [0.507] 5000
+...      4k.c-0.12 playing Black: 90 - 25 - 4885  [0.506] 5000
+...      White vs Black: 116 - 108 - 9776  [0.500] 10000
+Elo difference: 4.8 +/- 1.0, LOS: 100.0 %, DrawRatio: 97.8 %
 ```
