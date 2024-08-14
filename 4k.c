@@ -244,6 +244,15 @@ static i32 lsb(u64 bb) {
     return index;
 }
 
+static i32 count(u64 bb) {
+    i32 count = 0;
+    while (bb) {
+        bb &= bb - 1;
+        count++;
+    }
+    return count;
+}
+
 static u64 west(const u64 bb) {
     return bb >> 1 & ~0x8080808080808080ull;
 }
@@ -506,6 +515,18 @@ static u64 perft(const Position *pos, const i32 depth) {
     return nodes;
 }
 
+static i32 eval(Position* pos) {
+    i32 material[] = { 100, 325, 325, 500, 925, 0, 0 };
+    i32 score = 0;
+    for (i32 c = 0; c < 2; c++) {
+        for (i32 p = 0; p < 6; p++) {
+            score += count(pos->colour[0] & pos->pieces[p]) * material[p];
+        }
+        flip_pos(pos);
+    }
+    return score;
+}
+
 void _start() {
     char line[256];
     Position pos;
@@ -568,17 +589,26 @@ void _start() {
             }
         } else if (!strcmp(line, "go")) {
             num_moves = movegen(&pos, moves, false);
+            i32 best_score = -99999;
+            i32 best_index;
             for (i32 move_index = 0; move_index < num_moves; move_index++) {
                 Position npos;
                 memcpy(&npos, &pos, sizeof(Position));
-                if(makemove(&npos, &moves[move_index])) {
-                    move_str(move_name, &moves[move_index], pos.flipped);
-                    puts("bestmove ");
-                    puts(move_name);
-                    puts("\n");
-                    break;
+                if(!makemove(&npos, &moves[move_index]))
+                {
+                    continue;
+                }
+                i32 score = -eval(&npos);
+                if(score > best_score)
+                {
+                    best_score = score;
+                    best_index = move_index;
                 }
             }
+            move_str(move_name, &moves[best_index], pos.flipped);
+            puts("bestmove ");
+            puts(move_name);
+            puts("\n");
         }
 #if FULL
         else if (!strcmp(line, "perft")) {

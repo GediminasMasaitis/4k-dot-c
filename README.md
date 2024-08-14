@@ -1,14 +1,14 @@
 # 4k.c
-A chess engine designed to fit into 4kB. ... Or at least it will be, hopefully.
+A chess engine designed to fit into 4kB.
 
-The plan is to make a <= 4096 byte UCI engine executable, without:
+The engine is a <= 4096 byte UCI engine executable, without:
 * Any external dependencies (including libc)
 * Compression
 * Minification
 * On-the-fly compilation
 
 ### Current specifications
-64 bit: 3313 bytes
+64 bit: 3490 bytes
 
 Perft: 16843009 nps
 

@@ -68,3 +68,17 @@ Perft: info depth 6 nodes 119060324 time 20995 nps 16843009
 Fix legal movegen
 
 64 bit: 3313 bytes
+
+### 0.11
+
+Material evaluation
+
+64 bit: 3490 bytes
+
+```py
+Score of 4k.c-0.10 vs 4k.c-0.9: 858 - 0 - 9142  [0.543] 10000
+...      4k.c-0.10 playing White: 404 - 0 - 4596  [0.540] 5000
+...      4k.c-0.10 playing Black: 454 - 0 - 4546  [0.545] 5000
+...      White vs Black: 404 - 454 - 9142  [0.497] 10000
+Elo difference: 29.9 +/- 1.9, LOS: 100.0 %, DrawRatio: 91.4 %
+```
