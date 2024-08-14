@@ -485,7 +485,8 @@ static u64 perft(const Position *pos, const i32 depth) {
   const i32 num_moves = movegen(pos, moves, false);
 
   for (i32 i = 0; i < num_moves; ++i) {
-    Position npos = *pos;
+    Position npos;
+    memcpy(&npos, pos, sizeof(Position));
 
     // Check move legality
     if (!makemove(&npos, &moves[i])) {
@@ -512,12 +513,36 @@ static i32 eval(Position *pos) {
   return score;
 }
 
+static i32 search(Position *pos, i32 depth, Move *best_move) {
+  if (depth == 0) {
+    return eval(pos);
+  }
+
+  Move moves[256];
+  i32 num_moves = movegen(pos, moves, false);
+  i32 best_score = -99999;
+  for (i32 move_index = 0; move_index < num_moves; move_index++) {
+    Position npos;
+    memcpy(&npos, pos, sizeof(Position));
+    if (!makemove(&npos, &moves[move_index])) {
+      continue;
+    }
+
+    Move child_best_move;
+    i32 score = -search(&npos, depth - 1, &child_best_move);
+    if (score > best_score) {
+      best_score = score;
+      memcpy(best_move, &moves[move_index], sizeof(Move));
+    }
+  }
+
+  return best_score;
+}
+
 void _start() {
-  char line[256];
   Position pos;
   Move moves[256];
   i32 num_moves;
-  char move_name[256];
 
 #if FULL
   pos = (Position){.castling = {true, true, true, true},
@@ -530,6 +555,8 @@ void _start() {
 
   // UCI loop
   while (true) {
+    char move_name[256];
+    char line[256];
     getw(line);
     if (!strcmp(line, "uci")) {
       puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
@@ -558,22 +585,9 @@ void _start() {
         }
       }
     } else if (!strcmp(line, "go")) {
-      num_moves = movegen(&pos, moves, false);
-      i32 best_score = -99999;
-      i32 best_index;
-      for (i32 move_index = 0; move_index < num_moves; move_index++) {
-        Position npos;
-        memcpy(&npos, &pos, sizeof(Position));
-        if (!makemove(&npos, &moves[move_index])) {
-          continue;
-        }
-        i32 score = -eval(&npos);
-        if (score > best_score) {
-          best_score = score;
-          best_index = move_index;
-        }
-      }
-      move_str(move_name, &moves[best_index], pos.flipped);
+      Move best_move;
+      search(&pos, 3, &best_move);
+      move_str(move_name, &best_move, pos.flipped);
       puts("bestmove ");
       puts(move_name);
       puts("\n");
