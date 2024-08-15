@@ -530,7 +530,7 @@ static i32 search(Position *pos, i32 depth, Move *best_move) {
 
     Move child_best_move;
     i32 score = -search(&npos, depth - 1, &child_best_move);
-    if (score > best_score) {
+    if (score >= best_score) {
       best_score = score;
       memcpy(best_move, &moves[move_index], sizeof(Move));
     }

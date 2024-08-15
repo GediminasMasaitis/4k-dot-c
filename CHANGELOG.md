@@ -110,3 +110,9 @@ Score of 4k.c-0.13 vs 4k.c-0.12: 5722 - 4 - 4274  [0.786] 10000
 ...      White vs Black: 2940 - 2786 - 4274  [0.508] 10000
 Elo difference: 225.9 +/- 5.0, LOS: 100.0 %, DrawRatio: 42.7 %
 ```
+
+### 0.14
+
+Fix search
+
+64 bit: 3513 bytes
