@@ -521,19 +521,33 @@ static i32 search(Position *pos, i32 depth, Move *best_move) {
   Move moves[256];
   i32 num_moves = movegen(pos, moves, false);
   i32 best_score = -99999;
+  i32 moves_evaluated = 0;
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     Position npos;
     memcpy(&npos, pos, sizeof(Position));
     if (!makemove(&npos, &moves[move_index])) {
       continue;
     }
+    moves_evaluated++;
 
     Move child_best_move;
     i32 score = -search(&npos, depth - 1, &child_best_move);
-    if (score >= best_score) {
+    if (score > best_score) {
       best_score = score;
       memcpy(best_move, &moves[move_index], sizeof(Move));
     }
+  }
+
+  if(moves_evaluated == 0)
+  {
+      if (is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true))
+      {
+          return -30000;
+      }
+      else
+      {
+          return 0;
+      }
   }
 
   return best_score;

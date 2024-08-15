@@ -116,3 +116,18 @@ Elo difference: 225.9 +/- 5.0, LOS: 100.0 %, DrawRatio: 42.7 %
 Fix search
 
 64 bit: 3513 bytes
+
+
+### 0.15
+
+Mate and stalemate dectection
+
+64 bit: 3577 bytes
+
+```py
+Score of 4k.c-0.14 vs 4k.c-0.13: 554 - 196 - 4250  [0.536] 5000
+...      4k.c-0.14 playing White: 280 - 94 - 2126  [0.537] 2500
+...      4k.c-0.14 playing Black: 274 - 102 - 2124  [0.534] 2500
+...      White vs Black: 382 - 368 - 4250  [0.501] 5000
+Elo difference: 24.9 +/- 3.7, LOS: 100.0 %, DrawRatio: 85.0 %
+```
