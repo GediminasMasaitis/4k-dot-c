@@ -155,3 +155,30 @@ Score of 4k.c-0.16 vs 4k.c-0.15: 318 - 88 - 594  [0.615] 1000
 ...      White vs Black: 307 - 99 - 594  [0.604] 1000
 Elo difference: 81.4 +/- 13.5, LOS: 100.0 %, DrawRatio: 59.4 %
 ```
+
+### 0.17
+
+Alpha-beta pruning
+
+64 bit: 3856 bytes
+
+
+```py
+info depth 1 score 0 time 0 pv a2a3
+info depth 2 score 0 time 0 pv a2a3
+info depth 3 score 0 time 0 pv a2a3
+info depth 4 score 0 time 1 pv a2a3
+info depth 5 score 100 time 11 pv b2b3
+info depth 6 score -100 time 231 pv a2a3
+info depth 7 score 100 time 568 pv a2a3
+info depth 8 score -100 time 9279 pv a2a3
+info depth 9 score 100 time 36068 pv a2a3
+```
+
+```py
+Score of 4k.c-0.17 vs 4k.c-0.16: 345 - 185 - 470  [0.580] 1000
+...      4k.c-0.17 playing White: 298 - 8 - 194  [0.790] 500
+...      4k.c-0.17 playing Black: 47 - 177 - 276  [0.370] 500
+...      White vs Black: 475 - 55 - 470  [0.710] 1000
+Elo difference: 56.1 +/- 15.7, LOS: 100.0 %, DrawRatio: 47.0 %
+```
