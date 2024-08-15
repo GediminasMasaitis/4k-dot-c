@@ -53,6 +53,8 @@ static void *memcpy(void *dest, const void *src, size_t n) {
   return dest;
 }
 
+int abs(int x) { return (x < 0) ? -x : x; }
+
 static int strlen(char *string) {
   int length = 0;
   while (string[length]) {
@@ -170,8 +172,8 @@ static void _printf(char *format, size_t *args) {
 #pragma region base
 
 typedef struct {
-    ssize_t tv_sec;  // seconds
-    ssize_t tv_nsec; // nanoseconds
+  ssize_t tv_sec;  // seconds
+  ssize_t tv_nsec; // nanoseconds
 } timespec;
 
 size_t get_time() {
@@ -500,11 +502,26 @@ static u64 perft(const Position *pos, const i32 depth) {
 }
 
 static i32 eval(Position *pos) {
-  i32 material[] = {100, 325, 325, 500, 925, 0, 0};
+  const i32 material[] = {100, 339, 372, 582, 1180, 0, 0};
+  const i32 centralities[] = {2, 20, 16, 1, 3, 11};
   i32 score = 0;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = 0; p < 6; p++) {
-      score += count(pos->colour[0] & pos->pieces[p]) * material[p];
+      u64 copy = pos->colour[0] & pos->pieces[p];
+      while (copy) {
+        const i32 sq = lsb(copy);
+        copy &= copy - 1;
+
+        const int rank = sq >> 3;
+        const int file = sq & 7;
+
+        // score += count(pos->colour[0] & pos->pieces[p]) * material[p];
+        score += material[p];
+
+        const int centrality =
+            (7 - abs(7 - rank - file) - abs(rank - file)) / 2;
+        score += centrality * centralities[p];
+      }
     }
 
     score = -score;
@@ -654,9 +671,9 @@ void _start() {
       char depth_str[4];
       getw(depth_str);
       const i32 depth = stoi(depth_str);
-      const u64 start = time();
+      const u64 start = get_time();
       const u64 nodes = perft(&pos, depth);
-      const u64 end = time();
+      const u64 end = get_time();
       const i32 elapsed = end - start;
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes,
