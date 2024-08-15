@@ -125,9 +125,33 @@ Mate and stalemate dectection
 64 bit: 3577 bytes
 
 ```py
-Score of 4k.c-0.14 vs 4k.c-0.13: 554 - 196 - 4250  [0.536] 5000
-...      4k.c-0.14 playing White: 280 - 94 - 2126  [0.537] 2500
-...      4k.c-0.14 playing Black: 274 - 102 - 2124  [0.534] 2500
+Score of 4k.c-0.15 vs 4k.c-0.14: 554 - 196 - 4250  [0.536] 5000
+...      4k.c-0.15 playing White: 280 - 94 - 2126  [0.537] 2500
+...      4k.c-0.15 playing Black: 274 - 102 - 2124  [0.534] 2500
 ...      White vs Black: 382 - 368 - 4250  [0.501] 5000
 Elo difference: 24.9 +/- 3.7, LOS: 100.0 %, DrawRatio: 85.0 %
+```
+
+### 0.16
+
+Iterative deepening
+
+64 bit: 3804 bytes
+
+```py
+info depth 1 score 0 time 0 pv a2a3
+info depth 2 score 0 time 1 pv a2a3
+info depth 3 score 0 time 3 pv a2a3
+info depth 4 score 0 time 66 pv a2a3
+info depth 5 score 100 time 1310 pv b2b3
+info depth 6 score -100 time 31597 pv a2a3
+```
+
+```py
+10+0.1:
+Score of 4k.c-0.16 vs 4k.c-0.15: 318 - 88 - 594  [0.615] 1000
+...      4k.c-0.16 playing White: 234 - 15 - 247  [0.721] 496
+...      4k.c-0.16 playing Black: 84 - 73 - 347  [0.511] 504
+...      White vs Black: 307 - 99 - 594  [0.604] 1000
+Elo difference: 81.4 +/- 13.5, LOS: 100.0 %, DrawRatio: 59.4 %
 ```

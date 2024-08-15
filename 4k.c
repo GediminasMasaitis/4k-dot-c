@@ -117,8 +117,8 @@ static int strcmp(char *lhs, char *rhs) {
   return 0;
 }
 
-static int stoi(char *string) {
-  int result = 0;
+static size_t stoi(char *string) {
+  size_t result = 0;
   while (true) {
     if (!*string) {
       return result;
@@ -183,6 +183,21 @@ static void _printf(char *format, size_t *args) {
 #pragma endregion
 
 #pragma region base
+
+struct timespec {
+  size_t tv_sec;
+  size_t tv_nsec;
+};
+
+size_t get_time() {
+  timespec ts;
+#if ARCH64
+  _sys(228, 1, (ssize_t)&ts, 0);
+#else
+  _sys(265, 1, (ssize_t)&ts, 0);
+#endif
+  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
 
 enum { Pawn, Knight, Bishop, Rook, Queen, King, None };
 
@@ -538,19 +553,41 @@ static i32 search(Position *pos, i32 depth, Move *best_move) {
     }
   }
 
-  if(moves_evaluated == 0)
-  {
-      if (is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true))
-      {
-          return -30000;
-      }
-      else
-      {
-          return 0;
-      }
+  if (moves_evaluated == 0) {
+    if (is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true)) {
+      return -30000;
+    } else {
+      return 0;
+    }
   }
 
   return best_score;
+}
+
+static void iteratively_deepen(Position *pos, size_t total_time) {
+  size_t start_time = get_time();
+  Move best_move;
+  for (i32 depth = 1; depth < 128; depth++) {
+    i32 score = search(pos, depth, &best_move);
+    size_t elapsed = get_time() - start_time;
+
+#if FULL
+    char info_move_name[256];
+    move_str(info_move_name, &best_move, pos->flipped);
+    printf("info depth %i score %i time %i pv ", depth, score, elapsed);
+    puts(info_move_name);
+    puts("\n");
+#endif
+
+    if (elapsed > total_time / 64) {
+      break;
+    }
+  }
+  char move_name[256];
+  move_str(move_name, &best_move, pos->flipped);
+  puts("bestmove ");
+  puts(move_name);
+  puts("\n");
 }
 
 void _start() {
@@ -599,13 +636,23 @@ void _start() {
         }
       }
     } else if (!strcmp(line, "go")) {
-      Move best_move;
-      search(&pos, 3, &best_move);
-      move_str(move_name, &best_move, pos.flipped);
-      puts("bestmove ");
-      puts(move_name);
-      puts("\n");
+      getw(line); // wtime
+      getw(line); // wtime value
+      if (pos.flipped) {
+        getw(line); // winc
+        getw(line); // winc value
+        getw(line); // btime
+        getw(line); // btime value
+      }
+      size_t total_time = stoi(line);
+      iteratively_deepen(&pos, total_time);
     }
+#if FULL
+    // go infinite
+    else if (!strcmp(line, "gi")) {
+      iteratively_deepen(&pos, 99999999999);
+    }
+#endif
 #if FULL
     else if (!strcmp(line, "perft")) {
       char depth_str[4];

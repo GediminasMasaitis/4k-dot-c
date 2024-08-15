@@ -3,6 +3,7 @@
 .idea
 
 build
+old
 *.o
 *.c.temp*
 
