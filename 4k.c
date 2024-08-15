@@ -91,21 +91,6 @@ static bool getw(char *string) {
   }
 }
 
-typedef struct {
-  ssize_t tv_sec;  // seconds
-  ssize_t tv_nsec; // nanoseconds
-} timespec;
-
-static u64 time() {
-  timespec tp;
-#if ARCH64
-  _sys(228, 0, (ssize_t)&tp, 0);
-#else
-  _sys(265, 0, (ssize_t)&tp, 0);
-#endif
-  return tp.tv_sec * 1000 + tp.tv_nsec / 10000000;
-}
-
 static int strcmp(char *lhs, char *rhs) {
   while (*lhs || *rhs) {
     if (*lhs != *rhs) {
@@ -184,10 +169,10 @@ static void _printf(char *format, size_t *args) {
 
 #pragma region base
 
-struct timespec {
-  size_t tv_sec;
-  size_t tv_nsec;
-};
+typedef struct {
+    ssize_t tv_sec;  // seconds
+    ssize_t tv_nsec; // nanoseconds
+} timespec;
 
 size_t get_time() {
   timespec ts;
