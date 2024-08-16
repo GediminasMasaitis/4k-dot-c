@@ -540,7 +540,7 @@ static i32 search(Position *pos, i32 depth, i32 alpha, i32 beta,
 
   Move moves[256];
   i32 num_moves = movegen(pos, moves, false);
-  i32 best_score = -inf;
+
   i32 moves_evaluated = 0;
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     Position npos;
@@ -552,18 +552,17 @@ static i32 search(Position *pos, i32 depth, i32 alpha, i32 beta,
 
     Move child_best_move;
     i32 score = -search(&npos, depth - 1, -beta, -alpha, &child_best_move);
-    if (score > best_score) {
-      best_score = score;
-      memcpy(best_move, &moves[move_index], sizeof(Move));
+      
 
       if (score > alpha) {
+        memcpy(best_move, &moves[move_index], sizeof(Move));
         alpha = score;
 
         if (score >= beta) {
-          break;
+          return beta;
         }
       }
-    }
+
   }
 
   if (moves_evaluated == 0) {
@@ -574,7 +573,7 @@ static i32 search(Position *pos, i32 depth, i32 alpha, i32 beta,
     }
   }
 
-  return best_score;
+  return alpha;
 }
 
 static void iteratively_deepen(Position *pos, size_t total_time) {
