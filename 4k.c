@@ -504,8 +504,21 @@ static u64 perft(const Position *pos, const i32 depth) {
 }
 
 static i32 eval(Position *pos) {
-  const i16 material[] = {100, 339, 372, 582, 1180, 0, 0};
-  const i8 centralities[] = {2, 20, 16, 1, 3, 11};
+    const i16 material[] = { 127, 374, 408, 635, 1223, 0 };
+    const i16 pst_rank[] = { 0, -14, -17, -15, -3, 48, 149, 0, // Pawn
+    -41, -22, -1, 17, 32, 36, 11, -32, // Knight
+    -30, -7, 5, 11, 17, 18, 1, -16, // Bishop
+    -23, -30, -27, -11, 11, 24, 31, 24, // Rook
+    -30, -19, -12, -3, 10, 22, 10, 22, // Queen
+    -24, -16, -7, 7, 22, 29, 16, -19, // King
+    };
+    const i8 pst_file[] = { -4, 4, -7, -3, -1, 2, 17, -7, // Pawn
+    -34, -9, 8, 19, 18, 15, 2, -17, // Knight
+    -16, -1, 3, 6, 7, 2, 6, -9, // Bishop
+    -8, 1, 8, 10, 8, 3, -1, -21, // Rook
+    -27, -11, 2, 6, 5, 8, 7, 8, // Queen
+    -16, 4, 1, -2, -3, -4, 9, -11, // King
+    };
   i32 score = 0;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = 0; p < 6; p++) {
@@ -519,10 +532,8 @@ static i32 eval(Position *pos) {
 
         // score += count(pos->colour[0] & pos->pieces[p]) * material[p];
         score += material[p];
-
-        const int centrality =
-            (7 - abs(7 - rank - file) - abs(rank - file)) / 2;
-        score += centrality * centralities[p];
+        score += pst_rank[p * 8 + rank] * 1;
+        score += pst_file[p * 8 + file] * 1;
       }
     }
 
