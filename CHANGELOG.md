@@ -206,3 +206,31 @@ Score of 4k.c-0.18 vs 4k.c-0.17: 377 - 217 - 406  [0.580] 1000
 ...      White vs Black: 561 - 33 - 406  [0.764] 1000
 Elo difference: 56.1 +/- 16.7, LOS: 100.0 %, DrawRatio: 40.6 %
 ```
+
+### 0.18
+
+Fail-hard approach
+
+Implemented by No4b
+
+```py
+info depth 1 score 40 time 0 pv b1c3
+info depth 2 score 0 time 1 pv b1c3
+info depth 3 score 40 time 3 pv b1c3
+info depth 4 score 0 time 35 pv b1c3
+info depth 5 score 62 time 264 pv e2e4
+info depth 6 score -47 time 2220 pv b1c3
+info depth 7 score 96 time 21311 pv e2e3
+```
+
+Test by No4b:
+```
+Passed simplification [-10; 0] on Pohl book (5+0.05)
+
+Score of 4k_d vs 4k_m: 799 - 754 - 555 [0.511] 2108
+... 4k_d playing White: 780 - 14 - 261 [0.863] 1055
+... 4k_d playing Black: 19 - 740 - 294 [0.158] 1053
+... White vs Black: 1520 - 33 - 555 [0.853] 2108
+Elo difference: 7.4 +/- 12.7, LOS: 87.3 %, DrawRatio: 26.3 %
+SPRT: llr 2.94 (100.0%), lbound -2.94, ubound 2.94 - H1 was accepted
+```
