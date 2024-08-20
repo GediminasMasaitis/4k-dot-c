@@ -207,11 +207,13 @@ Score of 4k.c-0.18 vs 4k.c-0.17: 377 - 217 - 406  [0.580] 1000
 Elo difference: 56.1 +/- 16.7, LOS: 100.0 %, DrawRatio: 40.6 %
 ```
 
-### 0.18
+### 0.19
 
 Fail-hard approach
 
 Implemented by No4b
+
+64 bit: 3966 bytes
 
 ```py
 info depth 1 score 40 time 0 pv b1c3
@@ -233,4 +235,28 @@ Score of 4k_d vs 4k_m: 799 - 754 - 555 [0.511] 2108
 ... White vs Black: 1520 - 33 - 555 [0.853] 2108
 Elo difference: 7.4 +/- 12.7, LOS: 87.3 %, DrawRatio: 26.3 %
 SPRT: llr 2.94 (100.0%), lbound -2.94, ubound 2.94 - H1 was accepted
+```
+
+### 0.20
+
+Haswell arch build
+
+64 bit: 3944 bytes
+
+```py
+info depth 1 score 40 time 0 pv b1c3
+info depth 2 score 0 time 0 pv b1c3
+info depth 3 score 40 time 2 pv b1c3
+info depth 4 score 0 time 31 pv b1c3
+info depth 5 score 62 time 232 pv e2e4
+info depth 6 score -47 time 1942 pv b1c3
+info depth 7 score 96 time 18390 pv e2e3
+```
+
+```py
+Score of 4k.c-0.20 vs 4k.c-0.19: 484 - 467 - 549  [0.506] 1500
+...      4k.c-0.20 playing White: 469 - 16 - 265  [0.802] 750
+...      4k.c-0.20 playing Black: 15 - 451 - 284  [0.209] 750
+...      White vs Black: 920 - 31 - 549  [0.796] 1500
+Elo difference: 3.9 +/- 14.0, LOS: 70.9 %, DrawRatio: 36.6 %
 ```
