@@ -260,3 +260,27 @@ Score of 4k.c-0.20 vs 4k.c-0.19: 484 - 467 - 549  [0.506] 1500
 ...      White vs Black: 920 - 31 - 549  [0.796] 1500
 Elo difference: 3.9 +/- 14.0, LOS: 70.9 %, DrawRatio: 36.6 %
 ```
+
+### 0.21
+
+Reduce eval constant size
+
+64 bit: 3904 bytes
+
+```py
+info depth 1 score 40 time 0 pv b1c3
+info depth 2 score 0 time 0 pv b1c3
+info depth 3 score 40 time 3 pv b1c3
+info depth 4 score 0 time 31 pv b1c3
+info depth 5 score 62 time 231 pv e2e4
+info depth 6 score -47 time 1948 pv b1c3
+info depth 7 score 96 time 18460 pv e2e3
+```
+
+```py
+Score of 4k.c-0.21 vs 4k.c-0.20: 409 - 410 - 431  [0.500] 1250
+...      4k.c-0.21 playing White: 393 - 21 - 211  [0.798] 625
+...      4k.c-0.21 playing Black: 16 - 389 - 220  [0.202] 625
+...      White vs Black: 782 - 37 - 431  [0.798] 1250
+Elo difference: -0.3 +/- 15.6, LOS: 48.6 %, DrawRatio: 34.5 %
+```

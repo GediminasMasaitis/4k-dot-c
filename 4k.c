@@ -13,6 +13,8 @@
 
 #define u64 unsigned long long
 #define i32 int
+#define i16 short
+#define i8 char
 #define u8 unsigned char
 #define bool char
 
@@ -502,8 +504,8 @@ static u64 perft(const Position *pos, const i32 depth) {
 }
 
 static i32 eval(Position *pos) {
-  const i32 material[] = {100, 339, 372, 582, 1180, 0, 0};
-  const i32 centralities[] = {2, 20, 16, 1, 3, 11};
+  const i16 material[] = {100, 339, 372, 582, 1180, 0, 0};
+  const i8 centralities[] = {2, 20, 16, 1, 3, 11};
   i32 score = 0;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = 0; p < 6; p++) {
