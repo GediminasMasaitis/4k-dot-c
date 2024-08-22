@@ -44,7 +44,7 @@ ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
-static void *memcpy(void *dest, const void *src, size_t n) {
+static void *memcpy(void *const dest, const void *const src, size_t n) {
   char *d = dest;
   const char *s = src;
 
@@ -55,9 +55,9 @@ static void *memcpy(void *dest, const void *src, size_t n) {
   return dest;
 }
 
-[[nodiscard]] int abs(int x) { return (x < 0) ? -x : x; }
+[[nodiscard]] int abs(const int x) { return (x < 0) ? -x : x; }
 
-[[nodiscard]] static int strlen(const char *string) {
+[[nodiscard]] static int strlen(const char *const string) {
   int length = 0;
   while (string[length]) {
     length++;
@@ -65,7 +65,7 @@ static void *memcpy(void *dest, const void *src, size_t n) {
   return length;
 }
 
-static void puts(const char *string) {
+static void puts(const char *const string) {
 #if ARCH64
   _sys(1, stdout, (ssize_t)string, strlen(string));
 #else
@@ -121,7 +121,7 @@ static bool getw(char *string) {
 
 #define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
 
-static void _printf(char *format, size_t *args) {
+static void _printf(const char *format, const size_t *args) {
   int value;
   char buffer[16], *string;
 
@@ -202,7 +202,7 @@ typedef struct [[nodiscard]] {
   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-[[nodiscard]] static u64 flip_bb(u64 bb) { return __builtin_bswap64(bb); }
+[[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
 
 #if ARCH32
 #pragma GCC push_options
@@ -291,7 +291,7 @@ static void move_str(char *str, const Move *move, const i32 flip) {
   str[5] = '\0';
 }
 
-[[nodiscard]] static i32 piece_on(const Position *pos, const i32 sq) {
+[[nodiscard]] static i32 piece_on(const Position *const pos, const i32 sq) {
   for (i32 i = Pawn; i < None; ++i) {
     if (pos->pieces[i] & 1ull << sq) {
       return i;
@@ -300,19 +300,19 @@ static void move_str(char *str, const Move *move, const i32 flip) {
   return None;
 }
 
-static void swapu64(u64 *lhs, u64 *rhs) {
+static void swapu64(u64 *const lhs, u64 *const rhs) {
   const u64 temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
 }
 
-static void swapbool(bool *lhs, bool *rhs) {
+static void swapbool(bool *const lhs, bool *const rhs) {
   const bool temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
 }
 
-static void flip_pos(Position *pos) {
+static void flip_pos(Position *const pos) {
   pos->flipped ^= 1;
   pos->colour[0] = flip_bb(pos->colour[0]);
   pos->colour[1] = flip_bb(pos->colour[1]);
@@ -326,7 +326,7 @@ static void flip_pos(Position *pos) {
   pos->ep = flip_bb(pos->ep);
 }
 
-[[nodiscard]] static i32 is_attacked(const Position *pos, const i32 sq,
+[[nodiscard]] static i32 is_attacked(const Position *const pos, const i32 sq,
                                      const i32 them) {
   const u64 bb = 1ull << sq;
   const u64 pawns = pos->colour[them] & pos->pieces[Pawn];
@@ -341,7 +341,7 @@ static void flip_pos(Position *pos) {
              pos->pieces[King];
 }
 
-static i32 makemove(Position *pos, const Move *move) {
+static i32 makemove(Position *const pos, const Move *const move) {
   const u64 from = 1ull << move->from;
   const u64 to = 1ull << move->to;
   const u64 mask = from | to;
@@ -398,7 +398,7 @@ static i32 makemove(Position *pos, const Move *move) {
   return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
 }
 
-static void generate_pawn_moves(Move *const movelist, i32 *num_moves,
+static void generate_pawn_moves(Move *const movelist, i32 *const num_moves,
                                 u64 to_mask, const i32 offset) {
   while (to_mask) {
     const u8 to = lsb(to_mask);
@@ -431,7 +431,8 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   }
 }
 
-[[nodiscard]] static i32 movegen(const Position *pos, Move *const movelist,
+[[nodiscard]] static i32 movegen(const Position *const pos,
+                                 Move *const movelist,
                                  const i32 only_captures) {
   i32 num_moves = 0;
   const u64 all = pos->colour[0] | pos->colour[1];
@@ -467,7 +468,7 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
 
 #pragma region engine
 
-[[nodiscard]] static u64 perft(const Position *pos, const i32 depth) {
+[[nodiscard]] static u64 perft(const Position *const pos, const i32 depth) {
   if (depth == 0) {
     return 1;
   }
@@ -509,7 +510,7 @@ static const i8 pst_file[] = {
     -8,  2,  0,  -1, -2, -2, 4,  -6,  // King
 };
 
-static i32 eval(Position *pos) {
+static i32 eval(Position *const pos) {
   i32 score = 0;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = 0; p < 6; p++) {
@@ -536,8 +537,8 @@ static i32 eval(Position *pos) {
 
 enum { inf = 32000, mate = 30000 };
 
-static i32 search(Position *pos, i32 depth, i32 alpha, i32 beta,
-                  Move *best_move) {
+static i32 search(Position *const pos, const i32 depth, i32 alpha,
+                  const i32 beta, Move *const best_move) {
   if (depth == 0) {
     return eval(pos);
   }
@@ -558,7 +559,7 @@ static i32 search(Position *pos, i32 depth, i32 alpha, i32 beta,
     i32 score = -search(&npos, depth - 1, -beta, -alpha, &child_best_move);
 
     if (score > alpha) {
-      memcpy(best_move, &moves[move_index], sizeof(Move));
+      *best_move = moves[move_index];
       alpha = score;
 
       if (score >= beta) {
@@ -570,19 +571,19 @@ static i32 search(Position *pos, i32 depth, i32 alpha, i32 beta,
   if (moves_evaluated == 0) {
     if (is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true)) {
       return -mate;
-    } else {
-      return 0;
     }
+
+    return 0;
   }
 
   return alpha;
 }
 
-static void iteratively_deepen(Position *pos, size_t total_time) {
-  size_t start_time = get_time();
+static void iteratively_deepen(Position *const pos, const size_t total_time) {
+  const size_t start_time = get_time();
   Move best_move;
   for (i32 depth = 1; depth < 128; depth++) {
-    i32 score = search(pos, depth, -inf, inf, &best_move);
+    search(pos, depth, -inf, inf, &best_move);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
@@ -636,7 +637,7 @@ void _start() {
                        .ep = 0};
 
       while (true) {
-        bool line_continue = getw(line);
+        const bool line_continue = getw(line);
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           move_str(move_name, &moves[i], pos.flipped);
