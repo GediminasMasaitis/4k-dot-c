@@ -22,7 +22,7 @@
 #define false 0
 #define true 1
 
-enum {
+enum [[nodiscard]] {
   stdin = 0,
   stdout = 1,
   stderr = 2,
@@ -55,9 +55,9 @@ static void *memcpy(void *dest, const void *src, size_t n) {
   return dest;
 }
 
-int abs(int x) { return (x < 0) ? -x : x; }
+[[nodiscard]] int abs(int x) { return (x < 0) ? -x : x; }
 
-static int strlen(char *string) {
+[[nodiscard]] static int strlen(const char *string) {
   int length = 0;
   while (string[length]) {
     length++;
@@ -65,7 +65,7 @@ static int strlen(char *string) {
   return length;
 }
 
-static void puts(char *string) {
+static void puts(const char *string) {
 #if ARCH64
   _sys(1, stdout, (ssize_t)string, strlen(string));
 #else
@@ -73,12 +73,13 @@ static void puts(char *string) {
 #endif
 }
 
+// Non-standard
 static bool getw(char *string) {
   while (true) {
 #if ARCH64
-    int result = _sys(0, stdin, (ssize_t)string, 1);
+    const int result = _sys(0, stdin, (ssize_t)string, 1);
 #else
-    int result = _sys(3, stdin, (ssize_t)string, 1);
+    const int result = _sys(3, stdin, (ssize_t)string, 1);
 #endif
     if (result < 1) {
       // EXIT
@@ -95,7 +96,7 @@ static bool getw(char *string) {
   }
 }
 
-static int strcmp(char *lhs, char *rhs) {
+[[nodiscard]] static int strcmp(const char *lhs, const char *rhs) {
   while (*lhs || *rhs) {
     if (*lhs != *rhs) {
       return 1;
@@ -106,14 +107,11 @@ static int strcmp(char *lhs, char *rhs) {
   return 0;
 }
 
-static size_t stoi(char *string) {
+[[nodiscard]] static size_t stoi(const char *string) {
   size_t result = 0;
   while (true) {
     if (!*string) {
       return result;
-    }
-    if (*string < '0' || *string > '9') {
-      return -1;
     }
     result *= 10;
     result += *string - '0';
@@ -173,12 +171,28 @@ static void _printf(char *format, size_t *args) {
 
 #pragma region base
 
-typedef struct {
+typedef struct [[nodiscard]] {
   ssize_t tv_sec;  // seconds
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-size_t get_time() {
+enum [[nodiscard]] { Pawn, Knight, Bishop, Rook, Queen, King, None };
+
+typedef struct [[nodiscard]] {
+  u8 from;
+  u8 to;
+  u8 promo;
+} Move;
+
+typedef struct [[nodiscard]] {
+  u64 colour[2];
+  u64 pieces[6];
+  u64 ep;
+  bool castling[4];
+  bool flipped;
+} Position;
+
+[[nodiscard]] size_t get_time() {
   timespec ts;
 #if ARCH64
   _sys(228, 1, (ssize_t)&ts, 0);
@@ -188,102 +202,70 @@ size_t get_time() {
   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-enum { Pawn, Knight, Bishop, Rook, Queen, King, None };
-
-typedef struct {
-  u8 from;
-  u8 to;
-  u8 promo;
-} Move;
-
-typedef struct {
-  bool castling[4];
-  u64 colour[2];
-  u64 pieces[6];
-  u64 ep;
-  bool flipped;
-} Position;
-
-static u64 flip_bb(u64 bb) {
-  // return __builtin_bswap64(bb);
-  return ((bb & 0x00000000000000FFULL) << 56) |
-         ((bb & 0x000000000000FF00ULL) << 40) |
-         ((bb & 0x0000000000FF0000ULL) << 24) |
-         ((bb & 0x00000000FF000000ULL) << 8) |
-         ((bb & 0x000000FF00000000ULL) >> 8) |
-         ((bb & 0x0000FF0000000000ULL) >> 24) |
-         ((bb & 0x00FF000000000000ULL) >> 40) |
-         ((bb & 0xFF00000000000000ULL) >> 56);
-}
+[[nodiscard]] static u64 flip_bb(u64 bb) { return __builtin_bswap64(bb); }
 
 #if ARCH32
 #pragma GCC push_options
-#pragma GCC optimize("O2")
+#pragma GCC optimize("O3")
 #endif
-static i32 lsb(u64 bb) {
-  // return __builtin_ctzll(bb);
-  if (bb == 0) {
-    return 64;
-  }
-
-  i32 index = 0;
-  while ((bb & 1) == 0) {
-    bb >>= 1;
-    index++;
-  }
-  return index;
-}
+static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 #if ARCH32
 #pragma GCC pop_options
 #endif
 
-static i32 count(u64 bb) {
-  i32 count = 0;
-  while (bb) {
-    bb &= bb - 1;
-    count++;
-  }
-  return count;
+[[nodiscard]] static i32 count(const u64 bb) {
+  return __builtin_popcountll(bb);
 }
 
-static u64 west(const u64 bb) { return bb >> 1 & ~0x8080808080808080ull; }
+[[nodiscard]] static u64 west(const u64 bb) {
+  return bb >> 1 & ~0x8080808080808080ull;
+}
 
-static u64 east(const u64 bb) { return bb << 1 & ~0x101010101010101ull; }
+[[nodiscard]] static u64 east(const u64 bb) {
+  return bb << 1 & ~0x101010101010101ull;
+}
 
-static u64 north(const u64 bb) { return bb << 8; }
+[[nodiscard]] static u64 north(const u64 bb) { return bb << 8; }
 
-static u64 south(const u64 bb) { return bb >> 8; }
+[[nodiscard]] static u64 south(const u64 bb) { return bb >> 8; }
 
-static u64 nw(const u64 bb) { return north(west(bb)); }
+[[nodiscard]] static u64 nw(const u64 bb) { return north(west(bb)); }
 
-static u64 ne(const u64 bb) { return north(east(bb)); }
+[[nodiscard]] static u64 ne(const u64 bb) { return north(east(bb)); }
 
-static u64 sw(const u64 bb) { return south(west(bb)); }
+[[nodiscard]] static u64 sw(const u64 bb) { return south(west(bb)); }
 
-static u64 se(const u64 bb) { return south(east(bb)); }
+[[nodiscard]] static u64 se(const u64 bb) { return south(east(bb)); }
 
-static u64 ray(const i32 sq, const u64 blockers, u64 (*f)(u64)) {
+[[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
+                             u64 (*f)(const u64)) {
   u64 mask = f(1ull << sq);
-  mask |= f(mask & ~blockers);
-  mask |= f(mask & ~blockers);
-  mask |= f(mask & ~blockers);
-  mask |= f(mask & ~blockers);
-  mask |= f(mask & ~blockers);
-  mask |= f(mask & ~blockers);
+  for (i32 i = 0; i < 6; i++) {
+    mask |= f(mask & ~blockers);
+  }
+
+  // Faster but more bytes
+  // mask |= f(mask & ~blockers);
+  // mask |= f(mask & ~blockers);
+  // mask |= f(mask & ~blockers);
+  // mask |= f(mask & ~blockers);
+  // mask |= f(mask & ~blockers);
+  // mask |= f(mask & ~blockers);
+
   return mask;
 }
 
-static u64 bishop(const i32 sq, const u64 blockers) {
+[[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
   return ray(sq, blockers, nw) | ray(sq, blockers, ne) | ray(sq, blockers, sw) |
          ray(sq, blockers, se);
 }
 
-static u64 rook(const i32 sq, const u64 blockers) {
+[[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
   return ray(sq, blockers, north) | ray(sq, blockers, east) |
          ray(sq, blockers, south) | ray(sq, blockers, west);
 }
 
-static u64 knight(const i32 sq, const u64 blockers) {
+[[nodiscard]] static u64 knight(const i32 sq, const u64 blockers) {
   (void)blockers;
   const u64 bb = 1ull << sq;
   return (bb << 15 | bb >> 17) & ~0x8080808080808080ull |
@@ -292,7 +274,7 @@ static u64 knight(const i32 sq, const u64 blockers) {
          (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full;
 }
 
-static u64 king(const i32 sq, const u64 blockers) {
+[[nodiscard]] static u64 king(const i32 sq, const u64 blockers) {
   (void)blockers;
   const u64 bb = 1ull << sq;
   return bb << 8 | bb >> 8 |
@@ -305,29 +287,27 @@ static void move_str(char *str, const Move *move, const i32 flip) {
   str[1] = '1' + (move->from / 8 ^ 7 * flip);
   str[2] = 'a' + move->to % 8;
   str[3] = '1' + (move->to / 8 ^ 7 * flip);
-  if (move->promo != None) {
-    str[4] = "nbrq"[move->promo - Knight];
-    str[5] = '\0';
-  } else {
-    str[4] = '\0';
-  }
+  str[4] = "\0nbrq\0\0"[move->promo];
+  str[5] = '\0';
 }
 
-static i32 piece_on(const Position *pos, const i32 sq) {
-  for (i32 i = Pawn; i < None; ++i)
-    if (pos->pieces[i] & 1ull << sq)
+[[nodiscard]] static i32 piece_on(const Position *pos, const i32 sq) {
+  for (i32 i = Pawn; i < None; ++i) {
+    if (pos->pieces[i] & 1ull << sq) {
       return i;
+    }
+  }
   return None;
 }
 
 static void swapu64(u64 *lhs, u64 *rhs) {
-  u64 temp = *lhs;
+  const u64 temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
 }
 
 static void swapbool(bool *lhs, bool *rhs) {
-  bool temp = *lhs;
+  const bool temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
 }
@@ -346,7 +326,8 @@ static void flip_pos(Position *pos) {
   pos->ep = flip_bb(pos->ep);
 }
 
-static i32 is_attacked(const Position *pos, const i32 sq, const i32 them) {
+[[nodiscard]] static i32 is_attacked(const Position *pos, const i32 sq,
+                                     const i32 them) {
   const u64 bb = 1ull << sq;
   const u64 pawns = pos->colour[them] & pos->pieces[Pawn];
   const u64 pawn_attacks = them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns);
@@ -450,8 +431,8 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   }
 }
 
-static i32 movegen(const Position *pos, Move *const movelist,
-                   const i32 only_captures) {
+[[nodiscard]] static i32 movegen(const Position *pos, Move *const movelist,
+                                 const i32 only_captures) {
   i32 num_moves = 0;
   const u64 all = pos->colour[0] | pos->colour[1];
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
@@ -486,7 +467,7 @@ static i32 movegen(const Position *pos, Move *const movelist,
 
 #pragma region engine
 
-static u64 perft(const Position *pos, const i32 depth) {
+[[nodiscard]] static u64 perft(const Position *pos, const i32 depth) {
   if (depth == 0) {
     return 1;
   }
@@ -677,7 +658,7 @@ void _start() {
         getw(line); // btime
         getw(line); // btime value
       }
-      size_t total_time = stoi(line);
+      const size_t total_time = stoi(line);
       iteratively_deepen(&pos, total_time);
     }
 #if FULL
@@ -697,7 +678,7 @@ void _start() {
       const i32 elapsed = end - start;
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes,
-             end - start);
+             end - start, nps);
     }
 #endif
   }
