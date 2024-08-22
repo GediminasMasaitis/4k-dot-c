@@ -218,7 +218,7 @@ static u64 flip_bb(u64 bb) {
 
 #if ARCH32
 #pragma GCC push_options
-#pragma GCC optimize ("O2")
+#pragma GCC optimize("O2")
 #endif
 static i32 lsb(u64 bb) {
   // return __builtin_ctzll(bb);
@@ -510,9 +510,25 @@ static u64 perft(const Position *pos, const i32 depth) {
   return nodes;
 }
 
+static const i16 material[] = {127, 374, 408, 635, 1223, 0};
+static const i8 pst_rank[] = {
+    0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
+    -20, -11, -1,  8,  16, 18, 5,  -16, // Knight
+    -15, -3,  2,   6,  8,  9,  1,  -8,  // Bishop
+    -12, -15, -13, -5, 6,  12, 15, 12,  // Rook
+    -15, -10, -6,  -2, 5,  11, 5,  11,  // Queen
+    -12, -8,  -4,  3,  11, 14, 8,  -10, // King
+};
+static const i8 pst_file[] = {
+    -2,  2,  -3, -1, -1, 1,  8,  -4,  // Pawn
+    -17, -5, 4,  9,  9,  8,  1,  -9,  // Knight
+    -8,  0,  2,  3,  4,  1,  3,  -4,  // Bishop
+    -4,  1,  4,  5,  4,  2,  -1, -11, // Rook
+    -13, -5, 1,  3,  3,  4,  4,  4,   // Queen
+    -8,  2,  0,  -1, -2, -2, 4,  -6,  // King
+};
+
 static i32 eval(Position *pos) {
-  const i16 material[] = {100, 339, 372, 582, 1180, 0, 0};
-  const i8 centralities[] = {2, 20, 16, 1, 3, 11};
   i32 score = 0;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = 0; p < 6; p++) {
@@ -524,12 +540,10 @@ static i32 eval(Position *pos) {
         const int rank = sq >> 3;
         const int file = sq & 7;
 
-        // score += count(pos->colour[0] & pos->pieces[p]) * material[p];
         score += material[p];
 
-        const int centrality =
-            (7 - abs(7 - rank - file) - abs(rank - file)) / 2;
-        score += centrality * centralities[p];
+        score += pst_rank[p * 8 + rank] * 2;
+        score += pst_file[p * 8 + file] * 2;
       }
     }
 
@@ -561,17 +575,15 @@ static i32 search(Position *pos, i32 depth, i32 alpha, i32 beta,
 
     Move child_best_move;
     i32 score = -search(&npos, depth - 1, -beta, -alpha, &child_best_move);
-      
 
-      if (score > alpha) {
-        memcpy(best_move, &moves[move_index], sizeof(Move));
-        alpha = score;
+    if (score > alpha) {
+      memcpy(best_move, &moves[move_index], sizeof(Move));
+      alpha = score;
 
-        if (score >= beta) {
-          return beta;
-        }
+      if (score >= beta) {
+        return beta;
       }
-
+    }
   }
 
   if (moves_evaluated == 0) {
