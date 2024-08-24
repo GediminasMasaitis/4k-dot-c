@@ -325,9 +325,10 @@ info depth 1 score 56 time 0 pv b1c3
 info depth 2 score 0 time 0 pv b1c3
 info depth 3 score 52 time 2 pv b1c3
 info depth 4 score 0 time 29 pv b1c3
-info depth 5 score 73 time 253 pv b2b3
-info depth 6 score -31 time 1981 pv b1c3
-info depth 7 score 119 time 18993 pv e2e3
+info depth 5 score 73 time 255 pv b2b3
+info depth 6 score -31 time 2003 pv b1c3
+info depth 7 score 119 time 19306 pv e2e3
+info depth 8 score -85 time 233349 pv b1c3
 ```
 
 ```py

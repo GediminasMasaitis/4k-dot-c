@@ -583,7 +583,7 @@ static void iteratively_deepen(Position *const pos, const size_t total_time) {
   const size_t start_time = get_time();
   Move best_move;
   for (i32 depth = 1; depth < 128; depth++) {
-    search(pos, depth, -inf, inf, &best_move);
+    size_t score = search(pos, depth, -inf, inf, &best_move);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
