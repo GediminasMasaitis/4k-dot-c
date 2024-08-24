@@ -338,3 +338,29 @@ Score of 4k.c-0.23 vs 4k.c-0.22: 334 - 322 - 345  [0.506] 1001
 ...      White vs Black: 632 - 24 - 345  [0.804] 1001
 Elo difference: 4.2 +/- 17.4, LOS: 68.0 %, DrawRatio: 34.5 %
 ```
+
+### 0.24
+
+Capture-first move ordering
+
+32 bit: 5200 bytes
+64 bit: 3898 bytes
+
+```py
+info depth 1 score 56 time 0 pv b1c3
+info depth 2 score 0 time 0 pv b1c3
+info depth 3 score 52 time 3 pv b1c3
+info depth 4 score 0 time 35 pv b1c3
+info depth 5 score 73 time 219 pv b2b3
+info depth 6 score -31 time 1576 pv b1c3
+info depth 7 score 119 time 9415 pv e2e3
+info depth 8 score -85 time 101043 pv b1c3
+```
+
+```py
+Score of 4k.c-0.24 vs 4k.c-0.23: 387 - 278 - 335  [0.554] 1000
+...      4k.c-0.24 playing White: 352 - 2 - 147  [0.849] 501
+...      4k.c-0.24 playing Black: 35 - 276 - 188  [0.259] 499
+...      White vs Black: 628 - 37 - 335  [0.795] 1000
+Elo difference: 38.0 +/- 17.6, LOS: 100.0 %, DrawRatio: 33.5 %
+```

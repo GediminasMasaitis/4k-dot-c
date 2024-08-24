@@ -545,9 +545,23 @@ static i32 search(Position *const pos, const i32 depth, i32 alpha,
 
   Move moves[256];
   i32 num_moves = movegen(pos, moves, false);
-
   i32 moves_evaluated = 0;
+
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
+    i32 move_score = 0;
+
+    for (i32 order_index = move_index; order_index < num_moves; order_index++) {
+        const i32 order_move_score = piece_on(pos, moves[order_index].to) != None ? 1 : 0;
+        if(order_move_score > move_score)
+        {
+            move_score = order_move_score;
+
+            const Move temp_move = moves[move_index];
+            moves[move_index] = moves[order_index];
+            moves[order_index] = temp_move;
+        }
+    }
+
     Position npos;
     memcpy(&npos, pos, sizeof(Position));
     if (!makemove(&npos, &moves[move_index])) {
