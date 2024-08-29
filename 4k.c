@@ -539,27 +539,37 @@ enum { inf = 32000, mate = 30000 };
 
 static i32 search(Position *const pos, const i32 depth, i32 alpha,
                   const i32 beta, Move *const best_move) {
-  if (depth == 0) {
-    return eval(pos);
+  const bool in_qsearch = depth <= 0;
+  const i32 static_eval = eval(pos);
+
+  if (depth < -3) {
+    return static_eval;
+  }
+
+  if (in_qsearch && static_eval > alpha) {
+    if (static_eval >= beta) {
+      return static_eval;
+    }
+    alpha = static_eval;
   }
 
   Move moves[256];
-  i32 num_moves = movegen(pos, moves, false);
+  i32 num_moves = movegen(pos, moves, in_qsearch);
   i32 moves_evaluated = 0;
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     i32 move_score = 0;
 
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
-        const i32 order_move_score = piece_on(pos, moves[order_index].to) != None ? 1 : 0;
-        if(order_move_score > move_score)
-        {
-            move_score = order_move_score;
+      const i32 order_move_score =
+          piece_on(pos, moves[order_index].to) != None ? 1 : 0;
+      if (order_move_score > move_score) {
+        move_score = order_move_score;
 
-            const Move temp_move = moves[move_index];
-            moves[move_index] = moves[order_index];
-            moves[order_index] = temp_move;
-        }
+        const Move temp_move = moves[move_index];
+        moves[move_index] = moves[order_index];
+        moves[order_index] = temp_move;
+      }
     }
 
     Position npos;
@@ -582,7 +592,7 @@ static i32 search(Position *const pos, const i32 depth, i32 alpha,
     }
   }
 
-  if (moves_evaluated == 0) {
+  if (moves_evaluated == 0 && !in_qsearch) {
     if (is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true)) {
       return -mate;
     }

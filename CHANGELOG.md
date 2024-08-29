@@ -376,3 +376,28 @@ Score of 4k.c-0.24 vs tscp: 30 - 1367 - 103  [0.054] 1500
 ...      White vs Black: 766 - 631 - 103  [0.545] 1500
 Elo difference: -496.3 +/- 31.9, LOS: 0.0 %, DrawRatio: 6.9 %
 ```
+
+### 0.25
+
+Depth-limited qsearch
+
+32 bit: 5334 bytes
+64 bit: 3994 bytes
+
+```py
+info depth 1 score 56 time 0 pv b1c3
+info depth 2 score 0 time 0 pv b1c3
+info depth 3 score 52 time 3 pv b1c3
+info depth 4 score 0 time 48 pv b1c3
+info depth 5 score 20 time 712 pv b1c3
+info depth 6 score 0 time 7607 pv b1c3
+info depth 7 score 26 time 61233 pv d2d3
+```
+
+```py
+Score of 4k.c-0.25 vs 4k.c-0.24: 1221 - 475 - 1304  [0.624] 3000
+...      4k.c-0.25 playing White: 1024 - 6 - 472  [0.839] 1502
+...      4k.c-0.25 playing Black: 197 - 469 - 832  [0.409] 1498
+...      White vs Black: 1493 - 203 - 1304  [0.715] 3000
+Elo difference: 88.2 +/- 9.4, LOS: 100.0 %, DrawRatio: 43.5 %
+```
