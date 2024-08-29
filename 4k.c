@@ -178,7 +178,7 @@ typedef struct [[nodiscard]] {
 
 enum [[nodiscard]] { Pawn, Knight, Bishop, Rook, Queen, King, None };
 
-typedef struct [[nodiscard]] {
+typedef struct [[nodiscard]] __attribute__((aligned(4))) {
   u8 from;
   u8 to;
   u8 promo;
@@ -537,12 +537,12 @@ static i32 eval(Position *const pos) {
 
 enum { inf = 32000, mate = 30000 };
 
-static i32 search(Position *const pos, const i32 depth, i32 alpha,
-                  const i32 beta,
+static i32 search(Position *const pos, const i32 ply, const i32 depth,
+                  i32 alpha, const i32 beta,
 #if FULL
                   u64 *nodes,
 #endif
-                  Move *const best_move) {
+                  Move *best_moves) {
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
 
@@ -566,7 +566,9 @@ static i32 search(Position *const pos, const i32 depth, i32 alpha,
 
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const i32 order_move_score =
-          piece_on(pos, moves[order_index].to) != None ? 1 : 0;
+          *(i32 *)&best_moves[ply] == *(i32 *)&moves[order_index] ? 1000000
+          : piece_on(pos, moves[order_index].to) != None          ? 1
+                                                                  : 0;
       if (order_move_score > move_score) {
         move_score = order_move_score;
 
@@ -587,18 +589,18 @@ static i32 search(Position *const pos, const i32 depth, i32 alpha,
     moves_evaluated++;
 
     Move child_best_move;
-    i32 score = -search(&npos, depth - 1, -beta, -alpha,
+    i32 score = -search(&npos, ply + 1, depth - 1, -beta, -alpha,
 #if FULL
                         nodes,
 #endif
-                        &child_best_move);
+                        best_moves);
 
     if (score > alpha) {
-      *best_move = moves[move_index];
+      best_moves[ply] = moves[move_index];
       alpha = score;
 
       if (score >= beta) {
-        return beta;
+        break;
       }
     }
   }
@@ -617,19 +619,19 @@ static i32 search(Position *const pos, const i32 depth, i32 alpha,
 
 static void iteratively_deepen(Position *const pos, const size_t total_time) {
   const size_t start_time = get_time();
-  Move best_move;
+  Move best_moves[128];
   for (i32 depth = 1; depth < 128; depth++) {
     u64 nodes = 0;
-    size_t score = search(pos, depth, -inf, inf,
+    size_t score = search(pos, 0, depth, -inf, inf,
 #if FULL
                           &nodes,
 #endif
-                          &best_move);
+                          best_moves);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
     char info_move_name[256];
-    move_str(info_move_name, &best_move, pos->flipped);
+    move_str(info_move_name, &best_moves[0], pos->flipped);
     printf("info depth %i score %i time %i nodes %i", depth, score, elapsed,
            nodes);
     if (elapsed > 0) {
@@ -647,7 +649,7 @@ static void iteratively_deepen(Position *const pos, const size_t total_time) {
     }
   }
   char move_name[256];
-  move_str(move_name, &best_move, pos->flipped);
+  move_str(move_name, &best_moves[0], pos->flipped);
   puts("bestmove ");
   puts(move_name);
   puts("\n");
