@@ -178,7 +178,7 @@ typedef struct [[nodiscard]] {
 
 enum [[nodiscard]] { Pawn, Knight, Bishop, Rook, Queen, King, None };
 
-typedef struct [[nodiscard]] __attribute__((aligned(4))) {
+typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
   u8 to;
   u8 promo;
@@ -566,15 +566,12 @@ static i32 search(Position *const pos, const i32 ply, const i32 depth,
 
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const i32 order_move_score =
-          *(i32 *)&best_moves[ply] == *(i32 *)&moves[order_index] ? 1000000
-          : piece_on(pos, moves[order_index].to) != None          ? 1
-                                                                  : 0;
+          *(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index] ? 1000000
+          : piece_on(pos, moves[order_index].to) != None;
       if (order_move_score > move_score) {
         move_score = order_move_score;
 
-        const Move temp_move = moves[move_index];
-        moves[move_index] = moves[order_index];
-        moves[order_index] = temp_move;
+        swapu64((u64 *)&moves[move_index], (u64 *)&moves[order_index]);
       }
     }
 
