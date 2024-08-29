@@ -385,13 +385,13 @@ Depth-limited qsearch
 64 bit: 3994 bytes
 
 ```py
-info depth 1 score 56 time 0 pv b1c3
-info depth 2 score 0 time 0 pv b1c3
-info depth 3 score 52 time 3 pv b1c3
-info depth 4 score 0 time 48 pv b1c3
-info depth 5 score 20 time 712 pv b1c3
-info depth 6 score 0 time 7607 pv b1c3
-info depth 7 score 26 time 61233 pv d2d3
+info depth 1 score 56 time 0 nodes 20 pv b1c3
+info depth 2 score 0 time 0 nodes 394 pv b1c3
+info depth 3 score 52 time 3 nodes 6646 nps 2215333 pv b1c3
+info depth 4 score 0 time 46 nodes 106855 nps 2322934 pv b1c3
+info depth 5 score 20 time 696 nodes 1521281 nps 2185748 pv b1c3
+info depth 6 score 0 time 7409 nodes 15623452 nps 2108712 pv b1c3
+info depth 7 score 26 time 59571 nodes 118064690 nps 1981915 pv d2d3
 ```
 
 ```py

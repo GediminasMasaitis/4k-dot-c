@@ -538,7 +538,11 @@ static i32 eval(Position *const pos) {
 enum { inf = 32000, mate = 30000 };
 
 static i32 search(Position *const pos, const i32 depth, i32 alpha,
-                  const i32 beta, Move *const best_move) {
+                  const i32 beta,
+#if FULL
+                  u64 *nodes,
+#endif
+                  Move *const best_move) {
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
 
@@ -574,13 +578,20 @@ static i32 search(Position *const pos, const i32 depth, i32 alpha,
 
     Position npos;
     memcpy(&npos, pos, sizeof(Position));
+#if FULL
+    (*nodes)++;
+#endif
     if (!makemove(&npos, &moves[move_index])) {
       continue;
     }
     moves_evaluated++;
 
     Move child_best_move;
-    i32 score = -search(&npos, depth - 1, -beta, -alpha, &child_best_move);
+    i32 score = -search(&npos, depth - 1, -beta, -alpha,
+#if FULL
+                        nodes,
+#endif
+                        &child_best_move);
 
     if (score > alpha) {
       *best_move = moves[move_index];
@@ -602,18 +613,31 @@ static i32 search(Position *const pos, const i32 depth, i32 alpha,
 
   return alpha;
 }
+// #define FULL true
 
 static void iteratively_deepen(Position *const pos, const size_t total_time) {
   const size_t start_time = get_time();
   Move best_move;
   for (i32 depth = 1; depth < 128; depth++) {
-    size_t score = search(pos, depth, -inf, inf, &best_move);
+    u64 nodes = 0;
+    size_t score = search(pos, depth, -inf, inf,
+#if FULL
+                          &nodes,
+#endif
+                          &best_move);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
     char info_move_name[256];
     move_str(info_move_name, &best_move, pos->flipped);
-    printf("info depth %i score %i time %i pv ", depth, score, elapsed);
+    printf("info depth %i score %i time %i nodes %i", depth, score, elapsed,
+           nodes);
+    if (elapsed > 0) {
+      const u64 nps = nodes * 1000 / elapsed;
+      printf(" nps %i", nps);
+    }
+
+    puts(" pv ");
     puts(info_move_name);
     puts("\n");
 #endif
