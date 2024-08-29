@@ -537,12 +537,17 @@ static i32 eval(Position *const pos) {
 
 enum { inf = 32000, mate = 30000 };
 
-static i32 search(Position *const pos, const i32 ply, const i32 depth,
+static i32 search(Position *const pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #if FULL
                   u64 *nodes,
 #endif
                   Move *best_moves) {
+  const bool in_check = is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
+  if(in_check) {
+    depth++;
+  }
+
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
 
@@ -603,7 +608,7 @@ static i32 search(Position *const pos, const i32 ply, const i32 depth,
   }
 
   if (moves_evaluated == 0 && !in_qsearch) {
-    if (is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true)) {
+    if (in_check) {
       return -mate;
     }
 

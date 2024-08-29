@@ -457,3 +457,31 @@ Score of 4k.c-0.27 vs 4ku-executable-stength3: 137 - 492 - 371  [0.323] 1000
 ...      White vs Black: 510 - 119 - 371  [0.696] 1000
 Elo difference: -129.0 +/- 17.5, LOS: 0.0 %, DrawRatio: 37.1 %
 ```
+
+### 0.28
+
+32 bit: 5408 bytes
+64 bit: 3994 bytes
+
+In-check extension
+
+```py
+info depth 1 score 56 time 0 nodes 20 pv b1c3
+info depth 2 score 0 time 0 nodes 59 pv b1c3
+info depth 3 score 52 time 1 nodes 523 nps 523000 pv b1c3
+info depth 4 score 0 time 2 nodes 1696 nps 848000 pv b1c3
+info depth 5 score 20 time 10 nodes 14426 nps 1442600 pv b1c3
+info depth 6 score 0 time 55 nodes 60534 nps 1100618 pv b1c3
+info depth 7 score 26 time 312 nodes 478381 nps 1533272 pv b1c3
+info depth 8 score 0 time 2106 nodes 2675432 nps 1270385 pv b1c3
+info depth 9 score 34 time 13891 nodes 21154897 nps 1522921 pv b1c3
+info depth 10 score 0 time 111026 nodes 155980657 nps 1404902 pv b1c3
+```
+
+```py
+Score of 4k.c-0.28 vs 4k.c-0.27: 1309 - 1173 - 518  [0.523] 3000
+...      4k.c-0.28 playing White: 1281 - 6 - 214  [0.925] 1501
+...      4k.c-0.28 playing Black: 28 - 1167 - 304  [0.120] 1499
+...      White vs Black: 2448 - 34 - 518  [0.902] 3000
+Elo difference: 15.8 +/- 11.3, LOS: 99.7 %, DrawRatio: 17.3 %
+```
