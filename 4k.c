@@ -237,32 +237,31 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 se(const u64 bb) { return south(east(bb)); }
 
+[[nodiscard]] static u64 shift(const u64 bb, const i32 shift, const u64 mask) {
+  return shift > 0 ? (bb << shift & mask) : (bb >> -shift & mask);
+}
+
 [[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
-                             u64 (*f)(const u64)) {
-  u64 mask = f(1ull << sq);
+                             const i32 shift_by, const u64 mask) {
+  u64 result = shift(1ull << sq, shift_by, mask);
   for (i32 i = 0; i < 6; i++) {
-    mask |= f(mask & ~blockers);
+    result |= shift(result & ~blockers, shift_by, mask);
   }
-
-  // Faster but more bytes
-  // mask |= f(mask & ~blockers);
-  // mask |= f(mask & ~blockers);
-  // mask |= f(mask & ~blockers);
-  // mask |= f(mask & ~blockers);
-  // mask |= f(mask & ~blockers);
-  // mask |= f(mask & ~blockers);
-
-  return mask;
+  return result;
 }
 
 [[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
-  return ray(sq, blockers, nw) | ray(sq, blockers, ne) | ray(sq, blockers, sw) |
-         ray(sq, blockers, se);
+  return ray(sq, blockers, 7, ~0x8080808080808080ull) |  // Northwest
+         ray(sq, blockers, 9, ~0x101010101010101ull) |   // Northeast
+         ray(sq, blockers, -9, ~0x8080808080808080ull) | // Southwest
+         ray(sq, blockers, -7, ~0x101010101010101ull);   // Southeast
 }
 
 [[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
-  return ray(sq, blockers, north) | ray(sq, blockers, east) |
-         ray(sq, blockers, south) | ray(sq, blockers, west);
+  return ray(sq, blockers, 8, ~0x0ull) |                 // North
+         ray(sq, blockers, -1, ~0x8080808080808080ull) | // West
+         ray(sq, blockers, -8, ~0x0ull) |                // South
+         ray(sq, blockers, 1, ~0x101010101010101ull);    // East
 }
 
 [[nodiscard]] static u64 knight(const i32 sq, const u64 blockers) {

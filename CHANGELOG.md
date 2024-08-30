@@ -537,3 +537,36 @@ Reduce bytes
 perft 6
 info depth 6 nodes 119060324 time 25042 nps 4754425
 ```
+
+### 0.31
+
+Optimize ray function
+
+32 bit: 5376 bytes
+64 bit: 3898 bytes
+
+```py
+perft 6
+info depth 6 nodes 119060324 time 15036 nps 7918350
+```
+
+```py
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 59 pv b1c3
+info depth 3 score 36 time 1 nodes 523 nps 523000 pv b1c3
+info depth 4 score 16 time 2 nodes 1687 nps 843500 pv b1c3
+info depth 5 score 4 time 7 nodes 14422 nps 2060285 pv b1c3
+info depth 6 score 14 time 34 nodes 62783 nps 1846558 pv b1c3
+info depth 7 score 10 time 201 nodes 473798 nps 2357203 pv b1c3
+info depth 8 score 16 time 1230 nodes 2495781 nps 2029090 pv b1c3
+info depth 9 score 16 time 12198 nodes 29979864 nps 2457768 pv b1c3
+info depth 10 score 16 time 75922 nodes 166044509 nps 2187040 pv b1c3
+```
+
+```py
+Score of 4k.c-0.30 vs 4k.c-0.29: 1271 - 1188 - 541  [0.514] 3000
+...      4k.c-0.30 playing White: 1259 - 5 - 237  [0.918] 1501
+...      4k.c-0.30 playing Black: 12 - 1183 - 304  [0.109] 1499
+...      White vs Black: 2442 - 17 - 541  [0.904] 3000
+Elo difference: 9.6 +/- 11.2, LOS: 95.3 %, DrawRatio: 18.0 %
+```
