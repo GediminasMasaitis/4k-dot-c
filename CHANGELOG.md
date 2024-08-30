@@ -525,3 +525,15 @@ Score of 4k.c-0.29 vs tscp1.82: 196 - 587 - 217  [0.304] 1000
 ...      White vs Black: 638 - 145 - 217  [0.747] 1000
 Elo difference: -143.5 +/- 20.2, LOS: 0.0 %, DrawRatio: 21.7 %
 ```
+
+### 0.30
+
+Reduce bytes
+
+32 bit: 5408 bytes
+64 bit: 3962 bytes
+
+```py
+perft 6
+info depth 6 nodes 119060324 time 25042 nps 4754425
+```

@@ -405,10 +405,9 @@ static void generate_pawn_moves(Move *const movelist, i32 *const num_moves,
     to_mask &= to_mask - 1;
     const u8 from = to + offset;
     if (to > 55) {
-      movelist[(*num_moves)++] = (Move){from, to, Queen};
-      movelist[(*num_moves)++] = (Move){from, to, Rook};
-      movelist[(*num_moves)++] = (Move){from, to, Bishop};
-      movelist[(*num_moves)++] = (Move){from, to, Knight};
+      for (u8 piece = Queen; piece >= Knight; piece--) {
+        movelist[(*num_moves)++] = (Move){from, to, piece};
+      }
     } else
       movelist[(*num_moves)++] = (Move){from, to, None};
   }
