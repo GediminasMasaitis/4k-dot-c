@@ -460,10 +460,10 @@ Elo difference: -129.0 +/- 17.5, LOS: 0.0 %, DrawRatio: 37.1 %
 
 ### 0.28
 
+In-check extension
+
 32 bit: 5408 bytes
 64 bit: 3994 bytes
-
-In-check extension
 
 ```py
 info depth 1 score 56 time 0 nodes 20 pv b1c3
@@ -484,4 +484,44 @@ Score of 4k.c-0.28 vs 4k.c-0.27: 1309 - 1173 - 518  [0.523] 3000
 ...      4k.c-0.28 playing Black: 28 - 1167 - 304  [0.120] 1499
 ...      White vs Black: 2448 - 34 - 518  [0.902] 3000
 Elo difference: 15.8 +/- 11.3, LOS: 99.7 %, DrawRatio: 17.3 %
+```
+
+### 0.29
+
+Tempo evaluation
+
+32 bit: 5408 bytes
+64 bit: 3994 bytes
+
+```
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 59 pv b1c3
+info depth 3 score 36 time 1 nodes 523 nps 523000 pv b1c3
+info depth 4 score 16 time 2 nodes 1687 nps 843500 pv b1c3
+info depth 5 score 4 time 10 nodes 14422 nps 1442200 pv b1c3
+info depth 6 score 14 time 54 nodes 62783 nps 1162648 pv b1c3
+info depth 7 score 10 time 310 nodes 473798 nps 1528380 pv b1c3
+info depth 8 score 16 time 1997 nodes 2495781 nps 1249765 pv b1c3
+info depth 9 score 16 time 19138 nodes 29979864 nps 1566509 pv b1c3
+info depth 10 score 16 time 120909 nodes 166044509 nps 1373301 pv b1c3
+```
+
+```py
+Score of 4k.c-0.29 vs 4k.c-0.28: 28795 - 27977 - 12228  [0.506] 69000
+...      4k.c-0.29 playing White: 28561 - 197 - 5743  [0.911] 34501
+...      4k.c-0.29 playing Black: 234 - 27780 - 6485  [0.101] 34499
+...      White vs Black: 56341 - 431 - 12228  [0.905] 69000
+Elo difference: 4.1 +/- 2.3, LOS: 100.0 %, DrawRatio: 17.7 %
+
+Score of 4k.c-0.29 vs 4ku-executable-stength3: 174 - 436 - 390  [0.369] 1000
+...      4k.c-0.29 playing White: 168 - 64 - 267  [0.604] 499
+...      4k.c-0.29 playing Black: 6 - 372 - 123  [0.135] 501
+...      White vs Black: 540 - 70 - 390  [0.735] 1000
+Elo difference: -93.2 +/- 17.0, LOS: 0.0 %, DrawRatio: 39.0 %
+
+Score of 4k.c-0.29 vs tscp1.82: 196 - 587 - 217  [0.304] 1000
+...      4k.c-0.29 playing White: 186 - 135 - 177  [0.551] 498
+...      4k.c-0.29 playing Black: 10 - 452 - 40  [0.060] 502
+...      White vs Black: 638 - 145 - 217  [0.747] 1000
+Elo difference: -143.5 +/- 20.2, LOS: 0.0 %, DrawRatio: 21.7 %
 ```
