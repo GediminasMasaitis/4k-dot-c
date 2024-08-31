@@ -495,7 +495,7 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
 }
 
 __attribute__((aligned(8))) static const i16 material[] = {127, 373,  406,
-                                                           633, 1220, 0};
+                                                           633, 1220, 0, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
     -20, -11, -1,  8,  16, 18, 5,  -16, // Knight
@@ -577,7 +577,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
       const i32 order_move_score =
           *(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index]
               ? 1000000
-              : piece_on(pos, moves[order_index].to) != None;
+              : material[piece_on(pos, moves[order_index].to)];
       if (order_move_score > move_score) {
         move_score = order_move_score;
 
