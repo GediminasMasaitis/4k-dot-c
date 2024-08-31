@@ -19,6 +19,10 @@ all:
 	ls -la ./build
 	./build/4k-dot-c
 
+dump:
+	gcc $(CFLAGS) -c 4k.c
+	objdump -s ./4k.o
+
 debug:
 	mkdir -p build
 	gcc -c -g 4k.c

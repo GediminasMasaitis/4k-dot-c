@@ -1,5 +1,9 @@
 #pragma region libc shims
 
+#ifdef _MSC_VER
+#define __attribute__(...)
+#endif
+
 #if defined(_WIN64) || defined(__x86_64__) || defined(__ppc64__) ||            \
     defined(__aarch64__)
 #define ARCH64 1
@@ -490,8 +494,9 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   return nodes;
 }
 
-static const i16 material[] = {127, 373, 406, 633, 1220, 0};
-static const i8 pst_rank[] = {
+__attribute__((aligned(8))) static const i16 material[] = {127, 373,  406,
+                                                           633, 1220, 0};
+__attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
     -20, -11, -1,  8,  16, 18, 5,  -16, // Knight
     -15, -3,  3,   6,  8,  9,  1,  -8,  // Bishop
@@ -499,7 +504,7 @@ static const i8 pst_rank[] = {
     -15, -9,  -6,  -2, 5,  11, 5,  11,  // Queen
     -12, -8,  -4,  3,  11, 14, 8,  -10, // King
 };
-static const i8 pst_file[] = {
+__attribute__((aligned(8))) static const i8 pst_file[] = {
     -2,  2,  -3, -1, -1, 1,  8,  -4,  // Pawn
     -17, -5, 4,  9,  9,  8,  1,  -9,  // Knight
     -8,  0,  2,  3,  4,  1,  3,  -4,  // Bishop
