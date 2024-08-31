@@ -8,49 +8,46 @@ Hello world, thanks to zamfofex
 ### 0.2
 Start of UCI
 
-32 bit: 335 bytes
+32 bit: 335 bytes (+164)
 
 ### 0.3
 64 bit binary, thanks to zamfofex
 
-32 bit: 335 bytes
-
+32 bit: 335 bytes (=)
 64 bit: 414 bytes
 
 ### 0.4
 
 Port 4ku base chess
 
-32 bit: 4992 bytes
-
-64 bit: 3872 bytes
+32 bit: 4992 bytes (+4657)
+64 bit: 3872 bytes (+3458)
 
 ### 0.5
 
 All static functions, gcc 14.2
 
 32- bit currently broken
-
-64 bit: 2528 bytes
+64 bit: 2528 bytes (-1344)
 
 ### 0.6
 
 UCI compliant engine which prints the first move
 
-64 bit: 3776 bytes
+64 bit: 3776 bytes (+1248)
 
 ### 0.7
 
 Add perft
 
-64 bit: 3776 bytes
+64 bit: 3776 bytes (=)
 
 
 ### 0.8
 
 Perft NPS
 
-64 bit: 3776 bytes
+64 bit: 3776 bytes (=)
 
 Perft: info depth 6 nodes 119060324 time 11034 nps 16843009
 
@@ -58,7 +55,7 @@ Perft: info depth 6 nodes 119060324 time 11034 nps 16843009
 
 Remove hyperbola quintessence
 
-64 bit: 3217 bytes
+64 bit: 3217 bytes (-559)
 
 Perft: info depth 6 nodes 119060324 time 20995 nps 16843009
 
@@ -67,13 +64,13 @@ Perft: info depth 6 nodes 119060324 time 20995 nps 16843009
 
 Fix legal movegen
 
-64 bit: 3313 bytes
+64 bit: 3313 bytes (+96)
 
 ### 0.11
 
 Material evaluation
 
-64 bit: 3490 bytes
+64 bit: 3490 bytes (+117)
 
 ```py
 Score of 4k.c-0.11 vs 4k.c-0.10: 858 - 0 - 9142  [0.543] 10000
@@ -87,7 +84,7 @@ Elo difference: 29.9 +/- 1.9, LOS: 100.0 %, DrawRatio: 91.4 %
 
 Fix evaluation
 
-64 bit: 3498 bytes
+64 bit: 3498 bytes (-8)
 
 ```py
 Score of 4k.c-0.12 vs 4k.c-0.11: 181 - 43 - 9776  [0.507] 10000
@@ -101,7 +98,7 @@ Elo difference: 4.8 +/- 1.0, LOS: 100.0 %, DrawRatio: 97.8 %
 
 Fixed-depth = 3 search
 
-64 bit: 3513 bytes
+64 bit: 3513 bytes (+15)
 
 ```py
 Score of 4k.c-0.13 vs 4k.c-0.12: 5722 - 4 - 4274  [0.786] 10000
@@ -115,14 +112,14 @@ Elo difference: 225.9 +/- 5.0, LOS: 100.0 %, DrawRatio: 42.7 %
 
 Fix search
 
-64 bit: 3513 bytes
+64 bit: 3513 bytes (=)
 
 
 ### 0.15
 
 Mate and stalemate dectection
 
-64 bit: 3577 bytes
+64 bit: 3577 bytes (+64)
 
 ```py
 Score of 4k.c-0.15 vs 4k.c-0.14: 554 - 196 - 4250  [0.536] 5000
@@ -136,7 +133,7 @@ Elo difference: 24.9 +/- 3.7, LOS: 100.0 %, DrawRatio: 85.0 %
 
 Iterative deepening
 
-64 bit: 3804 bytes
+64 bit: 3804 bytes (+227)
 
 ```py
 info depth 1 score 0 time 0 pv a2a3
@@ -160,7 +157,7 @@ Elo difference: 81.4 +/- 13.5, LOS: 100.0 %, DrawRatio: 59.4 %
 
 Alpha-beta pruning
 
-64 bit: 3856 bytes
+64 bit: 3856 bytes (+52)
 
 
 ```py
@@ -187,7 +184,7 @@ Elo difference: 56.1 +/- 15.7, LOS: 100.0 %, DrawRatio: 47.0 %
 
 Centrality evaluation
 
-64 bit: 3988 bytes
+64 bit: 3988 bytes (+132)
 
 ```py
 info depth 1 score 40 time 0 pv b1c3
@@ -213,7 +210,7 @@ Fail-hard approach
 
 Implemented by No4b
 
-64 bit: 3966 bytes
+64 bit: 3966 bytes (-22)
 
 ```py
 info depth 1 score 40 time 0 pv b1c3
@@ -241,7 +238,7 @@ SPRT: llr 2.94 (100.0%), lbound -2.94, ubound 2.94 - H1 was accepted
 
 Haswell arch build
 
-64 bit: 3944 bytes
+64 bit: 3944 bytes (-22)
 
 ```py
 info depth 1 score 40 time 0 pv b1c3
@@ -266,7 +263,7 @@ Elo difference: 3.9 +/- 14.0, LOS: 70.9 %, DrawRatio: 36.6 %
 Reduce eval constant size
 
 32 bit: 5216 bytes
-64 bit: 3904 bytes
+64 bit: 3904 bytes (-40)
 
 ```py
 info depth 1 score 40 time 0 pv b1c3
@@ -290,6 +287,9 @@ Elo difference: -0.3 +/- 15.6, LOS: 48.6 %, DrawRatio: 34.5 %
 
 Split quantized PST evaluation
 
+32 bit: 5264 bytes (+48)
+64 bit: 3967 bytes (+63)
+
 ```py
 info depth 1 score 56 time 0 pv b1c3
 info depth 2 score 0 time 0 pv b1c3
@@ -312,8 +312,8 @@ Elo difference: 22.3 +/- 12.1, LOS: 100.0 %, DrawRatio: 36.6 %
 
 Size savings, thanks to kz04px
 
-32 bit: 5104 bytes
-64 bit: 3802 bytes
+32 bit: 5104 bytes (-160)
+64 bit: 3802 bytes (-165)
 
 ```py
 perft 6
@@ -343,8 +343,8 @@ Elo difference: 4.2 +/- 17.4, LOS: 68.0 %, DrawRatio: 34.5 %
 
 Capture-first move ordering
 
-32 bit: 5200 bytes
-64 bit: 3898 bytes
+32 bit: 5200 bytes (+96)
+64 bit: 3898 bytes (+92)
 
 ```py
 info depth 1 score 56 time 0 pv b1c3
@@ -381,8 +381,8 @@ Elo difference: -496.3 +/- 31.9, LOS: 0.0 %, DrawRatio: 6.9 %
 
 Depth-limited qsearch
 
-32 bit: 5334 bytes
-64 bit: 3994 bytes
+32 bit: 5334 bytes (+134)
+64 bit: 3994 bytes (+96)
 
 ```py
 info depth 1 score 56 time 0 nodes 20 pv b1c3
@@ -406,8 +406,8 @@ Elo difference: 88.2 +/- 9.4, LOS: 100.0 %, DrawRatio: 43.5 %
 
 Best-ply-move ordering
 
-32 bit: 5376 bytes
-64 bit: 4026 bytes
+32 bit: 5376 bytes (+42)
+64 bit: 4026 bytes (+32)
 
 ```py
 info depth 1 score 56 time 0 nodes 20 pv b1c3
@@ -434,8 +434,8 @@ Elo difference: 55.4 +/- 15.0, LOS: 100.0 %, DrawRatio: 28.6 %
 
 Treat moves as 64-bit integers
 
-32 bit: 5408 bytes
-64 bit: 3994 bytes
+32 bit: 5408 bytes (+32)
+64 bit: 3994 bytes (-32)
 
 ```py
 info depth 1 score 56 time 0 nodes 20 pv b1c3
@@ -462,8 +462,8 @@ Elo difference: -129.0 +/- 17.5, LOS: 0.0 %, DrawRatio: 37.1 %
 
 In-check extension
 
-32 bit: 5408 bytes
-64 bit: 3994 bytes
+32 bit: 5408 bytes (=)
+64 bit: 3994 bytes (=)
 
 ```py
 info depth 1 score 56 time 0 nodes 20 pv b1c3
@@ -490,8 +490,8 @@ Elo difference: 15.8 +/- 11.3, LOS: 99.7 %, DrawRatio: 17.3 %
 
 Tempo evaluation
 
-32 bit: 5408 bytes
-64 bit: 3994 bytes
+32 bit: 5408 bytes (=)
+64 bit: 3994 bytes (=)
 
 ```
 info depth 1 score 40 time 0 nodes 20 pv b1c3
@@ -530,8 +530,8 @@ Elo difference: -143.5 +/- 20.2, LOS: 0.0 %, DrawRatio: 21.7 %
 
 Reduce bytes
 
-32 bit: 5408 bytes
-64 bit: 3962 bytes
+32 bit: 5408 bytes (=)
+64 bit: 3962 bytes (-32)
 
 ```py
 perft 6
@@ -542,8 +542,8 @@ info depth 6 nodes 119060324 time 25042 nps 4754425
 
 Optimize ray function
 
-32 bit: 5376 bytes
-64 bit: 3898 bytes
+32 bit: 5376 bytes (-32)
+64 bit: 3898 bytes (-36)
 
 ```py
 perft 6
@@ -575,8 +575,8 @@ Elo difference: 9.6 +/- 11.2, LOS: 95.3 %, DrawRatio: 18.0 %
 
 Reduce bytes
 
-32 bit: 5328 bytes
-64 bit: 3858 bytes
+32 bit: 5328 bytes (-48)
+64 bit: 3858 bytes (-40)
 
 ```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
@@ -595,8 +595,8 @@ info depth 10 score 16 time 77434 nodes 166044509 nps 2144335 pv b1c3
 
 Fix UCI time parsing bug
 
-32 bit: 5312 bytes
-64 bit: 3842 bytes
+32 bit: 5312 bytes (-12)
+64 bit: 3842 bytes (-16)
 
 ```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
@@ -617,4 +617,16 @@ Score of 4k.c-0.33 vs 4k.c-0.32: 528 - 105 - 367  [0.712] 1000
 ...      4k.c-0.33 playing Black: 124 - 104 - 269  [0.520] 497
 ...      White vs Black: 508 - 125 - 367  [0.692] 1000
 Elo difference: 156.8 +/- 17.7, LOS: 100.0 %, DrawRatio: 36.7 %
+
+Score of 4k.c-0.33 vs 4ku-executable-stength3: 373 - 127 - 500  [0.623] 1000
+...      4k.c-0.33 playing White: 219 - 49 - 234  [0.669] 502
+...      4k.c-0.33 playing Black: 154 - 78 - 266  [0.576] 498
+...      White vs Black: 297 - 203 - 500  [0.547] 1000
+Elo difference: 87.3 +/- 15.2, LOS: 100.0 %, DrawRatio: 50.0 %
+
+Score of 4k.c-0.33 vs tscp1.82: 393 - 250 - 357  [0.572] 1000
+...      4k.c-0.33 playing White: 212 - 94 - 194  [0.618] 500
+...      4k.c-0.33 playing Black: 181 - 156 - 163  [0.525] 500
+...      White vs Black: 368 - 275 - 357  [0.546] 1000
+Elo difference: 50.0 +/- 17.3, LOS: 100.0 %, DrawRatio: 35.7 %
 ```
