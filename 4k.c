@@ -26,10 +26,10 @@
 #define false 0
 #define true 1
 
-enum [[nodiscard]]{
-    stdin = 0,
-    stdout = 1,
-    stderr = 2,
+enum [[nodiscard]] {
+  stdin = 0,
+  stdout = 1,
+  stderr = 2,
 };
 
 ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
@@ -180,7 +180,7 @@ typedef struct [[nodiscard]] {
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-enum [[nodiscard]]{Pawn, Knight, Bishop, Rook, Queen, King, None};
+enum [[nodiscard]] { Pawn, Knight, Bishop, Rook, Queen, King, None };
 
 typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
