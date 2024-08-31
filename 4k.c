@@ -48,7 +48,7 @@ ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
-static void *memcpy(void *const dest, const void *const src, size_t n) {
+static void *memcpy(void *const dest, const void *const src, const size_t n) {
   char *d = dest;
   const char *s = src;
 
@@ -57,6 +57,19 @@ static void *memcpy(void *const dest, const void *const src, size_t n) {
   }
 
   return dest;
+}
+
+static i32 memcmp(const void* const s1, const void* const s2, const size_t n) {
+    const char* p1 = s1;
+    const char* p2 = s2;
+
+    for (size_t i = 0; i < n; i++) {
+        if (p1[i] != p2[i]) {
+            return p1[i] - p2[i];
+        }
+    }
+
+    return 0;
 }
 
 [[nodiscard]] int abs(const int x) { return (x < 0) ? -x : x; }
@@ -545,7 +558,16 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                   u64 *nodes,
 #endif
-                  Move *best_moves) {
+                  Position *history, Move *best_moves) {
+    memcpy(&history[ply], pos, sizeof(Position));
+    for(i32 previous_ply = 0; previous_ply < ply; previous_ply++)
+    {
+        if(!memcmp(pos, &history[previous_ply], sizeof(Position)))
+        {
+            return 0;
+        }
+    }
+
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
   if (in_check) {
@@ -595,12 +617,11 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     }
     moves_evaluated++;
 
-    Move child_best_move;
     i32 score = -search(&npos, ply + 1, depth - 1, -beta, -alpha,
 #if FULL
                         nodes,
 #endif
-                        best_moves);
+                        history, best_moves);
 
     if (score > alpha) {
       best_moves[ply] = moves[move_index];
@@ -628,12 +649,13 @@ static void iteratively_deepen(Position *const pos, const size_t total_time) {
   const size_t start_time = get_time();
   Move best_moves[128];
   for (i32 depth = 1; depth < 128; depth++) {
+    Position history[128];
     u64 nodes = 0;
     size_t score = search(pos, 0, depth, -inf, inf,
 #if FULL
                           &nodes,
 #endif
-                          best_moves);
+            history, best_moves);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
