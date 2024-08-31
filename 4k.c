@@ -711,8 +711,6 @@ void _start() {
       getw(line); // wtime
       getw(line); // wtime value
       if (pos.flipped) {
-        getw(line); // winc
-        getw(line); // winc value
         getw(line); // btime
         getw(line); // btime value
       }

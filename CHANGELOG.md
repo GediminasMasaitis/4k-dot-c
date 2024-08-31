@@ -578,7 +578,7 @@ Reduce bytes
 32 bit: 5328 bytes
 64 bit: 3858 bytes
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 59 pv b1c3
 info depth 3 score 36 time 0 nodes 523 pv b1c3
@@ -589,4 +589,32 @@ info depth 7 score 10 time 200 nodes 473798 nps 2368990 pv b1c3
 info depth 8 score 16 time 1246 nodes 2495781 nps 2003034 pv b1c3
 info depth 9 score 16 time 12323 nodes 29979864 nps 2432838 pv b1c3
 info depth 10 score 16 time 77434 nodes 166044509 nps 2144335 pv b1c3
+```
+
+### 0.33
+
+Fix UCI time parsing bug
+
+32 bit: 5312 bytes
+64 bit: 3842 bytes
+
+```py
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 59 pv b1c3
+info depth 3 score 36 time 1 nodes 523 nps 523000 pv b1c3
+info depth 4 score 16 time 1 nodes 1687 nps 1687000 pv b1c3
+info depth 5 score 4 time 8 nodes 14422 nps 1802750 pv b1c3
+info depth 6 score 14 time 35 nodes 62783 nps 1793800 pv b1c3
+info depth 7 score 10 time 204 nodes 473798 nps 2322539 pv b1c3
+info depth 8 score 16 time 1254 nodes 2495781 nps 1990255 pv b1c3
+info depth 9 score 16 time 12671 nodes 29979864 nps 2366021 pv b1c3
+info depth 10 score 16 time 78500 nodes 166044509 nps 2115216 pv b1c3
+```
+
+```py
+Score of 4k.c-0.33 vs 4k.c-0.32: 528 - 105 - 367  [0.712] 1000
+...      4k.c-0.33 playing White: 404 - 1 - 98  [0.901] 503
+...      4k.c-0.33 playing Black: 124 - 104 - 269  [0.520] 497
+...      White vs Black: 508 - 125 - 367  [0.692] 1000
+Elo difference: 156.8 +/- 17.7, LOS: 100.0 %, DrawRatio: 36.7 %
 ```
