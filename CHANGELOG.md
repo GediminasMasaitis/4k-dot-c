@@ -669,3 +669,10 @@ Score of 4k.c-0.34 vs 4k.c-0.33: 407 - 276 - 817  [0.544] 1500
 ...      White vs Black: 356 - 327 - 817  [0.510] 1500
 Elo difference: 30.4 +/- 11.8, LOS: 100.0 %, DrawRatio: 54.5 %
 ```
+
+### 3.35
+
+Reduce bytes
+
+32 bit: 5296 bytes (-16)
+64 bit: 3840 bytes (-4)

@@ -663,6 +663,7 @@ static void iteratively_deepen(Position *const pos, const size_t total_time) {
 }
 
 void _start() {
+  char line[256];
   Position pos;
   Move moves[256];
   i32 num_moves;
@@ -676,14 +677,23 @@ void _start() {
                    .ep = 0};
 #endif
 
+#if !FULL
+  // Assume first input is "uci"
+  getw(line);
+  puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
+#endif
+
   // UCI loop
   while (true) {
     char move_name[256];
-    char line[256];
+
     getw(line);
+#if FULL
     if (!strcmp(line, "uci")) {
-      puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
-    } else if (!strcmp(line, "isready")) {
+        puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
+    } else
+#endif
+    if (!strcmp(line, "isready")) {
       puts("readyok\n");
     } else if (!strcmp(line, "position")) {
       pos = (Position){.castling = {true, true, true, true},
