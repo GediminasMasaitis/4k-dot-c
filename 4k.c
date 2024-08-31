@@ -26,10 +26,10 @@
 #define false 0
 #define true 1
 
-enum [[nodiscard]] {
-  stdin = 0,
-  stdout = 1,
-  stderr = 2,
+enum [[nodiscard]]{
+    stdin = 0,
+    stdout = 1,
+    stderr = 2,
 };
 
 ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
@@ -180,7 +180,7 @@ typedef struct [[nodiscard]] {
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-enum [[nodiscard]] { Pawn, Knight, Bishop, Rook, Queen, King, None };
+enum [[nodiscard]]{Pawn, Knight, Bishop, Rook, Queen, King, None};
 
 typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
@@ -494,8 +494,8 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {127, 373,  406,
-                                                           633, 1220, 0, 0};
+__attribute__((aligned(8))) static const i16 material[] = {127,  373, 406, 633,
+                                                           1220, 0,   0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
     -20, -11, -1,  8,  16, 18, 5,  -16, // Knight
