@@ -654,7 +654,7 @@ info depth 10 score 16 time 70831 nodes 147757798 nps 2086061 pv b1c3
 ```
 
 Test performed by No4b: 
-```
+```py
 Score of 4k_d vs 4k_m: 635 - 507 - 1258 [0.527] 2400
 ... 4k_d playing White: 369 - 219 - 612 [0.563] 1200
 ... 4k_d playing Black: 266 - 288 - 646 [0.491] 1200
@@ -662,7 +662,7 @@ Score of 4k_d vs 4k_m: 635 - 507 - 1258 [0.527] 2400
 Elo difference: 18.5 +/- 9.6, LOS: 100.0 %, DrawRatio: 52.4 %
 ```
 
-```
+```py
 Score of 4k.c-0.34 vs 4k.c-0.33: 407 - 276 - 817  [0.544] 1500
 ...      4k.c-0.34 playing White: 205 - 125 - 421  [0.553] 751
 ...      4k.c-0.34 playing Black: 202 - 151 - 396  [0.534] 749
@@ -672,7 +672,44 @@ Elo difference: 30.4 +/- 11.8, LOS: 100.0 %, DrawRatio: 54.5 %
 
 ### 3.35
 
-Reduce bytes
+Reverse futility pruning
 
-32 bit: 5296 bytes (-16)
-64 bit: 3840 bytes (-4)
+32 bit: 5328 bytes (+12)
+64 bit: 3856 bytes (+12)
+
+```py
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 59 pv b1c3
+info depth 3 score 36 time 0 nodes 523 pv b1c3
+info depth 4 score 16 time 1 nodes 1665 nps 1665000 pv b1c3
+info depth 5 score 4 time 6 nodes 14326 nps 2387666 pv b1c3
+info depth 6 score 14 time 27 nodes 49185 nps 1821666 pv b1c3
+info depth 7 score 10 time 184 nodes 444454 nps 2415510 pv b1c3
+info depth 8 score 16 time 1003 nodes 1974087 nps 1968182 pv b1c3
+info depth 9 score 16 time 10542 nodes 25976472 nps 2464093 pv b1c3
+info depth 10 score 16 time 61508 nodes 128283178 nps 2085634 pv b1c3
+```
+
+Test performed by No4b: 
+```py
+Score of 4k_d vs 4k_m: 225 - 167 - 487  [0.533] 879
+...      4k_d playing White: 143 - 63 - 232  [0.591] 438
+...      4k_d playing Black: 82 - 104 - 255  [0.475] 441
+...      White vs Black: 247 - 145 - 487  [0.558] 879
+Elo difference: 23.0 +/- 15.3, LOS: 99.8 %, DrawRatio: 55.4 %
+SPRT: llr 2.95 (100.1%), lbound -2.94, ubound 2.94 - H1 was accepted
+```
+
+```py
+Score of 4k.c-0.35 vs 4k.c-0.34: 262 - 192 - 546  [0.535] 1000
+...      4k.c-0.35 playing White: 123 - 97 - 281  [0.526] 501
+...      4k.c-0.35 playing Black: 139 - 95 - 265  [0.544] 499
+...      White vs Black: 218 - 236 - 546  [0.491] 1000
+Elo difference: 24.4 +/- 14.5, LOS: 99.9 %, DrawRatio: 54.6 %
+
+Score of 4k.c-0.35 vs tscp1.82: 429 - 197 - 374  [0.616] 1000
+...      4k.c-0.35 playing White: 225 - 75 - 201  [0.650] 501
+...      4k.c-0.35 playing Black: 204 - 122 - 173  [0.582] 499
+...      White vs Black: 347 - 279 - 374  [0.534] 1000
+Elo difference: 82.1 +/- 17.2, LOS: 100.0 %, DrawRatio: 37.4 %
+```

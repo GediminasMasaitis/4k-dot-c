@@ -555,14 +555,15 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
 
+  if (!in_check && static_eval - 128 * depth * (depth > 0) >= beta) {
+    return static_eval;
+  }
+
   if (depth < -3) {
     return static_eval;
   }
 
   if (in_qsearch && static_eval > alpha) {
-    if (static_eval >= beta) {
-      return static_eval;
-    }
     alpha = static_eval;
   }
 
