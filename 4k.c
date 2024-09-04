@@ -628,8 +628,8 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 static void iteratively_deepen(Position *const pos, const size_t total_time) {
   const size_t start_time = get_time();
   Move best_moves[128];
+  u64 nodes = 0;
   for (i32 depth = 1; depth < 128; depth++) {
-    u64 nodes = 0;
     size_t score = search(pos, 0, depth, -inf, inf,
 #if FULL
                           &nodes,

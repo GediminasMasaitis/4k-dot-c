@@ -713,3 +713,23 @@ Score of 4k.c-0.35 vs tscp1.82: 429 - 197 - 374  [0.616] 1000
 ...      White vs Black: 347 - 279 - 374  [0.534] 1000
 Elo difference: 82.1 +/- 17.2, LOS: 100.0 %, DrawRatio: 37.4 %
 ```
+
+### 3.36
+
+Fix node counting
+
+32 bit: 5328 bytes (=)
+64 bit: 3856 bytes (=)
+
+```py
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 79 pv b1c3
+info depth 3 score 36 time 0 nodes 602 pv b1c3
+info depth 4 score 16 time 1 nodes 2267 nps 2267000 pv b1c3
+info depth 5 score 4 time 6 nodes 16593 nps 2765500 pv b1c3
+info depth 6 score 14 time 26 nodes 65778 nps 2529923 pv b1c3
+info depth 7 score 10 time 184 nodes 510232 nps 2773000 pv b1c3
+info depth 8 score 16 time 1012 nodes 2484319 nps 2454860 pv b1c3
+info depth 9 score 16 time 10557 nodes 28460791 nps 2695916 pv b1c3
+info depth 10 score 16 time 60433 nodes 156743969 nps 2593681 pv b1c3
+```
