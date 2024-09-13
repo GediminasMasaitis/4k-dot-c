@@ -741,7 +741,7 @@ Full time management
 32 bit: 5376 bytes (+48)
 64 bit: 3952 bytes (+96)
 
-```
+```py
 Finished game 207 (4k.c-0.37 vs 4k.c-0.36): 1-0 {Black's connection stalls}
 Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
 Finished game 223 (4k.c-0.37 vs 4k.c-0.36): * {No result}
@@ -777,10 +777,30 @@ Elo difference: -12.9 +/- 34.0, LOS: 22.9 %, DrawRatio: 46.3 %
 Finished match
 ```
 
-```
+```py
 Score of 4k.c-0.37 vs stash11: 675 - 641 - 684  [0.508] 2000
 ...      4k.c-0.37 playing White: 387 - 255 - 358  [0.566] 1000
 ...      4k.c-0.37 playing Black: 288 - 386 - 326  [0.451] 1000
 ...      White vs Black: 773 - 543 - 684  [0.557] 2000
 Elo difference: 5.9 +/- 12.3, LOS: 82.6 %, DrawRatio: 34.2 %
+```
+
+### 3.38
+
+Smaller TM using globals
+
+32 bit: 5376 bytes (-24)
+64 bit: 3944 bytes (-8)
+
+```py
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 79 pv b1c3
+info depth 3 score 36 time 0 nodes 602 pv b1c3
+info depth 4 score 16 time 1 nodes 2267 nps 2267000 pv b1c3
+info depth 5 score 4 time 5 nodes 16593 nps 3318600 pv b1c3
+info depth 6 score 14 time 24 nodes 65778 nps 2740750 pv b1c3
+info depth 7 score 10 time 169 nodes 510232 nps 3019124 pv b1c3
+info depth 8 score 16 time 927 nodes 2484319 nps 2679955 pv b1c3
+info depth 9 score 16 time 9739 nodes 28460791 nps 2922352 pv b1c3
+info depth 10 score 16 time 56980 nodes 156743969 nps 2750859 pv b1c3
 ```

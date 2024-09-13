@@ -539,14 +539,15 @@ static i32 eval(Position *const pos) {
 }
 
 enum { inf = 32000, mate = 30000 };
+size_t start_time;
+size_t total_time;
 
 static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
                   const i32 beta,
 #if FULL
                   u64 *nodes,
 #endif
-                  Move *best_moves, const size_t start_time,
-                  const size_t total_time) {
+                  Move *best_moves) {
 
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
@@ -607,7 +608,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                         nodes,
 #endif
-                        best_moves, start_time, total_time);
+                        best_moves);
 
     if (score > alpha) {
       best_moves[ply] = moves[move_index];
@@ -631,8 +632,8 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 }
 // #define FULL true
 
-static void iteratively_deepen(Position *const pos, const size_t total_time) {
-  const size_t start_time = get_time();
+static void iteratively_deepen(Position *const pos) {
+  start_time = get_time();
   Move best_moves[128];
   u64 nodes = 0;
   for (i32 depth = 1; depth < 128; depth++) {
@@ -640,7 +641,7 @@ static void iteratively_deepen(Position *const pos, const size_t total_time) {
 #if FULL
                           &nodes,
 #endif
-                          best_moves, start_time, total_time);
+                          best_moves);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
@@ -731,13 +732,14 @@ void _start() {
         getw(line); // btime
         getw(line); // btime value
       }
-      const size_t total_time = stoi(line);
-      iteratively_deepen(&pos, total_time);
+      total_time = stoi(line);
+      iteratively_deepen(&pos);
     }
 #if FULL
     // go infinite
     else if (!strcmp(line, "gi")) {
-      iteratively_deepen(&pos, 99999999999);
+      total_time = 99999999999;
+      iteratively_deepen(&pos);
     }
 #endif
 #if FULL
