@@ -733,3 +733,54 @@ info depth 8 score 16 time 1012 nodes 2484319 nps 2454860 pv b1c3
 info depth 9 score 16 time 10557 nodes 28460791 nps 2695916 pv b1c3
 info depth 10 score 16 time 60433 nodes 156743969 nps 2593681 pv b1c3
 ```
+
+### 3.37
+
+Full time management
+
+32 bit: 5376 bytes (+48)
+64 bit: 3952 bytes (+96)
+
+```
+Finished game 207 (4k.c-0.37 vs 4k.c-0.36): 1-0 {Black's connection stalls}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 223 (4k.c-0.37 vs 4k.c-0.36): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 222 (4k.c-0.36 vs 4k.c-0.37): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 220 (4k.c-0.36 vs 4k.c-0.37): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 218 (4k.c-0.36 vs 4k.c-0.37): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+...      4k.c-0.37 playing White: 38 - 20 - 51  [0.583] 109
+...      4k.c-0.37 playing Black: 16 - 42 - 49  [0.379] 107
+...      White vs Black: 80 - 36 - 100  [0.602] 216
+Elo difference: -12.9 +/- 34.0, LOS: 22.9 %, DrawRatio: 46.3 %
+Finished game 216 (4k.c-0.36 vs 4k.c-0.37): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 227 (4k.c-0.37 vs 4k.c-0.36): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 224 (4k.c-0.36 vs 4k.c-0.37): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 219 (4k.c-0.37 vs 4k.c-0.36): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 225 (4k.c-0.37 vs 4k.c-0.36): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 221 (4k.c-0.37 vs 4k.c-0.36): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+Finished game 226 (4k.c-0.36 vs 4k.c-0.37): * {No result}
+Score of 4k.c-0.37 vs 4k.c-0.36: 54 - 62 - 100  [0.481] 216
+...      4k.c-0.37 playing White: 38 - 20 - 51  [0.583] 109
+...      4k.c-0.37 playing Black: 16 - 42 - 49  [0.379] 107
+...      White vs Black: 80 - 36 - 100  [0.602] 216
+Elo difference: -12.9 +/- 34.0, LOS: 22.9 %, DrawRatio: 46.3 %
+Finished match
+```
+
+```
+Score of 4k.c-0.37 vs stash11: 675 - 641 - 684  [0.508] 2000
+...      4k.c-0.37 playing White: 387 - 255 - 358  [0.566] 1000
+...      4k.c-0.37 playing Black: 288 - 386 - 326  [0.451] 1000
+...      White vs Black: 773 - 543 - 684  [0.557] 2000
+Elo difference: 5.9 +/- 12.3, LOS: 82.6 %, DrawRatio: 34.2 %
+```

@@ -545,7 +545,9 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                   u64 *nodes,
 #endif
-                  Move *best_moves) {
+                  Move *best_moves, const size_t start_time,
+                  const size_t total_time) {
+
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
   if (in_check) {
@@ -561,6 +563,10 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 
   if (depth < -3) {
     return static_eval;
+  }
+
+  if (depth > 2 && get_time() - start_time > total_time / 4) {
+    return alpha;
   }
 
   if (in_qsearch && static_eval > alpha) {
@@ -601,7 +607,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                         nodes,
 #endif
-                        best_moves);
+                        best_moves, start_time, total_time);
 
     if (score > alpha) {
       best_moves[ply] = moves[move_index];
@@ -634,7 +640,7 @@ static void iteratively_deepen(Position *const pos, const size_t total_time) {
 #if FULL
                           &nodes,
 #endif
-                          best_moves);
+                          best_moves, start_time, total_time);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
@@ -691,10 +697,10 @@ void _start() {
     getw(line);
 #if FULL
     if (!strcmp(line, "uci")) {
-        puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
+      puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
     } else
 #endif
-    if (!strcmp(line, "isready")) {
+        if (!strcmp(line, "isready")) {
       puts("readyok\n");
     } else if (!strcmp(line, "position")) {
       pos = (Position){.castling = {true, true, true, true},
