@@ -601,14 +601,29 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     if (!makemove(&npos, &moves[move_index])) {
       continue;
     }
-    moves_evaluated++;
 
-    Move child_best_move;
-    i32 score = -search(&npos, ply + 1, depth - 1, -beta, -alpha,
+    i32 score;
+    i32 low = -alpha - 1;
+    i32 high = -alpha;
+
+    if (moves_evaluated == 0) {
+        low = -beta;
+    }
+
+start_search:
+    score = -search(&npos, ply + 1, depth - 1, low, high,
 #if FULL
-                        nodes,
+        nodes,
 #endif
-                        best_moves);
+        best_moves);
+
+    if (moves_evaluated != 0 && low != -beta && score > alpha && score < beta)
+    {
+        low = -beta;
+        goto start_search;
+    }
+
+    moves_evaluated++;
 
     if (score > alpha) {
       best_moves[ply] = moves[move_index];
