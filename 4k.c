@@ -602,25 +602,29 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
       continue;
     }
 
-    i32 score;
-    i32 low = -alpha - 1;
-    i32 high = -alpha;
-
-    if (moves_evaluated == 0) {
-        low = -beta;
+    i32 child_alpha = -beta;
+    i32 reduction = 0;
+    if (!in_qsearch && moves_evaluated) {
+      child_alpha = -alpha - 1;
+      reduction = depth > 3 && moves_evaluated > 3;
     }
 
-start_search:
-    score = -search(&npos, ply + 1, depth - 1, low, high,
+  do_search:
+    const int score =
+        -search(&npos, ply + 1, depth - reduction - 1, child_alpha, -alpha,
 #if FULL
-        nodes,
+                nodes,
 #endif
-        best_moves);
+                best_moves);
 
-    if (moves_evaluated != 0 && low != -beta && score > alpha && score < beta)
-    {
-        low = -beta;
-        goto start_search;
+    if (reduction > 0 && score > alpha) {
+      reduction = 0;
+      goto do_search;
+    }
+
+    if (score > alpha && score < beta && child_alpha == -alpha - 1) {
+      child_alpha = -beta;
+      goto do_search;
     }
 
     moves_evaluated++;
