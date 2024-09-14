@@ -804,3 +804,31 @@ info depth 8 score 16 time 927 nodes 2484319 nps 2679955 pv b1c3
 info depth 9 score 16 time 9739 nodes 28460791 nps 2922352 pv b1c3
 info depth 10 score 16 time 56980 nodes 156743969 nps 2750859 pv b1c3
 ```
+
+### 3.39
+
+Principal variation search
+
+32 bit: 5432 bytes (+56)
+64 bit: 4032 bytes (+88)
+
+```
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 79 pv b1c3
+info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score 16 time 2 nodes 2263 nps 1131500 pv b1c3
+info depth 5 score 4 time 6 nodes 16084 nps 2680666 pv b1c3
+info depth 6 score 14 time 25 nodes 62502 nps 2500080 pv b1c3
+info depth 7 score 10 time 163 nodes 465677 nps 2856914 pv b1c3
+info depth 8 score 16 time 844 nodes 2130598 nps 2524405 pv b1c3
+info depth 9 score 16 time 7201 nodes 19850163 nps 2756584 pv b1c3
+info depth 10 score 16 time 46630 nodes 121079779 nps 2596606 pv b1c3
+```
+
+```
+Score of 4k.c-0.39 vs 4k.c-0.38: 294 - 167 - 539  [0.564] 1000
+...      4k.c-0.39 playing White: 167 - 67 - 267  [0.600] 501
+...      4k.c-0.39 playing Black: 127 - 100 - 272  [0.527] 499
+...      White vs Black: 267 - 194 - 539  [0.536] 1000
+Elo difference: 44.4 +/- 14.6, LOS: 100.0 %, DrawRatio: 53.9 %
+```
