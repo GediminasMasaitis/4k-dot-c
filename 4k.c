@@ -696,7 +696,7 @@ void _start() {
 #if !FULL
   // Assume first input is "uci"
   getw(line);
-  puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
+  puts("id name 4k.c\nid author Gedas\nuciok\n");
 #endif
 
   // UCI loop
@@ -704,7 +704,7 @@ void _start() {
     getw(line);
 #if FULL
     if (!strcmp(line, "uci")) {
-      puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
+      puts("id name 4k.c\nid author Gedas\nuciok\n");
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
       iteratively_deepen(&pos);
