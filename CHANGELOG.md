@@ -631,7 +631,7 @@ Score of 4k.c-0.33 vs tscp1.82: 393 - 250 - 357  [0.572] 1000
 Elo difference: 50.0 +/- 17.3, LOS: 100.0 %, DrawRatio: 35.7 %
 ```
 
-### 3.34
+### 0.34
 
 MVV move ordering
 
@@ -670,7 +670,7 @@ Score of 4k.c-0.34 vs 4k.c-0.33: 407 - 276 - 817  [0.544] 1500
 Elo difference: 30.4 +/- 11.8, LOS: 100.0 %, DrawRatio: 54.5 %
 ```
 
-### 3.35
+### 0.35
 
 Reverse futility pruning
 
@@ -714,7 +714,7 @@ Score of 4k.c-0.35 vs tscp1.82: 429 - 197 - 374  [0.616] 1000
 Elo difference: 82.1 +/- 17.2, LOS: 100.0 %, DrawRatio: 37.4 %
 ```
 
-### 3.36
+### 0.36
 
 Fix node counting
 
@@ -734,7 +734,7 @@ info depth 9 score 16 time 10557 nodes 28460791 nps 2695916 pv b1c3
 info depth 10 score 16 time 60433 nodes 156743969 nps 2593681 pv b1c3
 ```
 
-### 3.37
+### 0.37
 
 Full time management
 
@@ -785,7 +785,7 @@ Score of 4k.c-0.37 vs stash11: 675 - 641 - 684  [0.508] 2000
 Elo difference: 5.9 +/- 12.3, LOS: 82.6 %, DrawRatio: 34.2 %
 ```
 
-### 3.38
+### 0.38
 
 Smaller TM using globals
 
@@ -805,7 +805,7 @@ info depth 9 score 16 time 9739 nodes 28460791 nps 2922352 pv b1c3
 info depth 10 score 16 time 56980 nodes 156743969 nps 2750859 pv b1c3
 ```
 
-### 3.39
+### 0.39
 
 Principal variation search
 
@@ -831,4 +831,32 @@ Score of 4k.c-0.39 vs 4k.c-0.38: 294 - 167 - 539  [0.564] 1000
 ...      4k.c-0.39 playing Black: 127 - 100 - 272  [0.527] 499
 ...      White vs Black: 267 - 194 - 539  [0.536] 1000
 Elo difference: 44.4 +/- 14.6, LOS: 100.0 %, DrawRatio: 53.9 %
+```
+
+### 0.40
+
+Remove qsearch depth limit
+
+32 bit: 5432 bytes (=)
+64 bit: 4024 bytes (-8)
+
+```
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 79 pv b1c3
+info depth 3 score 36 time 0 nodes 602 pv b1c3
+info depth 4 score 16 time 1 nodes 2263 nps 2263000 pv b1c3
+info depth 5 score 4 time 6 nodes 16084 nps 2680666 pv b1c3
+info depth 6 score 14 time 24 nodes 62502 nps 2604250 pv b1c3
+info depth 7 score 10 time 161 nodes 466435 nps 2897111 pv b1c3
+info depth 8 score 16 time 840 nodes 2140615 nps 2548351 pv b1c3
+info depth 9 score 16 time 5246 nodes 14916338 nps 2843373 pv b1c3
+info depth 10 score 16 time 37518 nodes 97307407 nps 2593619 pv b1c3
+```
+
+```
+Score of 4k.c-0.40 vs 4k.c-0.39: 522 - 458 - 1023  [0.516] 2003
+...      4k.c-0.40 playing White: 310 - 181 - 511  [0.564] 1002
+...      4k.c-0.40 playing Black: 212 - 277 - 512  [0.468] 1001
+...      White vs Black: 587 - 393 - 1023  [0.548] 2003
+Elo difference: 11.1 +/- 10.6, LOS: 98.0 %, DrawRatio: 51.1 %
 ```
