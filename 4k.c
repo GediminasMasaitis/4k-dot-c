@@ -679,7 +679,7 @@ static void iteratively_deepen(Position *const pos) {
 }
 
 void _start() {
-  char line[256];
+  char line[1024];
   Position pos;
   Move moves[256];
   i32 num_moves;
