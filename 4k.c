@@ -705,11 +705,25 @@ void _start() {
 #if FULL
     if (!strcmp(line, "uci")) {
       puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
-    } else
+    } else if (!strcmp(line, "gi")) {
+      total_time = 99999999999;
+      iteratively_deepen(&pos);
+    } else if (!strcmp(line, "perft")) {
+      char depth_str[4];
+      getw(depth_str);
+      const i32 depth = stoi(depth_str);
+      const u64 start = get_time();
+      const u64 nodes = perft(&pos, depth);
+      const u64 end = get_time();
+      const i32 elapsed = end - start;
+      const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
+      printf("info depth %i nodes %i time %i nps %i \n", depth, nodes,
+             end - start, nps);
+    }
 #endif
-        if (!strcmp(line, "isready")) {
+    if (line[0] == 'i') {
       puts("readyok\n");
-    } else if (!strcmp(line, "position")) {
+    } else if (line[0] == 'p') {
       pos = (Position){.castling = {true, true, true, true},
                        .colour = {0xFFFFull, 0xFFFF000000000000ull},
                        .pieces = {0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -732,7 +746,7 @@ void _start() {
           break;
         }
       }
-    } else if (!strcmp(line, "go")) {
+    } else if (line[0] == 'g') {
       getw(line); // wtime
       getw(line); // wtime value
       if (pos.flipped) {
@@ -742,27 +756,6 @@ void _start() {
       total_time = stoi(line);
       iteratively_deepen(&pos);
     }
-#if FULL
-    // go infinite
-    else if (!strcmp(line, "gi")) {
-      total_time = 99999999999;
-      iteratively_deepen(&pos);
-    }
-#endif
-#if FULL
-    else if (!strcmp(line, "perft")) {
-      char depth_str[4];
-      getw(depth_str);
-      const i32 depth = stoi(depth_str);
-      const u64 start = get_time();
-      const u64 nodes = perft(&pos, depth);
-      const u64 end = get_time();
-      const i32 elapsed = end - start;
-      const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
-      printf("info depth %i nodes %i time %i nps %i \n", depth, nodes,
-             end - start, nps);
-    }
-#endif
   }
 
   // Exit

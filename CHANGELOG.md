@@ -920,3 +920,23 @@ info depth 8 score 16 time 833 nodes 2140615 nps 2569765 pv b1c3
 info depth 9 score 16 time 5213 nodes 14916338 nps 2861373 pv b1c3
 info depth 10 score 16 time 37209 nodes 97307407 nps 2615157 pv b1c3
 ```
+
+### 0.44
+
+Reduce size with UCI hacks
+
+32 bit: 5384 bytes (-48)
+64 bit: 3904 bytes (-56)
+
+```
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 79 pv b1c3
+info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score 16 time 1 nodes 2263 nps 2263000 pv b1c3
+info depth 5 score 4 time 6 nodes 16084 nps 2680666 pv b1c3
+info depth 6 score 14 time 24 nodes 62502 nps 2604250 pv b1c3
+info depth 7 score 10 time 158 nodes 466435 nps 2952120 pv b1c3
+info depth 8 score 16 time 834 nodes 2140615 nps 2566684 pv b1c3
+info depth 9 score 16 time 5145 nodes 14916338 nps 2899191 pv b1c3
+info depth 10 score 16 time 36699 nodes 97307407 nps 2651500 pv b1c3
+```
