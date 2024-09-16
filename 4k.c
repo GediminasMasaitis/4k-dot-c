@@ -571,7 +571,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
   }
 
   Move moves[256];
-  i32 num_moves = movegen(pos, moves, in_qsearch);
+  const i32 num_moves = movegen(pos, moves, in_qsearch);
   i32 moves_evaluated = 0;
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
@@ -645,15 +645,15 @@ static void iteratively_deepen(Position *const pos) {
   Move best_moves[128];
   u64 nodes = 0;
   for (i32 depth = 1; depth < 128; depth++) {
-    size_t score = search(pos, 0, depth, -inf, inf,
+    i32 score = search(pos, 0, depth, -inf, inf,
 #if FULL
-                          &nodes,
+                       &nodes,
 #endif
-                          best_moves);
+                       best_moves);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
-    char info_move_name[256];
+    char info_move_name[6];
     move_str(info_move_name, &best_moves[0], pos->flipped);
     printf("info depth %i score %i time %i nodes %i", depth, score, elapsed,
            nodes);
@@ -671,7 +671,7 @@ static void iteratively_deepen(Position *const pos) {
       break;
     }
   }
-  char move_name[256];
+  char move_name[6];
   move_str(move_name, &best_moves[0], pos->flipped);
   puts("bestmove ");
   puts(move_name);
@@ -701,8 +701,6 @@ void _start() {
 
   // UCI loop
   while (true) {
-    char move_name[256];
-
     getw(line);
 #if FULL
     if (!strcmp(line, "uci")) {
@@ -723,6 +721,7 @@ void _start() {
         const bool line_continue = getw(line);
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
+          char move_name[6];
           move_str(move_name, &moves[i], pos.flipped);
           if (!strcmp(line, move_name)) {
             makemove(&pos, &moves[i]);
