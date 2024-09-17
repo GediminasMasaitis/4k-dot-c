@@ -747,11 +747,8 @@ void _start() {
         }
       }
     } else if (line[0] == 'g') {
-      getw(line); // wtime
-      getw(line); // wtime value
-      if (pos.flipped) {
-        getw(line); // btime
-        getw(line); // btime value
+      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
+        getw(line);
       }
       total_time = stoi(line);
       iteratively_deepen(&pos);

@@ -9,7 +9,7 @@ The engine is a <= 4096 byte UCI engine executable, without:
 
 ### Current specifications
 32 bit: 5368 bytes
-64 bit: 3888 bytes
+64 bit: 3880 bytes
 
 Perft: 4754425 nps
 
