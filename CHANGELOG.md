@@ -980,3 +980,43 @@ info depth 8 score 16 time 852 nodes 2140615 nps 2512458 pv b1c3
 info depth 9 score 16 time 5336 nodes 14916338 nps 2795415 pv b1c3
 info depth 10 score 16 time 37491 nodes 97307407 nps 2595487 pv b1c3
 ```
+
+### 0.47
+
+No RFP in PV nodes
+
+32 bit: 5400 bytes (+32)
+64 bit: 3888 bytes (+8)
+
+```
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 79 pv b1c3
+info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score 16 time 1 nodes 2263 nps 2263000 pv b1c3
+info depth 5 score 4 time 6 nodes 16070 nps 2678333 pv b1c3
+info depth 6 score 14 time 25 nodes 62210 nps 2488400 pv b1c3
+info depth 7 score 10 time 161 nodes 464048 nps 2882285 pv b1c3
+info depth 8 score 16 time 838 nodes 2109355 nps 2517130 pv b1c3
+info depth 9 score 16 time 5147 nodes 14722592 nps 2860421 pv b1c3
+info depth 10 score 16 time 36669 nodes 94624750 nps 2580510 pv b1c3
+```
+
+```
+Score of 4k.c-0.47 vs 4k.c-0.46: 504 - 424 - 1072  [0.520] 2000
+...      4k.c-0.47 playing White: 298 - 162 - 541  [0.568] 1001
+...      4k.c-0.47 playing Black: 206 - 262 - 531  [0.472] 999
+...      White vs Black: 560 - 368 - 1072  [0.548] 2000
+Elo difference: 13.9 +/- 10.4, LOS: 99.6 %, DrawRatio: 53.6 %
+
+Score of 4k.c-0.47 vs tscp1.82: 489 - 143 - 368  [0.673] 1000
+...      4k.c-0.47 playing White: 261 - 50 - 189  [0.711] 500
+...      4k.c-0.47 playing Black: 228 - 93 - 179  [0.635] 500
+...      White vs Black: 354 - 278 - 368  [0.538] 1000
+Elo difference: 125.4 +/- 17.5, LOS: 100.0 %, DrawRatio: 36.8 %
+
+Score of 4k.c-0.47 vs stash11: 397 - 259 - 344  [0.569] 1000
+...      4k.c-0.47 playing White: 252 - 79 - 170  [0.673] 501
+...      4k.c-0.47 playing Black: 145 - 180 - 174  [0.465] 499
+...      White vs Black: 432 - 224 - 344  [0.604] 1000
+Elo difference: 48.3 +/- 17.5, LOS: 100.0 %, DrawRatio: 34.4 %
+```

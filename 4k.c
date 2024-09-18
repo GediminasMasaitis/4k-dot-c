@@ -558,16 +558,20 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
 
-  if (!in_check && static_eval - 128 * depth * (depth > 0) >= beta) {
-    return static_eval;
-  }
-
   if (depth > 2 && get_time() - start_time > total_time / 4) {
     return alpha;
   }
 
   if (in_qsearch && static_eval > alpha) {
+    if (static_eval >= beta) {
+      return static_eval;
+    }
     alpha = static_eval;
+  }
+
+  if (alpha == beta - 1 && !in_check &&
+      static_eval - 128 * depth * (depth > 0) >= beta) {
+    return static_eval;
   }
 
   Move moves[256];
