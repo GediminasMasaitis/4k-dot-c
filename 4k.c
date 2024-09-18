@@ -719,6 +719,8 @@ void _start() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes,
              end - start, nps);
+    } else if (!strcmp(line, "quit")) {
+      break;
     }
 #endif
     if (line[0] == 'i') {
@@ -756,7 +758,11 @@ void _start() {
   }
 
   // Exit
+#if ARCH32
   _sys(1, 0, 0, 0);
+#else
+  _sys(60, 0, 0, 0);
+#endif
 }
 
 #pragma endregion
