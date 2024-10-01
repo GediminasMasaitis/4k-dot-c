@@ -171,6 +171,17 @@ static void _printf(const char *format, const size_t *args) {
   }
 }
 
+#if ASSERTS
+#define assert(condition)                                                      \
+  if (!(condition)) {                                                          \
+    printf("Assert failed on line %i: ", __LINE__);                            \
+    puts(#condition "\n");                                                     \
+    _sys(60, 1, 0, 0);                                                         \
+  }
+#else
+#define assert(condition)
+#endif
+
 #pragma endregion
 
 #pragma region base
@@ -247,6 +258,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
                              const i32 shift_by, const u64 mask) {
+  assert(sq >= 0);
+  assert(sq < 64);
   u64 result = shift(1ull << sq, shift_by, mask);
   for (i32 i = 0; i < 6; i++) {
     result |= shift(result & ~blockers, shift_by, mask);
@@ -255,6 +268,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 }
 
 [[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
+  assert(sq >= 0);
+  assert(sq < 64);
   return ray(sq, blockers, 7, ~0x8080808080808080ull) |  // Northwest
          ray(sq, blockers, 9, ~0x101010101010101ull) |   // Northeast
          ray(sq, blockers, -9, ~0x8080808080808080ull) | // Southwest
@@ -262,6 +277,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 }
 
 [[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
+  assert(sq >= 0);
+  assert(sq < 64);
   return ray(sq, blockers, 8, ~0x0ull) |                 // North
          ray(sq, blockers, -1, ~0x8080808080808080ull) | // West
          ray(sq, blockers, -8, ~0x0ull) |                // South
@@ -270,6 +287,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 knight(const i32 sq, const u64 blockers) {
   (void)blockers;
+  assert(sq >= 0);
+  assert(sq < 64);
   const u64 bb = 1ull << sq;
   return (bb << 15 | bb >> 17) & ~0x8080808080808080ull |
          (bb << 17 | bb >> 15) & ~0x101010101010101ull |
@@ -279,6 +298,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 king(const i32 sq, const u64 blockers) {
   (void)blockers;
+  assert(sq >= 0);
+  assert(sq < 64);
   const u64 bb = 1ull << sq;
   return bb << 8 | bb >> 8 |
          (bb >> 1 | bb >> 9 | bb << 7) & ~0x8080808080808080ull |
@@ -286,6 +307,13 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 }
 
 static void move_str(char *str, const Move *move, const i32 flip) {
+  assert(move->from >= 0);
+  assert(move->from < 64);
+  assert(move->to >= 0);
+  assert(move->to < 64);
+  assert(move->from != move->to);
+  assert(move->promo == None || move->promo == Knight ||
+         move->promo == Bishop || move->promo == Rook || move->promo == Queen);
   str[0] = 'a' + move->from % 8;
   str[1] = '1' + (move->from / 8 ^ 7 * flip);
   str[2] = 'a' + move->to % 8;
@@ -295,6 +323,8 @@ static void move_str(char *str, const Move *move, const i32 flip) {
 }
 
 [[nodiscard]] static i32 piece_on(const Position *const pos, const i32 sq) {
+  assert(sq >= 0);
+  assert(sq < 64);
   for (i32 i = Pawn; i < None; ++i) {
     if (pos->pieces[i] & 1ull << sq) {
       return i;
@@ -331,6 +361,8 @@ static void flip_pos(Position *const pos) {
 
 [[nodiscard]] static i32 is_attacked(const Position *const pos, const i32 sq,
                                      const i32 them) {
+  assert(sq >= 0);
+  assert(sq < 64);
   const u64 bb = 1ull << sq;
   const u64 pawns = pos->colour[them] & pos->pieces[Pawn];
   const u64 pawn_attacks = them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns);
@@ -345,12 +377,22 @@ static void flip_pos(Position *const pos) {
 }
 
 static i32 makemove(Position *const pos, const Move *const move) {
+  assert(move->from >= 0);
+  assert(move->from < 64);
+  assert(move->to >= 0);
+  assert(move->to < 64);
+  assert(move->from != move->to);
+  assert(move->promo == None || move->promo == Knight ||
+         move->promo == Bishop || move->promo == Rook || move->promo == Queen);
+
   const u64 from = 1ull << move->from;
   const u64 to = 1ull << move->to;
   const u64 mask = from | to;
 
   const i32 piece = piece_on(pos, move->from);
+  assert(piece != None);
   const i32 captured = piece_on(pos, move->to);
+  assert(captured != King);
 
   // Move the piece
   pos->colour[0] ^= mask;
@@ -397,6 +439,23 @@ static i32 makemove(Position *const pos, const Move *const move) {
 
   flip_pos(pos);
 
+  assert(!(pos->colour[0] & pos->colour[1]));
+  assert(!(pos->pieces[Pawn] & pos->pieces[Knight]));
+  assert(!(pos->pieces[Pawn] & pos->pieces[Bishop]));
+  assert(!(pos->pieces[Pawn] & pos->pieces[Rook]));
+  assert(!(pos->pieces[Pawn] & pos->pieces[Queen]));
+  assert(!(pos->pieces[Pawn] & pos->pieces[King]));
+  assert(!(pos->pieces[Knight] & pos->pieces[Bishop]));
+  assert(!(pos->pieces[Knight] & pos->pieces[Rook]));
+  assert(!(pos->pieces[Knight] & pos->pieces[Queen]));
+  assert(!(pos->pieces[Knight] & pos->pieces[King]));
+  assert(!(pos->pieces[Bishop] & pos->pieces[Rook]));
+  assert(!(pos->pieces[Bishop] & pos->pieces[Queen]));
+  assert(!(pos->pieces[Bishop] & pos->pieces[King]));
+  assert(!(pos->pieces[Rook] & pos->pieces[Queen]));
+  assert(!(pos->pieces[Rook] & pos->pieces[King]));
+  assert(!(pos->pieces[Queen] & pos->pieces[King]));
+
   // Return move legality
   return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
 }
@@ -407,6 +466,10 @@ static void generate_pawn_moves(Move *const movelist, i32 *const num_moves,
     const u8 to = lsb(to_mask);
     to_mask &= to_mask - 1;
     const u8 from = to + offset;
+    assert(from >= 0);
+    assert(from < 64);
+    assert(to >= 0);
+    assert(to < 64);
     if (to > 55) {
       for (u8 piece = Queen; piece >= Knight; piece--) {
         movelist[(*num_moves)++] = (Move){from, to, piece};
@@ -420,15 +483,22 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
                                  const Position *pos, const i32 piece,
                                  const u64 to_mask,
                                  u64 (*f)(const i32, const u64)) {
+  assert(piece == Knight || piece == Bishop || piece == Rook ||
+         piece == Queen || piece == King);
   u64 copy = pos->colour[0] & pos->pieces[piece];
   while (copy) {
     const u8 fr = lsb(copy);
+    assert(fr >= 0);
+    assert(fr < 64);
     copy &= copy - 1;
     u64 moves = f(fr, pos->colour[0] | pos->colour[1]) & to_mask;
     while (moves) {
       const u8 to = lsb(moves);
+      assert(to >= 0);
+      assert(to < 64);
       moves &= moves - 1;
       movelist[(*num_moves)++] = (Move){fr, to, None};
+      assert(*num_moves < 256);
     }
   }
 }
@@ -444,9 +514,10 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
                       north(pawns) & ~all &
                           (only_captures ? 0xFF00000000000000ull : ~0ull),
                       -8);
-  if (!only_captures)
+  if (!only_captures) {
     generate_pawn_moves(movelist, &num_moves,
                         north(north(pawns & 0xFF00) & ~all) & ~all, -16);
+  }
   generate_pawn_moves(movelist, &num_moves,
                       nw(pawns) & (pos->colour[1] | pos->ep), -7);
   generate_pawn_moves(movelist, &num_moves,
@@ -458,11 +529,15 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   generate_piece_moves(movelist, &num_moves, pos, Queen, to_mask, bishop);
   generate_piece_moves(movelist, &num_moves, pos, King, to_mask, king);
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
-      !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true))
+      !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
     movelist[num_moves++] = (Move){4, 6, None};
+  }
   if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
-      !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true))
+      !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true)) {
     movelist[num_moves++] = (Move){4, 2, None};
+  }
+
+  assert(num_moves < 256);
   return num_moves;
 }
 
@@ -548,6 +623,9 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
                   u64 *nodes,
 #endif
                   Move *best_moves) {
+  assert(alpha < beta);
+  assert(ply >= 0);
+  assert(ply < 128);
 
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);

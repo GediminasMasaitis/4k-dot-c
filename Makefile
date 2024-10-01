@@ -11,6 +11,10 @@ ifeq ($(FULL), true)
 	CFLAGS += -DFULL
 endif
 
+ifeq ($(ASSERTS), true)
+	CFLAGS += -DASSERTS
+endif
+
 all:
 	mkdir -p build
 	gcc $(CFLAGS) -c 4k.c
