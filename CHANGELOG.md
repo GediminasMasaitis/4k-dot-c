@@ -1020,3 +1020,23 @@ Score of 4k.c-0.47 vs stash11: 397 - 259 - 344  [0.569] 1000
 ...      White vs Black: 432 - 224 - 344  [0.604] 1000
 Elo difference: 48.3 +/- 17.5, LOS: 100.0 %, DrawRatio: 34.4 %
 ```
+
+### 0.48
+
+Protect from ply overflow
+
+32 bit: 5416 bytes (+16)
+64 bit: 3904 bytes (+16)
+
+```
+info depth 1 score 40 time 0 nodes 20 pv b1c3
+info depth 2 score 16 time 0 nodes 79 pv b1c3
+info depth 3 score 36 time 0 nodes 602 pv b1c3
+info depth 4 score 16 time 1 nodes 2263 nps 2263000 pv b1c3
+info depth 5 score 4 time 6 nodes 16070 nps 2678333 pv b1c3
+info depth 6 score 14 time 24 nodes 62210 nps 2592083 pv b1c3
+info depth 7 score 10 time 163 nodes 464048 nps 2846920 pv b1c3
+info depth 8 score 16 time 848 nodes 2109355 nps 2487446 pv b1c3
+info depth 9 score 16 time 5237 nodes 14722592 nps 2811264 pv b1c3
+info depth 10 score 16 time 36896 nodes 94624750 nps 2564634 pv b1c3
+```

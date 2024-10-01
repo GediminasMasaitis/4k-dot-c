@@ -625,7 +625,6 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
                   Move *best_moves) {
   assert(alpha < beta);
   assert(ply >= 0);
-  assert(ply < 128);
 
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
@@ -635,6 +634,10 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
+
+  if (ply > 127) {
+    return static_eval;
+  }
 
   if (depth > 2 && get_time() - start_time > total_time / 4) {
     return alpha;
