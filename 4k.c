@@ -569,28 +569,27 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {127,  373, 406, 633,
-                                                           1220, 0,   0};
-__attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
-    -20, -11, -1,  8,  16, 18, 5,  -16, // Knight
-    -15, -3,  3,   6,  8,  9,  1,  -8,  // Bishop
-    -11, -15, -13, -5, 6,  12, 15, 12,  // Rook
-    -15, -9,  -6,  -2, 5,  11, 5,  11,  // Queen
-    -12, -8,  -4,  3,  11, 14, 8,  -10, // King
+__attribute__((aligned(8))) static const i16 material[] = {127, 381, 415, 628, 1229, 0, 0};
+__attribute__((aligned(8))) static const i8 pst_rank[] = {0, -7, -8, -8, -1, 24, 80, 0, // Pawn
+-21, -11, -1, 9, 16, 18, 6, -16, // Knight
+-15, -4, 2, 6, 9, 9, 1, -8, // Bishop
+-11, -14, -13, -5, 5, 11, 15, 12, // Rook
+-15, -10, -6, -2, 5, 11, 5, 11, // Queen
+-12, -8, -4, 3, 11, 15, 8, -10, // King
 };
-__attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  2,  -3, -1, -1, 1,  8,  -4,  // Pawn
-    -17, -5, 4,  9,  9,  8,  1,  -9,  // Knight
-    -8,  0,  2,  3,  4,  1,  3,  -4,  // Bishop
-    -4,  1,  4,  5,  4,  2,  -1, -10, // Rook
-    -13, -6, 1,  3,  3,  4,  4,  4,   // Queen
-    -8,  2,  0,  -1, -2, -2, 4,  -6,  // King
+__attribute__((aligned(8))) static const i8 pst_file[] = {-2, 2, -3, -2, -1, 1, 9, -4, // Pawn
+-18, -5, 5, 10, 9, 7, 0, -9, // Knight
+-8, 0, 2, 4, 4, 0, 3, -5, // Bishop
+-3, 0, 3, 4, 3, 3, 0, -9, // Rook
+-14, -6, 1, 3, 3, 4, 4, 4, // Queen
+-8, 2, 1, 1, -1, -2, 4, -6, // King
 };
+__attribute__((aligned(8))) static const i8 open_files[] = {2, -8, -9, 15, 0, -13};
 
 static i32 eval(Position *const pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
+    const u64 own_pawns = pos->pieces[Pawn] & pos->colour[c];
     for (i32 p = 0; p < 6; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
@@ -604,6 +603,10 @@ static i32 eval(Position *const pos) {
 
         score += pst_rank[p * 8 + rank] * 2;
         score += pst_file[p * 8 + file] * 2;
+
+        if (((0x101010101010101ULL << (sq % 8)) & ~(1ULL << sq) & own_pawns) == 0) {
+          score += open_files[p];
+        }
       }
     }
 
