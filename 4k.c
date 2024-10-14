@@ -48,6 +48,35 @@ ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
+static void* malloc(size_t size)
+{
+  unsigned long call = 9;          // syscall number for mmap
+  unsigned long addr = 0;          // addr = NULL
+  unsigned long prot = 0x03;       // PROT_READ | PROT_WRITE
+  unsigned long flags = 0x22;      // MAP_PRIVATE | MAP_ANONYMOUS
+  unsigned long fd = -1;           // fd = -1
+  unsigned long offset = 0;        // offset = 0
+
+  unsigned long ret;
+  asm volatile(
+    "mov %5, %%r10\n\t"
+    "mov %6, %%r8\n\t"
+    "mov %7, %%r9\n\t"
+    "syscall"
+    : "=a"(ret)  // Output operand: return value in rax
+    : "a"(call), // Input operands
+    "D"(addr),
+    "S"(size),
+    "d"(prot),
+    "r"(flags),
+    "r"(fd),
+    "r"(offset)
+    : "r10", "r8", "r9", "rcx", "r11", "memory"  // Clobbered registers
+    );
+
+  return (void*)ret;
+}
+
 static void *memcpy(void *const dest, const void *const src, size_t n) {
   char *d = dest;
   const char *s = src;
