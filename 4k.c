@@ -642,7 +642,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                   u64 *nodes,
 #endif
-                  Move *best_moves) {
+                  u64 history[][64], Move *best_moves) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -680,13 +680,14 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
   i32 moves_evaluated = 0;
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
-    i32 move_score = 0;
+    u64 move_score = 0;
 
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
-      const i32 order_move_score =
+      const u64 order_move_score =
           *(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index]
-              ? 1000000
-              : material[piece_on(pos, moves[order_index].to)];
+              ? 1ULL << 60
+              : (1ULL << (50 + piece_on(pos, moves[order_index].to))) +
+                    history[moves[order_index].from][moves[order_index].to];
       if (order_move_score > move_score) {
         move_score = order_move_score;
 
@@ -714,7 +715,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                               nodes,
 #endif
-                              best_moves);
+                              history, best_moves);
 
     if (moves_evaluated != 0 && low != -beta && score > alpha && score < beta) {
       low = -beta;
@@ -728,6 +729,10 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
       alpha = score;
 
       if (score >= beta) {
+        if (piece_on(pos, moves[move_index].to) == None) {
+          history[moves[move_index].from][moves[move_index].to] +=
+              depth * depth;
+        }
         break;
       }
     }
@@ -748,13 +753,14 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 static void iteratively_deepen(Position *const pos) {
   start_time = get_time();
   Move best_moves[128];
+  u64 history[64][64] = {0};
   u64 nodes = 0;
   for (i32 depth = 1; depth < 128; depth++) {
     i32 score = search(pos, 0, depth, -inf, inf,
 #if FULL
                        &nodes,
 #endif
-                       best_moves);
+                       history, best_moves);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
