@@ -11,7 +11,7 @@ The engine is a <= 4096 byte UCI engine executable, without:
 32 bit: 5400 bytes
 64 bit: 3888 bytes
 
-Perft: 4754425 nps
+Perft: 7904157 nps
 
 ### How to install gcc 14.2:
 ```bash

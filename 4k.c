@@ -191,7 +191,7 @@ typedef struct [[nodiscard]] {
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-enum [[nodiscard]] { Pawn, Knight, Bishop, Rook, Queen, King, None };
+enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
@@ -201,7 +201,7 @@ typedef struct [[nodiscard]] __attribute__((aligned(8))) {
 
 typedef struct [[nodiscard]] {
   u64 colour[2];
-  u64 pieces[6];
+  u64 pieces[7];
   u64 ep;
   bool castling[4];
   bool flipped;
@@ -318,14 +318,14 @@ static void move_str(char *str, const Move *move, const i32 flip) {
   str[1] = '1' + (move->from / 8 ^ 7 * flip);
   str[2] = 'a' + move->to % 8;
   str[3] = '1' + (move->to / 8 ^ 7 * flip);
-  str[4] = "\0nbrq\0\0"[move->promo];
+  str[4] = "\0\0nbrq\0"[move->promo];
   str[5] = '\0';
 }
 
 [[nodiscard]] static i32 piece_on(const Position *const pos, const i32 sq) {
   assert(sq >= 0);
   assert(sq < 64);
-  for (i32 i = Pawn; i < None; ++i) {
+  for (i32 i = Pawn; i <= King; ++i) {
     if (pos->pieces[i] & 1ull << sq) {
       return i;
     }
@@ -352,7 +352,7 @@ static void flip_pos(Position *const pos) {
   swapu64(&pos->colour[0], &pos->colour[1]);
   swapbool(&pos->castling[0], &pos->castling[2]);
   swapbool(&pos->castling[1], &pos->castling[3]);
-  for (i32 i = Pawn; i < None; ++i) {
+  for (i32 i = Pawn; i <= King; ++i) {
     pos->pieces[i] = flip_bb(pos->pieces[i]);
   }
 
@@ -589,8 +589,8 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {127,  373, 406, 633,
-                                                           1220, 0,   0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   127,  373, 406,
+                                                           633, 1220, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
     -20, -11, -1,  8,  16, 18, 5,  -16, // Knight
@@ -611,7 +611,7 @@ __attribute__((aligned(8))) static const i8 pst_file[] = {
 static i32 eval(Position *const pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
-    for (i32 p = 0; p < 6; p++) {
+    for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
         const i32 sq = lsb(copy);
@@ -622,8 +622,8 @@ static i32 eval(Position *const pos) {
 
         score += material[p];
 
-        score += pst_rank[p * 8 + rank] * 2;
-        score += pst_file[p * 8 + file] * 2;
+        score += pst_rank[(p - 1) * 8 + rank] * 2;
+        score += pst_file[(p - 1) * 8 + file] * 2;
       }
     }
 
@@ -792,7 +792,7 @@ void _start() {
 #if FULL
   pos = (Position){.castling = {true, true, true, true},
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                   .pieces = {0xFF00000000FF00ull, 0x4200000000000042ull,
+                   .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
                    .ep = 0};
@@ -833,7 +833,7 @@ void _start() {
     } else if (line[0] == 'p') {
       pos = (Position){.castling = {true, true, true, true},
                        .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                       .pieces = {0xFF00000000FF00ull, 0x4200000000000042ull,
+                       .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
                                   0x2400000000000024ull, 0x8100000000000081ull,
                                   0x800000000000008ull, 0x1000000000000010ull},
                        .ep = 0};
