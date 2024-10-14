@@ -460,8 +460,13 @@ static i32 makemove(Position *const pos, const Move *const move) {
   return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
 }
 
-static void generate_pawn_moves(Move *const movelist, i32 *const num_moves,
-                                u64 to_mask, const i32 offset) {
+static void generate_pawn_moves(
+#if ASSERTS
+    const Position *const pos,
+#endif
+    Move *const movelist, i32 *const num_moves, u64 to_mask, const i32 offset
+
+) {
   while (to_mask) {
     const u8 to = lsb(to_mask);
     to_mask &= to_mask - 1;
@@ -470,6 +475,7 @@ static void generate_pawn_moves(Move *const movelist, i32 *const num_moves,
     assert(from < 64);
     assert(to >= 0);
     assert(to < 64);
+    assert(piece_on(pos, from) == Pawn);
     if (to > 55) {
       for (u8 piece = Queen; piece >= Knight; piece--) {
         movelist[(*num_moves)++] = (Move){from, to, piece};
@@ -510,18 +516,32 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   const u64 all = pos->colour[0] | pos->colour[1];
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   const u64 pawns = pos->colour[0] & pos->pieces[Pawn];
-  generate_pawn_moves(movelist, &num_moves,
-                      north(pawns) & ~all &
-                          (only_captures ? 0xFF00000000000000ull : ~0ull),
-                      -8);
+  generate_pawn_moves(
+#if ASSERTS
+      pos,
+#endif
+      movelist, &num_moves,
+      north(pawns) & ~all & (only_captures ? 0xFF00000000000000ull : ~0ull),
+      -8);
   if (!only_captures) {
-    generate_pawn_moves(movelist, &num_moves,
-                        north(north(pawns & 0xFF00) & ~all) & ~all, -16);
+    generate_pawn_moves(
+#if ASSERTS
+        pos,
+#endif
+        movelist, &num_moves, north(north(pawns & 0xFF00) & ~all) & ~all, -16);
   }
-  generate_pawn_moves(movelist, &num_moves,
-                      nw(pawns) & (pos->colour[1] | pos->ep), -7);
-  generate_pawn_moves(movelist, &num_moves,
-                      ne(pawns) & (pos->colour[1] | pos->ep), -9);
+  generate_pawn_moves(
+#if ASSERTS
+      pos,
+#endif
+      movelist, &num_moves, nw(pawns) & (pos->colour[1] | pos->ep), -7);
+  generate_pawn_moves(
+#if ASSERTS
+      pos,
+#endif
+      movelist, &num_moves, ne(pawns) & (pos->colour[1] | pos->ep), -9
+
+  );
   generate_piece_moves(movelist, &num_moves, pos, Knight, to_mask, knight);
   generate_piece_moves(movelist, &num_moves, pos, Bishop, to_mask, bishop);
   generate_piece_moves(movelist, &num_moves, pos, Rook, to_mask, rook);
