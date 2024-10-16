@@ -766,7 +766,7 @@ static void iteratively_deepen(Position *const pos) {
 #if FULL
     char info_move_name[6];
     move_str(info_move_name, &best_moves[0], pos->flipped);
-    printf("info depth %i score %i time %i nodes %i", depth, score, elapsed,
+    printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
            nodes);
     if (elapsed > 0) {
       const u64 nps = nodes * 1000 / elapsed;
