@@ -860,10 +860,29 @@ void _start() {
         }
       }
     } else if (line[0] == 'g') {
+#if FULL
+      while(true)
+      {
+        getw(line);
+        if(!pos.flipped && !strcmp(line, "wtime")) {
+          getw(line);
+          total_time = stoi(line);
+          break;
+        } else if (pos.flipped && !strcmp(line, "btime")) {
+          getw(line);
+          total_time = stoi(line);
+          break;
+        } else if (!strcmp(line, "movetime")) {
+          total_time = 40000; // Assume Lichess bot
+          break;
+        }
+      }
+#else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getw(line);
+        total_time = stoi(line);
       }
-      total_time = stoi(line);
+#endif
       iteratively_deepen(&pos);
     }
   }
