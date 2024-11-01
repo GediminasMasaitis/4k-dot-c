@@ -672,10 +672,10 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const u64 order_move_score =
-          *(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index]
-              ? 1ULL << 60
-              : (1ULL << (50 + piece_on(pos, moves[order_index].to))) +
-                    history[moves[order_index].from][moves[order_index].to];
+          ((u64)(*(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index])
+           << 60) +
+          ((u64)piece_on(pos, moves[order_index].to) << 50) +
+          history[moves[order_index].from][moves[order_index].to];
       if (order_move_score > move_score) {
         move_score = order_move_score;
 
@@ -848,10 +848,9 @@ void _start() {
       }
     } else if (line[0] == 'g') {
 #if FULL
-      while(true)
-      {
+      while (true) {
         getw(line);
-        if(!pos.flipped && !strcmp(line, "wtime")) {
+        if (!pos.flipped && !strcmp(line, "wtime")) {
           getw(line);
           total_time = stoi(line);
           break;

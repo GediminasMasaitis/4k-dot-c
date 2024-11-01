@@ -1153,3 +1153,23 @@ info depth 8 score cp 16 time 651 nodes 1715831 nps 2635685 pv b1c3
 info depth 9 score cp 16 time 4394 nodes 12612086 nps 2870297 pv b1c3
 info depth 10 score cp 16 time 22185 nodes 58073555 nps 2617694 pv b1c3
 ```
+
+### 0.53
+
+Slight speedup
+
+32 bit: 5640 bytes (-16)
+64 bit: 4072 bytes (=)
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 2202 nps 2202000 pv b1c3
+info depth 5 score cp 4 time 6 nodes 15474 nps 2579000 pv b1c3
+info depth 6 score cp 14 time 20 nodes 52602 nps 2630100 pv b1c3
+info depth 7 score cp 10 time 135 nodes 414984 nps 3073955 pv b1c3
+info depth 8 score cp 16 time 637 nodes 1715831 nps 2693612 pv b1c3
+info depth 9 score cp 16 time 4310 nodes 12612086 nps 2926238 pv b1c3
+info depth 10 score cp 16 time 21578 nodes 58073555 nps 2691331 pv b1c3
+```
