@@ -21,6 +21,7 @@ all:
 	ld -T $(LDFILE) -o ./build/4k-dot-c 4k.o
 	rm *.o
 	ls -la ./build
+	md5sum ./build/4k-dot-c
 	./build/4k-dot-c
 
 dump:
@@ -33,6 +34,7 @@ debug:
 	gcc -o ./build/4k-dot-c 4k.o
 	rm *.o
 	ls -la ./build
+	md5sum ./build/4k-dot-c
 	./build/4k-dot-c
 
 format:
