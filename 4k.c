@@ -48,17 +48,6 @@ ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
-static void *memcpy(void *const dest, const void *const src, size_t n) {
-  char *d = dest;
-  const char *s = src;
-
-  for (size_t i = 0; i < n; i++) {
-    d[i] = s[i];
-  }
-
-  return dest;
-}
-
 [[nodiscard]] int abs(const int x) { return (x < 0) ? -x : x; }
 
 [[nodiscard]] static int strlen(const char *const string) {
@@ -575,8 +564,7 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   const i32 num_moves = movegen(pos, moves, false);
 
   for (i32 i = 0; i < num_moves; ++i) {
-    Position npos;
-    memcpy(&npos, pos, sizeof(Position));
+    Position npos = *pos;
 
     // Check move legality
     if (!makemove(&npos, &moves[i])) {
@@ -695,8 +683,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
       }
     }
 
-    Position npos;
-    memcpy(&npos, pos, sizeof(Position));
+    Position npos = *pos;
 #if FULL
     (*nodes)++;
 #endif

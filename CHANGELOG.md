@@ -1105,3 +1105,31 @@ Score of 4k.c-0.50 vs stash12: 279 - 361 - 360  [0.459] 1000
 ...      White vs Black: 402 - 238 - 360  [0.582] 1000
 Elo difference: -28.6 +/- 17.2, LOS: 0.1 %, DrawRatio: 36.0 %
 ```
+
+### 0.51
+
+Smaller size and slight speedup
+
+32 bit: 5672 bytes (-16)
+64 bit: 4080 bytes (-8)
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
+info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score cp 16 time 2 nodes 2202 nps 1101000 pv b1c3
+info depth 5 score cp 4 time 6 nodes 15474 nps 2579000 pv b1c3
+info depth 6 score cp 14 time 21 nodes 52602 nps 2504857 pv b1c3
+info depth 7 score cp 10 time 138 nodes 414984 nps 3007130 pv b1c3
+info depth 8 score cp 16 time 661 nodes 1715831 nps 2595810 pv b1c3
+info depth 9 score cp 16 time 4507 nodes 12612086 nps 2798332 pv b1c3
+info depth 10 score cp 16 time 22534 nodes 58073555 nps 2577152 pv b1c3
+```
+
+```
+Score of 4k.c-0.51 vs 4k.c-0.50: 733 - 633 - 1634  [0.517] 3000
+...      4k.c-0.51 playing White: 443 - 265 - 792  [0.559] 1500
+...      4k.c-0.51 playing Black: 290 - 368 - 842  [0.474] 1500
+...      White vs Black: 811 - 555 - 1634  [0.543] 3000
+Elo difference: 11.6 +/- 8.4, LOS: 99.7 %, DrawRatio: 54.5 %
+```
