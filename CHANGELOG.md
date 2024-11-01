@@ -1233,3 +1233,25 @@ Score of 4k.c-0.55 vs 4k.c-0.54: 467 - 448 - 1085  [0.505] 2000
 ...      White vs Black: 546 - 369 - 1085  [0.544] 2000
 Elo difference: 3.3 +/- 10.3, LOS: 73.5 %, DrawRatio: 54.3 %
 ```
+
+### 0.56
+
+Reduce bytes
+
+32 bit: 5608 bytes (=)
+64 bit: 4040 bytes (-8)
+
+MD5: 05d7423515fe8c7571d707b2d6f2fc21
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 1 nodes 2202 nps 2202000 pv b1c3
+info depth 5 score cp 4 time 5 nodes 15474 nps 3094800 pv b1c3
+info depth 6 score cp 14 time 19 nodes 52602 nps 2768526 pv b1c3
+info depth 7 score cp 10 time 148 nodes 414984 nps 2803945 pv b1c3
+info depth 8 score cp 16 time 671 nodes 1715831 nps 2557125 pv b1c3
+info depth 9 score cp 16 time 4352 nodes 12612086 nps 2897997 pv b1c3
+info depth 10 score cp 16 time 21101 nodes 58073555 nps 2752170 pv b1c3
+```

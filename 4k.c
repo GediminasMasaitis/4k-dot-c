@@ -48,8 +48,8 @@ static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
-[[nodiscard]] static int strlen(const char *const string) {
-  int length = 0;
+[[nodiscard]] static i32 strlen(const char *const string) {
+  i32 length = 0;
   while (string[length]) {
     length++;
   }
@@ -689,22 +689,21 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
       continue;
     }
 
-    i32 low = -alpha - 1;
+    i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
 
-    if (moves_evaluated == 0) {
-      low = -beta;
-    }
-
-  start_search:
-    const i32 score = -search(&npos, ply + 1, depth - 1, low, -alpha,
+    i32 score;
+    while(true) {
+      score = -search(&npos, ply + 1, depth - 1, low, -alpha,
 #if FULL
-                              nodes,
+        nodes,
 #endif
-                              history, best_moves);
+        history, best_moves);
 
-    if (moves_evaluated != 0 && low != -beta && score > alpha && score < beta) {
+      if (score <= alpha || low == -beta) {
+        break;
+      }
+
       low = -beta;
-      goto start_search;
     }
 
     moves_evaluated++;
