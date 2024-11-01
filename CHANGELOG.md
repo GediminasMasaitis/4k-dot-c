@@ -1255,3 +1255,30 @@ info depth 8 score cp 16 time 671 nodes 1715831 nps 2557125 pv b1c3
 info depth 9 score cp 16 time 4352 nodes 12612086 nps 2897997 pv b1c3
 info depth 10 score cp 16 time 21101 nodes 58073555 nps 2752170 pv b1c3
 ```
+
+### 0.57
+
+Reduce bytes
+
+32 bit: 5496 bytes (-112)
+64 bit: 3976 bytes (-64)
+
+MD5: cb7e8fa9d4dee2c95fd4407afa81c442
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
+info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score cp 16 time 2 nodes 2202 nps 1101000 pv b1c3
+info depth 5 score cp 4 time 6 nodes 15474 nps 2579000 pv b1c3
+info depth 6 score cp 14 time 21 nodes 52602 nps 2504857 pv b1c3
+info depth 7 score cp 10 time 139 nodes 414984 nps 2985496 pv b1c3
+info depth 8 score cp 16 time 663 nodes 1715831 nps 2587980 pv b1c3
+info depth 9 score cp 16 time 4467 nodes 12612086 nps 2823390 pv b1c3
+info depth 10 score cp 16 time 22451 nodes 58073555 nps 2586680 pv b1c3
+```
+
+```
+perft 6
+info depth 6 nodes 119060324 time 13032 nps 9135997
+```

@@ -48,6 +48,14 @@ static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
+static void exit() {
+#if ARCH32
+  _sys(1, 0, 0, 0);
+#else
+  _sys(60, 0, 0, 0);
+#endif
+}
+
 [[nodiscard]] static i32 strlen(const char *const string) {
   i32 length = 0;
   while (string[length]) {
@@ -72,30 +80,34 @@ static bool getw(char *string) {
 #else
     const int result = _sys(3, stdin, (ssize_t)string, 1);
 #endif
+
     if (result < 1) {
-      // EXIT
-      _sys(1, 0, 0, 0);
+      exit();
     }
+
     if (*string == '\n') {
       *string = 0;
       return false;
-    } else if (*string == ' ') {
+    }
+
+    if (*string == ' ') {
       *string = 0;
       return true;
     }
+
     string++;
   }
 }
 
-[[nodiscard]] static int strcmp(const char *lhs, const char *rhs) {
+[[nodiscard]] static bool strcmp(const char *lhs, const char *rhs) {
   while (*lhs || *rhs) {
     if (*lhs != *rhs) {
-      return 1;
+      return true;
     }
     lhs++;
     rhs++;
   }
-  return 0;
+  return false;
 }
 
 [[nodiscard]] static size_t stoi(const char *string) {
@@ -240,7 +252,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 [[nodiscard]] static u64 se(const u64 bb) { return south(east(bb)); }
 
 [[nodiscard]] static u64 shift(const u64 bb, const i32 shift, const u64 mask) {
-  return shift > 0 ? (bb << shift & mask) : (bb >> -shift & mask);
+  return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
 }
 
 [[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
@@ -301,11 +313,14 @@ static void move_str(char *str, const Move *move, const i32 flip) {
   assert(move->from != move->to);
   assert(move->promo == None || move->promo == Knight ||
          move->promo == Bishop || move->promo == Rook || move->promo == Queen);
-  str[0] = 'a' + move->from % 8;
-  str[1] = '1' + (move->from / 8 ^ 7 * flip);
-  str[2] = 'a' + move->to % 8;
-  str[3] = '1' + (move->to / 8 ^ 7 * flip);
-  str[4] = "\0\0nbrq\0"[move->promo];
+
+  // Hack to save bytes, technically UB but works on GCC 14.2
+  for (i32 i = 0; i < 2; i++) {
+    str[i * 2] = 'a' + (&move->from)[i] % 8;
+    str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);
+  }
+
+  str[4] = "\0\0nbrq"[move->promo];
   str[5] = '\0';
 }
 
@@ -692,12 +707,12 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
 
     i32 score;
-    while(true) {
+    while (true) {
       score = -search(&npos, ply + 1, depth - 1, low, -alpha,
 #if FULL
-        nodes,
+                      nodes,
 #endif
-        history, best_moves);
+                      history, best_moves);
 
       if (score <= alpha || low == -beta) {
         break;
@@ -870,12 +885,7 @@ void _start() {
     }
   }
 
-  // Exit
-#if ARCH32
-  _sys(1, 0, 0, 0);
-#else
-  _sys(60, 0, 0, 0);
-#endif
+  exit();
 }
 
 #pragma endregion
