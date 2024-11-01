@@ -658,8 +658,8 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     alpha = static_eval;
   }
 
-  if (alpha == beta - 1 && !in_check &&
-      static_eval - 128 * depth * (depth > 0) >= beta) {
+  if (!in_qsearch && alpha == beta - 1 && !in_check &&
+      static_eval - 128 * depth >= beta) {
     return static_eval;
   }
 
