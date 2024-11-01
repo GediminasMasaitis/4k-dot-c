@@ -1282,3 +1282,46 @@ info depth 10 score cp 16 time 22451 nodes 58073555 nps 2586680 pv b1c3
 perft 6
 info depth 6 nodes 119060324 time 13032 nps 9135997
 ```
+
+### 0.58
+
+Late move reduction
+
+32 bit: 5528 bytes (+32)
+64 bit: 4048 bytes (+72)
+
+MD5: f61689e74dfe6399af80e955017e1cd4
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
+info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1765 nps 1765000 pv b1c3
+info depth 5 score cp 4 time 3 nodes 7187 nps 2395666 pv b1c3
+info depth 6 score cp 14 time 9 nodes 25383 nps 2820333 pv b1c3
+info depth 7 score cp 10 time 31 nodes 85777 nps 2767000 pv b1c3
+info depth 8 score cp 16 time 107 nodes 311612 nps 2912261 pv b1c3
+info depth 9 score cp 14 time 478 nodes 1340575 nps 2804550 pv b1c3
+info depth 10 score cp 14 time 2090 nodes 5929872 nps 2837259 pv b1c3
+info depth 11 score cp 13 time 13199 nodes 36760981 nps 2785133 pv b1c3
+```
+
+```
+Score of 4k.c-0.58 vs 4k.c-0.57: 271 - 152 - 577  [0.559] 1000
+...      4k.c-0.58 playing White: 158 - 60 - 282  [0.598] 500
+...      4k.c-0.58 playing Black: 113 - 92 - 295  [0.521] 500
+...      White vs Black: 250 - 173 - 577  [0.538] 1000
+Elo difference: 41.5 +/- 14.0, LOS: 100.0 %, DrawRatio: 57.7 %
+
+Score of 4k.c-0.58 vs stash11: 483 - 170 - 347  [0.656] 1000
+...      4k.c-0.58 playing White: 275 - 48 - 178  [0.727] 501
+...      4k.c-0.58 playing Black: 208 - 122 - 169  [0.586] 499
+...      White vs Black: 397 - 256 - 347  [0.571] 1000
+Elo difference: 112.5 +/- 17.8, LOS: 100.0 %, DrawRatio: 34.7 %
+
+Score of 4k.c-0.58 vs stash12: 667 - 597 - 741  [0.517] 2005
+...      4k.c-0.58 playing White: 390 - 209 - 405  [0.590] 1004
+...      4k.c-0.58 playing Black: 277 - 388 - 336  [0.445] 1001
+...      White vs Black: 778 - 486 - 741  [0.573] 2005
+Elo difference: 12.1 +/- 12.1, LOS: 97.6 %, DrawRatio: 37.0 %
+```
