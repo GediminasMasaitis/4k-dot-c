@@ -1203,3 +1203,33 @@ Score of 4k.c-0.54 vs 4k.c-0.53: 484 - 458 - 1058  [0.506] 2000
 ...      White vs Black: 558 - 384 - 1058  [0.543] 2000
 Elo difference: 4.5 +/- 10.4, LOS: 80.2 %, DrawRatio: 52.9 %
 ```
+
+### 0.55
+
+Less timing syscalls
+
+32 bit: 5608 bytes (=)
+64 bit: 4048 bytes (=)
+
+MD5: 957f4b1b7d0bfb971915ca5eb31dd000
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 1 nodes 2202 nps 2202000 pv b1c3
+info depth 5 score cp 4 time 5 nodes 15474 nps 3094800 pv b1c3
+info depth 6 score cp 14 time 20 nodes 52602 nps 2630100 pv b1c3
+info depth 7 score cp 10 time 134 nodes 414984 nps 3096895 pv b1c3
+info depth 8 score cp 16 time 650 nodes 1715831 nps 2639740 pv b1c3
+info depth 9 score cp 16 time 4297 nodes 12612086 nps 2935090 pv b1c3
+info depth 10 score cp 16 time 21466 nodes 58073555 nps 2705373 pv b1c3
+```
+
+```
+Score of 4k.c-0.55 vs 4k.c-0.54: 467 - 448 - 1085  [0.505] 2000
+...      4k.c-0.55 playing White: 285 - 187 - 529  [0.549] 1001
+...      4k.c-0.55 playing Black: 182 - 261 - 556  [0.460] 999
+...      White vs Black: 546 - 369 - 1085  [0.544] 2000
+Elo difference: 3.3 +/- 10.3, LOS: 73.5 %, DrawRatio: 54.3 %
+```

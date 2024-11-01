@@ -645,7 +645,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     return static_eval;
   }
 
-  if (depth > 2 && get_time() - start_time > total_time / 4) {
+  if (depth > 4 && get_time() - start_time > total_time / 4) {
     return alpha;
   }
 
