@@ -18,7 +18,7 @@ endif
 all:
 	mkdir -p build
 	gcc $(CFLAGS) -c 4k.c
-	ld -T $(LDFILE) -o ./build/4k-dot-c 4k.o
+	ld -T $(LDFILE) -Map=./build/4k-dot-c.map -o./build/4k-dot-c 4k.o
 	rm *.o
 	ls -la ./build
 	md5sum ./build/4k-dot-c
@@ -43,5 +43,6 @@ format:
 
 clean:
 	rm -rf build
+	rm -f *.map
 	rm -f *.o
 	rm -f *.c.temp*

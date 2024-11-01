@@ -4,6 +4,7 @@
 
 build
 old
+*.map
 *.o
 *.c.temp*
 

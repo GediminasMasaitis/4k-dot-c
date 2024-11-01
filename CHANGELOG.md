@@ -1108,7 +1108,7 @@ Elo difference: -28.6 +/- 17.2, LOS: 0.1 %, DrawRatio: 36.0 %
 
 ### 0.51
 
-Reduce size and slight speedup
+Reduce bytes and slight speedup
 
 32 bit: 5672 bytes (-16)
 64 bit: 4080 bytes (-8)
@@ -1136,7 +1136,7 @@ Elo difference: 11.6 +/- 8.4, LOS: 99.7 %, DrawRatio: 54.5 %
 
 ### 0.52
 
-Reduce size
+Reduce bytes
 
 32 bit: 5672 bytes (=)
 64 bit: 4072 bytes (-8)
@@ -1172,4 +1172,34 @@ info depth 7 score cp 10 time 135 nodes 414984 nps 3073955 pv b1c3
 info depth 8 score cp 16 time 637 nodes 1715831 nps 2693612 pv b1c3
 info depth 9 score cp 16 time 4310 nodes 12612086 nps 2926238 pv b1c3
 info depth 10 score cp 16 time 21578 nodes 58073555 nps 2691331 pv b1c3
+```
+
+### 0.54
+
+Reduce bytes
+
+32 bit: 5608 bytes (-32)
+64 bit: 4048 bytes (-24)
+
+MD5: 884802623c504064c455cc1826802d02
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 2202 nps 2202000 pv b1c3
+info depth 5 score cp 4 time 6 nodes 15474 nps 2579000 pv b1c3
+info depth 6 score cp 14 time 21 nodes 52602 nps 2504857 pv b1c3
+info depth 7 score cp 10 time 135 nodes 414984 nps 3073955 pv b1c3
+info depth 8 score cp 16 time 636 nodes 1715831 nps 2697847 pv b1c3
+info depth 9 score cp 16 time 4298 nodes 12612086 nps 2934408 pv b1c3
+info depth 10 score cp 16 time 21407 nodes 58073555 nps 2712830 pv b1c3
+```
+
+```
+Score of 4k.c-0.54 vs 4k.c-0.53: 484 - 458 - 1058  [0.506] 2000
+...      4k.c-0.54 playing White: 289 - 189 - 522  [0.550] 1000
+...      4k.c-0.54 playing Black: 195 - 269 - 536  [0.463] 1000
+...      White vs Black: 558 - 384 - 1058  [0.543] 2000
+Elo difference: 4.5 +/- 10.4, LOS: 80.2 %, DrawRatio: 52.9 %
 ```

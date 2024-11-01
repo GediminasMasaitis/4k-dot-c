@@ -32,7 +32,7 @@ enum [[nodiscard]] {
   stderr = 2,
 };
 
-ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
+static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   ssize_t ret;
 #if ARCH64
   asm volatile("syscall"
@@ -47,8 +47,6 @@ ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
 #endif
   return ret;
 }
-
-[[nodiscard]] int abs(const int x) { return (x < 0) ? -x : x; }
 
 [[nodiscard]] static int strlen(const char *const string) {
   int length = 0;
