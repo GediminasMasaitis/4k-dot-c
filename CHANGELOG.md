@@ -1360,3 +1360,13 @@ Reduce bytes by assuming stdin never closes
 Padding: 6 bytes
 
 MD5: ce4d19e63b0329f8b0c85eeafce427c8
+
+### 0.61
+
+Reduce bytes by removing UCI info
+
+32 bit: 5560 bytes (-32)
+64 bit: 4000 bytes (-24)
+Padding: 6 bytes
+
+MD5: 509c5673c9a6679714fa47a979c5df50
