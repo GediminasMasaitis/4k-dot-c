@@ -1289,6 +1289,7 @@ Late move reduction
 
 32 bit: 5528 bytes (+32)
 64 bit: 4048 bytes (+72)
+Padding: 5 bytes
 
 MD5: f61689e74dfe6399af80e955017e1cd4
 
@@ -1324,4 +1325,28 @@ Score of 4k.c-0.58 vs stash12: 667 - 597 - 741  [0.517] 2005
 ...      4k.c-0.58 playing Black: 277 - 388 - 336  [0.445] 1001
 ...      White vs Black: 778 - 486 - 741  [0.573] 2005
 Elo difference: 12.1 +/- 12.1, LOS: 97.6 %, DrawRatio: 37.0 %
+```
+
+### 0.59
+
+Slight speedup
+
+32 bit: 5608 bytes (+80)
+64 bit: 4048 bytes (=)
+Padding: 6 bytes
+
+MD5: 71703f39997625c2146f654a5b1f143c
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1765 nps 1765000 pv b1c3
+info depth 5 score cp 4 time 3 nodes 7187 nps 2395666 pv b1c3
+info depth 6 score cp 14 time 8 nodes 25383 nps 3172875 pv b1c3
+info depth 7 score cp 10 time 28 nodes 85777 nps 3063464 pv b1c3
+info depth 8 score cp 16 time 99 nodes 311612 nps 3147595 pv b1c3
+info depth 9 score cp 14 time 441 nodes 1340575 nps 3039852 pv b1c3
+info depth 10 score cp 14 time 2013 nodes 5929872 nps 2945788 pv b1c3
+info depth 11 score cp 13 time 12683 nodes 36760981 nps 2898445 pv b1c3
 ```

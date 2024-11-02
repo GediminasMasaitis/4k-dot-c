@@ -643,7 +643,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                   u64 *nodes,
 #endif
-                  u64 history[][64], Move *best_moves) {
+                  u64 history[64][64], Move best_moves[128]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -653,16 +653,12 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     depth++;
   }
 
-  const bool in_qsearch = depth <= 0;
-  const i32 static_eval = eval(pos);
-
-  if (ply > 127) {
-    return static_eval;
-  }
-
-  if (depth > 4 && get_time() - start_time > total_time / 4) {
+  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 127) {
     return alpha;
   }
+
+  const bool in_qsearch = depth <= 0;
+  const i32 static_eval = eval(pos);
 
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
