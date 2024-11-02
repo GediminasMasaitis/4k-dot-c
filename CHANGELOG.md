@@ -1350,3 +1350,13 @@ info depth 9 score cp 14 time 441 nodes 1340575 nps 3039852 pv b1c3
 info depth 10 score cp 14 time 2013 nodes 5929872 nps 2945788 pv b1c3
 info depth 11 score cp 13 time 12683 nodes 36760981 nps 2898445 pv b1c3
 ```
+
+### 0.60
+
+Reduce bytes by assuming stdin never closes
+
+32 bit: 5592 bytes (-16)
+64 bit: 4024 bytes (-16)
+Padding: 6 bytes
+
+MD5: ce4d19e63b0329f8b0c85eeafce427c8

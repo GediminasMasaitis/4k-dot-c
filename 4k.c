@@ -72,8 +72,8 @@ static void puts(const char *const string) {
 #endif
 }
 
-// Non-standard
-static bool getw(char *string) {
+// Non-standard, gets a word instead of a line
+static bool gets(char *string) {
   while (true) {
 #if ARCH64
     const int result = _sys(0, stdin, (ssize_t)string, 1);
@@ -81,9 +81,12 @@ static bool getw(char *string) {
     const int result = _sys(3, stdin, (ssize_t)string, 1);
 #endif
 
+    // Assume stdin never closes on mini build
+#if FULL
     if (result < 1) {
       exit();
     }
+#endif
 
     if (*string == '\n') {
       *string = 0;
@@ -803,13 +806,13 @@ void _start() {
 
 #if !FULL
   // Assume first input is "uci"
-  getw(line);
+  gets(line);
   puts("id name 4k.c\nid author Gedas\nuciok\n");
 #endif
 
   // UCI loop
   while (true) {
-    getw(line);
+    gets(line);
 #if FULL
     if (!strcmp(line, "uci")) {
       puts("id name 4k.c\nid author Gedas\nuciok\n");
@@ -818,7 +821,7 @@ void _start() {
       iteratively_deepen(&pos);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
-      getw(depth_str);
+      gets(depth_str);
       const i32 depth = stoi(depth_str);
       const u64 start = get_time();
       const u64 nodes = perft(&pos, depth);
@@ -842,7 +845,7 @@ void _start() {
                        .ep = 0};
 
       while (true) {
-        const bool line_continue = getw(line);
+        const bool line_continue = gets(line);
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[6];
@@ -859,13 +862,13 @@ void _start() {
     } else if (line[0] == 'g') {
 #if FULL
       while (true) {
-        getw(line);
+        gets(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
-          getw(line);
+          gets(line);
           total_time = stoi(line);
           break;
         } else if (pos.flipped && !strcmp(line, "btime")) {
-          getw(line);
+          gets(line);
           total_time = stoi(line);
           break;
         } else if (!strcmp(line, "movetime")) {
@@ -875,7 +878,7 @@ void _start() {
       }
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
-        getw(line);
+        gets(line);
         total_time = stoi(line);
       }
 #endif
