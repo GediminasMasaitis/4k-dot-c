@@ -56,6 +56,35 @@ static void exit() {
 #endif
 }
 
+static void* malloc(size_t size)
+{
+  ssize_t call = 9;     // syscall number for mmap
+  ssize_t addr = 0;     // addr = NULL
+  ssize_t prot = 0x03;  // PROT_READ | PROT_WRITE
+  ssize_t flags = 0x22; // MAP_PRIVATE | MAP_ANONYMOUS
+  ssize_t fd = -1;      // no file descriptor
+  ssize_t offset = 0;
+
+  ssize_t ret;
+  asm volatile(
+    "mov %5, %%r10\n\t"
+    "mov %6, %%r8\n\t"
+    "mov %7, %%r9\n\t"
+    "syscall"
+    : "=a"(ret)
+    : "a"(call),
+    "D"(addr),
+    "S"(size),
+    "d"(prot),
+    "r"(flags),
+    "r"(fd),
+    "r"(offset)
+    : "r10", "r8", "r9", "rcx", "r11", "memory"
+    );
+
+  return (void*)ret;
+}
+
 [[nodiscard]] static i32 strlen(const char *const string) {
   i32 length = 0;
   while (string[length]) {
@@ -194,6 +223,7 @@ typedef struct [[nodiscard]] {
 } timespec;
 
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
+enum [[nodiscard]] { Upper, Lower, Exact };
 
 typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
@@ -208,6 +238,14 @@ typedef struct [[nodiscard]] {
   bool castling[4];
   bool flipped;
 } Position;
+
+typedef struct [[nodiscard]] {
+  u64 key;
+  Move move;
+  u8 flag;
+  i16 score;
+  i16 depth;
+} TTEntry;
 
 [[nodiscard]] size_t get_time() {
   timespec ts;
@@ -593,6 +631,39 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   return nodes;
 }
 
+u64* keys;
+#define num_tt_entries (1024ULL * 1024)
+TTEntry* transposition_table;
+
+[[nodiscard]] u64 get_hash(const Position* pos) {
+  u64 hash = pos->flipped;
+
+  // Pieces
+  for (i32 p = Pawn; p <= King; ++p) {
+    u64 copy = pos->pieces[p] & pos->colour[0];
+    while (copy) {
+      const i32 sq = lsb(copy);
+      copy &= copy - 1;
+      hash ^= keys[p * 64 + sq];
+    }
+    copy = pos->pieces[p] & pos->colour[1];
+    while (copy) {
+      const i32 sq = lsb(copy);
+      copy &= copy - 1;
+      hash ^= keys[p * 64 + sq + 6 * 64];
+    }
+  }
+
+  // En passant square
+  if (pos->ep)
+    hash ^= keys[12 * 64 + lsb(pos->ep)];
+
+  // Castling permissions
+  hash ^= keys[13 * 64 + pos->castling[0] + pos->castling[1] * 2 + pos->castling[2] * 4 + pos->castling[3] * 8];
+
+  return hash;
+}
+
 __attribute__((aligned(8))) static const i16 material[] = {0,   127,  373, 406,
                                                            633, 1220, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
@@ -660,6 +731,27 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     return alpha;
   }
 
+  //i32 in_qsearch = depth <= 0;
+  const u64 tt_key = get_hash(pos);
+
+  //if (ply > 0 && !in_qsearch) {
+  //  // Repetition detection
+  //  for (const u64 old_hash : hash_history)
+  //    if (old_hash == tt_key)
+  //      return 0;
+  //}
+
+  // TT Probing
+  TTEntry *tt_entry = &transposition_table[tt_key % num_tt_entries];
+  Move tt_move;
+  if (tt_entry->key == tt_key) {
+    tt_move = tt_entry->move;
+    if (alpha == beta - 1 && tt_entry->depth >= depth && tt_entry->flag != tt_entry->score < beta)
+      // If tt_entry.score < beta, tt_entry.flag cannot be Lower (ie must be Upper or Exact).
+      // Otherwise, tt_entry.flag cannot be Upper (ie must be Lower or Exact).
+      return tt_entry->score;
+  }
+
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
 
@@ -678,13 +770,16 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
   Move moves[256];
   const i32 num_moves = movegen(pos, moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 best_score = in_qsearch ? static_eval : -inf;
+  best_moves[ply] = tt_move;
+  u8 tt_flag = Upper;
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
 
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const u64 order_move_score =
-          ((u64)(*(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index])
+          ((u64)(*(u64 *)&tt_move == *(u64 *)&moves[order_index])
            << 60) +
           ((u64)piece_on(pos, moves[order_index].to) << 50) +
           history[moves[order_index].from][moves[order_index].to];
@@ -724,11 +819,17 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 
     moves_evaluated++;
 
+    if(score > best_score) {
+      best_score = score;
+    }
+
     if (score > alpha) {
       best_moves[ply] = moves[move_index];
+      tt_flag = Exact;
       alpha = score;
 
       if (score >= beta) {
+        tt_flag = Lower;
         if (piece_on(pos, moves[move_index].to) == None) {
           history[moves[move_index].from][moves[move_index].to] +=
               depth * depth;
@@ -746,7 +847,15 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     return 0;
   }
 
-  return alpha;
+  *tt_entry = (TTEntry){
+    .key = tt_key,
+    .move = best_moves[ply],
+    .flag = tt_flag,
+    .score = (i16)best_score,
+    .depth = (i16)(!in_qsearch * depth)
+  };
+
+  return alpha; 
 }
 // #define FULL true
 
@@ -789,11 +898,30 @@ static void iteratively_deepen(Position *const pos) {
   puts("\n");
 }
 
+// https://vigna.di.unimi.it/ftp/papers/xorshift.pdf
+u64 rng_state = 1070372;
+[[nodiscard]] static u64 rng() {
+  rng_state ^= rng_state >> 12;
+  rng_state ^= rng_state << 25;
+  rng_state ^= rng_state >> 27;
+  return rng_state * 2685821657736338717LL;
+}
+
+
+
 void _start() {
   char line[1024];
   Position pos;
   Move moves[256];
   i32 num_moves;
+
+  keys = malloc(848 * sizeof(TTEntry));
+  for(i32 i = 0; i < 848; i++) {
+    keys[i] = rng();
+  }
+
+  transposition_table = malloc(1024LL * 1024 * sizeof(TTEntry));
+  puts("TT initiated\n");
 
 #if FULL
   pos = (Position){.castling = {true, true, true, true},
