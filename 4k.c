@@ -635,8 +635,8 @@ static i32 eval(Position *const pos) {
 }
 
 enum { inf = 32000, mate = 30000 };
-size_t start_time;
-size_t total_time;
+static size_t start_time;
+static size_t total_time;
 
 static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
                   const i32 beta,
