@@ -635,31 +635,28 @@ u64* keys;
 #define num_tt_entries (1024ULL * 1024)
 TTEntry* transposition_table;
 
-[[nodiscard]] u64 get_hash(const Position* pos) {
+[[nodiscard]] static u64 get_hash(const Position* pos) {
   u64 hash = pos->flipped;
 
   // Pieces
-  for (i32 p = Pawn; p <= King; ++p) {
-    u64 copy = pos->pieces[p] & pos->colour[0];
-    while (copy) {
-      const i32 sq = lsb(copy);
-      copy &= copy - 1;
-      hash ^= keys[p * 64 + sq];
-    }
-    copy = pos->pieces[p] & pos->colour[1];
-    while (copy) {
-      const i32 sq = lsb(copy);
-      copy &= copy - 1;
-      hash ^= keys[p * 64 + sq + 6 * 64];
+  for(i32 c = 0; c < 2; c++) {
+    for (i32 p = Pawn; p <= King; p++) {
+      u64 copy = pos->colour[c] & pos->pieces[p];
+      while (copy) {
+        const i32 sq = lsb(copy);
+        copy &= copy - 1;
+        hash ^= keys[c * 6 * 64 + p * 64 + sq];
+      }
     }
   }
 
   // En passant square
-  if (pos->ep)
-    hash ^= keys[12 * 64 + lsb(pos->ep)];
+  if (pos->ep) {
+    hash ^= keys[14 * 64 + lsb(pos->ep)];
+  }
 
   // Castling permissions
-  hash ^= keys[13 * 64 + pos->castling[0] + pos->castling[1] * 2 + pos->castling[2] * 4 + pos->castling[3] * 8];
+  hash ^= keys[15 * 64 + pos->castling[0] + pos->castling[1] * 2 + pos->castling[2] * 4 + pos->castling[3] * 8];
 
   return hash;
 }
@@ -727,7 +724,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     depth++;
   }
 
-  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 127) {
+  if (ply > 127) {
     return alpha;
   }
 
@@ -742,7 +739,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
   //}
 
   // TT Probing
-  TTEntry *tt_entry = &transposition_table[tt_key % num_tt_entries];
+  TTEntry *const tt_entry = &transposition_table[tt_key % num_tt_entries];
   Move tt_move;
   if (tt_entry->key == tt_key) {
     tt_move = tt_entry->move;
@@ -815,6 +812,10 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 
       low = -beta;
       reduction = 1;
+    }
+
+    if(depth > 4 && get_time() - start_time > total_time / 4) {
+      return 0;
     }
 
     moves_evaluated++;
@@ -907,21 +908,18 @@ u64 rng_state = 1070372;
   return rng_state * 2685821657736338717LL;
 }
 
-
-
 void _start() {
   char line[1024];
   Position pos;
   Move moves[256];
   i32 num_moves;
 
-  keys = malloc(848 * sizeof(TTEntry));
-  for(i32 i = 0; i < 848; i++) {
+  keys = malloc(1024 * sizeof(u64));
+  for(i32 i = 0; i < 1024; i++) {
     keys[i] = rng();
   }
 
   transposition_table = malloc(1024LL * 1024 * sizeof(TTEntry));
-  puts("TT initiated\n");
 
 #if FULL
   pos = (Position){.castling = {true, true, true, true},
