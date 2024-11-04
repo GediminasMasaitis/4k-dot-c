@@ -17,6 +17,7 @@
 
 #define u64 unsigned long long
 #define i32 int
+#define u32 unsigned
 #define i16 short
 #define i8 char
 #define u8 unsigned char
@@ -208,6 +209,17 @@ typedef struct [[nodiscard]] {
   bool castling[4];
   bool flipped;
 } Position;
+
+[[nodiscard]] static bool position_equal(const Position *const lhs,
+                                         const Position *const rhs) {
+  static_assert(sizeof(Position) % sizeof(u32) == 0);
+  for (u32 i = 0; i < sizeof(Position) / sizeof(u32); i++) {
+    if (((const u32 *)lhs)[i] != ((const u32 *)rhs)[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 [[nodiscard]] size_t get_time() {
   timespec ts;
@@ -624,7 +636,10 @@ static i32 eval(Position *const pos) {
         const int rank = sq >> 3;
         const int file = sq & 7;
 
+        // MATERIAL
         score += material[p - 1];
+
+        // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank] * 2;
         score += pst_file[(p - 1) * 8 + file] * 2;
       }
@@ -645,23 +660,34 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                   u64 *nodes,
 #endif
-                  u64 history[64][64], Move best_moves[128]) {
+                  Position pos_history[128], u64 move_history[64][64],
+                  Move best_moves[128]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
+
+  // IN-CHECK EXTENSION
   if (in_check) {
     depth++;
   }
 
-  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 127) {
+  // EARLY EXITS
+  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
     return alpha;
   }
 
+  // PARTIAL REPETITION DETECTION
+  for (i32 i = ply; i > 1; i -= 2) {
+    if (position_equal(pos, &pos_history[i])) {
+      return 0;
+    }
+  }
+
+  // QUIESCENCE
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
-
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
       return static_eval;
@@ -669,11 +695,13 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     alpha = static_eval;
   }
 
+  // REVERSE FUTILITY PRUNING
   if (!in_qsearch && alpha == beta - 1 && !in_check &&
       static_eval - 128 * depth >= beta) {
     return static_eval;
   }
 
+  pos_history[ply + 2] = *pos;
   Move moves[256];
   const i32 num_moves = movegen(pos, moves, in_qsearch);
   i32 moves_evaluated = 0;
@@ -681,15 +709,17 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
 
+    // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const u64 order_move_score =
           ((u64)(*(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index])
-           << 60) +
-          ((u64)piece_on(pos, moves[order_index].to) << 50) +
-          history[moves[order_index].from][moves[order_index].to];
+           << 60) // PREVIOUS BEST MOVE FIRST
+          + ((u64)piece_on(pos, moves[order_index].to)
+             << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
+          + move_history[moves[order_index].from]
+                        [moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
         move_score = order_move_score;
-
         swapu64((u64 *)&moves[move_index], (u64 *)&moves[order_index]);
       }
     }
@@ -702,7 +732,10 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
       continue;
     }
 
+    // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
+
+    // LATE MOVE REDCUCTION
     i32 reduction = 1 + (depth > 3 && moves_evaluated > 5);
 
     i32 score;
@@ -711,7 +744,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                       nodes,
 #endif
-                      history, best_moves);
+                      pos_history, move_history, best_moves);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -729,7 +762,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 
       if (score >= beta) {
         if (piece_on(pos, moves[move_index].to) == None) {
-          history[moves[move_index].from][moves[move_index].to] +=
+          move_history[moves[move_index].from][moves[move_index].to] +=
               depth * depth;
         }
         break;
@@ -737,6 +770,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     }
   }
 
+  // MATE / STALEMATE DETECTION
   if (moves_evaluated == 0 && !in_qsearch) {
     if (in_check) {
       return -mate;
@@ -752,14 +786,15 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 static void iteratively_deepen(Position *const pos) {
   start_time = get_time();
   Move best_moves[128];
-  u64 history[64][64] = {0};
+  Position pos_history[128];
+  u64 move_history[64][64] = {0};
   u64 nodes = 0;
   for (i32 depth = 1; depth < 128; depth++) {
     i32 score = search(pos, 0, depth, -inf, inf,
 #if FULL
                        &nodes,
 #endif
-                       history, best_moves);
+                       pos_history, move_history, best_moves);
     size_t elapsed = get_time() - start_time;
 
 #if FULL

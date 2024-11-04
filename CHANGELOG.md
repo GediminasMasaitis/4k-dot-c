@@ -812,7 +812,7 @@ Principal variation search
 32 bit: 5432 bytes (+56)
 64 bit: 4032 bytes (+88)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -825,7 +825,7 @@ info depth 9 score 16 time 7201 nodes 19850163 nps 2756584 pv b1c3
 info depth 10 score 16 time 46630 nodes 121079779 nps 2596606 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.39 vs 4k.c-0.38: 294 - 167 - 539  [0.564] 1000
 ...      4k.c-0.39 playing White: 167 - 67 - 267  [0.600] 501
 ...      4k.c-0.39 playing Black: 127 - 100 - 272  [0.527] 499
@@ -840,7 +840,7 @@ Remove qsearch depth limit
 32 bit: 5432 bytes (=)
 64 bit: 4024 bytes (-8)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 0 nodes 602 pv b1c3
@@ -853,7 +853,7 @@ info depth 9 score 16 time 5246 nodes 14916338 nps 2843373 pv b1c3
 info depth 10 score 16 time 37518 nodes 97307407 nps 2593619 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.40 vs 4k.c-0.39: 522 - 458 - 1023  [0.516] 2003
 ...      4k.c-0.40 playing White: 310 - 181 - 511  [0.564] 1002
 ...      4k.c-0.40 playing Black: 212 - 277 - 512  [0.468] 1001
@@ -868,7 +868,7 @@ Smaller PVS
 32 bit: 5432 bytes (=)
 64 bit: 4016 bytes (-8)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 0 nodes 602 pv b1c3
@@ -888,7 +888,7 @@ Reduce size
 32 bit: 5432 bytes (=)
 64 bit: 4000 bytes (-16)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 0 nodes 602 pv b1c3
@@ -908,7 +908,7 @@ Reduce size
 32 bit: 5432 bytes (=)
 64 bit: 3960 bytes (-40)
 
-```
+```py
 info depth 1 score 40 time 1 nodes 20 nps 20000 pv b1c3
 info depth 2 score 16 time 1 nodes 79 nps 79000 pv b1c3
 info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -928,7 +928,7 @@ Reduce size with UCI hacks
 32 bit: 5384 bytes (-48)
 64 bit: 3904 bytes (-56)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -948,7 +948,7 @@ Reduce size by abberviating authorship
 32 bit: 5368 bytes (-16)
 64 bit: 3888 bytes (-16)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -968,7 +968,7 @@ Reduce size
 32 bit: 5368 bytes (=)
 64 bit: 3880 bytes (-8)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 0 nodes 602 pv b1c3
@@ -988,7 +988,7 @@ No RFP in PV nodes
 32 bit: 5400 bytes (+32)
 64 bit: 3888 bytes (+8)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1001,7 +1001,7 @@ info depth 9 score 16 time 5147 nodes 14722592 nps 2860421 pv b1c3
 info depth 10 score 16 time 36669 nodes 94624750 nps 2580510 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.47 vs 4k.c-0.46: 504 - 424 - 1072  [0.520] 2000
 ...      4k.c-0.47 playing White: 298 - 162 - 541  [0.568] 1001
 ...      4k.c-0.47 playing Black: 206 - 262 - 531  [0.472] 999
@@ -1028,7 +1028,7 @@ Protect from ply overflow
 32 bit: 5416 bytes (+16)
 64 bit: 3904 bytes (+16)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 0 nodes 602 pv b1c3
@@ -1048,7 +1048,7 @@ None = 0
 32 bit: 5432 bytes (+16)
 64 bit: 3912 bytes (+8)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1061,7 +1061,7 @@ info depth 9 score 16 time 5390 nodes 14722592 nps 2731464 pv b1c3
 info depth 10 score 16 time 37885 nodes 94624750 nps 2497683 pv b1c3
 ```
 
-```
+```py
 perft 6
 info depth 6 nodes 119060324 time 15063 nps 7904157
 ```
@@ -1073,7 +1073,7 @@ History heuristic
 32 bit: 5688 bytes (+256)
 64 bit: 4088 bytes (+176)
 
-```
+```py
 info depth 1 score 40 time 0 nodes 20 pv b1c3
 info depth 2 score 16 time 0 nodes 79 pv b1c3
 info depth 3 score 36 time 0 nodes 602 pv b1c3
@@ -1086,7 +1086,7 @@ info depth 9 score 16 time 4654 nodes 12612086 nps 2709945 pv b1c3
 info depth 10 score 16 time 23165 nodes 58073555 nps 2506952 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.50 vs 4k.c-0.48: 416 - 228 - 856  [0.563] 1500
 ...      4k.c-0.50 playing White: 238 - 92 - 420  [0.597] 750
 ...      4k.c-0.50 playing Black: 178 - 136 - 436  [0.528] 750
@@ -1113,7 +1113,7 @@ Reduce bytes and slight speedup
 32 bit: 5672 bytes (-16)
 64 bit: 4080 bytes (-8)
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
 info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1126,7 +1126,7 @@ info depth 9 score cp 16 time 4507 nodes 12612086 nps 2798332 pv b1c3
 info depth 10 score cp 16 time 22534 nodes 58073555 nps 2577152 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.51 vs 4k.c-0.50: 733 - 633 - 1634  [0.517] 3000
 ...      4k.c-0.51 playing White: 443 - 265 - 792  [0.559] 1500
 ...      4k.c-0.51 playing Black: 290 - 368 - 842  [0.474] 1500
@@ -1141,7 +1141,7 @@ Reduce bytes
 32 bit: 5672 bytes (=)
 64 bit: 4072 bytes (-8)
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
 info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1161,7 +1161,7 @@ Slight speedup
 32 bit: 5640 bytes (-16)
 64 bit: 4072 bytes (=)
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 79 pv b1c3
 info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1183,7 +1183,7 @@ Reduce bytes
 
 MD5: 884802623c504064c455cc1826802d02
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 79 pv b1c3
 info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1196,7 +1196,7 @@ info depth 9 score cp 16 time 4298 nodes 12612086 nps 2934408 pv b1c3
 info depth 10 score cp 16 time 21407 nodes 58073555 nps 2712830 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.54 vs 4k.c-0.53: 484 - 458 - 1058  [0.506] 2000
 ...      4k.c-0.54 playing White: 289 - 189 - 522  [0.550] 1000
 ...      4k.c-0.54 playing Black: 195 - 269 - 536  [0.463] 1000
@@ -1213,7 +1213,7 @@ Less timing syscalls
 
 MD5: 957f4b1b7d0bfb971915ca5eb31dd000
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 79 pv b1c3
 info depth 3 score cp 36 time 0 nodes 602 pv b1c3
@@ -1226,7 +1226,7 @@ info depth 9 score cp 16 time 4297 nodes 12612086 nps 2935090 pv b1c3
 info depth 10 score cp 16 time 21466 nodes 58073555 nps 2705373 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.55 vs 4k.c-0.54: 467 - 448 - 1085  [0.505] 2000
 ...      4k.c-0.55 playing White: 285 - 187 - 529  [0.549] 1001
 ...      4k.c-0.55 playing Black: 182 - 261 - 556  [0.460] 999
@@ -1243,7 +1243,7 @@ Reduce bytes
 
 MD5: 05d7423515fe8c7571d707b2d6f2fc21
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 79 pv b1c3
 info depth 3 score cp 36 time 0 nodes 602 pv b1c3
@@ -1265,7 +1265,7 @@ Reduce bytes
 
 MD5: cb7e8fa9d4dee2c95fd4407afa81c442
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
 info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1278,7 +1278,7 @@ info depth 9 score cp 16 time 4467 nodes 12612086 nps 2823390 pv b1c3
 info depth 10 score cp 16 time 22451 nodes 58073555 nps 2586680 pv b1c3
 ```
 
-```
+```py
 perft 6
 info depth 6 nodes 119060324 time 13032 nps 9135997
 ```
@@ -1293,7 +1293,7 @@ Padding: 5 bytes
 
 MD5: f61689e74dfe6399af80e955017e1cd4
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
 info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
@@ -1307,7 +1307,7 @@ info depth 10 score cp 14 time 2090 nodes 5929872 nps 2837259 pv b1c3
 info depth 11 score cp 13 time 13199 nodes 36760981 nps 2785133 pv b1c3
 ```
 
-```
+```py
 Score of 4k.c-0.58 vs 4k.c-0.57: 271 - 152 - 577  [0.559] 1000
 ...      4k.c-0.58 playing White: 158 - 60 - 282  [0.598] 500
 ...      4k.c-0.58 playing Black: 113 - 92 - 295  [0.521] 500
@@ -1337,7 +1337,7 @@ Padding: 6 bytes
 
 MD5: 71703f39997625c2146f654a5b1f143c
 
-```
+```py
 info depth 1 score cp 40 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 79 pv b1c3
 info depth 3 score cp 36 time 0 nodes 602 pv b1c3
@@ -1391,3 +1391,36 @@ Reduce bytes by changing C standard to gnu23
 Padding: 7 bytes
 
 MD5: b5413110129ae62cdfd704d9f5de1ff6
+
+### 0.64
+
+Partial repetition detection
+
+32 bit: 5640 bytes (+80)
+64 bit: 4080 bytes (+88)
+
+Padding: 6 bytes
+
+MD5: 32665e47dddd77a8e6e11970fda617db
+
+```py
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1765 nps 1765000 pv b1c3
+info depth 5 score cp 4 time 3 nodes 7187 nps 2395666 pv b1c3
+info depth 6 score cp 14 time 10 nodes 25383 nps 2538300 pv b1c3
+info depth 7 score cp 10 time 33 nodes 85777 nps 2599303 pv b1c3
+info depth 8 score cp 16 time 120 nodes 311635 nps 2596958 pv b1c3
+info depth 9 score cp 14 time 541 nodes 1340528 nps 2477870 pv b1c3
+info depth 10 score cp 14 time 3373 nodes 8195922 nps 2429861 pv b1c3
+info depth 11 score cp 13 time 16834 nodes 40954740 nps 2432858 pv b1c3
+```
+
+```py
+Score of 4k.c-0.64 vs 4k.c-0.63: 365 - 247 - 888  [0.539] 1500
+...      4k.c-0.64 playing White: 216 - 97 - 437  [0.579] 750
+...      4k.c-0.64 playing Black: 149 - 150 - 451  [0.499] 750
+...      White vs Black: 366 - 246 - 888  [0.540] 1500
+Elo difference: 27.4 +/- 11.2, LOS: 100.0 %, DrawRatio: 59.2 %
+```
