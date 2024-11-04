@@ -21,11 +21,8 @@
 #define i16 short
 #define i8 char
 #define u8 unsigned char
-#define bool char
 
 #define NULL ((void *)0)
-#define false 0
-#define true 1
 
 enum [[nodiscard]] {
   stdin = 0,

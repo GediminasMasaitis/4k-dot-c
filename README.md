@@ -8,10 +8,10 @@ The engine is a <= 4096 byte UCI engine executable, without:
 * On-the-fly compilation
 
 ### Current specifications
-32 bit: 5640 bytes
-64 bit: 4080 bytes
+32 bit: 5608 bytes
+64 bit: 4064 bytes
 
-Perft: 9135997 nps
+Perft: 8636321 nps
 
 ### How to install gcc 14.2:
 ```bash
