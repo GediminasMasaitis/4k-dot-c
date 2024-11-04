@@ -1370,3 +1370,13 @@ Reduce bytes by removing UCI info
 Padding: 6 bytes
 
 MD5: 509c5673c9a6679714fa47a979c5df50
+
+### 0.62
+
+Reduce bytes by smaller material table
+
+32 bit: 5560 bytes (=)
+64 bit: 3992 bytes (-8)
+Padding: 3 bytes
+
+MD5: 7b51e162375501dafa828a7dfeb4a5f9

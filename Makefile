@@ -38,7 +38,8 @@ debug:
 	./build/4k-dot-c
 
 format:
-	dos2unix ./*.*
+	dos2unix ./*.c
+	dos2unix ./*.ld
 	clang-format -i ./4k.c
 
 clean:

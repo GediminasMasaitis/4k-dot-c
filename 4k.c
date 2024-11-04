@@ -593,7 +593,7 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   127,  373, 406,
+__attribute__((aligned(8))) static const i16 material[] = {127, 373,  406,
                                                            633, 1220, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
@@ -624,8 +624,7 @@ static i32 eval(Position *const pos) {
         const int rank = sq >> 3;
         const int file = sq & 7;
 
-        score += material[p];
-
+        score += material[p - 1];
         score += pst_rank[(p - 1) * 8 + rank] * 2;
         score += pst_file[(p - 1) * 8 + file] * 2;
       }
