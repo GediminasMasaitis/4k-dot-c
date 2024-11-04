@@ -1380,3 +1380,14 @@ Reduce bytes by smaller material table
 Padding: 3 bytes
 
 MD5: 7b51e162375501dafa828a7dfeb4a5f9
+
+### 0.63
+
+Reduce bytes by changing C standard to gnu23
+
+32 bit: 5560 bytes (=)
+64 bit: 3984 bytes (-8)
+
+Padding: 7 bytes
+
+MD5: b5413110129ae62cdfd704d9f5de1ff6

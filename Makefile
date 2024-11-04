@@ -1,5 +1,5 @@
 ARCH ?= 64
-CFLAGS := -march=haswell -nostdlib -fno-pic -fno-builtin -fno-stack-protector -Oz
+CFLAGS := -std=gnu23 -march=haswell -nostdlib -fno-pic -fno-builtin -fno-stack-protector -Oz
 LDFILE := 64bit.ld
 
 ifeq ($(ARCH), 32)
