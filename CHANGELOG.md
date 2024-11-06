@@ -1533,3 +1533,49 @@ info depth 10 score cp 14 time 1557 nodes 4363840 nps 2802723 pv b1c3
 info depth 11 score cp 13 time 10664 nodes 29067621 nps 2725770 pv b1c3
 info depth 12 score cp 14 time 25376 nodes 68891493 nps 2714828 pv b1c3
 ```
+
+### 0.69
+
+Reduce size by offloading move list to search stack
+
+32 bit: 5480 bytes (-80)
+64 bit: 3992 bytes (-24)
+
+Padding: 1 bytes
+
+MD5: 8abad2145c109e6cecc1bdd441772e6d
+
+```py
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1685 nps 1685000 pv b1c3
+info depth 5 score cp 4 time 3 nodes 6930 nps 2310000 pv b1c3
+info depth 6 score cp 14 time 8 nodes 22022 nps 2752750 pv b1c3
+info depth 7 score cp 10 time 26 nodes 75478 nps 2903000 pv b1c3
+info depth 8 score cp 16 time 88 nodes 259018 nps 2943386 pv b1c3
+info depth 9 score cp 14 time 369 nodes 1046978 nps 2837338 pv b1c3
+info depth 10 score cp 14 time 1589 nodes 4363840 nps 2746280 pv b1c3
+info depth 11 score cp 13 time 10821 nodes 29067621 nps 2686223 pv b1c3
+info depth 12 score cp 14 time 25865 nodes 68891493 nps 2663502 pv b1c3
+```
+
+```py
+Score of 4k.c-0.69 vs 4k.c-0.50: 387 - 118 - 495  [0.634] 1000
+...      4k.c-0.69 playing White: 229 - 37 - 234  [0.692] 500
+...      4k.c-0.69 playing Black: 158 - 81 - 261  [0.577] 500
+...      White vs Black: 310 - 195 - 495  [0.557] 1000
+Elo difference: 95.8 +/- 15.3, LOS: 100.0 %, DrawRatio: 49.5 %
+
+Score of 4k.c-0.69 vs stash12: 409 - 295 - 296  [0.557] 1000
+...      4k.c-0.69 playing White: 241 - 103 - 156  [0.638] 500
+...      4k.c-0.69 playing Black: 168 - 192 - 140  [0.476] 500
+...      White vs Black: 433 - 271 - 296  [0.581] 1000
+Elo difference: 39.8 +/- 18.1, LOS: 100.0 %, DrawRatio: 29.6 %
+
+Score of 4k.c-0.69 vs stash13: 512 - 551 - 437  [0.487] 1500
+...      4k.c-0.69 playing White: 303 - 219 - 227  [0.556] 749
+...      4k.c-0.69 playing Black: 209 - 332 - 210  [0.418] 751
+...      White vs Black: 635 - 428 - 437  [0.569] 1500
+Elo difference: -9.0 +/- 14.8, LOS: 11.6 %, DrawRatio: 29.1 %
+```
