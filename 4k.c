@@ -780,10 +780,9 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 }
 // #define FULL true
 
-static void iteratively_deepen(Position *const pos) {
+static void iteratively_deepen(Position *const pos, Position pos_history[128]) {
   start_time = get_time();
   Move best_moves[128];
-  Position pos_history[128];
   u64 move_history[64][64] = {0};
   u64 nodes = 0;
   for (i32 depth = 1; depth < 128; depth++) {
@@ -825,6 +824,7 @@ void _start() {
   Position pos;
   Move moves[256];
   i32 num_moves;
+  Position pos_history[128];
 
 #if FULL
   pos = (Position){.castling = {true, true, true, true},
@@ -849,7 +849,7 @@ void _start() {
       puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(&pos);
+      iteratively_deepen(&pos, pos_history);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       gets(depth_str);
@@ -913,7 +913,7 @@ void _start() {
         total_time = stoi(line);
       }
 #endif
-      iteratively_deepen(&pos);
+      iteratively_deepen(&pos, pos_history);
     }
   }
 
