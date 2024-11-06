@@ -652,13 +652,17 @@ enum { inf = 32000, mate = 30000 };
 static size_t start_time;
 static size_t total_time;
 
+typedef struct [[nodiscard]] {
+  Position history;
+  Move best_move;
+} Stack;
+
 static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
                   const i32 beta,
 #if FULL
                   u64 *nodes,
 #endif
-                  Position pos_history[128], u64 move_history[64][64],
-                  Move best_moves[128]) {
+                  Stack stack[128], u64 move_history[64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -677,7 +681,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 
   // PARTIAL REPETITION DETECTION
   for (i32 i = ply; i > 1; i -= 2) {
-    if (position_equal(pos, &pos_history[i])) {
+    if (position_equal(pos, &stack[i].history)) {
       return 0;
     }
   }
@@ -698,7 +702,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     return static_eval;
   }
 
-  pos_history[ply + 2] = *pos;
+  stack[ply + 2].history = *pos;
   Move moves[256];
   const i32 num_moves = movegen(pos, moves, in_qsearch);
   i32 moves_evaluated = 0;
@@ -709,7 +713,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const u64 order_move_score =
-          ((u64)(*(u64 *)&best_moves[ply] == *(u64 *)&moves[order_index])
+          ((u64)(*(u64 *)&stack[ply].best_move == *(u64 *)&moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)piece_on(pos, moves[order_index].to)
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
@@ -741,7 +745,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 #if FULL
                       nodes,
 #endif
-                      pos_history, move_history, best_moves);
+                      stack, move_history);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -754,7 +758,7 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
     moves_evaluated++;
 
     if (score > alpha) {
-      best_moves[ply] = moves[move_index];
+      stack[ply].best_move = moves[move_index];
       alpha = score;
 
       if (score >= beta) {
@@ -780,9 +784,8 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 }
 // #define FULL true
 
-static void iteratively_deepen(Position *const pos, Position pos_history[128]) {
+static void iteratively_deepen(Position *const pos, Stack stack[128]) {
   start_time = get_time();
-  Move best_moves[128];
   u64 move_history[64][64] = {0};
   u64 nodes = 0;
   for (i32 depth = 1; depth < 128; depth++) {
@@ -790,12 +793,12 @@ static void iteratively_deepen(Position *const pos, Position pos_history[128]) {
 #if FULL
                        &nodes,
 #endif
-                       pos_history, move_history, best_moves);
+                       stack, move_history);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
     char info_move_name[6];
-    move_str(info_move_name, &best_moves[0], pos->flipped);
+    move_str(info_move_name, &stack[0].best_move, pos->flipped);
     printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
            nodes);
     if (elapsed > 0) {
@@ -813,7 +816,7 @@ static void iteratively_deepen(Position *const pos, Position pos_history[128]) {
     }
   }
   char move_name[6];
-  move_str(move_name, &best_moves[0], pos->flipped);
+  move_str(move_name, &stack[0].best_move, pos->flipped);
   puts("bestmove ");
   puts(move_name);
   puts("\n");
@@ -824,7 +827,7 @@ void _start() {
   Position pos;
   Move moves[256];
   i32 num_moves;
-  Position pos_history[128];
+  Stack stack[128];
 
 #if FULL
   pos = (Position){.castling = {true, true, true, true},
@@ -849,7 +852,7 @@ void _start() {
       puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(&pos, pos_history);
+      iteratively_deepen(&pos, stack);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       gets(depth_str);
@@ -913,7 +916,7 @@ void _start() {
         total_time = stoi(line);
       }
 #endif
-      iteratively_deepen(&pos, pos_history);
+      iteratively_deepen(&pos, stack);
     }
   }
 

@@ -1507,3 +1507,29 @@ Reduce size by moving position history
 Padding: 4 bytes
 
 MD5: bd614583914cfc56d6c5e5b834e0791c
+
+### 0.68
+
+Reduce size by using a search stack
+
+32 bit: 5560 bytes (-16)
+64 bit: 4016 bytes (-16)
+
+Padding: 7 bytes
+
+MD5: 1c39c8895231105fa58932e4fd44001c
+
+```py
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1685 nps 1685000 pv b1c3
+info depth 5 score cp 4 time 3 nodes 6930 nps 2310000 pv b1c3
+info depth 6 score cp 14 time 8 nodes 22022 nps 2752750 pv b1c3
+info depth 7 score cp 10 time 26 nodes 75478 nps 2903000 pv b1c3
+info depth 8 score cp 16 time 92 nodes 259018 nps 2815413 pv b1c3
+info depth 9 score cp 14 time 373 nodes 1046978 nps 2806911 pv b1c3
+info depth 10 score cp 14 time 1557 nodes 4363840 nps 2802723 pv b1c3
+info depth 11 score cp 13 time 10664 nodes 29067621 nps 2725770 pv b1c3
+info depth 12 score cp 14 time 25376 nodes 68891493 nps 2714828 pv b1c3
+```
