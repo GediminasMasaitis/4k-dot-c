@@ -317,7 +317,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
          (bb << 1 | bb << 9 | bb >> 7) & ~0x101010101010101ull;
 }
 
-static void move_str(char *str, const Move *move, const i32 flip) {
+static void move_str(char *restrict str, const Move * restrict move, const i32 flip) {
   assert(move->from >= 0);
   assert(move->from < 64);
   assert(move->to >= 0);

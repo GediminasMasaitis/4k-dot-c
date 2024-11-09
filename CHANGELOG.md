@@ -1579,3 +1579,37 @@ Score of 4k.c-0.69 vs stash13: 512 - 551 - 437  [0.487] 1500
 ...      White vs Black: 635 - 428 - 437  [0.569] 1500
 Elo difference: -9.0 +/- 14.8, LOS: 11.6 %, DrawRatio: 29.1 %
 ```
+
+### 0.70
+
+Reduce size by restricting move string
+
+32 bit: 5512 bytes (+32)
+64 bit: 3984 bytes (-16)
+
+Padding: 6 bytes
+
+MD5: bfb6e6419b23fecd56b6f090db91de55
+
+```py
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1685 nps 1685000 pv b1c3
+info depth 5 score cp 4 time 3 nodes 6930 nps 2310000 pv b1c3
+info depth 6 score cp 14 time 7 nodes 22022 nps 3146000 pv b1c3
+info depth 7 score cp 10 time 25 nodes 75478 nps 3019120 pv b1c3
+info depth 8 score cp 16 time 85 nodes 259018 nps 3047270 pv b1c3
+info depth 9 score cp 14 time 346 nodes 1046978 nps 3025947 pv b1c3
+info depth 10 score cp 14 time 1490 nodes 4363840 nps 2928751 pv b1c3
+info depth 11 score cp 13 time 10195 nodes 29067621 nps 2851164 pv b1c3
+info depth 12 score cp 14 time 24074 nodes 68891493 nps 2861655 pv b1c3
+```
+
+```py
+Score of 4k.c-0.70 vs 4k.c-0.69: 259 - 276 - 465  [0.491] 1000
+...      4k.c-0.70 playing White: 171 - 104 - 225  [0.567] 500
+...      4k.c-0.70 playing Black: 88 - 172 - 240  [0.416] 500
+...      White vs Black: 343 - 192 - 465  [0.576] 1000
+Elo difference: -5.9 +/- 15.7, LOS: 23.1 %, DrawRatio: 46.5 %
+```
