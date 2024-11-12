@@ -54,7 +54,7 @@ static void exit() {
 #endif
 }
 
-[[nodiscard]] static i32 strlen(const char *const string) {
+[[nodiscard]] static i32 strlen(const char *const restrict string) {
   i32 length = 0;
   while (string[length]) {
     length++;
@@ -62,7 +62,7 @@ static void exit() {
   return length;
 }
 
-static void puts(const char *const string) {
+static void puts(const char *const restrict string) {
 #if ARCH64
   _sys(1, stdout, (ssize_t)string, strlen(string));
 #else
@@ -71,7 +71,7 @@ static void puts(const char *const string) {
 }
 
 // Non-standard, gets a word instead of a line
-static bool gets(char *string) {
+static bool gets(char *restrict string) {
   while (true) {
 #if ARCH64
     const int result = _sys(0, stdin, (ssize_t)string, 1);
@@ -100,7 +100,8 @@ static bool gets(char *string) {
   }
 }
 
-[[nodiscard]] static bool strcmp(const char *lhs, const char *rhs) {
+[[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                 const char *restrict rhs) {
   while (*lhs || *rhs) {
     if (*lhs != *rhs) {
       return true;
@@ -111,7 +112,7 @@ static bool gets(char *string) {
   return false;
 }
 
-[[nodiscard]] static size_t stoi(const char *string) {
+[[nodiscard]] static size_t stoi(const char *restrict string) {
   size_t result = 0;
   while (true) {
     if (!*string) {
@@ -207,8 +208,8 @@ typedef struct [[nodiscard]] {
   bool flipped;
 } Position;
 
-[[nodiscard]] static bool position_equal(const Position *const lhs,
-                                         const Position *const rhs) {
+[[nodiscard]] static bool position_equal(const Position *const restrict lhs,
+                                         const Position *const restrict rhs) {
   static_assert(sizeof(Position) % sizeof(u32) == 0);
   for (u32 i = 0; i < sizeof(Position) / sizeof(u32); i++) {
     if (((const u32 *)lhs)[i] != ((const u32 *)rhs)[i]) {
@@ -317,7 +318,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
          (bb << 1 | bb << 9 | bb >> 7) & ~0x101010101010101ull;
 }
 
-static void move_str(char *restrict str, const Move * restrict move, const i32 flip) {
+static void move_str(char *restrict str, const Move *restrict move,
+                     const i32 flip) {
   assert(move->from >= 0);
   assert(move->from < 64);
   assert(move->to >= 0);
@@ -336,7 +338,8 @@ static void move_str(char *restrict str, const Move * restrict move, const i32 f
   str[5] = '\0';
 }
 
-[[nodiscard]] static i32 piece_on(const Position *const pos, const i32 sq) {
+[[nodiscard]] static i32 piece_on(const Position *const restrict pos,
+                                  const i32 sq) {
   assert(sq >= 0);
   assert(sq < 64);
   for (i32 i = Pawn; i <= King; ++i) {
@@ -353,13 +356,13 @@ static void swapu64(u64 *const lhs, u64 *const rhs) {
   *rhs = temp;
 }
 
-static void swapbool(bool *const lhs, bool *const rhs) {
+static void swapbool(bool *const restrict lhs, bool *const restrict rhs) {
   const bool temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
 }
 
-static void flip_pos(Position *const pos) {
+static void flip_pos(Position *const restrict pos) {
   pos->flipped ^= 1;
   pos->colour[0] = flip_bb(pos->colour[0]);
   pos->colour[1] = flip_bb(pos->colour[1]);
@@ -373,8 +376,8 @@ static void flip_pos(Position *const pos) {
   pos->ep = flip_bb(pos->ep);
 }
 
-[[nodiscard]] static i32 is_attacked(const Position *const pos, const i32 sq,
-                                     const i32 them) {
+[[nodiscard]] static i32 is_attacked(const Position *const restrict pos,
+                                     const i32 sq, const i32 them) {
   assert(sq >= 0);
   assert(sq < 64);
   const u64 bb = 1ull << sq;
@@ -390,7 +393,8 @@ static void flip_pos(Position *const pos) {
              pos->pieces[King];
 }
 
-static i32 makemove(Position *const pos, const Move *const move) {
+static i32 makemove(Position *const restrict pos,
+                    const Move *const restrict move) {
   assert(move->from >= 0);
   assert(move->from < 64);
   assert(move->to >= 0);
@@ -478,7 +482,8 @@ static void generate_pawn_moves(
 #if ASSERTS
     const Position *const pos,
 #endif
-    Move *const movelist, i32 *const num_moves, u64 to_mask, const i32 offset
+    Move *const restrict movelist, i32 *const restrict num_moves, u64 to_mask,
+    const i32 offset
 
 ) {
   while (to_mask) {
@@ -499,8 +504,9 @@ static void generate_pawn_moves(
   }
 }
 
-static void generate_piece_moves(Move *const movelist, i32 *num_moves,
-                                 const Position *pos, const i32 piece,
+static void generate_piece_moves(Move *const restrict movelist,
+                                 i32 *restrict num_moves,
+                                 const Position *restrict pos, const i32 piece,
                                  const u64 to_mask,
                                  u64 (*f)(const i32, const u64)) {
   assert(piece == Knight || piece == Bishop || piece == Rook ||
@@ -523,8 +529,8 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
   }
 }
 
-[[nodiscard]] static i32 movegen(const Position *const pos,
-                                 Move *const movelist,
+[[nodiscard]] static i32 movegen(const Position *const restrict pos,
+                                 Move *const restrict movelist,
                                  const i32 only_captures) {
   i32 num_moves = 0;
   const u64 all = pos->colour[0] | pos->colour[1];
@@ -579,7 +585,8 @@ static void generate_piece_moves(Move *const movelist, i32 *num_moves,
 
 #pragma region engine
 
-[[nodiscard]] static u64 perft(const Position *const pos, const i32 depth) {
+[[nodiscard]] static u64 perft(const Position *const restrict pos,
+                               const i32 depth) {
   if (depth == 0) {
     return 1;
   }
@@ -621,7 +628,7 @@ __attribute__((aligned(8))) static const i8 pst_file[] = {
     -8,  2,  0,  -1, -2, -2, 4,  -6,  // King
 };
 
-static i32 eval(Position *const pos) {
+static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = Pawn; p <= King; p++) {
@@ -658,12 +665,12 @@ typedef struct [[nodiscard]] {
   Move moves[256];
 } SearchStack;
 
-static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
-                  const i32 beta,
+static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
+                  i32 alpha, const i32 beta,
 #if FULL
                   u64 *nodes,
 #endif
-                  SearchStack stack[128], u64 move_history[64][64]) {
+                  SearchStack *restrict stack, u64 move_history[64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -787,7 +794,8 @@ static i32 search(Position *const pos, const i32 ply, i32 depth, i32 alpha,
 }
 // #define FULL true
 
-static void iteratively_deepen(Position *const pos, SearchStack stack[128]) {
+static void iteratively_deepen(Position *const restrict pos,
+                               SearchStack *restrict stack) {
   start_time = get_time();
   u64 move_history[64][64] = {0};
   u64 nodes = 0;

@@ -1585,7 +1585,7 @@ Elo difference: -9.0 +/- 14.8, LOS: 11.6 %, DrawRatio: 29.1 %
 Reduce size by restricting move string
 
 32 bit: 5512 bytes (+32)
-64 bit: 3984 bytes (-16)
+64 bit: 3984 bytes (-8)
 
 Padding: 6 bytes
 
@@ -1612,4 +1612,44 @@ Score of 4k.c-0.70 vs 4k.c-0.69: 259 - 276 - 465  [0.491] 1000
 ...      4k.c-0.70 playing Black: 88 - 172 - 240  [0.416] 500
 ...      White vs Black: 343 - 192 - 465  [0.576] 1000
 Elo difference: -5.9 +/- 15.7, LOS: 23.1 %, DrawRatio: 46.5 %
+```
+
+### 0.71
+
+Reduce size by restricting every pointer possible
+
+32 bit: 5464 bytes (-48)
+64 bit: 3968 bytes (-16)
+
+Padding: 1 byte
+
+MD5: bac03daf8711631b797111f8306a698c
+
+```py
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 79 nps 79000 pv b1c3
+info depth 3 score cp 36 time 1 nodes 602 nps 602000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1685 nps 1685000 pv b1c3
+info depth 5 score cp 4 time 3 nodes 6930 nps 2310000 pv b1c3
+info depth 6 score cp 14 time 8 nodes 22022 nps 2752750 pv b1c3
+info depth 7 score cp 10 time 27 nodes 75478 nps 2795481 pv b1c3
+info depth 8 score cp 16 time 90 nodes 259018 nps 2877977 pv b1c3
+info depth 9 score cp 14 time 366 nodes 1046978 nps 2860595 pv b1c3
+info depth 10 score cp 14 time 1540 nodes 4363840 nps 2833662 pv b1c3
+info depth 11 score cp 13 time 10389 nodes 29067621 nps 2797922 pv b1c3
+info depth 12 score cp 14 time 24624 nodes 68891493 nps 2797737 pv b1c3
+info depth 13 score cp 12 time 112215 nodes 317675226 nps 2830951 pv e2e3
+```
+
+```py
+perft 6
+info depth 6 nodes 119060324 time 11123 nps 10703975
+```
+
+```py
+Score of 4k.c-0.71 vs 4k.c-0.70: 261 - 254 - 485  [0.503] 1000
+...      4k.c-0.71 playing White: 162 - 88 - 251  [0.574] 501
+...      4k.c-0.71 playing Black: 99 - 166 - 234  [0.433] 499
+...      White vs Black: 328 - 187 - 485  [0.571] 1000
+Elo difference: 2.4 +/- 15.4, LOS: 62.1 %, DrawRatio: 48.5 %
 ```
