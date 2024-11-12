@@ -670,7 +670,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #if FULL
                   u64 *nodes,
 #endif
-                  SearchStack *restrict stack, u64 move_history[64][64]) {
+                  SearchStack *restrict stack, const i32 pos_history_count,
+                  u64 move_history[64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -687,8 +688,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return alpha;
   }
 
-  // PARTIAL REPETITION DETECTION
-  for (i32 i = ply; i > 1; i -= 2) {
+  // FULL REPETITION DETECTION
+  for (i32 i = pos_history_count + ply; i > 0 && ply > 0; i -= 2) {
     if (position_equal(pos, &stack[i].history)) {
       return 0;
     }
@@ -710,7 +711,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return static_eval;
   }
 
-  stack[ply + 2].history = *pos;
+  stack[pos_history_count + ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
 
@@ -755,7 +756,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #if FULL
                       nodes,
 #endif
-                      stack, move_history);
+                      stack, pos_history_count, move_history);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -795,7 +796,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 // #define FULL true
 
 static void iteratively_deepen(Position *const restrict pos,
-                               SearchStack *restrict stack) {
+                               SearchStack *restrict stack,
+                               const i32 pos_history_count) {
   start_time = get_time();
   u64 move_history[64][64] = {0};
   u64 nodes = 0;
@@ -804,7 +806,7 @@ static void iteratively_deepen(Position *const restrict pos,
 #if FULL
                        &nodes,
 #endif
-                       stack, move_history);
+                       stack, pos_history_count, move_history);
     size_t elapsed = get_time() - start_time;
 
 #if FULL
@@ -838,7 +840,8 @@ void _start() {
   Position pos;
   Move moves[256];
   i32 num_moves;
-  SearchStack stack[128];
+  i32 pos_history_count;
+  SearchStack stack[1024];
 
 #if FULL
   pos = (Position){.castling = {true, true, true, true},
@@ -847,6 +850,7 @@ void _start() {
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
                    .ep = 0};
+  pos_history_count = 0;
 #endif
 
 #if !FULL
@@ -863,7 +867,7 @@ void _start() {
       puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(&pos, stack);
+      iteratively_deepen(&pos, stack, pos_history_count);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       gets(depth_str);
@@ -888,7 +892,7 @@ void _start() {
                                   0x2400000000000024ull, 0x8100000000000081ull,
                                   0x800000000000008ull, 0x1000000000000010ull},
                        .ep = 0};
-
+      pos_history_count = 0;
       while (true) {
         const bool line_continue = gets(line);
         num_moves = movegen(&pos, moves, false);
@@ -896,6 +900,8 @@ void _start() {
           char move_name[6];
           move_str(move_name, &moves[i], pos.flipped);
           if (!strcmp(line, move_name)) {
+            stack[pos_history_count].history = pos;
+            pos_history_count++;
             makemove(&pos, &moves[i]);
             break;
           }
@@ -927,7 +933,7 @@ void _start() {
         total_time = stoi(line);
       }
 #endif
-      iteratively_deepen(&pos, stack);
+      iteratively_deepen(&pos, stack, pos_history_count);
     }
   }
 

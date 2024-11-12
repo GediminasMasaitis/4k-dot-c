@@ -1653,3 +1653,38 @@ Score of 4k.c-0.71 vs 4k.c-0.70: 261 - 254 - 485  [0.503] 1000
 ...      White vs Black: 328 - 187 - 485  [0.571] 1000
 Elo difference: 2.4 +/- 15.4, LOS: 62.1 %, DrawRatio: 48.5 %
 ```
+
+### 0.71
+
+Full repetition detection
+
+32 bit: 5544 bytes (+80)
+64 bit: 4048 bytes (+80)
+
+Padding: 0 bytes
+
+MD5: 75594d64e663f035759db3c16e905a3b
+
+```py
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1685 nps 1685000 pv b1c3
+info depth 5 score cp 4 time 2 nodes 6930 nps 3465000 pv b1c3
+info depth 6 score cp 14 time 8 nodes 22022 nps 2752750 pv b1c3
+info depth 7 score cp 10 time 25 nodes 75478 nps 3019120 pv b1c3
+info depth 8 score cp 16 time 83 nodes 259018 nps 3120698 pv b1c3
+info depth 9 score cp 14 time 342 nodes 1046978 nps 3061339 pv b1c3
+info depth 10 score cp 14 time 1458 nodes 4363840 nps 2993031 pv b1c3
+info depth 11 score cp 13 time 9752 nodes 29067621 nps 2980683 pv b1c3
+info depth 12 score cp 14 time 23245 nodes 68891493 nps 2963712 pv b1c3
+info depth 13 score cp 12 time 106806 nodes 317675226 nps 2974320 pv e2e3
+```
+
+```py
+Score of 4k.c-0.72 vs 4k.c-0.71: 1221 - 1006 - 1773  [0.527] 4000
+...      4k.c-0.72 playing White: 749 - 421 - 830  [0.582] 2000
+...      4k.c-0.72 playing Black: 472 - 585 - 943  [0.472] 2000
+...      White vs Black: 1334 - 893 - 1773  [0.555] 4000
+Elo difference: 18.7 +/- 8.0, LOS: 100.0 %, DrawRatio: 44.3 %
+```
