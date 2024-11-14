@@ -689,7 +689,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // FULL REPETITION DETECTION
-  for (i32 i = pos_history_count + ply; i > 0 && ply > 0; i -= 2) {
+  for (i32 i = pos_history_count + ply; depth >= 0 && i > 0 && ply > 0; i -= 2) {
     if (position_equal(pos, &stack[i].history)) {
       return 0;
     }

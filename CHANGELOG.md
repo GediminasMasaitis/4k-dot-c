@@ -1654,7 +1654,7 @@ Score of 4k.c-0.71 vs 4k.c-0.70: 261 - 254 - 485  [0.503] 1000
 Elo difference: 2.4 +/- 15.4, LOS: 62.1 %, DrawRatio: 48.5 %
 ```
 
-### 0.71
+### 0.72
 
 Full repetition detection
 
@@ -1687,4 +1687,51 @@ Score of 4k.c-0.72 vs 4k.c-0.71: 1221 - 1006 - 1773  [0.527] 4000
 ...      4k.c-0.72 playing Black: 472 - 585 - 943  [0.472] 2000
 ...      White vs Black: 1334 - 893 - 1773  [0.555] 4000
 Elo difference: 18.7 +/- 8.0, LOS: 100.0 %, DrawRatio: 44.3 %
+```
+
+### 0.73
+
+No repetition detection on negative depths
+
+32 bit: 5544 bytes (=)
+64 bit: 4056 bytes (+8)
+
+Padding: 1 byte
+
+MD5: f6202951e77231c1f3080e801ab2d4f2
+
+```
+info depth 1 score cp 40 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 79 pv b1c3
+info depth 3 score cp 36 time 0 nodes 602 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1685 pv b1c3
+info depth 5 score cp 4 time 2 nodes 6930 nps 3465000 pv b1c3
+info depth 6 score cp 14 time 7 nodes 22022 nps 3146000 pv b1c3
+info depth 7 score cp 10 time 25 nodes 75478 nps 3019120 pv b1c3
+info depth 8 score cp 16 time 83 nodes 259018 nps 3120698 pv b1c3
+info depth 9 score cp 14 time 344 nodes 1046978 nps 3043540 pv b1c3
+info depth 10 score cp 14 time 1425 nodes 4363840 nps 3062343 pv b1c3
+info depth 11 score cp 13 time 9517 nodes 29067621 nps 3054284 pv b1c3
+info depth 12 score cp 14 time 22549 nodes 68891493 nps 3055190 pv b1c3
+info depth 13 score cp 12 time 104563 nodes 317675226 nps 3038122 pv e2e3
+```
+
+```py
+Score of 4k.c-0.73 vs 4k.c-0.72: 24177 - 18685 - 20138  [0.544] 63000
+...      4k.c-0.73 playing White: 14362 - 7346 - 9793  [0.611] 31501
+...      4k.c-0.73 playing Black: 9815 - 11339 - 10345  [0.476] 31499
+...      White vs Black: 25701 - 17161 - 20138  [0.568] 63000
+Elo difference: 30.4 +/- 2.2, LOS: 100.0 %, DrawRatio: 32.0 %
+
+Score of 4k.c-0.73 vs stash12: 1448 - 1065 - 487  [0.564] 3000
+...      4k.c-0.73 playing White: 851 - 415 - 233  [0.645] 1499
+...      4k.c-0.73 playing Black: 597 - 650 - 254  [0.482] 1501
+...      White vs Black: 1501 - 1012 - 487  [0.582] 3000
+Elo difference: 44.6 +/- 11.4, LOS: 100.0 %, DrawRatio: 16.2 %
+
+Score of 4k.c-0.73 vs stash13: 1254 - 1257 - 489  [0.499] 3000
+...      4k.c-0.73 playing White: 765 - 486 - 251  [0.593] 1502
+...      4k.c-0.73 playing Black: 489 - 771 - 238  [0.406] 1498
+...      White vs Black: 1536 - 975 - 489  [0.594] 3000
+Elo difference: -0.3 +/- 11.4, LOS: 47.6 %, DrawRatio: 16.3 %
 ```
