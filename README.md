@@ -8,8 +8,8 @@ The engine is a <= 4096 byte UCI engine executable, without:
 * On-the-fly compilation
 
 ### Current specifications
-32 bit: 5544 bytes
-64 bit: 4064 bytes
+32 bit: 5560 bytes
+64 bit: 4072 bytes
 
 ### How to install gcc 14.2:
 ```bash
@@ -29,4 +29,4 @@ sudo update-alternatives --install /usr/bin/gcc gcc /usr/local/gcc-14.2.0/bin/gc
 Change `-j 4` to your core count for faster building
 
 ## Thanks
-* **zamfofex** for helping with initial set up of a minimal Hello World executable and helping with 64 bit compilation
+* **zamfofex** for helping with initial set up of a minimal Hello World executable and helping with 64 bit compilation, reducing code size
