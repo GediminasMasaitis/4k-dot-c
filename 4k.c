@@ -80,7 +80,7 @@ static bool gets(char *restrict string) {
 #endif
 
     // Assume stdin never closes on mini build
-#if FULL
+#ifdef FULL
     if (result < 1) {
       exit();
     }
@@ -667,7 +667,7 @@ typedef struct [[nodiscard]] {
 
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
-#if FULL
+#ifdef FULL
                   u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
@@ -737,7 +737,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     Position npos = *pos;
-#if FULL
+#ifdef FULL
     (*nodes)++;
 #endif
     if (!makemove(&npos, &stack[ply].moves[move_index])) {
@@ -755,7 +755,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     i32 score;
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
-#if FULL
+#ifdef FULL
                       nodes,
 #endif
                       stack, pos_history_count, move_history);
@@ -797,27 +797,37 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 }
 // #define FULL true
 
-static void iteratively_deepen(Position *const restrict pos,
+static void iteratively_deepen(
+#ifdef FULL
+  i32 maxdepth,
+  u64 *nodes,
+  #endif
+  Position *const restrict pos,
                                SearchStack *restrict stack,
-                               const i32 pos_history_count) {
+                               const i32 pos_history_count
+
+) {
   start_time = get_time();
   u64 move_history[64][64] = {0};
-  u64 nodes = 0;
+#ifdef FULL
+  for (i32 depth = 1; depth < maxdepth; depth++) {
+#else
   for (i32 depth = 1; depth < 128; depth++) {
+#endif
     i32 score = search(pos, 0, depth, -inf, inf,
-#if FULL
-                       &nodes,
+#ifdef FULL
+                       nodes,
 #endif
                        stack, pos_history_count, move_history);
     size_t elapsed = get_time() - start_time;
 
-#if FULL
+#ifdef FULL
     char info_move_name[6];
     move_str(info_move_name, &stack[0].best_move, pos->flipped);
     printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
-           nodes);
+           *nodes);
     if (elapsed > 0) {
-      const u64 nps = nodes * 1000 / elapsed;
+      const u64 nps = *nodes * 1000 / elapsed;
       printf(" nps %i", nps);
     }
 
@@ -837,7 +847,36 @@ static void iteratively_deepen(Position *const restrict pos,
   puts("\n");
 }
 
+#ifdef FULL
+static void bench() {
+  Position pos;
+  Move moves[256];
+  i32 num_moves;
+  i32 pos_history_count;
+  SearchStack stack[1024];
+  pos = (Position){ .castling = {true, true, true, true},
+                 .colour = {0xFFFFull, 0xFFFF000000000000ull},
+                 .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
+                            0x2400000000000024ull, 0x8100000000000081ull,
+                            0x800000000000008ull, 0x1000000000000010ull},
+                 .ep = 0 };
+  total_time = 99999999999;
+  u64 nodes = 0;
+  const u64 start = get_time();
+  iteratively_deepen(11, &nodes, &pos, stack, pos_history_count);
+  const u64 end = get_time();
+  const i32 elapsed = end - start;
+  const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
+  printf("%i nodes %i nps\n", nodes, nps);
+  exit();
+}
+#endif
+
+#ifdef FULL
+static void run() {
+#else
 void _start() {
+#endif
   char line[1024];
   Position pos;
   Move moves[256];
@@ -845,13 +884,13 @@ void _start() {
   i32 pos_history_count;
   SearchStack stack[1024];
 
-#if FULL
-  pos = (Position){.castling = {true, true, true, true},
+#ifdef FULL
+  pos = (Position){ .castling = {true, true, true, true},
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
                    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
-                   .ep = 0};
+                   .ep = 0 };
   pos_history_count = 0;
 #endif
 
@@ -864,36 +903,48 @@ void _start() {
   // UCI loop
   while (true) {
     gets(line);
-#if FULL
+#ifdef FULL
+    u64 nodes = 0;
     if (!strcmp(line, "uci")) {
-      puts("id name 4k.c\nid author Gediminas Masaitis\nuciok\n");
-    } else if (!strcmp(line, "gi")) {
+      puts("id name 4k.c\n");
+      puts("id author Gediminas Masaitis\n");
+      puts("\n");
+      puts("option name Hash type spin default 1 min 1 max 1\n");
+      puts("option name Threads type spin default 1 min 1 max 1\n");
+      puts("uciok\n");
+    }
+    else if (!strcmp(line, "bench")) {
+      bench();
+    }
+    else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(&pos, stack, pos_history_count);
-    } else if (!strcmp(line, "perft")) {
+      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+    }
+    else if (!strcmp(line, "perft")) {
       char depth_str[4];
       gets(depth_str);
       const i32 depth = stoi(depth_str);
       const u64 start = get_time();
-      const u64 nodes = perft(&pos, depth);
+      nodes = perft(&pos, depth);
       const u64 end = get_time();
-      const i32 elapsed = end - start;
+      const u64 elapsed = end - start;
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
-      printf("info depth %i nodes %i time %i nps %i \n", depth, nodes,
-             end - start, nps);
-    } else if (!strcmp(line, "quit")) {
+      printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed, nps);
+    }
+    else if (!strcmp(line, "quit")) {
       break;
     }
 #endif
     if (line[0] == 'i') {
       puts("readyok\n");
-    } else if (line[0] == 'p') {
-      pos = (Position){.castling = {true, true, true, true},
+    }
+    else if (line[0] == 'p') {
+      pos = (Position){ .castling = {true, true, true, true},
                        .colour = {0xFFFFull, 0xFFFF000000000000ull},
                        .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
                                   0x2400000000000024ull, 0x8100000000000081ull,
                                   0x800000000000008ull, 0x1000000000000010ull},
-                       .ep = 0};
+                       .ep = 0 };
       pos_history_count = 0;
       while (true) {
         const bool line_continue = gets(line);
@@ -912,34 +963,53 @@ void _start() {
           break;
         }
       }
-    } else if (line[0] == 'g') {
-#if FULL
+    }
+    else if (line[0] == 'g') {
+#ifdef FULL
       while (true) {
         gets(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
           gets(line);
           total_time = stoi(line);
           break;
-        } else if (pos.flipped && !strcmp(line, "btime")) {
+        }
+        else if (pos.flipped && !strcmp(line, "btime")) {
           gets(line);
           total_time = stoi(line);
           break;
-        } else if (!strcmp(line, "movetime")) {
+        }
+        else if (!strcmp(line, "movetime")) {
           total_time = 40000; // Assume Lichess bot
           break;
         }
       }
+      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         gets(line);
         total_time = stoi(line);
       }
-#endif
       iteratively_deepen(&pos, stack, pos_history_count);
+#endif
+      
     }
   }
 
   exit();
 }
+
+#if FULL
+void __attribute__((naked)) _start() {
+  register long* stack asm("rsp");
+  int argc = (int)*stack;
+  char** argv = (char**)(stack + 1);
+
+  if (argc > 1 && !strcmp(argv[1], "bench")) {
+    bench();
+  }
+
+  run();
+}
+#endif
 
 #pragma endregion

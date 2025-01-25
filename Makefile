@@ -1,4 +1,5 @@
 ARCH ?= 64
+EXE ?= ./build/4kc
 CFLAGS := -std=gnu23 -march=haswell -nostdlib -fno-pic -fno-builtin -fno-stack-protector -Oz
 LDFILE := 64bit.ld
 
@@ -7,7 +8,7 @@ ifeq ($(ARCH), 32)
 	LDFILE = 32bit.ld
 endif
 
-ifeq ($(FULL), true)
+ifneq ($(MINI), true)
 	CFLAGS += -DFULL
 endif
 
@@ -18,11 +19,10 @@ endif
 all:
 	mkdir -p build
 	gcc $(CFLAGS) -c 4k.c
-	ld -T $(LDFILE) -Map=./build/4k-dot-c.map -o./build/4k-dot-c 4k.o
+	ld -T $(LDFILE) -Map=$(EXE).map -o$(EXE) 4k.o
 	rm *.o
-	ls -la ./build
-	md5sum ./build/4k-dot-c
-	./build/4k-dot-c
+	ls -la ./
+	md5sum $(EXE)
 
 dump:
 	gcc $(CFLAGS) -c 4k.c
@@ -31,11 +31,11 @@ dump:
 debug:
 	mkdir -p build
 	gcc -c -g 4k.c
-	gcc -o ./build/4k-dot-c 4k.o
+	gcc -o $(EXE) 4k.o
 	rm *.o
-	ls -la ./build
-	md5sum ./build/4k-dot-c
-	./build/4k-dot-c
+	ls -la ./
+	md5sum $(EXE)
+	./$(EXE)
 
 format:
 	dos2unix ./*.c
