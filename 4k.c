@@ -955,6 +955,9 @@ void _start() {
           if (!strcmp(line, move_name)) {
             stack[pos_history_count].history = pos;
             pos_history_count++;
+            if (piece_on(&pos, moves[i].to) != None) {
+              pos_history_count = 0;
+            }
             makemove(&pos, &moves[i]);
             break;
           }
