@@ -1877,3 +1877,36 @@ Score of 4k.c-0.76 vs vice1.1: 935 - 761 - 304  [0.543] 2000
 ...      White vs Black: 1024 - 672 - 304  [0.588] 2000
 Elo difference: 30.3 +/- 14.1, LOS: 100.0 %, DrawRatio: 15.2 %
 ```
+
+### 0.77
+
+Fast ray
+
+64 bit: 4072 bytes (=)
+
+MD5: 503f6c52e9821cd23d788e5e0a5f252d
+
+```py
+Elo   | 35.54 +- 15.90 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 1.93 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1040 W: 436 L: 330 D: 274
+Penta | [30, 82, 230, 108, 70]
+https://gedas.pythonanywhere.com/test/9/
+```
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 12 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 1 nodes 515 nps 515000 pv b1c3
+info depth 4 score cp 12 time 1 nodes 1457 nps 1457000 pv b1c3
+info depth 5 score cp 2 time 2 nodes 5610 nps 2805000 pv b1c3
+info depth 6 score cp 12 time 5 nodes 17761 nps 3552200 pv b1c3
+info depth 7 score cp 9 time 15 nodes 59582 nps 3972133 pv b1c3
+info depth 8 score cp 12 time 48 nodes 202325 nps 4215104 pv b1c3
+info depth 9 score cp 8 time 181 nodes 754598 nps 4169049 pv b1c3
+info depth 10 score cp 11 time 1000 nodes 4016822 nps 4016822 pv g1f3
+info depth 11 score cp 10 time 4451 nodes 17722949 nps 3981790 pv d2d4
+info depth 12 score cp 9 time 19331 nodes 76445512 nps 3954555 pv b1c3
+info depth 13 score cp 7 time 90451 nodes 351349101 nps 3884413 pv g1f3
+```

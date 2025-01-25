@@ -4,6 +4,8 @@
 #define __attribute__(...)
 #endif
 
+#define FAST __attribute__((optimize("O3")))
+
 #if defined(_WIN64) || defined(__x86_64__) || defined(__ppc64__) ||            \
     defined(__aarch64__)
 #define ARCH64 1
@@ -268,7 +270,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
 }
 
-[[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
+[[nodiscard]] FAST static u64 ray(const i32 sq, const u64 blockers,
                              const i32 shift_by, const u64 mask) {
   assert(sq >= 0);
   assert(sq < 64);
