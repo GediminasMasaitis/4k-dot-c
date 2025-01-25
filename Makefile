@@ -21,7 +21,7 @@ all:
 	gcc $(CFLAGS) -c 4k.c
 	ld -T $(LDFILE) -Map=$(EXE).map -o$(EXE) 4k.o
 	rm *.o
-	ls -la ./
+	ls -la $(EXE)
 	md5sum $(EXE)
 
 dump:
@@ -33,7 +33,7 @@ debug:
 	gcc -c -g 4k.c
 	gcc -o $(EXE) 4k.o
 	rm *.o
-	ls -la ./
+	ls -la ./4kc
 	md5sum $(EXE)
 	./$(EXE)
 
