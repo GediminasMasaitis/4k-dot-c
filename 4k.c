@@ -665,6 +665,25 @@ typedef struct [[nodiscard]] {
   Move moves[256];
 } SearchStack;
 
+#define TUNE_PARAMETER(name, initial, min, max, step) \
+    int name = initial;     \
+    int name##_min = min;   \
+    int name##_max = max;   \
+    int name##_step = step;
+
+#define PRINT_TUNE_OPTION(name) printf("option name " #name " type spin default %i min -32768 max 32767\n", name)
+
+#define READ_TUNE_OPTION(name) \
+    else if (!strcmp(line, #name)) { \
+      gets(line); \
+      gets(line); \
+      name = stoi(line); \
+    }
+
+#define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %i, 0.002\n", name, name##_min, name##_max, name##_step)
+
+TUNE_PARAMETER(rfp_margin, 64, 16, 192, 10)
+
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
@@ -708,7 +727,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // REVERSE FUTILITY PRUNING
   if (!in_qsearch && alpha == beta - 1 && !in_check &&
-      static_eval - 64 * depth >= beta) {
+      static_eval - rfp_margin * depth >= beta) {
     return static_eval;
   }
 
@@ -893,7 +912,6 @@ void _start() {
                    .ep = 0 };
   pos_history_count = 0;
 #endif
-
 #if !FULL
   // Assume first input is "uci"
   gets(line);
@@ -911,6 +929,8 @@ void _start() {
       puts("\n");
       puts("option name Hash type spin default 1 min 1 max 1\n");
       puts("option name Threads type spin default 1 min 1 max 1\n");
+      PRINT_TUNE_OPTION(rfp_margin);
+      
       puts("uciok\n");
     }
     else if (!strcmp(line, "bench")) {
@@ -931,10 +951,20 @@ void _start() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed, nps);
     }
+    else if (!strcmp(line, "setoption")) {
+      gets(line);
+      gets(line);
+      if (false) {}
+      READ_TUNE_OPTION(rfp_margin)
+    }
+    else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(rfp_margin);
+    }
     else if (!strcmp(line, "quit")) {
       break;
     }
 #endif
+    
     if (line[0] == 'i') {
       puts("readyok\n");
     }
