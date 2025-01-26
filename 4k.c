@@ -127,7 +127,7 @@ static bool gets(char *restrict string) {
 #define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
 
 static void _printf(const char *format, const size_t *args) {
-  int value;
+  long long value;
   char buffer[16], *string;
 
   while (true) {
@@ -665,13 +665,39 @@ typedef struct [[nodiscard]] {
   Move moves[256];
 } SearchStack;
 
+enum
+{
+  Upper,
+  Lower,
+  Exact
+};
+
+typedef struct [[nodiscard]] {
+  u64 hash;
+  Move move;
+  i32 score;
+  i32 depth;
+  i32 flag;
+} TTEntry;
+
+#define TT_SIZE (1024 * 1024 / sizeof(TTEntry))
+
+[[nodiscard]] static u64 get_hash(const Position *const restrict pos) {
+  static_assert(sizeof(Position) % sizeof(u64) == 0);
+  u64 hash = 5381;
+  for (u32 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+    hash = ((hash << 5) + hash) ^ ((const u64*)pos)[i];
+  }
+  return hash;
+}
+
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
                   u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[64][64]) {
+                  u64 move_history[64][64], TTEntry *tt) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -696,6 +722,16 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
   }
 
+  u64 hash = get_hash(pos);
+  //printf("%i ", hash);
+  TTEntry *tt_entry = &tt[hash % TT_SIZE];
+  //Move tt_move = {0};
+  if (tt_entry->hash == hash) {
+    //tt_move = tt->move;
+    if (alpha == beta - 1 && tt_entry->depth >= depth && tt_entry->flag != tt_entry->score <= alpha)
+      return tt_entry->score;
+  }
+
   // QUIESCENCE
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
@@ -715,6 +751,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[pos_history_count + ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 tt_flag = Upper;
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
@@ -758,7 +795,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, pos_history_count, move_history, tt);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -772,9 +809,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
+      tt_flag = Exact;
       alpha = score;
 
       if (score >= beta) {
+        tt_flag = Lower;
         if (piece_on(pos, stack[ply].moves[move_index].to) == None) {
           move_history[stack[ply].moves[move_index].from]
                       [stack[ply].moves[move_index].to] += depth * depth;
@@ -793,6 +832,12 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return 0;
   }
 
+  tt_entry->hash = hash;
+  tt_entry->move = stack[ply].best_move;
+  tt_entry->score = alpha;
+  tt_entry->depth = depth;
+  tt_entry->flag = tt_flag;
+
   return alpha;
 }
 // #define FULL true
@@ -800,11 +845,12 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 static void iteratively_deepen(
 #ifdef FULL
   i32 maxdepth,
-  u64 *nodes,
-  #endif
-  Position *const restrict pos,
-                               SearchStack *restrict stack,
-                               const i32 pos_history_count
+  u64* nodes,
+#endif
+  Position* const restrict pos,
+  SearchStack* restrict stack,
+  const i32 pos_history_count,
+  TTEntry* tt
 
 ) {
   start_time = get_time();
@@ -818,7 +864,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, pos_history_count, move_history, tt);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
@@ -854,6 +900,7 @@ static void bench() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
+  TTEntry tt[TT_SIZE];
   pos = (Position){ .castling = {true, true, true, true},
                  .colour = {0xFFFFull, 0xFFFF000000000000ull},
                  .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -863,7 +910,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(11, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(11, &nodes, &pos, stack, pos_history_count, tt);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -883,6 +930,7 @@ void _start() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
+  TTEntry tt[TT_SIZE];
 
 #ifdef FULL
   pos = (Position){ .castling = {true, true, true, true},
@@ -918,7 +966,7 @@ void _start() {
     }
     else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count, tt);
     }
     else if (!strcmp(line, "perft")) {
       char depth_str[4];
@@ -983,13 +1031,13 @@ void _start() {
           break;
         }
       }
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count, tt);
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         gets(line);
         total_time = stoi(line);
       }
-      iteratively_deepen(&pos, stack, pos_history_count);
+      iteratively_deepen(&pos, stack, pos_history_count, tt);
 #endif
       
     }
