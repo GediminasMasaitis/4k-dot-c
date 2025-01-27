@@ -14,7 +14,7 @@ ifeq ($(NOSTDLIB), true)
     CFLAGS += -DNOSTDLIB -ffreestanding -fno-pic -fno-builtin -fno-stack-protector -march=haswell -Oz
 	LDFLAGS += -T $(LDFILE) -Map=$(EXE).map
 else
-	CFLAGS += -march=native -O3
+	CFLAGS += -march=native -Oz
 endif
 
 ifneq ($(MINI), true)
