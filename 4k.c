@@ -661,27 +661,27 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {103, 262, 285,
-                                                           444, 854, 0};
+__attribute__((aligned(8))) static const i16 material[] = {127, 373,  406,
+                                                           633, 1220, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -23, -25, -24, -15, 20, 104, 0,   // Pawn
-    -29, -15, -1,  12,  22,  25, 8,   -22, // Knight
-    -21, -5,  4,   8,   12,  12, 1,   -11, // Bishop
-    -16, -21, -19, -7,  8,   17, 22,  17,  // Rook
-    -21, -13, -9,  -2,  7,   16, 7,   16,  // Queen
-    -17, -11, -5,  5,   16,  20, 11,  -14, // King
+    0,   -7,  -8,  -8, -1, 24, 79, 0,   // Pawn
+    -20, -11, -1,  8,  16, 18, 5,  -16, // Knight
+    -15, -3,  3,   6,  8,  9,  1,  -8,  // Bishop
+    -11, -15, -13, -5, 6,  12, 15, 12,  // Rook
+    -15, -9,  -6,  -2, 5,  11, 5,  11,  // Queen
+    -12, -8,  -4,  3,  11, 14, 8,  -10, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -3,  3,  -5, -2, -1, 1,  12, -5,  // Pawn
-    -24, -6, 6,  13, 12, 11, 1,  -12, // Knight
-    -11, 0,  2,  4,  5,  1,  5,  -6,  // Bishop
-    -5,  1,  5,  7,  5,  2,  -1, -15, // Rook
-    -19, -8, 2,  4,  4,  5,  5,  6,   // Queen
-    -12, 2,  0,  -1, -2, -3, 6,  -8,  // King
+    -2,  2,  -3, -1, -1, 1,  8,  -4,  // Pawn
+    -17, -5, 4,  9,  9,  8,  1,  -9,  // Knight
+    -8,  0,  2,  3,  4,  1,  3,  -4,  // Bishop
+    -4,  1,  4,  5,  4,  2,  -1, -10, // Rook
+    -13, -6, 1,  3,  3,  4,  4,  4,   // Queen
+    -8,  2,  0,  -1, -2, -2, 4,  -6,  // King
 };
 
-static i32 eval(Position *const restrict pos) {
-  i32 score = 12;
+static i32 eval(Position *const pos) {
+  i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
@@ -696,8 +696,8 @@ static i32 eval(Position *const restrict pos) {
         score += material[p - 1];
 
         // SPLIT PIECE-SQUARE TABLES
-        score += pst_rank[(p - 1) * 8 + rank];
-        score += pst_file[(p - 1) * 8 + file];
+        score += pst_rank[(p - 1) * 8 + rank] * 2;
+        score += pst_file[(p - 1) * 8 + file] * 2;
       }
     }
 
@@ -727,7 +727,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
-                  SearchStack *restrict stack, const i32 pos_history_count,
+                  SearchStack *restrict stack,
                   u64 move_history[64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -745,9 +745,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return alpha;
   }
 
-  // FULL REPETITION DETECTION
-  for (i32 i = pos_history_count + ply; depth >= 0 && i > 0 && ply > 0;
-       i -= 2) {
+  // PARTIAL REPETITION DETECTION
+  for (i32 i = ply; i > 1; i -= 2) {
     if (position_equal(pos, &stack[i].history)) {
       return 0;
     }
@@ -765,11 +764,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // REVERSE FUTILITY PRUNING
   if (!in_qsearch && alpha == beta - 1 && !in_check &&
-      static_eval - 64 * depth >= beta) {
+      static_eval - 128 * depth >= beta) {
     return static_eval;
   }
 
-  stack[pos_history_count + ply + 2].history = *pos;
+  stack[ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
 
@@ -809,8 +808,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
 
     // LATE MOVE REDCUCTION
-    i32 reduction = depth > 1 && moves_evaluated > 5
-                        ? 1 + (alpha == beta - 1) + moves_evaluated / 16
+    i32 reduction = depth > 3 && moves_evaluated > 5
+                        ? 2 + moves_evaluated / 16
                         : 1;
 
     i32 score;
@@ -819,7 +818,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes, pv_stack,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, move_history);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -871,8 +870,7 @@ static void iteratively_deepen(
 #ifdef FULL
     i32 maxdepth, u64 *nodes,
 #endif
-    Position *const restrict pos, SearchStack *restrict stack,
-    const i32 pos_history_count
+    Position *const restrict pos, SearchStack *restrict stack
 
 ) {
   start_time = get_time();
@@ -890,7 +888,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes, pv_stack,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, move_history);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
@@ -931,8 +929,7 @@ static void bench() {
   Position pos;
   Move moves[256];
   i32 num_moves;
-  i32 pos_history_count;
-  SearchStack stack[1024];
+  SearchStack stack[128];
   pos = (Position){.castling = {true, true, true, true},
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
                    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -942,7 +939,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(12, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(12, &nodes, &pos, stack);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -994,7 +991,7 @@ static void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(128, &nodes, &pos, stack);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       getl(depth_str);
@@ -1027,8 +1024,6 @@ static void run() {
           char move_name[6];
           move_str(move_name, &moves[i], pos.flipped);
           if (!strcmp(line, move_name)) {
-            stack[pos_history_count].history = pos;
-            pos_history_count++;
             makemove(&pos, &moves[i]);
             break;
           }
@@ -1054,13 +1049,13 @@ static void run() {
           break;
         }
       }
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(128, &nodes, &pos, stack);
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         total_time = atoi(line);
       }
-      iteratively_deepen(&pos, stack, pos_history_count);
+      iteratively_deepen(&pos, stack);
 #endif
     }
   }
