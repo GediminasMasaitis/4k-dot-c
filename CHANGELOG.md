@@ -1878,6 +1878,15 @@ Score of 4k.c-0.76 vs vice1.1: 935 - 761 - 304  [0.543] 2000
 Elo difference: 30.3 +/- 14.1, LOS: 100.0 %, DrawRatio: 15.2 %
 ```
 
+0.69 vs dev:
+```py
+Elo   | -44.88 +- 11.48 (95%)
+Conf  | 10.0+0.10s Threads=1 Hash=1MB
+Games | N: 2024 W: 507 L: 767 D: 750
+Penta | [126, 288, 372, 172, 54]
+https://gedas.pythonanywhere.com/test/34/
+```
+
 ### 0.77
 
 Reduce size by reordering position struct
@@ -1903,4 +1912,36 @@ LLR   | -1.60 (-2.94, 2.94) [-5.00, 0.00]
 Games | N: 3578 W: 1269 L: 1353 D: 956
 Penta | [119, 269, 1070, 239, 92]
 https://gedas.pythonanywhere.com/test/41/
+```
+
+### 0.78
+
+Sided history table
+
+32 bit: 5592 bytes (+32)
+64 bit: 4056 bytes (+16)
+
+MD5: 7ddd99279e31e9419432858b91d9dd26
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 12 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 12 time 1 nodes 1446 nps 1446000 pv b1c3
+info depth 5 score cp 2 time 1 nodes 5649 nps 5649000 pv b1c3
+info depth 6 score cp 12 time 4 nodes 17159 nps 4289750 pv b1c3
+info depth 7 score cp 9 time 12 nodes 59088 nps 4924000 pv b1c3
+info depth 8 score cp 12 time 41 nodes 203282 nps 4958097 pv b1c3
+info depth 9 score cp 10 time 226 nodes 1061354 nps 4696256 pv e2e4
+info depth 10 score cp 9 time 631 nodes 2915915 nps 4621101 pv e2e4
+info depth 11 score cp 10 time 2852 nodes 13253579 nps 4647117 pv b1c3
+```
+
+```py
+Elo   | 16.12 +- 8.58 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.02 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4270 W: 1639 L: 1441 D: 1190
+Penta | [226, 382, 780, 462, 285]
+https://gedas.pythonanywhere.com/test/42/
 ```
