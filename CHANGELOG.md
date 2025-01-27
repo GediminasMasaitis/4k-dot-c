@@ -1877,3 +1877,30 @@ Score of 4k.c-0.76 vs vice1.1: 935 - 761 - 304  [0.543] 2000
 ...      White vs Black: 1024 - 672 - 304  [0.588] 2000
 Elo difference: 30.3 +/- 14.1, LOS: 100.0 %, DrawRatio: 15.2 %
 ```
+
+### 0.77
+
+Reduce size by reordering position struct
+
+32 bit: 5560 bytes (=)
+64 bit: 4032 bytes (-40)
+
+MD5: 7cf51543e3bdf9a834494bf3621e65cf
+
+```py
+Fast:
+Elo   | -9.52 +- 8.45 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -1.39 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 2812 W: 981 L: 1058 D: 773
+Penta | [100, 256, 761, 199, 90]
+https://gedas.pythonanywhere.com/test/40/
+
+Slow:
+Elo   | -8.16 +- 7.00 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -1.60 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 3578 W: 1269 L: 1353 D: 956
+Penta | [119, 269, 1070, 239, 92]
+https://gedas.pythonanywhere.com/test/41/
+```
