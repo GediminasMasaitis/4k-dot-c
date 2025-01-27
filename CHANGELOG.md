@@ -1877,3 +1877,12 @@ Score of 4k.c-0.76 vs vice1.1: 935 - 761 - 304  [0.543] 2000
 ...      White vs Black: 1024 - 672 - 304  [0.588] 2000
 Elo difference: 30.3 +/- 14.1, LOS: 100.0 %, DrawRatio: 15.2 %
 ```
+
+### 0.77
+
+Reduce size by reordering position struct
+
+32 bit: 5560 bytes (=)
+64 bit: 4032 bytes (-40)
+
+MD5: 7cf51543e3bdf9a834494bf3621e65cf
