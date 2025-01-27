@@ -7,12 +7,16 @@
 #if defined(_WIN64) || defined(__x86_64__) || defined(__ppc64__) ||            \
     defined(__aarch64__)
 #define ARCH64 1
+#ifdef NOSTDLIB
 #define size_t unsigned long long
 #define ssize_t long long
+#endif
 #else
 #define ARCH32 1
+#ifdef NOSTDLIB
 #define size_t unsigned int
 #define ssize_t int
+#endif
 #endif
 
 #define u64 unsigned long long
@@ -22,6 +26,7 @@
 #define i8 char
 #define u8 unsigned char
 
+#ifdef NOSTDLIB
 #define NULL ((void *)0)
 
 enum [[nodiscard]] {
@@ -32,7 +37,7 @@ enum [[nodiscard]] {
 
 static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   ssize_t ret;
-#if ARCH64
+#ifdef ARCH64
   asm volatile("syscall"
                : "=a"(ret)
                : "a"(call), "D"(arg1), "S"(arg2), "d"(arg3)
@@ -46,8 +51,8 @@ static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
-static void exit() {
-#if ARCH32
+static void exit_now() {
+#ifdef ARCH32
   _sys(1, 0, 0, 0);
 #else
   _sys(60, 0, 0, 0);
@@ -62,18 +67,18 @@ static void exit() {
   return length;
 }
 
-static void puts(const char *const restrict string) {
-#if ARCH64
+static void putl(const char *const restrict string) {
+#ifdef ARCH64
   _sys(1, stdout, (ssize_t)string, strlen(string));
 #else
   _sys(4, stdout, (ssize_t)string, strlen(string));
 #endif
 }
 
-// Non-standard, gets a word instead of a line
-static bool gets(char *restrict string) {
+// Non-standard, gets but a word instead of a line
+static bool getl(char *restrict string) {
   while (true) {
-#if ARCH64
+#ifdef ARCH64
     const int result = _sys(0, stdin, (ssize_t)string, 1);
 #else
     const int result = _sys(3, stdin, (ssize_t)string, 1);
@@ -82,7 +87,7 @@ static bool gets(char *restrict string) {
     // Assume stdin never closes on mini build
 #ifdef FULL
     if (result < 1) {
-      exit();
+      exit_now();
     }
 #endif
 
@@ -112,7 +117,7 @@ static bool gets(char *restrict string) {
   return false;
 }
 
-[[nodiscard]] static size_t stoi(const char *restrict string) {
+[[nodiscard]] static size_t atoi(const char *restrict string) {
   size_t result = 0;
   while (true) {
     if (!*string) {
@@ -135,7 +140,7 @@ static void _printf(const char *format, const size_t *args) {
       break;
     }
     if (*format != '%') {
-#if ARCH64
+#ifdef ARCH64
       _sys(1, stdout, (ssize_t)format, 1);
 #else
       _sys(4, stdout, (ssize_t)format, 1);
@@ -147,12 +152,12 @@ static void _printf(const char *format, const size_t *args) {
     format++;
     switch (*format++) {
     case 's':
-      puts((char *)*args);
+      putl((char *)*args);
       break;
     case 'i':
       value = *args;
       if (value < 0) {
-        puts("-");
+        putl("-");
         value *= -1;
       }
       string = buffer + sizeof buffer - 1;
@@ -165,32 +170,94 @@ static void _printf(const char *format, const size_t *args) {
         }
         string--;
       }
-      puts(string);
+      putl(string);
       break;
     }
     args++;
   }
 }
 
-#if ASSERTS
+typedef struct [[nodiscard]] {
+  ssize_t tv_sec;  // seconds
+  ssize_t tv_nsec; // nanoseconds
+} timespec;
+
+
+[[nodiscard]] size_t get_time() {
+  timespec ts;
+#ifdef ARCH64
+  _sys(228, 1, (ssize_t)&ts, 0);
+#else
+  _sys(265, 1, (ssize_t)&ts, 0);
+#endif
+  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+#ifdef ASSERTS
 #define assert(condition)                                                      \
   if (!(condition)) {                                                          \
     printf("Assert failed on line %i: ", __LINE__);                            \
-    puts(#condition "\n");                                                     \
+    putl(#condition "\n");                                                     \
     _sys(60, 1, 0, 0);                                                         \
   }
 #else
 #define assert(condition)
 #endif
 
+#else
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+[[nodiscard]] size_t get_time() {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+void exit_now() {
+  exit(0);
+}
+
+static bool getl(char *restrict string) {
+  while (true) {
+
+    const char c = getchar();
+
+    // Assume stdin never closes on mini build
+    if (c == EOF) {
+      exit_now();
+    }
+
+    if (c == '\n') {
+      *string = 0;
+      return false;
+    }
+
+    if (c == ' ') {
+      *string = 0;
+      return true;
+    }
+
+    *string = c;
+    string++;
+  }
+}
+
+static void putl(const char *const restrict string) {
+  fputs(string, stdout);
+  fflush(stdout);
+}
+
+#endif
+
 #pragma endregion
 
 #pragma region base
 
-typedef struct [[nodiscard]] {
-  ssize_t tv_sec;  // seconds
-  ssize_t tv_nsec; // nanoseconds
-} timespec;
+
 
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
@@ -219,24 +286,14 @@ typedef struct [[nodiscard]] {
   return true;
 }
 
-[[nodiscard]] size_t get_time() {
-  timespec ts;
-#if ARCH64
-  _sys(228, 1, (ssize_t)&ts, 0);
-#else
-  _sys(265, 1, (ssize_t)&ts, 0);
-#endif
-  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-}
-
 [[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
 
-#if ARCH32
+#ifdef ARCH32
 #pragma GCC push_options
 #pragma GCC optimize("O3")
 #endif
 static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
-#if ARCH32
+#ifdef ARCH32
 #pragma GCC pop_options
 #endif
 
@@ -479,7 +536,7 @@ static i32 makemove(Position *const restrict pos,
 }
 
 static void generate_pawn_moves(
-#if ASSERTS
+#ifdef ASSERTS
     const Position *const pos,
 #endif
     Move *const restrict movelist, i32 *const restrict num_moves, u64 to_mask,
@@ -537,7 +594,7 @@ static void generate_piece_moves(Move *const restrict movelist,
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   const u64 pawns = pos->colour[0] & pos->pieces[Pawn];
   generate_pawn_moves(
-#if ASSERTS
+#ifdef ASSERTS
       pos,
 #endif
       movelist, &num_moves,
@@ -545,18 +602,18 @@ static void generate_piece_moves(Move *const restrict movelist,
       -8);
   if (!only_captures) {
     generate_pawn_moves(
-#if ASSERTS
+#ifdef ASSERTS
         pos,
 #endif
         movelist, &num_moves, north(north(pawns & 0xFF00) & ~all) & ~all, -16);
   }
   generate_pawn_moves(
-#if ASSERTS
+#ifdef ASSERTS
       pos,
 #endif
       movelist, &num_moves, nw(pawns) & (pos->colour[1] | pos->ep), -7);
   generate_pawn_moves(
-#if ASSERTS
+#ifdef ASSERTS
       pos,
 #endif
       movelist, &num_moves, ne(pawns) & (pos->colour[1] | pos->ep), -9
@@ -655,7 +712,7 @@ static i32 eval(Position *const restrict pos) {
   return score;
 }
 
-enum { inf = 32000, mate = 30000 };
+enum { max_ply = 128, inf = 32000, mate = 30000 };
 static size_t start_time;
 static size_t total_time;
 
@@ -665,10 +722,16 @@ typedef struct [[nodiscard]] {
   Move moves[256];
 } SearchStack;
 
+typedef struct [[nodiscard]] {
+  i32 length;
+  Move moves[max_ply + 1];
+} PvStack;
+
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
                   u64 *nodes,
+                  PvStack pv_stack[max_ply + 1],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
                   u64 move_history[64][64]) {
@@ -716,6 +779,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
 
+#ifdef FULL
+  pv_stack[ply].length = ply;
+#endif
+
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
 
@@ -757,6 +824,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
                       nodes,
+                      pv_stack,
 #endif
                       stack, pos_history_count, move_history);
 
@@ -773,7 +841,15 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
-
+#ifdef FULL
+      if (alpha != beta - 1) {
+        pv_stack[ply].moves[ply] = stack[ply].best_move;
+        for (i32 next_ply = ply + 1; next_ply < pv_stack[ply + 1].length; next_ply++) {
+          pv_stack[ply].moves[next_ply] = pv_stack[ply + 1].moves[next_ply];
+        }
+        pv_stack[ply].length = pv_stack[ply + 1].length;
+      }
+#endif
       if (score >= beta) {
         if (piece_on(pos, stack[ply].moves[move_index].to) == None) {
           move_history[stack[ply].moves[move_index].from]
@@ -811,19 +887,22 @@ static void iteratively_deepen(
   u64 move_history[64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
+  PvStack pv_stack[max_ply + 1];
+  for(i32 i = 0; i < max_ply + 1; i++) {
+    pv_stack[i].length = 0;
+  }
 #else
   for (i32 depth = 1; depth < 128; depth++) {
 #endif
     i32 score = search(pos, 0, depth, -inf, inf,
 #ifdef FULL
                        nodes,
+                       pv_stack,
 #endif
                        stack, pos_history_count, move_history);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
-    char info_move_name[6];
-    move_str(info_move_name, &stack[0].best_move, pos->flipped);
     printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
            *nodes);
     if (elapsed > 0) {
@@ -831,9 +910,18 @@ static void iteratively_deepen(
       printf(" nps %i", nps);
     }
 
-    puts(" pv ");
-    puts(info_move_name);
-    puts("\n");
+    putl(" pv ");
+    //const i32 pv_length = pv_stack[0].length;
+    const i32 pv_length = 1;
+    for(i32 i = 0; i < pv_length; i++) {
+      char pv_move_name[6];
+      move_str(pv_move_name, &pv_stack[0].moves[i], pos->flipped ^ (i % 2));
+      putl(pv_move_name);
+      if(i != pv_length - 1) {
+        putl(" ");
+      }
+    }
+    putl("\n");
 #endif
 
     if (elapsed > total_time / 64) {
@@ -842,9 +930,9 @@ static void iteratively_deepen(
   }
   char move_name[6];
   move_str(move_name, &stack[0].best_move, pos->flipped);
-  puts("bestmove ");
-  puts(move_name);
-  puts("\n");
+  putl("bestmove ");
+  putl(move_name);
+  putl("\n");
 }
 
 #ifdef FULL
@@ -863,19 +951,18 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(11, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(12, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
   printf("%i nodes %i nps\n", nodes, nps);
-  exit();
 }
 #endif
 
-#ifdef FULL
-static void run() {
-#else
+#if !defined(FULL) && defined(NOSTDLIB)
 void _start() {
+#else
+static void run() {
 #endif
   char line[1024];
   Position pos;
@@ -894,24 +981,24 @@ void _start() {
   pos_history_count = 0;
 #endif
 
-#if !FULL
+#ifndef FULL
   // Assume first input is "uci"
-  gets(line);
-  puts("uciok\n");
+  getl(line);
+  putl("uciok\n");
 #endif
 
   // UCI loop
   while (true) {
-    gets(line);
+    getl(line);
 #ifdef FULL
     u64 nodes = 0;
     if (!strcmp(line, "uci")) {
-      puts("id name 4k.c\n");
-      puts("id author Gediminas Masaitis\n");
-      puts("\n");
-      puts("option name Hash type spin default 1 min 1 max 1\n");
-      puts("option name Threads type spin default 1 min 1 max 1\n");
-      puts("uciok\n");
+      putl("id name 4k.c\n");
+      putl("id author Gediminas Masaitis\n");
+      putl("\n");
+      putl("option name Hash type spin default 1 min 1 max 1\n");
+      putl("option name Threads type spin default 1 min 1 max 1\n");
+      putl("uciok\n");
     }
     else if (!strcmp(line, "bench")) {
       bench();
@@ -922,8 +1009,8 @@ void _start() {
     }
     else if (!strcmp(line, "perft")) {
       char depth_str[4];
-      gets(depth_str);
-      const i32 depth = stoi(depth_str);
+      getl(depth_str);
+      const i32 depth = atoi(depth_str);
       const u64 start = get_time();
       nodes = perft(&pos, depth);
       const u64 end = get_time();
@@ -936,7 +1023,7 @@ void _start() {
     }
 #endif
     if (line[0] == 'i') {
-      puts("readyok\n");
+      putl("readyok\n");
     }
     else if (line[0] == 'p') {
       pos = (Position){ .castling = {true, true, true, true},
@@ -947,7 +1034,7 @@ void _start() {
                        .ep = 0 };
       pos_history_count = 0;
       while (true) {
-        const bool line_continue = gets(line);
+        const bool line_continue = getl(line);
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[6];
@@ -967,15 +1054,15 @@ void _start() {
     else if (line[0] == 'g') {
 #ifdef FULL
       while (true) {
-        gets(line);
+        getl(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
-          gets(line);
-          total_time = stoi(line);
+          getl(line);
+          total_time = atoi(line);
           break;
         }
         else if (pos.flipped && !strcmp(line, "btime")) {
-          gets(line);
-          total_time = stoi(line);
+          getl(line);
+          total_time = atoi(line);
           break;
         }
         else if (!strcmp(line, "movetime")) {
@@ -986,8 +1073,8 @@ void _start() {
       iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
-        gets(line);
-        total_time = stoi(line);
+        getl(line);
+        total_time = atoi(line);
       }
       iteratively_deepen(&pos, stack, pos_history_count);
 #endif
@@ -995,19 +1082,26 @@ void _start() {
     }
   }
 
-  exit();
+  exit_now();
 }
 
-#if FULL
-void __attribute__((naked)) _start() {
+#if !defined(NOSTDLIB) || defined(FULL)
+#ifdef NOSTDLIB
+__attribute__((naked)) void _start() {
+#ifdef FULL  
   register long* stack asm("rsp");
   int argc = (int)*stack;
   char** argv = (char**)(stack + 1);
-
+#endif
+#else
+int main(int argc, char **argv) {
+#endif
+#ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
     bench();
+    exit_now();
   }
-
+#endif
   run();
 }
 #endif
