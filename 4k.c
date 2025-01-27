@@ -777,8 +777,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // REVERSE FUTILITY PRUNING
-  if (!in_qsearch && alpha == beta - 1 && !in_check &&
-      static_eval - 64 * depth >= beta) {
+  if (alpha == beta - 1 && !in_check && static_eval - (in_qsearch ? material[Queen] : 64 * depth) >= beta) {
     return static_eval;
   }
 
