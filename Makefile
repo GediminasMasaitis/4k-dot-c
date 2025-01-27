@@ -1,11 +1,17 @@
 ARCH ?= 64
 EXE ?= ./build/4kc
-CFLAGS := -std=gnu23 -march=haswell -nostdlib -fno-pic -fno-builtin -fno-stack-protector -Oz
+CFLAGS := -std=gnu2x -march=native -Wno-deprecated-declarations -Wno-format
 LDFILE := 64bit.ld
+LDFLAGS := 
 
 ifeq ($(ARCH), 32)
 	CFLAGS += -m32
 	LDFILE = 32bit.ld
+endif
+
+ifeq ($(NOSTDLIB), true)
+    CFLAGS += -ffreestanding -fno-pic -fno-builtin -fno-stack-protector
+	LDFlags += -T $(LDFILE) -Map=$(EXE).map
 endif
 
 ifneq ($(MINI), true)
@@ -14,12 +20,22 @@ endif
 
 ifeq ($(ASSERTS), true)
 	CFLAGS += -DASSERTS
+else
+	CFLAGS += -DNDEBUG
 endif
 
 all:
 	mkdir -p build
 	gcc $(CFLAGS) -c 4k.c
-	ld -T $(LDFILE) -Map=$(EXE).map -o$(EXE) 4k.o
+	gcc $(CFLAGS) -o $(EXE) 4k.o
+	rm *.o
+	ls -la $(EXE)
+	md5sum $(EXE)
+
+mini:
+	mkdir -p build
+	gcc $(CFLAGS) -c 4k.c
+	ld $(LDFLAGS) -o $(EXE) 4k.o
 	rm *.o
 	ls -la $(EXE)
 	md5sum $(EXE)

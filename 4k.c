@@ -7,12 +7,16 @@
 #if defined(_WIN64) || defined(__x86_64__) || defined(__ppc64__) ||            \
     defined(__aarch64__)
 #define ARCH64 1
+#if NOSTDLIB
 #define size_t unsigned long long
 #define ssize_t long long
+#endif
 #else
 #define ARCH32 1
+#if NOSTDLIB
 #define size_t unsigned int
 #define ssize_t int
+#endif
 #endif
 
 #define u64 unsigned long long
@@ -22,6 +26,7 @@
 #define i8 char
 #define u8 unsigned char
 
+#if NOSTDLB
 #define NULL ((void *)0)
 
 enum [[nodiscard]] {
@@ -46,7 +51,7 @@ static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
   return ret;
 }
 
-static void exit() {
+static void exit_now() {
 #if ARCH32
   _sys(1, 0, 0, 0);
 #else
@@ -62,7 +67,7 @@ static void exit() {
   return length;
 }
 
-static void puts(const char *const restrict string) {
+static void putl(const char *const restrict string) {
 #if ARCH64
   _sys(1, stdout, (ssize_t)string, strlen(string));
 #else
@@ -70,8 +75,8 @@ static void puts(const char *const restrict string) {
 #endif
 }
 
-// Non-standard, gets a word instead of a line
-static bool gets(char *restrict string) {
+// Non-standard, gets but a word instead of a line
+static bool getl(char *restrict string) {
   while (true) {
 #if ARCH64
     const int result = _sys(0, stdin, (ssize_t)string, 1);
@@ -82,7 +87,7 @@ static bool gets(char *restrict string) {
     // Assume stdin never closes on mini build
 #ifdef FULL
     if (result < 1) {
-      exit();
+      exit_now();
     }
 #endif
 
@@ -112,7 +117,7 @@ static bool gets(char *restrict string) {
   return false;
 }
 
-[[nodiscard]] static size_t stoi(const char *restrict string) {
+[[nodiscard]] static size_t atoi(const char *restrict string) {
   size_t result = 0;
   while (true) {
     if (!*string) {
@@ -147,12 +152,12 @@ static void _printf(const char *format, const size_t *args) {
     format++;
     switch (*format++) {
     case 's':
-      puts((char *)*args);
+      putl((char *)*args);
       break;
     case 'i':
       value = *args;
       if (value < 0) {
-        puts("-");
+        putl("-");
         value *= -1;
       }
       string = buffer + sizeof buffer - 1;
@@ -165,32 +170,93 @@ static void _printf(const char *format, const size_t *args) {
         }
         string--;
       }
-      puts(string);
+      putl(string);
       break;
     }
     args++;
   }
 }
 
+typedef struct [[nodiscard]] {
+  ssize_t tv_sec;  // seconds
+  ssize_t tv_nsec; // nanoseconds
+} timespec;
+
+
+[[nodiscard]] size_t get_time() {
+  timespec ts;
+#if ARCH64
+  _sys(228, 1, (ssize_t)&ts, 0);
+#else
+  _sys(265, 1, (ssize_t)&ts, 0);
+#endif
+  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
 #if ASSERTS
 #define assert(condition)                                                      \
   if (!(condition)) {                                                          \
     printf("Assert failed on line %i: ", __LINE__);                            \
-    puts(#condition "\n");                                                     \
+    putl(#condition "\n");                                                     \
     _sys(60, 1, 0, 0);                                                         \
   }
 #else
 #define assert(condition)
 #endif
 
+#else
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+[[nodiscard]] size_t get_time() {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+void exit_now() {
+  exit(0);
+}
+
+static bool getl(char *restrict string) {
+  while (true) {
+
+    const char c = getchar();
+
+    // Assume stdin never closes on mini build
+    if (c == EOF) {
+      exit_now();
+    }
+
+    if (c == '\n') {
+      *string = 0;
+      return false;
+    }
+
+    if (c == ' ') {
+      *string = 0;
+      return true;
+    }
+
+    *string = c;
+    string++;
+  }
+}
+
+static void putl(const char *const restrict string) {
+  fputs(string, stdout);
+}
+
+#endif
+
 #pragma endregion
 
 #pragma region base
 
-typedef struct [[nodiscard]] {
-  ssize_t tv_sec;  // seconds
-  ssize_t tv_nsec; // nanoseconds
-} timespec;
+
 
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
@@ -217,16 +283,6 @@ typedef struct [[nodiscard]] {
     }
   }
   return true;
-}
-
-[[nodiscard]] size_t get_time() {
-  timespec ts;
-#if ARCH64
-  _sys(228, 1, (ssize_t)&ts, 0);
-#else
-  _sys(265, 1, (ssize_t)&ts, 0);
-#endif
-  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
 [[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
@@ -831,9 +887,9 @@ static void iteratively_deepen(
       printf(" nps %i", nps);
     }
 
-    puts(" pv ");
-    puts(info_move_name);
-    puts("\n");
+    putl(" pv ");
+    putl(info_move_name);
+    putl("\n");
 #endif
 
     if (elapsed > total_time / 64) {
@@ -842,9 +898,9 @@ static void iteratively_deepen(
   }
   char move_name[6];
   move_str(move_name, &stack[0].best_move, pos->flipped);
-  puts("bestmove ");
-  puts(move_name);
-  puts("\n");
+  putl("bestmove ");
+  putl(move_name);
+  putl("\n");
 }
 
 #ifdef FULL
@@ -868,7 +924,7 @@ static void bench() {
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
   printf("%i nodes %i nps\n", nodes, nps);
-  exit();
+  exit_now();
 }
 #endif
 
@@ -896,22 +952,22 @@ void _start() {
 
 #if !FULL
   // Assume first input is "uci"
-  gets(line);
-  puts("uciok\n");
+  getl(line);
+  putl("uciok\n");
 #endif
 
   // UCI loop
   while (true) {
-    gets(line);
+    getl(line);
 #ifdef FULL
     u64 nodes = 0;
     if (!strcmp(line, "uci")) {
-      puts("id name 4k.c\n");
-      puts("id author Gediminas Masaitis\n");
-      puts("\n");
-      puts("option name Hash type spin default 1 min 1 max 1\n");
-      puts("option name Threads type spin default 1 min 1 max 1\n");
-      puts("uciok\n");
+      putl("id name 4k.c\n");
+      putl("id author Gediminas Masaitis\n");
+      putl("\n");
+      putl("option name Hash type spin default 1 min 1 max 1\n");
+      putl("option name Threads type spin default 1 min 1 max 1\n");
+      putl("uciok\n");
     }
     else if (!strcmp(line, "bench")) {
       bench();
@@ -922,8 +978,8 @@ void _start() {
     }
     else if (!strcmp(line, "perft")) {
       char depth_str[4];
-      gets(depth_str);
-      const i32 depth = stoi(depth_str);
+      getl(depth_str);
+      const i32 depth = atoi(depth_str);
       const u64 start = get_time();
       nodes = perft(&pos, depth);
       const u64 end = get_time();
@@ -936,7 +992,7 @@ void _start() {
     }
 #endif
     if (line[0] == 'i') {
-      puts("readyok\n");
+      putl("readyok\n");
     }
     else if (line[0] == 'p') {
       pos = (Position){ .castling = {true, true, true, true},
@@ -947,7 +1003,7 @@ void _start() {
                        .ep = 0 };
       pos_history_count = 0;
       while (true) {
-        const bool line_continue = gets(line);
+        const bool line_continue = getl(line);
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[6];
@@ -967,15 +1023,15 @@ void _start() {
     else if (line[0] == 'g') {
 #ifdef FULL
       while (true) {
-        gets(line);
+        getl(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
-          gets(line);
-          total_time = stoi(line);
+          getl(line);
+          total_time = atoi(line);
           break;
         }
         else if (pos.flipped && !strcmp(line, "btime")) {
-          gets(line);
-          total_time = stoi(line);
+          getl(line);
+          total_time = atoi(line);
           break;
         }
         else if (!strcmp(line, "movetime")) {
@@ -987,7 +1043,7 @@ void _start() {
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         gets(line);
-        total_time = stoi(line);
+        total_time = atoi(line);
       }
       iteratively_deepen(&pos, stack, pos_history_count);
 #endif
@@ -995,21 +1051,25 @@ void _start() {
     }
   }
 
-  exit();
+  exit_now();
 }
 
 #if FULL
-void __attribute__((naked)) _start() {
-  register long* stack asm("rsp");
-  int argc = (int)*stack;
-  char** argv = (char**)(stack + 1);
-
-  if (argc > 1 && !strcmp(argv[1], "bench")) {
-    bench();
-  }
-
+int main()
+{
   run();
 }
+// void __attribute__((naked)) _start() {
+//   register long* stack asm("rsp");
+//   int argc = (int)*stack;
+//   char** argv = (char**)(stack + 1);
+
+//   if (argc > 1 && !strcmp(argv[1], "bench")) {
+//     bench();
+//   }
+
+//   run();
+// }
 #endif
 
 #pragma endregion
