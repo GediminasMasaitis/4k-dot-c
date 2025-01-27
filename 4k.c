@@ -917,7 +917,7 @@ static void iteratively_deepen(
     putl("\n");
 #endif
 
-    if (elapsed > total_time / 64) {
+    if (elapsed > total_time / 48) {
       break;
     }
   }

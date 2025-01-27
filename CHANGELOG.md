@@ -1945,3 +1945,21 @@ Games | N: 4270 W: 1639 L: 1441 D: 1190
 Penta | [226, 382, 780, 462, 285]
 https://gedas.pythonanywhere.com/test/42/
 ```
+
+### 0.78
+
+Set min time control to /48
+
+32 bit: 5592 bytes (=)
+64 bit: 4056 bytes (=)
+
+MD5: 232384a4001b4b40cf32cd608a7aa374
+
+```py
+Elo   | 11.04 +- 6.34 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.20 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6076 W: 2296 L: 2103 D: 1677
+Penta | [241, 488, 1437, 581, 291]
+https://gedas.pythonanywhere.com/test/45/
+```
