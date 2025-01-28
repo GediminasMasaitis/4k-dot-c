@@ -29,7 +29,15 @@
 #define u8 unsigned char
 
 #ifdef NOSTDLIB
+
+#if __GNUC__ < 13
+typedef _Bool bool;
+#define true 1
+#define false 0
+#endif
+
 #define NULL ((void *)0)
+
 
 enum [[nodiscard]] {
   stdin = 0,
@@ -207,6 +215,7 @@ typedef struct [[nodiscard]] {
 
 #else
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -274,7 +283,9 @@ typedef struct [[nodiscard]] {
 
 [[nodiscard]] static bool position_equal(const Position *const restrict lhs,
                                          const Position *const restrict rhs) {
+#if __GNUC__ >= 13
   static_assert(sizeof(Position) % sizeof(u32) == 0);
+#endif
   for (u32 i = 0; i < sizeof(Position) / sizeof(u32); i++) {
     if (((const u32 *)lhs)[i] != ((const u32 *)rhs)[i]) {
       return false;
