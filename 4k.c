@@ -266,8 +266,8 @@ typedef struct [[nodiscard]] __attribute__((aligned(8))) {
 
 typedef struct [[nodiscard]] {
   u64 ep;
-  u64 colour[2];
   u64 pieces[7];
+  u64 colour[2];
   bool castling[4];
   bool flipped;
 } Position;
