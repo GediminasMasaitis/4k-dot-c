@@ -38,7 +38,6 @@ typedef _Bool bool;
 
 #define NULL ((void *)0)
 
-
 enum [[nodiscard]] {
   stdin = 0,
   stdout = 1,
@@ -454,8 +453,7 @@ static void flip_pos(Position *const restrict pos) {
              (pos->pieces[Bishop] | pos->pieces[Queen]) ||
          rook(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] &
              (pos->pieces[Rook] | pos->pieces[Queen]) ||
-         king(sq, 0) & pos->colour[them] &
-             pos->pieces[King];
+         king(sq, 0) & pos->colour[them] & pos->pieces[King];
 }
 
 static i32 makemove(Position *const restrict pos,
@@ -674,27 +672,27 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {103, 262, 285,
-                                                           444, 854, 0};
+__attribute__((aligned(8))) static const i16 material[] = {90,  263, 287,
+                                                           446, 859, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -23, -25, -24, -15, 20, 104, 0,   // Pawn
-    -29, -15, -1,  12,  22,  25, 8,   -22, // Knight
-    -21, -5,  4,   8,   12,  12, 1,   -11, // Bishop
-    -16, -21, -19, -7,  8,   17, 22,  17,  // Rook
-    -21, -13, -9,  -2,  7,   16, 7,   16,  // Queen
-    -17, -11, -5,  5,   16,  20, 11,  -14, // King
+    0,   -10, -12, -11, -2, 34, 105, 0,   // Pawn
+    -29, -15, -1,  12,  23, 25, 8,   -22, // Knight
+    -21, -5,  3,   8,   12, 12, 1,   -11, // Bishop
+    -17, -21, -19, -7,  8,  17, 22,  17,  // Rook
+    -21, -13, -9,  -2,  7,  16, 7,   15,  // Queen
+    -17, -11, -5,  5,   16, 21, 11,  -14, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
     -3,  3,  -5, -2, -1, 1,  12, -5,  // Pawn
     -24, -6, 6,  13, 12, 11, 1,  -12, // Knight
-    -11, 0,  2,  4,  5,  1,  5,  -6,  // Bishop
+    -11, 0,  2,  4,  5,  1,  4,  -6,  // Bishop
     -5,  1,  5,  7,  5,  2,  -1, -15, // Rook
     -19, -8, 2,  4,  4,  5,  5,  6,   // Queen
-    -12, 2,  0,  -1, -2, -3, 6,  -8,  // King
+    -12, 3,  1,  -1, -2, -2, 6,  -8,  // King
 };
 
 static i32 eval(Position *const restrict pos) {
-  i32 score = 12;
+  i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
