@@ -802,7 +802,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // NULL MOVE PRUNING
-  if (depth > 3 & do_null) {
+  if (depth > 3 && do_null && alpha == beta - 1 && !in_check) {
     Position npos = *pos;
     flip_pos(&npos);
     npos.ep = 0;
