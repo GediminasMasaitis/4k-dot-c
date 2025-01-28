@@ -2003,6 +2003,39 @@ MD5: 2f814dc16daf5ed1fc69c0fb01e4f154
 
 Reduce size by removing blockers for king
 
-64 bit: 4056 bytes (+8)
+64 bit: 4048 bytes (-8)
 
 MD5: faf57ec95bd24eb1e70bb66cac734125
+
+### 0.83
+
+Retune eval for 16 tempo
+
+64 bit: 4048 bytes (=)
+
+MD5: ed877c31f6e76028c56368b5af5af804
+
+```
+info depth 1 score cp 24 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 22 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1439 pv b1c3
+info depth 5 score cp -2 time 1 nodes 5638 nps 5638000 pv b1c3
+info depth 6 score cp 3 time 5 nodes 17858 nps 3571600 pv b1c3
+info depth 7 score cp 4 time 13 nodes 60654 nps 4665692 pv b1c3
+info depth 8 score cp 16 time 42 nodes 214427 nps 5105404 pv b1c3
+info depth 9 score cp 7 time 193 nodes 970730 nps 5029689 pv b1c3
+info depth 10 score cp 9 time 575 nodes 2837511 nps 4934801 pv b1c3
+info depth 11 score cp 12 time 2421 nodes 11729785 nps 4845016 pv b1c3
+bestmove b1c3
+11729785 nodes 4845016 nps
+```
+
+```
+Elo   | 4.84 +- 3.84 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 21594 W: 7986 L: 7685 D: 5923
+Penta | [1262, 2114, 3848, 2207, 1366]
+https://gedas.pythonanywhere.com/test/53/
+```
