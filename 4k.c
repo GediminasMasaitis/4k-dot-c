@@ -818,11 +818,13 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       continue;
     }
 
+    const bool is_quiet = piece_on(pos, stack[ply].moves[move_index].to) == None;
+
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
 
     // LATE MOVE REDCUCTION
-    i32 reduction = depth > 1 && moves_evaluated > 5
+    i32 reduction = depth > 1 && moves_evaluated > 5 && is_quiet
                         ? 1 + (alpha == beta - 1) + moves_evaluated / 16
                         : 1;
 
@@ -858,7 +860,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
-        if (piece_on(pos, stack[ply].moves[move_index].to) == None) {
+        if (is_quiet) {
           move_history[pos->flipped][stack[ply].moves[move_index].from]
                       [stack[ply].moves[move_index].to] += depth * depth;
         }
