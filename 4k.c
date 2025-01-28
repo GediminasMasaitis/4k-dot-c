@@ -730,7 +730,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64]) {
+                  i64 move_history[2][64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -780,11 +780,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #endif
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
-    u64 move_score = 0;
+    i64 move_score = 0;
 
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
-      const u64 order_move_score =
+      const i64 order_move_score =
           ((u64)(*(u64 *)&stack[ply].best_move ==
                  *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
@@ -848,8 +848,13 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #endif
       if (score >= beta) {
         if (piece_on(pos, stack[ply].moves[move_index].to) == None) {
-          move_history[pos->flipped][stack[ply].moves[move_index].from]
-                      [stack[ply].moves[move_index].to] += depth * depth;
+          const i32 bonus = depth * depth;
+          move_history[pos->flipped][stack[ply].moves[move_index].from][stack[ply].moves[move_index].to] += bonus;
+          for(i32 previous_move_index = 0; previous_move_index < move_index; previous_move_index++) {
+            if(piece_on(pos, stack[ply].moves[previous_move_index].to) == None) {
+              move_history[pos->flipped][stack[ply].moves[previous_move_index].from][stack[ply].moves[previous_move_index].to] -= bonus;
+            }
+          }
         }
         break;
       }
@@ -878,7 +883,7 @@ static void iteratively_deepen(
 
 ) {
   start_time = get_time();
-  u64 move_history[2][64][64] = {0};
+  i64 move_history[2][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
     PvStack pv_stack[max_ply + 1];
