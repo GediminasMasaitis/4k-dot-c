@@ -760,7 +760,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64]) {
+                  u64 move_history[2][64][64], const bool do_null) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -778,7 +778,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // FULL REPETITION DETECTION
-  for (i32 i = pos_history_count + ply; depth >= 0 && i > 0 && ply > 0;
+  for (i32 i = pos_history_count + ply; depth >= 0 && i > 0 && ply > 0 && do_null;
        i -= 2) {
     if (position_equal(pos, &stack[i].history)) {
       return 0;
@@ -799,6 +799,20 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   if (!in_qsearch && alpha == beta - 1 && !in_check &&
       static_eval - 64 * depth >= beta) {
     return static_eval;
+  }
+
+  // NULL MOVE PRUNING
+  if (depth > 3 & do_null) {
+    Position npos = *pos;
+    flip_pos(&npos);
+    npos.ep = 0;
+    if (-search(&npos, ply + 1, depth - 4, -beta, -alpha,
+#ifdef FULL
+      nodes, pv_stack,
+#endif
+      stack, pos_history_count, move_history, false) >= beta) {
+      return beta;
+    }
   }
 
   stack[pos_history_count + ply + 2].history = *pos;
@@ -863,7 +877,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes, pv_stack,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, pos_history_count, move_history, true);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -937,7 +951,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes, pv_stack,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, pos_history_count, move_history, false);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
