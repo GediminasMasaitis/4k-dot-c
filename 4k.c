@@ -278,9 +278,9 @@ typedef struct [[nodiscard]] __attribute__((aligned(8))) {
 } Move;
 
 typedef struct [[nodiscard]] {
-  u64 ep;
   u64 pieces[7];
   u64 colour[2];
+  u64 ep;
   bool castling[4];
   bool flipped;
 } Position;
@@ -313,6 +313,10 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return __builtin_popcountll(bb);
 }
 
+[[nodiscard]] static u64 shift(const u64 bb, const i32 shift, const u64 mask) {
+  return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
+}
+
 [[nodiscard]] static u64 west(const u64 bb) {
   return bb >> 1 & ~0x8080808080808080ull;
 }
@@ -325,17 +329,16 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 south(const u64 bb) { return bb >> 8; }
 
-[[nodiscard]] static u64 nw(const u64 bb) { return west(north(bb)); }
+[[nodiscard]] static u64 nw(const u64 bb) {
+  return shift(bb, 7, ~0x8080808080808080ull);
+  //return west(north(bb));
+}
 
 [[nodiscard]] static u64 ne(const u64 bb) { return east(north(bb)); }
 
 [[nodiscard]] static u64 sw(const u64 bb) { return west(south(bb)); }
 
 [[nodiscard]] static u64 se(const u64 bb) { return east(south(bb)); }
-
-[[nodiscard]] static u64 shift(const u64 bb, const i32 shift, const u64 mask) {
-  return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
-}
 
 [[nodiscard]] u64 xattack(const i32 sq, const u64 blockers,
                           const u64 dir_mask) {
@@ -355,7 +358,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return result;
 }
 
-u64 *diag_mask;
+static u64 *diag_mask;
 
 static void init_diag_masks() {
   for (i32 sq = 0; sq < 64; sq++) {
@@ -376,8 +379,8 @@ static void init_diag_masks() {
   assert(sq >= 0);
   assert(sq < 64);
   return xattack(sq, blockers, 1ULL << sq ^ 0x101010101010101ULL << sq % 8) |
-         ray(sq, blockers, -1, ~0x8080808080808080ull)  // West
-         | ray(sq, blockers, 1, ~0x101010101010101ull); // East
+         ray(sq, blockers, 1, ~0x101010101010101ull) // East
+         | ray(sq, blockers, -1, ~0x8080808080808080ull);  // West
 }
 
 [[nodiscard]] static u64 knight(const i32 sq, const u64 blockers) {
@@ -454,9 +457,10 @@ static void flip_pos(Position *const restrict pos) {
   }
 
   pos->flipped ^= 1;
+  for (i32 i = 0; i < 2; i++) {
+    swapbool(&pos->castling[i], &pos->castling[i+2]);
+  }
   swapu64(&pos->colour[0], &pos->colour[1]);
-  swapbool(&pos->castling[0], &pos->castling[2]);
-  swapbool(&pos->castling[1], &pos->castling[3]);
 }
 
 [[nodiscard]] static i32 is_attacked(const Position *const restrict pos,
@@ -526,16 +530,16 @@ static i32 makemove(Position *const restrict pos,
   }
 
   // Promotions
-  if (piece == Pawn && move->to > 55) {
+  if (piece == Pawn && move->promo != None) {
     pos->pieces[Pawn] ^= to;
     pos->pieces[move->promo] ^= to;
   }
 
   // Update castling permissions
-  pos->castling[0] &= !(mask & 0x90ull);
-  pos->castling[1] &= !(mask & 0x11ull);
   pos->castling[2] &= !(mask & 0x9000000000000000ull);
   pos->castling[3] &= !(mask & 0x1100000000000000ull);
+  pos->castling[0] &= !(mask & 0x90ull);
+  pos->castling[1] &= !(mask & 0x11ull);
 
   flip_pos(pos);
 
@@ -733,8 +737,9 @@ static size_t start_time;
 static size_t total_time;
 
 typedef struct [[nodiscard]] {
-  Position history;
+  Move killer;
   Move best_move;
+  Position history;
   Move moves[256];
 } SearchStack;
 
@@ -775,7 +780,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const bool in_qsearch = depth <= 0;
+  const bool in_qsearch = depth <= 0; 
   const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
@@ -810,6 +815,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
+          + ((u64)(*(u64*)&stack[ply].killer ==
+            *(u64*)&stack[ply].moves[order_index])
+            << 48) // KILLER MOVE
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
@@ -871,6 +879,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
         if (stack[ply].best_move.takes_piece == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
+          stack[ply].killer = stack[ply].best_move;
         }
         break;
       }
