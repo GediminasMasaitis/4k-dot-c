@@ -727,6 +727,7 @@ static size_t total_time;
 typedef struct [[nodiscard]] {
   Position history;
   Move best_move;
+  bool best_move_quiet;
   Move moves[256];
 } SearchStack;
 
@@ -798,7 +799,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       const u64 order_move_score =
           ((u64)(*(u64 *)&stack[ply].best_move ==
                  *(u64 *)&stack[ply].moves[order_index])
-           << 60) // PREVIOUS BEST MOVE FIRST
+           << (stack[ply].best_move_quiet ? 48 : 60)) // PREVIOUS BEST MOVE FIRST
           + ((u64)piece_on(pos, stack[ply].moves[order_index].to)
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
@@ -846,6 +847,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
+      stack[ply].best_move_quiet = piece_on(pos, stack[ply].best_move.to) == None;
       alpha = score;
 #ifdef FULL
       if (alpha != beta - 1) {
@@ -858,7 +860,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
-        if (piece_on(pos, stack[ply].best_move.to) == None) {
+        if (stack[ply].best_move_quiet) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
         }
