@@ -735,6 +735,7 @@ static size_t total_time;
 typedef struct [[nodiscard]] {
   Position history;
   Move best_move;
+  Move killer;
   Move moves[256];
 } SearchStack;
 
@@ -775,7 +776,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const bool in_qsearch = depth <= 0;
+  const bool in_qsearch = depth <= 0; 
   const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
@@ -810,6 +811,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
+          + ((u64)(*(u64*)&stack[ply].killer ==
+            *(u64*)&stack[ply].moves[order_index])
+            << 48) // KILLER MOVE
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
@@ -871,6 +875,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
         if (stack[ply].best_move.takes_piece == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
+          stack[ply].killer = stack[ply].best_move;
         }
         break;
       }
