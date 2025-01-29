@@ -795,11 +795,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
-      const u64 order_move_score =
-          ((u64)(*(u64 *)&stack[ply].best_move ==
-                 *(u64 *)&stack[ply].moves[order_index])
-           << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)piece_on(pos, stack[ply].moves[order_index].to)
+      const u64 order_move_score = ((u64)piece_on(pos, stack[ply].moves[order_index].to)
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
