@@ -750,7 +750,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // IN-CHECK EXTENSION
   if (in_check) {
-    depth++;
+    depth = depth > 0 ? depth + 1 : 1;
   }
 
   // EARLY EXITS
