@@ -767,7 +767,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const bool in_qsearch = depth <= 0;
+  const bool in_qsearch = depth <= 0 && !in_check;
   const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
