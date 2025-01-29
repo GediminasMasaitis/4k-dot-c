@@ -1998,3 +1998,11 @@ Noticed some losses on time so revert super aggressive time control
 64 bit: 4056 bytes (+8)
 
 MD5: 2f814dc16daf5ed1fc69c0fb01e4f154
+
+### 0.82
+
+Reduce size by removing blockers for king
+
+64 bit: 4056 bytes (+8)
+
+MD5: faf57ec95bd24eb1e70bb66cac734125
