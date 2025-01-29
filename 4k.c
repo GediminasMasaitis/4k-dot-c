@@ -791,7 +791,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   stack[pos_history_count + ply + 2].history = *pos;
-  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
+  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch && !in_check);
   i32 moves_evaluated = 0;
 
 #ifdef FULL
