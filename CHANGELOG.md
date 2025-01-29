@@ -1990,3 +1990,11 @@ Reduce size by optimizing history updating
 64 bit: 4048 bytes (-8)
 
 MD5: 06f00d758f30c12820d7143972029894
+
+### 0.81
+
+Noticed some losses on time so revert super aggressive time control
+
+64 bit: 4056 bytes (+8)
+
+MD5: 2f814dc16daf5ed1fc69c0fb01e4f154

@@ -754,7 +754,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // EARLY EXITS
-  if ((depth > 4 && get_time() - start_time > total_time / 2) || ply > 125) {
+  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
     return alpha;
   }
 
@@ -928,7 +928,7 @@ static void iteratively_deepen(
     putl("\n");
 #endif
 
-    if (elapsed > total_time / 32) {
+    if (elapsed > total_time / 48) {
       break;
     }
   }
