@@ -845,7 +845,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     moves_evaluated++;
 
     if (score > alpha) {
-      stack[ply].best_move = stack[ply].moves[move_index];
+      if (alpha != beta - 1) {
+        stack[ply].best_move = stack[ply].moves[move_index];
+      }
       alpha = score;
 #ifdef FULL
       if (alpha != beta - 1) {
