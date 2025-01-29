@@ -804,6 +804,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[pos_history_count + ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 quiets_evaluated = 0;
 
 #ifdef FULL
   pv_stack[ply].length = ply;
@@ -874,6 +875,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     moves_evaluated++;
+    if (stack[ply].moves[move_index].takes_piece == None) {
+      quiets_evaluated++;
+    }
 
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
@@ -899,14 +903,19 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
         break;
       }
     }
+
+    // LATE MOVE PRUNING
+    if (!in_check && alpha == beta - 1 && quiets_evaluated > 3 + 2 * depth * depth) {
+      break;
+    }
   }
 
   // MATE / STALEMATE DETECTION
   if (moves_evaluated == 0 && !in_qsearch) {
     if (in_check) {
       return -mate;
-    }
-
+    
+}
     return 0;
   }
 
@@ -1044,7 +1053,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(12, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(13, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
