@@ -11,8 +11,8 @@ ifeq ($(ARCH), 32)
 endif
 
 ifeq ($(NOSTDLIB), true)
-    CFLAGS += -DNOSTDLIB -ffreestanding -fno-pic -fno-builtin -fno-stack-protector -march=haswell -Oz
-	LDFLAGS += -T $(LDFILE) -Map=$(EXE).map
+    CFLAGS += -DNOSTDLIB -nostdlib -fno-pic -fno-builtin -fno-stack-protector -march=haswell -Oz
+	LDFLAGS += -nostdlib -Wl,-T $(LDFILE) -Wl,-Map=$(EXE).map
 else
 	CFLAGS += -march=native -O3
 endif
@@ -35,10 +35,13 @@ all:
 	ls -la $(EXE)
 	md5sum $(EXE)
 
-mini:
+pgo:
 	mkdir -p build
-	$(CC) $(CFLAGS) -c 4k.c
-	ld $(LDFLAGS) -o $(EXE) 4k.o
+	$(CC) $(CFLAGS) -fprofile-generate -ftest-coverage -fprofile-update=atomic -c 4k.c
+	$(CC) $(LDFLAGS) -fprofile-generate -o $(EXE) 4k.o
+	./build/4kc bench
+	$(CC) $(CFLAGS) -fprofile-use -fprofile-correction -c 4k.c
+	$(CC) $(LDFLAGS) -fprofile-use -o $(EXE) 4k.o
 	rm *.o
 	ls -la $(EXE)
 	md5sum $(EXE)
@@ -62,7 +65,9 @@ format:
 	clang-format -i ./4k.c
 
 clean:
-	rm -rf build
+	rm -rf build/**
 	rm -f *.map
 	rm -f *.o
+	rm -f *.gcda
+	rm -f *.gcno
 	rm -f *.c.temp*

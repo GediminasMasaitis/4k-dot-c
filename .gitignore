@@ -6,6 +6,9 @@ build
 old
 *.map
 *.o
+*.gcda
+*.gcno
+*.gcov
 *.c.temp*
 
 *.exe
