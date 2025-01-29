@@ -1981,3 +1981,12 @@ Games | N: 7504 W: 2812 L: 2610 D: 2082
 Penta | [356, 652, 1607, 708, 429]
 https://gedas.pythonanywhere.com/test/48/
 ```
+
+### 0.80
+
+Reduce size by optimizing history updating
+
+32 bit: 5560 bytes (-32)
+64 bit: 4048 bytes (-8)
+
+MD5: 06f00d758f30c12820d7143972029894

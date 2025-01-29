@@ -858,9 +858,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
-        if (piece_on(pos, stack[ply].moves[move_index].to) == None) {
-          move_history[pos->flipped][stack[ply].moves[move_index].from]
-                      [stack[ply].moves[move_index].to] += depth * depth;
+        if (piece_on(pos, stack[ply].best_move.to) == None) {
+          move_history[pos->flipped][stack[ply].best_move.from]
+                      [stack[ply].best_move.to] += depth * depth;
         }
         break;
       }
