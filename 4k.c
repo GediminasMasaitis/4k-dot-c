@@ -819,7 +819,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // PRINCIPAL VARIATION SEARCH
-    i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
+    i32 low = moves_evaluated < 2 ? -beta : -alpha - 1;
 
     // LATE MOVE REDCUCTION
     i32 reduction = depth > 1 && moves_evaluated > 5
