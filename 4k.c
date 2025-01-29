@@ -764,7 +764,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64]) {
+                  u64 move_history[2][64][64], const bool in_pv) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -800,7 +800,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // REVERSE FUTILITY PRUNING
-  if (!in_qsearch && alpha == beta - 1 && !in_check &&
+  if (!in_qsearch && !in_pv && !in_check &&
       static_eval - 64 * depth >= beta) {
     return static_eval;
   }
@@ -855,11 +855,19 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // PRINCIPAL VARIATION SEARCH
-    i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
+    i32 low;
+    i32 new_pv;
+    if (moves_evaluated == 0) {
+      low = -beta;
+      new_pv = in_pv;
+    } else {
+      low = -alpha - 1;
+      new_pv = false;
+    }
 
     // LATE MOVE REDCUCTION
     i32 reduction = depth > 1 && moves_evaluated > 5
-                        ? 1 + (alpha == beta - 1) + moves_evaluated / 16
+                        ? 1 + !in_pv + moves_evaluated / 16
                         : 1;
 
     i32 score;
@@ -868,7 +876,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes, pv_stack,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, pos_history_count, move_history, new_pv);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -876,6 +884,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
       low = -beta;
       reduction = 1;
+      new_pv = in_pv;
     }
 
     moves_evaluated++;
@@ -942,7 +951,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes, pv_stack,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, pos_history_count, move_history, true);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
