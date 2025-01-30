@@ -320,13 +320,13 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 south(const u64 bb) { return bb >> 8; }
 
-[[nodiscard]] static u64 nw(const u64 bb) { return north(west(bb)); }
+[[nodiscard]] static u64 nw(const u64 bb) { return west(north(bb)); }
 
-[[nodiscard]] static u64 ne(const u64 bb) { return north(east(bb)); }
+[[nodiscard]] static u64 ne(const u64 bb) { return east(north(bb)); }
 
-[[nodiscard]] static u64 sw(const u64 bb) { return south(west(bb)); }
+[[nodiscard]] static u64 sw(const u64 bb) { return west(south(bb)); }
 
-[[nodiscard]] static u64 se(const u64 bb) { return south(east(bb)); }
+[[nodiscard]] static u64 se(const u64 bb) { return east(south(bb)); }
 
 [[nodiscard]] static u64 shift(const u64 bb, const i32 shift, const u64 mask) {
   return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
