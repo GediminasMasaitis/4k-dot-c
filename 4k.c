@@ -814,27 +814,27 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   const u64 tt_key = get_hash(pos);
   //printf("%lld ", tt_key);
   TT_Entry *tt_entry = &transposition_table[tt_key % num_tt_entries];
-  //Move tt_move{};
+  Move tt_move = {};
   if (tt_entry->key == tt_key) {
     //puts("wat");
     //printf("%i", tt_key);
-    //tt_move = tt_entry->move;
+    tt_move = tt_entry->move;
 
     //if (alpha == beta - 1 && tt_entry->depth >= depth && tt_entry->flag != tt_entry->score <= alpha) {
     //  return tt_entry->score;
     //}
 
-    if (alpha == beta - 1 && tt_entry->depth >= depth) {
-      if (tt_entry->flag == Exact) {
-        return tt_entry->score;
-      }
-      if (tt_entry->flag == Upper && tt_entry->score <= alpha) {
-        return tt_entry->score;
-      }
-      if (tt_entry->flag == Lower && tt_entry->score >= beta) {
-        return tt_entry->score;
-      }
-    }
+    //if (alpha == beta - 1 && tt_entry->depth >= depth) {
+    //  if (tt_entry->flag == Exact) {
+    //    return tt_entry->score;
+    //  }
+    //  if (tt_entry->flag == Upper && tt_entry->score <= alpha) {
+    //    return tt_entry->score;
+    //  }
+    //  if (tt_entry->flag == Lower && tt_entry->score >= beta) {
+    //    return tt_entry->score;
+    //  }
+    //}
   }
 
   // QUIESCENCE
@@ -868,7 +868,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const u64 order_move_score =
-          ((u64)(*(u64 *)&stack[ply].best_move ==
+          ((u64)(*(u64 *)&tt_move ==
                  *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)piece_on(pos, stack[ply].moves[order_index].to)
