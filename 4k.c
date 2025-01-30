@@ -814,7 +814,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   const u64 tt_key = get_hash(pos);
   //printf("%lld ", tt_key);
   TT_Entry *tt_entry = &transposition_table[tt_key % num_tt_entries];
-  //Move tt_move{};
+  //Move tt_move = {};
   if (tt_entry->key == tt_key) {
     //puts("wat");
     //printf("%i", tt_key);
@@ -856,6 +856,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[pos_history_count + ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 best_score = in_qsearch ? alpha : -inf;
   u16 tt_flag = Upper;
 
 #ifdef FULL
@@ -916,6 +917,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     moves_evaluated++;
 
+    if (score > best_score) {
+      best_score = score;
+    }
+
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
@@ -950,7 +955,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return 0;
   }
 
-  *tt_entry = (TT_Entry){ tt_key, stack[ply].best_move, alpha, depth, tt_flag };
+  *tt_entry = (TT_Entry){ tt_key, stack[ply].best_move, best_score, depth, tt_flag };
   return alpha;
 }
 // #define FULL true
