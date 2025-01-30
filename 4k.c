@@ -718,9 +718,26 @@ static i32 eval(Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 128, inf = 32000, mate = 30000 };
+typedef struct [[nodiscard]] {
+  u64 key;
+  Move move;
+  i32 score;
+  i32 depth;
+  u16 flag;
+} TT_Entry;
+
+enum { max_ply = 128, inf = 32000, mate = 30000, num_tt_entries = 1024*1024/sizeof(TT_Entry) };
+
+enum
+{
+  Upper = 0,
+  Lower = 1,
+  Exact = 2
+};
+
 static size_t start_time;
 static size_t total_time;
+u64 keys[848];
 
 typedef struct [[nodiscard]] {
   Position history;
@@ -733,13 +750,43 @@ typedef struct [[nodiscard]] {
   Move moves[max_ply + 1];
 } PvStack;
 
+[[nodiscard]] u64 get_hash(const Position *const pos) {
+  u64 hash = pos->flipped;
+
+  // Pieces
+  for (i32 p = Pawn; p <= King; ++p) {
+    i32 p_index = p - 1;
+    u64 copy = pos->pieces[p] & pos->colour[0];
+    while (copy) {
+      const i32 sq = lsb(copy);
+      copy &= copy - 1;
+      hash ^= keys[p_index * 64 + sq];
+    }
+    copy = pos->pieces[p] & pos->colour[1];
+    while (copy) {
+      const i32 sq = lsb(copy);
+      copy &= copy - 1;
+      hash ^= keys[(p_index + 6) * 64 + sq];
+    }
+  }
+
+  // En passant square
+  if (pos->ep)
+    hash ^= keys[768 + lsb(pos->ep)];
+
+  // Castling permissions
+  hash ^= keys[832 + (pos->castling[0] | pos->castling[1] << 1 | pos->castling[2] << 2 | pos->castling[3] << 3)];
+
+  return hash;
+}
+
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64]) {
+                  u64 move_history[2][64][64], TT_Entry transposition_table[num_tt_entries]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -764,6 +811,17 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
   }
 
+  const u64 tt_key = get_hash(pos);
+  TT_Entry *tt_entry = &transposition_table[tt_key % num_tt_entries];
+  Move tt_move = {};
+  if (tt_entry->key == tt_key) {
+    tt_move = tt_entry->move;
+    if (alpha == beta - 1 && tt_entry->depth >= depth && tt_entry->flag != tt_entry->score <= alpha) {
+      stack[ply].best_move = tt_entry->move;
+      return tt_entry->score;
+    }
+  }
+
   // QUIESCENCE
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
@@ -783,6 +841,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[pos_history_count + ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 best_score = in_qsearch ? alpha : -inf;
+  u16 tt_flag = Upper;
 
 #ifdef FULL
   pv_stack[ply].length = ply;
@@ -794,7 +854,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       const u64 order_move_score =
-          ((u64)(*(u64 *)&stack[ply].best_move ==
+          ((u64)(*(u64 *)&tt_move ==
                  *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)piece_on(pos, stack[ply].moves[order_index].to)
@@ -830,7 +890,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes, pv_stack,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, pos_history_count, move_history, transposition_table);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -842,9 +902,14 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     moves_evaluated++;
 
+    if (score > best_score) {
+      best_score = score;
+    }
+
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
+      tt_flag = Exact;
 #ifdef FULL
       if (alpha != beta - 1) {
         pv_stack[ply].moves[ply] = stack[ply].best_move;
@@ -856,6 +921,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
+        tt_flag = Lower;
         if (piece_on(pos, stack[ply].best_move.to) == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
@@ -868,12 +934,13 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   // MATE / STALEMATE DETECTION
   if (moves_evaluated == 0 && !in_qsearch) {
     if (in_check) {
-      return -mate;
+      return ply-mate;
     }
 
     return 0;
   }
 
+  *tt_entry = (TT_Entry){ tt_key, stack[ply].best_move, best_score, depth, tt_flag };
   return alpha;
 }
 // #define FULL true
@@ -888,6 +955,10 @@ static void iteratively_deepen(
 ) {
   start_time = get_time();
   u64 move_history[2][64][64] = {0};
+  TT_Entry transposition_table[num_tt_entries];
+  for (int i = 0; i < num_tt_entries; i++) {
+    transposition_table[i].key = 0;
+  }
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
     PvStack pv_stack[max_ply + 1];
@@ -901,7 +972,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes, pv_stack,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, pos_history_count, move_history, transposition_table);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
@@ -961,6 +1032,30 @@ static void bench() {
 }
 #endif
 
+static void init_keys() {
+  u64 s = 6379633040001738036;
+  for (i32 i = 0; i < 848; i++) {
+    u64 num = s;
+    num ^= num << 13;
+    num ^= num >> 7;
+    num ^= num << 17;
+    s = num;
+    keys[i] = num;
+    
+    //printf("%lld\n", keys[i]);
+  }
+  //for (i32 i = 0; i < 848; i++) {
+  //  for (int j = i + 1; j < 848; j++)
+  //  {
+  //    if (keys[i] == keys[j])
+  //    {
+  //      puts("ERROR!!!");
+  //    }
+  //  }
+  //}
+  //exit_now();
+}
+
 #if !defined(FULL) && defined(NOSTDLIB)
 void _start() {
 #else
@@ -972,6 +1067,8 @@ static void run() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
+
+  init_keys();
 
 #ifdef FULL
   pos = (Position){.castling = {true, true, true, true},
@@ -1092,6 +1189,7 @@ int main(int argc, char **argv) {
 #endif
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
+    init_keys();
     bench();
     exit_now();
   }
