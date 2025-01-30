@@ -2039,3 +2039,30 @@ Games | N: 21594 W: 7986 L: 7685 D: 5923
 Penta | [1262, 2114, 3848, 2207, 1366]
 https://gedas.pythonanywhere.com/test/53/
 ```
+
+### 0.84
+
+Retune eval with more LiChess data
+
+64 bit: 4048 bytes (=)
+
+MD5: b663ed405f0986bb73400ec900ad0a41
+
+```
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 21 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1439 pv b1c3
+info depth 5 score cp 0 time 1 nodes 5640 nps 5640000 pv b1c3
+info depth 6 score cp 16 time 3 nodes 17117 nps 5705666 pv b1c3
+info depth 7 score cp -1 time 11 nodes 60185 nps 5471363 pv b1c3
+info depth 8 score cp 16 time 38 nodes 201158 nps 5293631 pv b1c3
+info depth 9 score cp 10 time 203 nodes 1018893 nps 5019177 pv e2e4
+info depth 10 score cp 12 time 693 nodes 3393160 nps 4896334 pv e2e4
+info depth 11 score cp 11 time 4544 nodes 21653221 nps 4765233 pv b1c3
+bestmove b1c3
+21653221 nodes 4765233 nps
+```
+
+```
+```

@@ -672,23 +672,23 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {90,  263, 287,
-                                                           446, 859, 0};
+__attribute__((aligned(8))) static const i16 material[] = {86,  250, 275,
+                                                          423, 820, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -12, -11, -2, 34, 105, 0,   // Pawn
-    -29, -15, -1,  12,  23, 25, 8,   -22, // Knight
-    -21, -5,  3,   8,   12, 12, 1,   -11, // Bishop
-    -17, -21, -19, -7,  8,  17, 22,  17,  // Rook
-    -21, -13, -9,  -2,  7,  16, 7,   15,  // Queen
-    -17, -11, -5,  5,   16, 21, 11,  -14, // King
+    0,   -10, -12, -11, -2, 35, 108, 0,   // Pawn
+    -28, -12, 0,   12,  23, 26, 8,   -29, // Knight
+    -19, -3,  4,   7,   11, 13, 0,   -12, // Bishop
+    -15, -18, -15, -7,  6,  14, 20,  15,  // Rook
+    -19, -11, -7,  -1,  7,  17, 8,   7,   // Queen
+    -5,  -1,  4,   13,  24, 29, 19,  -8,  // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -3,  3,  -5, -2, -1, 1,  12, -5,  // Pawn
-    -24, -6, 6,  13, 12, 11, 1,  -12, // Knight
-    -11, 0,  2,  4,  5,  1,  4,  -6,  // Bishop
-    -5,  1,  5,  7,  5,  2,  -1, -15, // Rook
-    -19, -8, 2,  4,  4,  5,  5,  6,   // Queen
-    -12, 3,  1,  -1, -2, -2, 6,  -8,  // King
+    -4,  3,  -4, -1, 1,  0,  11, -5,  // Pawn
+    -22, -6, 5,  12, 12, 10, 1,  -11, // Knight
+    -9,  0,  2,  3,  4,  1,  4,  -5,  // Bishop
+    -6,  1,  6,  8,  7,  2,  0,  -16, // Rook
+    -16, -7, 0,  3,  3,  5,  5,  6,   // Queen
+    -13, 3,  2,  -3, -5, -5, 5,  -6,  // King
 };
 
 static i32 eval(Position *const restrict pos) {
