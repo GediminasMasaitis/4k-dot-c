@@ -672,24 +672,25 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {90,  263, 287,
-                                                           446, 859, 0};
+__attribute__((aligned(8))) static const i16 material[] = {88,  264, 288,
+                                                           448, 862, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -12, -11, -2, 34, 105, 0,   // Pawn
-    -29, -15, -1,  12,  23, 25, 8,   -22, // Knight
-    -21, -5,  3,   8,   12, 12, 1,   -11, // Bishop
-    -17, -21, -19, -7,  8,  17, 22,  17,  // Rook
-    -21, -13, -9,  -2,  7,  16, 7,   15,  // Queen
-    -17, -11, -5,  5,   16, 21, 11,  -14, // King
+    0,   -12, -11, -9, -1, 34, 105, 0,   // Pawn
+    -29, -15, -1,  12, 23, 25, 8,   -23, // Knight
+    -21, -4,  4,   8,  11, 12, 1,   -11, // Bishop
+    -17, -20, -18, -7, 8,  16, 22,  17,  // Rook
+    -21, -13, -9,  -2, 7,  15, 7,   16,  // Queen
+    -21, -10, 1,   9,  19, 24, 16,  -9,  // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -3,  3,  -5, -2, -1, 1,  12, -5,  // Pawn
-    -24, -6, 6,  13, 12, 11, 1,  -12, // Knight
-    -11, 0,  2,  4,  5,  1,  4,  -6,  // Bishop
-    -5,  1,  5,  7,  5,  2,  -1, -15, // Rook
-    -19, -8, 2,  4,  4,  5,  5,  6,   // Queen
-    -12, 3,  1,  -1, -2, -2, 6,  -8,  // King
+    -2,  4,  -4, -2, 0,  0,  10, -6,  // Pawn
+    -24, -6, 6,  13, 13, 10, 1,  -13, // Knight
+    -11, -1, 2,  4,  5,  1,  6,  -6,  // Bishop
+    -5,  1,  5,  7,  5,  3,  -1, -15, // Rook
+    -19, -8, 1,  4,  4,  6,  6,  5,   // Queen
+    -11, 2,  2,  4,  1,  5,  3,  -10, // King
 };
+__attribute__((aligned(8))) static const i8 king_shield[] = {13, 6};
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
@@ -709,6 +710,14 @@ static i32 eval(Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
+
+        const u64 piece_bb = 1ULL << sq;
+        if (p == King && piece_bb & 0xC3D7) {
+          const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
+          const u64 shield = file < 3 ? 0x700 : 0xE000;
+          score += count(shield & own_pawns) * king_shield[0];
+          score += count(north(shield) & own_pawns) * king_shield[1];
+        }
       }
     }
 
