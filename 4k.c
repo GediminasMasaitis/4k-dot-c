@@ -479,10 +479,11 @@ static i32 makemove(Position *const restrict pos,
   const u64 to = 1ull << move->to;
   const u64 mask = from | to;
 
-  const i32 piece = piece_on(pos, move->from);
-  assert(piece != None);
+
   const i32 captured = piece_on(pos, move->to);
   assert(captured != King);
+  const i32 piece = piece_on(pos, move->from);
+  assert(piece != None);
 
   // Move the piece
   pos->colour[0] ^= mask;
@@ -494,26 +495,25 @@ static i32 makemove(Position *const restrict pos,
     pos->pieces[captured] ^= to;
   }
 
+  // Castling
+  if (piece == King) {
+    const u64 bb = move->to - move->from == 2 ? 0xa0
+      : move->from - move->to == 2 ? 0x9
+      : 0;
+    pos->colour[0] ^= bb;
+    pos->pieces[Rook] ^= bb;
+  }
+
   // En passant
   if (piece == Pawn && to == pos->ep) {
     pos->colour[1] ^= to >> 8;
     pos->pieces[Pawn] ^= to >> 8;
   }
-
   pos->ep = 0;
 
   // Pawn double move
   if (piece == Pawn && move->to - move->from == 16)
     pos->ep = to >> 8;
-
-  // Castling
-  if (piece == King) {
-    const u64 bb = move->to - move->from == 2   ? 0xa0
-                   : move->from - move->to == 2 ? 0x9
-                                                : 0;
-    pos->colour[0] ^= bb;
-    pos->pieces[Rook] ^= bb;
-  }
 
   // Promotions
   if (piece == Pawn && move->to > 55) {
