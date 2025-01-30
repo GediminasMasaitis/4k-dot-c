@@ -285,19 +285,6 @@ typedef struct [[nodiscard]] {
   bool flipped;
 } Position;
 
-[[nodiscard]] static bool position_equal(const Position *const restrict lhs,
-                                         const Position *const restrict rhs) {
-#if __GNUC__ >= 13
-  static_assert(sizeof(Position) % sizeof(u64) == 0);
-#endif
-  for (u64 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
-    if (((const u64 *)lhs)[i] != ((const u64 *)rhs)[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
 [[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
 
 #ifdef ARCH32
@@ -738,14 +725,26 @@ static i32 eval(const Position *const restrict pos) {
   return score;
 }
 
+typedef struct [[nodiscard]] {
+  u64 key;
+  Move move;
+  i32 score;
+  i32 depth;
+  u16 flag;
+} TTEntry;
+
 enum { max_ply = 128, mate = 30000, inf = 40000 };
+enum { tt_length = 1024 * 1024 / sizeof(TTEntry) };
+
+enum { Upper = 0, Lower = 1, Exact = 2 };
+
 static size_t start_time;
 static size_t total_time;
 
 typedef struct [[nodiscard]] {
+  u64 history;
   Move killer;
   Move best_move;
-  Position history;
   Move moves[256];
 } SearchStack;
 
@@ -754,13 +753,49 @@ typedef struct [[nodiscard]] {
   Move moves[max_ply + 1];
 } PvStack;
 
+//[[nodiscard]] u64 get_hash(const Position* const pos) {
+//  u64 hash = 6379633040001738036ULL;
+//  for (u64 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+//    hash ^= ((const u32*)pos)[i];
+//    hash ^= hash << 13;
+//    hash ^= hash >> 7;
+//    hash ^= hash << 17;
+//  }
+//  return hash;
+//}
+
+[[nodiscard]] u64 get_hash(const Position *const pos) {
+  const u64 m = 0xc6a4a7935bd1e995ULL;
+  const i32 r = 47;
+  const u64 *data = (const u64 *)pos;
+
+  u64 h = 6379633040001738036ULL ^ (88 * m);
+
+  // Process 88 bytes in 11 blocks of 8 bytes
+  for (i32 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+    u64 k = data[i];
+    k *= m;
+    k ^= k >> r;
+    k *= m;
+    h ^= k;
+    h *= m;
+  }
+
+  // Finalization
+  h ^= h >> r;
+  h *= m;
+  h ^= h >> r;
+
+  return h;
+}
+
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64]) {
+                  u64 move_history[2][64][64], TTEntry tt[tt_length]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -778,10 +813,22 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // FULL REPETITION DETECTION
+  const u64 tt_key = get_hash(pos);
   for (i32 i = pos_history_count + ply; depth >= 0 && i > 0 && ply > 0;
        i -= 2) {
-    if (position_equal(pos, &stack[i].history)) {
+    if (tt_key == stack[i].history) {
       return 0;
+    }
+  }
+
+  TTEntry *tt_entry = &tt[tt_key % tt_length];
+  Move tt_move = {};
+  if (tt_entry->key == tt_key) {
+    tt_move = tt_entry->move;
+    if (alpha == beta - 1 && tt_entry->depth >= depth &&
+        tt_entry->flag != tt_entry->score <= alpha) {
+      stack[ply].best_move = tt_entry->move;
+      return tt_entry->score;
     }
   }
 
@@ -801,9 +848,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return static_eval;
   }
 
-  stack[pos_history_count + ply + 2].history = *pos;
+  stack[pos_history_count + ply + 2].history = tt_key;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 best_score = in_qsearch ? alpha : -inf;
+  u16 tt_flag = Upper;
 
 #ifdef FULL
   pv_stack[ply].length = ply;
@@ -817,8 +866,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const u64 order_move_score =
-          ((u64)(*(u64 *)&stack[ply].best_move ==
-                 *(u64 *)&stack[ply].moves[order_index])
+          ((u64)(*(u64 *)&tt_move == *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
@@ -863,7 +911,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes, pv_stack,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, pos_history_count, move_history, tt);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -875,9 +923,14 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     moves_evaluated++;
 
-    if (score > alpha) {
+    if (score > best_score) {
+      best_score = score;
       stack[ply].best_move = stack[ply].moves[move_index];
+    }
+
+    if (score > alpha) {
       alpha = score;
+      tt_flag = Exact;
 #ifdef FULL
       if (alpha != beta - 1) {
         pv_stack[ply].moves[ply] = stack[ply].best_move;
@@ -889,6 +942,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
+        tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
         if (stack[ply].best_move.takes_piece == None) {
@@ -904,12 +958,14 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   // MATE / STALEMATE DETECTION
   if (moves_evaluated == 0 && !in_qsearch) {
     if (in_check) {
-      return -mate;
+      return ply - mate;
     }
 
     return 0;
   }
 
+  *tt_entry =
+      (TTEntry){tt_key, stack[ply].best_move, best_score, depth, tt_flag};
   return alpha;
 }
 // #define FULL true
@@ -919,11 +975,10 @@ static void iteratively_deepen(
     i32 maxdepth, u64 *nodes,
 #endif
     Position *const restrict pos, SearchStack *restrict stack,
-    const i32 pos_history_count
-
-) {
+    const i32 pos_history_count) {
   start_time = get_time();
   u64 move_history[2][64][64] = {0};
+  TTEntry tt[tt_length];
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
     PvStack pv_stack[max_ply + 1];
@@ -937,7 +992,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes, pv_stack,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, pos_history_count, move_history, tt);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
@@ -1034,7 +1089,6 @@ static void bench() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
-
   pos = (Position){.ep = 0,
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
                    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -1044,7 +1098,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(12, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(13, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -1066,7 +1120,6 @@ static void run() {
   u64 diag_mask_local[64];
   diag_mask = diag_mask_local;
   init_diag_masks();
-
 #ifdef FULL
   pos = (Position){.ep = 0,
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
@@ -1134,7 +1187,7 @@ static void run() {
           char move_name[6];
           move_str(move_name, &moves[i], pos.flipped);
           if (!strcmp(line, move_name)) {
-            stack[pos_history_count].history = pos;
+            stack[pos_history_count].history = get_hash(&pos);
             pos_history_count++;
             makemove(&pos, &moves[i]);
             break;
