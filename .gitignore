@@ -10,5 +10,5 @@ old
 *.gcno
 *.gcov
 *.c.temp*
-
+*.bak
 *.exe
