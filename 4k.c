@@ -274,8 +274,8 @@ typedef struct [[nodiscard]] __attribute__((aligned(8))) {
 
 typedef struct [[nodiscard]] {
   u64 ep;
-  u64 colour[2];
   u64 pieces[7];
+  u64 colour[2];
   bool castling[4];
   bool flipped;
 } Position;
@@ -320,16 +320,23 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 south(const u64 bb) { return bb >> 8; }
 
-[[nodiscard]] static u64 nw(const u64 bb) { return north(west(bb)); }
+[[nodiscard]] static u64 nw(const u64 bb) { return west(north(bb)); }
 
-[[nodiscard]] static u64 ne(const u64 bb) { return north(east(bb)); }
+[[nodiscard]] static u64 ne(const u64 bb) { return east(north(bb)); }
 
-[[nodiscard]] static u64 sw(const u64 bb) { return south(west(bb)); }
+[[nodiscard]] static u64 sw(const u64 bb) { return west(south(bb)); }
 
-[[nodiscard]] static u64 se(const u64 bb) { return south(east(bb)); }
+[[nodiscard]] static u64 se(const u64 bb) { return east(south(bb)); }
 
 [[nodiscard]] static u64 shift(const u64 bb, const i32 shift, const u64 mask) {
   return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
+}
+
+[[nodiscard]] u64 xattack(const i32 sq, const u64 blockers,
+                          const u64 dir_mask) {
+  return dir_mask &
+         ((blockers & dir_mask) - (1ULL << sq) ^
+          flip_bb(flip_bb(blockers & dir_mask) - flip_bb(1ULL << sq)));
 }
 
 [[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
@@ -343,22 +350,29 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return result;
 }
 
+u64 *diag_mask;
+
+static void init_diag_masks() {
+  for (i32 sq = 0; sq < 64; sq++) {
+    diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
+                    ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
+  }
+}
+
 [[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
-  return ray(sq, blockers, 7, ~0x8080808080808080ull) |  // Northwest
-         ray(sq, blockers, 9, ~0x101010101010101ull) |   // Northeast
-         ray(sq, blockers, -9, ~0x8080808080808080ull) | // Southwest
-         ray(sq, blockers, -7, ~0x101010101010101ull);   // Southeast
+
+  return xattack(sq, blockers, diag_mask[sq]) |
+         xattack(sq, blockers, flip_bb(diag_mask[sq ^ 56]));
 }
 
 [[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
-  return ray(sq, blockers, 8, ~0x0ull) |                 // North
-         ray(sq, blockers, -1, ~0x8080808080808080ull) | // West
-         ray(sq, blockers, -8, ~0x0ull) |                // South
-         ray(sq, blockers, 1, ~0x101010101010101ull);    // East
+  return xattack(sq, blockers, 1ULL << sq ^ 0x101010101010101ULL << sq % 8) |
+         ray(sq, blockers, -1, ~0x8080808080808080ull)  // West
+         | ray(sq, blockers, 1, ~0x101010101010101ull); // East
 }
 
 [[nodiscard]] static u64 knight(const i32 sq, const u64 blockers) {
@@ -470,10 +484,10 @@ static i32 makemove(Position *const restrict pos,
   const u64 to = 1ull << move->to;
   const u64 mask = from | to;
 
-  const i32 piece = piece_on(pos, move->from);
-  assert(piece != None);
   const i32 captured = piece_on(pos, move->to);
   assert(captured != King);
+  const i32 piece = piece_on(pos, move->from);
+  assert(piece != None);
 
   // Move the piece
   pos->colour[0] ^= mask;
@@ -485,18 +499,6 @@ static i32 makemove(Position *const restrict pos,
     pos->pieces[captured] ^= to;
   }
 
-  // En passant
-  if (piece == Pawn && to == pos->ep) {
-    pos->colour[1] ^= to >> 8;
-    pos->pieces[Pawn] ^= to >> 8;
-  }
-
-  pos->ep = 0;
-
-  // Pawn double move
-  if (piece == Pawn && move->to - move->from == 16)
-    pos->ep = to >> 8;
-
   // Castling
   if (piece == King) {
     const u64 bb = move->to - move->from == 2   ? 0xa0
@@ -505,6 +507,17 @@ static i32 makemove(Position *const restrict pos,
     pos->colour[0] ^= bb;
     pos->pieces[Rook] ^= bb;
   }
+
+  // En passant
+  if (piece == Pawn && to == pos->ep) {
+    pos->colour[1] ^= to >> 8;
+    pos->pieces[Pawn] ^= to >> 8;
+  }
+  pos->ep = 0;
+
+  // Pawn double move
+  if (piece == Pawn && move->to - move->from == 16)
+    pos->ep = to >> 8;
 
   // Promotions
   if (piece == Pawn && move->to > 55) {
@@ -944,6 +957,7 @@ static void bench() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
+
   pos = (Position){.castling = {true, true, true, true},
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
                    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -972,6 +986,9 @@ static void run() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
+  u64 diag_mask_local[64];
+  diag_mask = diag_mask_local;
+  init_diag_masks();
 
 #ifdef FULL
   pos = (Position){.castling = {true, true, true, true},
@@ -1092,6 +1109,9 @@ int main(int argc, char **argv) {
 #endif
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
+    u64 diag_mask_local[64];
+    diag_mask = diag_mask_local;
+    init_diag_masks();
     bench();
     exit_now();
   }
