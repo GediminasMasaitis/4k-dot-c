@@ -332,6 +332,10 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
 }
 
+[[nodiscard]] u64 xattack(const i32 sq, const u64 blockers, const u64 dir_mask) {
+  return dir_mask & ((blockers & dir_mask) - (1ULL << sq) ^ flip_bb(flip_bb(blockers & dir_mask) - flip_bb(1ULL << sq)));
+}
+
 [[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
                              const i32 shift_by, const u64 mask) {
   assert(sq >= 0);
@@ -343,22 +347,27 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return result;
 }
 
+u64 *diag_mask;
+
+static void init_diag_masks() {
+  for (i32 sq = 0; sq < 64; sq++) {
+    diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |   // Northeast
+      ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
+  }
+}
+
 [[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
-  return ray(sq, blockers, 7, ~0x8080808080808080ull) |  // Northwest
-         ray(sq, blockers, 9, ~0x101010101010101ull) |   // Northeast
-         ray(sq, blockers, -9, ~0x8080808080808080ull) | // Southwest
-         ray(sq, blockers, -7, ~0x101010101010101ull);   // Southeast
+
+  return xattack(sq, blockers, diag_mask[sq]) | xattack(sq, blockers, flip_bb(diag_mask[sq ^ 56]));
 }
 
 [[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
-  return ray(sq, blockers, 8, ~0x0ull) |                 // North
-         ray(sq, blockers, -1, ~0x8080808080808080ull) | // West
-         ray(sq, blockers, -8, ~0x0ull) |                // South
-         ray(sq, blockers, 1, ~0x101010101010101ull);    // East
+  return xattack(sq, blockers, 1ULL << sq ^ 0x101010101010101ULL << sq % 8) | ray(sq, blockers, -1, ~0x8080808080808080ull) // West
+         | ray(sq, blockers, 1, ~0x101010101010101ull);    // East
 }
 
 [[nodiscard]] static u64 knight(const i32 sq, const u64 blockers) {
@@ -944,6 +953,7 @@ static void bench() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
+
   pos = (Position){.castling = {true, true, true, true},
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
                    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -972,6 +982,9 @@ static void run() {
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
+  u64 diag_mask_local[64];
+  diag_mask = diag_mask_local;
+  init_diag_masks();
 
 #ifdef FULL
   pos = (Position){.castling = {true, true, true, true},
@@ -1092,6 +1105,9 @@ int main(int argc, char **argv) {
 #endif
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
+    u64 diag_mask_local[64];
+    diag_mask = diag_mask_local;
+    init_diag_masks();
     bench();
     exit_now();
   }
