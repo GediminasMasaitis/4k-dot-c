@@ -672,28 +672,32 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {90,  263, 287,
-                                                           446, 859, 0};
+__attribute__((aligned(8))) static const i16 material[] = {79,  265, 288,
+                                                           449, 864, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -12, -11, -2, 34, 105, 0,   // Pawn
-    -29, -15, -1,  12,  23, 25, 8,   -22, // Knight
-    -21, -5,  3,   8,   12, 12, 1,   -11, // Bishop
-    -17, -21, -19, -7,  8,  17, 22,  17,  // Rook
-    -21, -13, -9,  -2,  7,  16, 7,   15,  // Queen
-    -17, -11, -5,  5,   16, 21, 11,  -14, // King
+    0,   -7,  -9,  -8, -1, 25, 86, 0,   // Pawn
+    -29, -15, -1,  12, 22, 25, 8,  -22, // Knight
+    -21, -5,  3,   8,  12, 12, 1,  -11, // Bishop
+    -17, -21, -18, -7, 8,  17, 22, 17,  // Rook
+    -21, -14, -9,  -2, 7,  16, 8,  15,  // Queen
+    -16, -10, -4,  5,  15, 19, 10, -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -3,  3,  -5, -2, -1, 1,  12, -5,  // Pawn
-    -24, -6, 6,  13, 12, 11, 1,  -12, // Knight
+    -5,  2,  -5, -4, 0,  3,  13, -5,  // Pawn
+    -24, -6, 5,  13, 12, 11, 1,  -12, // Knight
     -11, 0,  2,  4,  5,  1,  4,  -6,  // Bishop
     -5,  1,  5,  7,  5,  2,  -1, -15, // Rook
     -19, -8, 2,  4,  4,  5,  5,  6,   // Queen
-    -12, 3,  1,  -1, -2, -2, 6,  -8,  // King
+    -11, 3,  1,  -1, -2, -2, 6,  -8,  // King
 };
+const i8 passed_pawn = 6;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
+    const u64 opponent_pawns = pos->colour[1] & pos->pieces[Pawn];
+    const u64 attacked_by_pawns = se(opponent_pawns) | sw(opponent_pawns);
+
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
@@ -709,6 +713,11 @@ static i32 eval(Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
+
+        if (p == Pawn && !(0x101010101010101ULL << sq &
+                           (opponent_pawns | attacked_by_pawns))) {
+          score += passed_pawn * rank;
+        }
       }
     }
 
