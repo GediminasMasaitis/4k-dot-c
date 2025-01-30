@@ -805,6 +805,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
 
+  i32 best_score = in_qsearch ? static_eval : -inf;
+
 #ifdef FULL
   pv_stack[ply].length = ply;
 #endif
@@ -875,6 +877,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     moves_evaluated++;
 
+    if (score > best_score) {
+      best_score = score;
+    }
+
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
@@ -902,15 +908,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // MATE / STALEMATE DETECTION
-  if (moves_evaluated == 0 && !in_qsearch) {
-    if (in_check) {
-      return -mate;
-    }
-
-    return 0;
+  if (best_score == -inf) {
+      return in_check ? -mate : 0;
   }
 
-  return alpha;
+  return best_score;
 }
 // #define FULL true
 
