@@ -793,6 +793,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[pos_history_count + ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 best_score = -inf;
 
 #ifdef FULL
   pv_stack[ply].length = ply;
@@ -853,8 +854,12 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     moves_evaluated++;
 
-    if (score > alpha) {
+    if (score > best_score) {
+      best_score = score;
       stack[ply].best_move = stack[ply].moves[move_index];
+    }
+
+    if (score > alpha) {
       alpha = score;
 #ifdef FULL
       if (alpha != beta - 1) {
