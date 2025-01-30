@@ -738,7 +738,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
-                  SearchStack *restrict stack, const i32 pos_history_count,
+                  SearchStack *restrict stack,
                   u64 move_history[2][64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -754,14 +754,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   // EARLY EXITS
   if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
     return alpha;
-  }
-
-  // FULL REPETITION DETECTION
-  for (i32 i = pos_history_count + ply; depth >= 0 && i > 0 && ply > 0;
-       i -= 2) {
-    if (position_equal(pos, &stack[i].history)) {
-      return 0;
-    }
   }
 
   // QUIESCENCE
@@ -780,7 +772,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return static_eval;
   }
 
-  stack[pos_history_count + ply + 2].history = *pos;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
 
@@ -830,7 +821,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes, pv_stack,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, move_history);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -882,8 +873,7 @@ static void iteratively_deepen(
 #ifdef FULL
     i32 maxdepth, u64 *nodes,
 #endif
-    Position *const restrict pos, SearchStack *restrict stack,
-    const i32 pos_history_count
+    Position *const restrict pos, SearchStack *restrict stack
 
 ) {
   start_time = get_time();
@@ -901,7 +891,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes, pv_stack,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, move_history);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
@@ -942,7 +932,6 @@ static void bench() {
   Position pos;
   Move moves[256];
   i32 num_moves;
-  i32 pos_history_count;
   SearchStack stack[1024];
   pos = (Position){.castling = {true, true, true, true},
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
@@ -953,7 +942,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(12, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(12, &nodes, &pos, stack);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -970,7 +959,6 @@ static void run() {
   Position pos;
   Move moves[256];
   i32 num_moves;
-  i32 pos_history_count;
   SearchStack stack[1024];
 
 #ifdef FULL
@@ -980,7 +968,6 @@ static void run() {
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
                    .ep = 0};
-  pos_history_count = 0;
 #endif
 
 #ifndef FULL
@@ -1005,7 +992,7 @@ static void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(128, &nodes, &pos, stack);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       getl(depth_str);
@@ -1030,7 +1017,6 @@ static void run() {
                                   0x2400000000000024ull, 0x8100000000000081ull,
                                   0x800000000000008ull, 0x1000000000000010ull},
                        .ep = 0};
-      pos_history_count = 0;
       while (true) {
         const bool line_continue = getl(line);
         num_moves = movegen(&pos, moves, false);
@@ -1038,8 +1024,6 @@ static void run() {
           char move_name[6];
           move_str(move_name, &moves[i], pos.flipped);
           if (!strcmp(line, move_name)) {
-            stack[pos_history_count].history = pos;
-            pos_history_count++;
             makemove(&pos, &moves[i]);
             break;
           }
@@ -1065,13 +1049,13 @@ static void run() {
           break;
         }
       }
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(128, &nodes, &pos, stack);
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         total_time = atoi(line);
       }
-      iteratively_deepen(&pos, stack, pos_history_count);
+      iteratively_deepen(&pos, stack);
 #endif
     }
   }
