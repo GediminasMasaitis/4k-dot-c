@@ -704,13 +704,14 @@ __attribute__((aligned(8))) static const i8 pst_file[] = {
     -13, 3,  1,  -1, -2, -3, 7,  -9,  // King
 };
 
-static i32 eval(Position *const restrict pos) {
+static i32 eval(const Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
+    const i32 sq_xor = c * 56;
     for (i32 p = Pawn; p <= King; p++) {
-      u64 copy = pos->colour[0] & pos->pieces[p];
+      u64 copy = pos->colour[c] & pos->pieces[p];
       while (copy) {
-        const i32 sq = lsb(copy);
+        const i32 sq = lsb(copy) ^ sq_xor;
         copy &= copy - 1;
 
         const int rank = sq >> 3;
@@ -726,7 +727,6 @@ static i32 eval(Position *const restrict pos) {
     }
 
     score = -score;
-    flip_pos(pos);
   }
   return score;
 }
