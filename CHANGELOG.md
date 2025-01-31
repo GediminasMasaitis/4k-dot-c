@@ -2087,3 +2087,102 @@ Score of 4k.c-0.84 vs stash13: 510 - 338 - 152  [0.586] 1000
 ...      White vs Black: 506 - 342 - 152  [0.582] 1000
 Elo difference: 60.4 +/- 20.1, LOS: 100.0 %, DrawRatio: 15.2 %
 ```
+
+### 0.85
+
+Retune eval with K=2.7
+
+64 bit: 4096 bytes (=)
+
+MD5: 75ad68ea998fcb150a3a9a03433af149
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1446 nps 1446000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5645 nps 5645000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17715 nps 5905000 pv b1c3
+info depth 7 score cp 7 time 10 nodes 59645 nps 5964500 pv b1c3
+info depth 8 score cp 16 time 35 nodes 203957 nps 5827342 pv b1c3
+info depth 9 score cp 9 time 193 nodes 1083548 nps 5614238 pv b1c3
+info depth 10 score cp 13 time 639 nodes 3556915 nps 5566377 pv b1c3
+info depth 11 score cp 9 time 3234 nodes 17643223 nps 5455542 pv e2e4
+bestmove e2e4
+17643223 nodes 5455542 nps
+```
+
+```
+Elo   | 4.44 +- 3.54 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 25068 W: 9329 L: 9009 D: 6730
+Penta | [1435, 2420, 4660, 2428, 1591]
+https://gedas.pythonanywhere.com/test/122/
+```
+
+### 0.86
+
+Reduce bytes by not flipping position in eval
+
+64 bit: 4080 bytes (-16)
+
+MD5: c054c12c4605c8821e3a2b3ccaca63ad
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1446 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5645 nps 5645000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17715 nps 5905000 pv b1c3
+info depth 7 score cp 7 time 10 nodes 59645 nps 5964500 pv b1c3
+info depth 8 score cp 16 time 33 nodes 203957 nps 6180515 pv b1c3
+info depth 9 score cp 9 time 193 nodes 1083548 nps 5614238 pv b1c3
+info depth 10 score cp 13 time 632 nodes 3556915 nps 5628030 pv b1c3
+info depth 11 score cp 9 time 3194 nodes 17643223 nps 5523864 pv e2e4
+bestmove e2e4
+17643223 nodes 5523864 nps
+```
+
+```
+Elo   | -4.54 +- 3.49 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -2.96 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 15290 W: 5494 L: 5694 D: 4102
+Penta | [518, 1136, 4493, 1024, 474]
+https://gedas.pythonanywhere.com/test/128/
+```
+
+### 0.87
+
+Reduce size with a hack for position flipping
+
+64 bit: 4072 bytes (-8)
+
+MD5: 6284e220ed1575530e1227427c1bdef2
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1446 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5645 nps 5645000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17715 nps 5905000 pv b1c3
+info depth 7 score cp 7 time 10 nodes 59645 nps 5964500 pv b1c3
+info depth 8 score cp 16 time 34 nodes 203957 nps 5998735 pv b1c3
+info depth 9 score cp 9 time 191 nodes 1083548 nps 5673026 pv b1c3
+info depth 10 score cp 13 time 648 nodes 3556915 nps 5489066 pv b1c3
+info depth 11 score cp 9 time 3289 nodes 17643223 nps 5364312 pv e2e4
+bestmove e2e4
+17643223 nodes 5364312 nps
+```
+
+```
+Elo   | -1.47 +- 1.73 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -0.13 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 51372 W: 18492 L: 18710 D: 14170
+Penta | [1408, 3060, 16893, 2992, 1333]
+https://gedas.pythonanywhere.com/test/129/
+```
