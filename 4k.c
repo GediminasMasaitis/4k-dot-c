@@ -441,17 +441,17 @@ static void swapbool(bool *const restrict lhs, bool *const restrict rhs) {
 }
 
 static void flip_pos(Position *const restrict pos) {
+  // Hack to flip the first 10 bitboards in Position.
+  // Technically UB but works in GCC 14.2
+  u64* pos_ptr = (u64*)pos;
+  for (i32 i = 0; i < 10; i++) {
+    pos_ptr[i] = flip_bb(pos_ptr[i]);
+  }
+
   pos->flipped ^= 1;
-  pos->colour[0] = flip_bb(pos->colour[0]);
-  pos->colour[1] = flip_bb(pos->colour[1]);
   swapu64(&pos->colour[0], &pos->colour[1]);
   swapbool(&pos->castling[0], &pos->castling[2]);
   swapbool(&pos->castling[1], &pos->castling[3]);
-  for (i32 i = Pawn; i <= King; ++i) {
-    pos->pieces[i] = flip_bb(pos->pieces[i]);
-  }
-
-  pos->ep = flip_bb(pos->ep);
 }
 
 [[nodiscard]] static i32 is_attacked(const Position *const restrict pos,
