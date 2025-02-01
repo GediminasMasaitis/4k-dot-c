@@ -2188,7 +2188,7 @@ Penta | [1408, 3060, 16893, 2992, 1333]
 https://gedas.pythonanywhere.com/test/129/
 ```
 
-### 0.87
+### 0.88
 
 Reduce size by printing char by char
 
@@ -2196,3 +2196,37 @@ Reduce size by printing char by char
 Fill: 0
 
 MD5: 21757ced5d4319328b5f7d6ade58225b
+
+### 0.89
+
+Store capture inside move strict
+
+64 bit: 4096 bytes (+24)
+Fill: 0
+
+MD5: 488a6cc0115df9928c2ffcb7dd5bf63d
+
+```
+info depth 1 score cp 28 time 1 nodes 20 nps 20000 pv b1c3
+info depth 2 score cp 16 time 1 nodes 76 nps 76000 pv b1c3
+info depth 3 score cp 26 time 1 nodes 516 nps 516000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1446 nps 1446000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5622 nps 5622000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17490 nps 5830000 pv b1c3
+info depth 7 score cp 7 time 9 nodes 59570 nps 6618888 pv b1c3
+info depth 8 score cp 16 time 30 nodes 200270 nps 6675666 pv b1c3
+info depth 9 score cp 9 time 170 nodes 1078818 nps 6345988 pv b1c3
+info depth 10 score cp 16 time 459 nodes 2867329 nps 6246904 pv b1c3
+info depth 11 score cp 12 time 2238 nodes 13720224 nps 6130573 pv b1c3
+bestmove b1c3
+13720224 nodes 6130573 nps
+```
+
+```
+Elo   | 47.26 +- 15.24 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1324 W: 567 L: 388 D: 369
+Penta | [50, 95, 249, 162, 106]
+https://gedas.pythonanywhere.com/test/142/
+```
