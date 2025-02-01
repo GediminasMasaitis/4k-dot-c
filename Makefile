@@ -33,6 +33,7 @@ all:
 	$(CC) $(LDFLAGS) -o $(EXE) 4k.o
 	rm *.o
 	ls -la $(EXE)
+	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map; fi
 	md5sum $(EXE)
 
 pgo:

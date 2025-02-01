@@ -77,11 +77,15 @@ static void exit_now() {
 }
 
 static void putl(const char *const restrict string) {
+  i32 length = 0;
+  while (string[length]) {
 #ifdef ARCH64
-  _sys(1, stdout, (ssize_t)string, strlen(string));
+    _sys(1, stdout, (ssize_t)(&string[length]), 1);
 #else
-  _sys(4, stdout, (ssize_t)string, strlen(string));
+    _sys(4, stdout, (ssize_t)(&string[length]), 1);
 #endif
+    length++;
+  }
 }
 
 // Non-standard, gets but a word instead of a line
