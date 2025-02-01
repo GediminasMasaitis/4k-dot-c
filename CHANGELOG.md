@@ -2159,6 +2159,7 @@ https://gedas.pythonanywhere.com/test/128/
 Reduce size with a hack for position flipping
 
 64 bit: 4072 bytes (-8)
+Fill: 3
 
 MD5: 6284e220ed1575530e1227427c1bdef2
 
@@ -2186,3 +2187,12 @@ Games | N: 51372 W: 18492 L: 18710 D: 14170
 Penta | [1408, 3060, 16893, 2992, 1333]
 https://gedas.pythonanywhere.com/test/129/
 ```
+
+### 0.87
+
+Reduce size by printing char by char
+
+64 bit: 4064 bytes (-8)
+Fill: 0
+
+MD5: 21757ced5d4319328b5f7d6ade58225b
