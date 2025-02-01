@@ -2186,3 +2186,11 @@ Games | N: 51372 W: 18492 L: 18710 D: 14170
 Penta | [1408, 3060, 16893, 2992, 1333]
 https://gedas.pythonanywhere.com/test/129/
 ```
+
+### 0.87
+
+Reduce size by printing char by char
+
+64 bit: 4064 bytes (-8)
+
+MD5: 21757ced5d4319328b5f7d6ade58225b
