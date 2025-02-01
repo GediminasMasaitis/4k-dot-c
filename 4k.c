@@ -587,14 +587,13 @@ static void generate_pawn_moves(const Position *const pos,
   }
 }
 
-static void generate_piece_moves(Move* const restrict movelist,
-  i32* restrict num_moves,
-  const Position* restrict pos,
-  const u64 to_mask) {
-  for (int piece = Knight; piece <= King; piece++)
-  {
+static void generate_piece_moves(Move *const restrict movelist,
+                                 i32 *restrict num_moves,
+                                 const Position *restrict pos,
+                                 const u64 to_mask) {
+  for (int piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
-      piece == Queen || piece == King);
+           piece == Queen || piece == King);
     u64 copy = pos->colour[0] & pos->pieces[piece];
     while (copy) {
       const u8 fr = lsb(copy);
@@ -603,14 +602,11 @@ static void generate_piece_moves(Move* const restrict movelist,
       copy &= copy - 1;
 
       u64 moves = 0;
-      if (piece == Knight)
-      {
+      if (piece == Knight) {
         moves = knight(fr);
-      }
-      else if (piece == King) {
+      } else if (piece == King) {
         moves = king(fr);
-      }
-      else {
+      } else {
         const u64 blockers = pos->colour[0] | pos->colour[1];
         if (piece == Bishop || piece == Queen) {
           moves |= bishop(fr, blockers);
@@ -621,14 +617,14 @@ static void generate_piece_moves(Move* const restrict movelist,
       }
       moves &= to_mask;
 
-      //u64 moves = f(fr, pos->colour[0] | pos->colour[1]) & to_mask;
+      // u64 moves = f(fr, pos->colour[0] | pos->colour[1]) & to_mask;
       while (moves) {
         const u8 to = lsb(moves);
         assert(to >= 0);
         assert(to < 64);
         moves &= moves - 1;
         const u8 takes = piece_on(pos, to);
-        movelist[(*num_moves)++] = (Move){ fr, to, None, takes };
+        movelist[(*num_moves)++] = (Move){fr, to, None, takes};
         assert(*num_moves < 256);
       }
     }
@@ -696,7 +692,7 @@ static void generate_piece_moves(Move* const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {99,  292, 318,
+__attribute__((aligned(8))) static const i16 material[] = {0,   99,  292, 318,
                                                            495, 952, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -11, -13, -12, -2, 38, 116, 0,   // Pawn
@@ -729,7 +725,7 @@ static i32 eval(const Position *const restrict pos) {
         const int file = sq & 7;
 
         // MATERIAL
-        score += material[p - 1];
+        score += material[p];
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
@@ -742,7 +738,7 @@ static i32 eval(const Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 128, inf = 32000, mate = 30000 };
+enum { max_ply = 128, mate = 30000, inf = 40000 };
 static size_t start_time;
 static size_t total_time;
 
@@ -836,6 +832,13 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
         swapu64((u64 *)&stack[ply].moves[move_index],
                 (u64 *)&stack[ply].moves[order_index]);
       }
+    }
+
+    // FORWARD FUTILITY PRUNING
+    const i32 gain = material[stack[ply].moves[move_index].takes_piece];
+    if (depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
+        static_eval + 128 * depth + gain < alpha) {
+      break;
     }
 
     Position npos = *pos;

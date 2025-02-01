@@ -2341,3 +2341,37 @@ info depth 11 score cp 15 time 2400 nodes 13851742 nps 5771559 pv d2d4
 bestmove d2d4
 13851742 nodes 5771559 nps
 ```
+
+### 0.92
+
+Forward futility pruning
+
+64 bit: 4064 bytes (+96)
+Fill: 1+6
+
+MD5: 0ba3915d062dbad43df2a1a86c399acb
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1446 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5624 nps 5624000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17271 nps 5757000 pv b1c3
+info depth 7 score cp 7 time 9 nodes 56915 nps 6323888 pv b1c3
+info depth 8 score cp 16 time 28 nodes 184437 nps 6587035 pv b1c3
+info depth 9 score cp 9 time 108 nodes 679083 nps 6287805 pv b1c3
+info depth 10 score cp 13 time 361 nodes 2196293 nps 6083914 pv b1c3
+info depth 11 score cp 8 time 2558 nodes 14913502 nps 5830141 pv b1c3
+bestmove b1c3
+14913502 nodes 5830141 nps
+```
+
+```
+Elo   | 25.96 +- 11.23 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.02 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2534 W: 1003 L: 814 D: 717
+Penta | [124, 219, 453, 286, 185]
+https://gedas.pythonanywhere.com/test/179/
+```
