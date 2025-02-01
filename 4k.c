@@ -270,6 +270,7 @@ typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
   u8 to;
   u8 promo;
+  u8 takes_piece;
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -484,8 +485,8 @@ static i32 makemove(Position *const restrict pos,
   const u64 to = 1ull << move->to;
   const u64 mask = from | to;
 
-  const i32 captured = piece_on(pos, move->to);
-  assert(captured != King);
+  assert(move->takes_piece != King);
+  assert(move->takes_piece == piece_on(pos, move->to));
   const i32 piece = piece_on(pos, move->from);
   assert(piece != None);
 
@@ -494,9 +495,9 @@ static i32 makemove(Position *const restrict pos,
   pos->pieces[piece] ^= mask;
 
   // Captures
-  if (captured != None) {
+  if (move->takes_piece != None) {
     pos->colour[1] ^= to;
-    pos->pieces[captured] ^= to;
+    pos->pieces[move->takes_piece] ^= to;
   }
 
   // Castling
@@ -555,9 +556,7 @@ static i32 makemove(Position *const restrict pos,
 }
 
 static void generate_pawn_moves(
-#ifdef ASSERTS
     const Position *const pos,
-#endif
     Move *const restrict movelist, i32 *const restrict num_moves, u64 to_mask,
     const i32 offset
 
@@ -571,12 +570,13 @@ static void generate_pawn_moves(
     assert(to >= 0);
     assert(to < 64);
     assert(piece_on(pos, from) == Pawn);
+    const u8 takes = piece_on(pos, to);
     if (to > 55) {
       for (u8 piece = Queen; piece >= Knight; piece--) {
-        movelist[(*num_moves)++] = (Move){from, to, piece};
+        movelist[(*num_moves)++] = (Move){from, to, piece, takes};
       }
     } else
-      movelist[(*num_moves)++] = (Move){from, to, None};
+      movelist[(*num_moves)++] = (Move){from, to, None, takes};
   }
 }
 
@@ -599,7 +599,8 @@ static void generate_piece_moves(Move *const restrict movelist,
       assert(to >= 0);
       assert(to < 64);
       moves &= moves - 1;
-      movelist[(*num_moves)++] = (Move){fr, to, None};
+      const u8 takes = piece_on(pos, to);
+      movelist[(*num_moves)++] = (Move){fr, to, None, takes};
       assert(*num_moves < 256);
     }
   }
@@ -613,30 +614,21 @@ static void generate_piece_moves(Move *const restrict movelist,
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   const u64 pawns = pos->colour[0] & pos->pieces[Pawn];
   generate_pawn_moves(
-#ifdef ASSERTS
       pos,
-#endif
       movelist, &num_moves,
       north(pawns) & ~all & (only_captures ? 0xFF00000000000000ull : ~0ull),
       -8);
   if (!only_captures) {
     generate_pawn_moves(
-#ifdef ASSERTS
         pos,
-#endif
         movelist, &num_moves, north(north(pawns & 0xFF00) & ~all) & ~all, -16);
   }
   generate_pawn_moves(
-#ifdef ASSERTS
       pos,
-#endif
       movelist, &num_moves, nw(pawns) & (pos->colour[1] | pos->ep), -7);
   generate_pawn_moves(
-#ifdef ASSERTS
       pos,
-#endif
       movelist, &num_moves, ne(pawns) & (pos->colour[1] | pos->ep), -9
-
   );
   generate_piece_moves(movelist, &num_moves, pos, Knight, to_mask, knight);
   generate_piece_moves(movelist, &num_moves, pos, Bishop, to_mask, bishop);
@@ -646,11 +638,11 @@ static void generate_piece_moves(Move *const restrict movelist,
   generate_piece_moves(movelist, &num_moves, pos, King, to_mask, king);
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
       !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
-    movelist[num_moves++] = (Move){4, 6, None};
+    movelist[num_moves++] = (Move){4, 6, None, None};
   }
   if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
       !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true)) {
-    movelist[num_moves++] = (Move){4, 2, None};
+    movelist[num_moves++] = (Move){4, 2, None, None};
   }
 
   assert(num_moves < 256);
@@ -806,11 +798,12 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
+      assert(stack[ply].moves[order_index].takes_piece == piece_on(pos, stack[ply].moves[order_index].to));
       const u64 order_move_score =
           ((u64)(*(u64 *)&stack[ply].best_move ==
                  *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)piece_on(pos, stack[ply].moves[order_index].to)
+          + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
@@ -869,7 +862,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
-        if (piece_on(pos, stack[ply].best_move.to) == None) {
+        assert(stack[ply].best_move.takes_piece == piece_on(pos, stack[ply].best_move.to));
+        if (stack[ply].best_move.takes_piece == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
         }
