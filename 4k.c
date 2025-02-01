@@ -739,6 +739,7 @@ typedef struct [[nodiscard]] {
   Position history;
   Move best_move;
   Move moves[256];
+  i32 static_eval;
 } SearchStack;
 
 typedef struct [[nodiscard]] {
@@ -788,6 +789,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // REVERSE FUTILITY PRUNING
+  stack[ply].static_eval = static_eval;
+  const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (!in_qsearch && alpha == beta - 1 && !in_check &&
       static_eval - 64 * depth >= beta) {
     return static_eval;
@@ -834,7 +837,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction = depth > 1 && moves_evaluated > 5
-                        ? 1 + (alpha == beta - 1) + moves_evaluated / 16
+                        ? 1 + (alpha == beta - 1) + !improving + moves_evaluated / 16
                         : 1;
 
     i32 score;
