@@ -270,7 +270,9 @@ typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
   u8 to;
   u8 promo;
-  u8 takes_piece;
+  u8 bla;
+  //u8 takes_piece;
+  //u8 bla;
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -435,6 +437,12 @@ static void swapu64(u64 *const lhs, u64 *const rhs) {
   *rhs = temp;
 }
 
+static void swapmove(Move* const lhs, Move* const rhs) {
+  const Move temp = *lhs;
+  *lhs = *rhs;
+  *rhs = temp;
+}
+
 static void swapbool(bool *const restrict lhs, bool *const restrict rhs) {
   const bool temp = *lhs;
   *lhs = *rhs;
@@ -485,6 +493,7 @@ static i32 makemove(Position *const restrict pos,
   const u64 to = 1ull << move->to;
   const u64 mask = from | to;
 
+  const i32 captured = piece_on(pos, move->to);
   assert(move->takes_piece != King);
   assert(move->takes_piece == piece_on(pos, move->to));
   const i32 piece = piece_on(pos, move->from);
@@ -495,9 +504,9 @@ static i32 makemove(Position *const restrict pos,
   pos->pieces[piece] ^= mask;
 
   // Captures
-  if (move->takes_piece != None) {
+  if (captured != None) {
     pos->colour[1] ^= to;
-    pos->pieces[move->takes_piece] ^= to;
+    pos->pieces[captured] ^= to;
   }
 
   // Castling
@@ -803,7 +812,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
           ((u64)(*(u64 *)&stack[ply].best_move ==
                  *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)stack[ply].moves[order_index].takes_piece
+          + ((u64)piece_on(pos, stack[ply].moves[order_index].to)
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
@@ -863,7 +872,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #endif
       if (score >= beta) {
         assert(stack[ply].best_move.takes_piece == piece_on(pos, stack[ply].best_move.to));
-        if (stack[ply].best_move.takes_piece == None) {
+        if (piece_on(pos, stack[ply].best_move.to) == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
         }
