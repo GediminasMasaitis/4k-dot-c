@@ -832,7 +832,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction = depth > 1 && moves_evaluated > 5
-                        ? 1 + (alpha == beta - 1) + moves_evaluated / 16
+                        ? 1 + (alpha == beta - 1) + (stack[ply].moves[move_index].takes_piece == None) + moves_evaluated / 16
                         : 1;
 
     i32 score;
