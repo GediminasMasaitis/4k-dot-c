@@ -610,7 +610,7 @@ static void generate_piece_moves(Move *const restrict movelist,
       moves &= moves - 1;
       const u8 takes = piece_on(pos, to);
       movelist[(*num_moves)++] = (Move){fr, to, None, takes};
-      assert(*num_moves < 256);
+      assert(*num_moves < 218);
     }
   }
 }
@@ -649,7 +649,7 @@ static void generate_piece_moves(Move *const restrict movelist,
     movelist[num_moves++] = (Move){4, 2, None, None};
   }
 
-  assert(num_moves < 256);
+  assert(num_moves < 218);
   return num_moves;
 }
 
@@ -664,7 +664,7 @@ static void generate_piece_moves(Move *const restrict movelist,
   }
 
   u64 nodes = 0;
-  Move moves[256];
+  Move moves[218];
   const i32 num_moves = movegen(pos, moves, false);
 
   for (i32 i = 0; i < num_moves; ++i) {
@@ -735,7 +735,7 @@ typedef struct [[nodiscard]] {
   Move killer;
   Move best_move;
   Position history;
-  Move moves[256];
+  Move moves[218];
 } SearchStack;
 
 typedef struct [[nodiscard]] {
@@ -958,7 +958,7 @@ static void iteratively_deepen(
 #ifdef FULL
 static void bench() {
   Position pos;
-  Move moves[256];
+  Move moves[218];
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
@@ -987,7 +987,7 @@ static void run() {
 #endif
   char line[1024];
   Position pos;
-  Move moves[256];
+  Move moves[218];
   i32 num_moves;
   i32 pos_history_count;
   SearchStack stack[1024];
