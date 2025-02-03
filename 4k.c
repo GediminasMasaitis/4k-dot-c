@@ -621,7 +621,7 @@ static void generate_piece_moves(Move *const restrict movelist,
   generate_pawn_moves(
       pos,
       movelist, &num_moves,
-      north(pawns) & ~all & (only_captures ? 0xFF00000000000000ull : ~0ull),
+      north(pawns) & ~all,
       -8);
   if (!only_captures) {
     generate_pawn_moves(
