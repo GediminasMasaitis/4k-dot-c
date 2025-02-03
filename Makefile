@@ -27,8 +27,14 @@ else
 	CFLAGS += -DNDEBUG
 endif
 
+ifeq ($(OS), Windows_NT)
+    MKDIR = if not exist build mkdir build
+else
+    MKDIR = mkdir -p build
+endif
+
 all:
-	mkdir -p build
+	$(MKDIR) build
 	$(CC) $(CFLAGS) -c 4k.c
 	$(CC) $(LDFLAGS) -o $(EXE) 4k.o
 	rm *.o
@@ -36,8 +42,11 @@ all:
 	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map || true; fi
 	md5sum $(EXE)
 
+win:
+	gcc -std=gnu2x -Wno-deprecated-declarations -Wno-format -march=haswell -Oz -DFULL -DNDEBUG 4k.c
+
 pgo:
-	mkdir -p build
+	$(MKDIR) build
 	$(CC) $(CFLAGS) -fprofile-generate -ftest-coverage -fprofile-update=atomic -c 4k.c
 	$(CC) $(LDFLAGS) -fprofile-generate -o $(EXE) 4k.o
 	./build/4kc bench
@@ -52,7 +61,7 @@ dump:
 	objdump -s ./4k.o
 
 debug:
-	mkdir -p build
+	$(MKDIR) build
 	$(CC) -c -g 4k.c
 	$(CC) -o $(EXE) 4k.o
 	rm *.o
