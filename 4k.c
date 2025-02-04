@@ -288,10 +288,10 @@ typedef struct [[nodiscard]] {
 [[nodiscard]] static bool position_equal(const Position *const restrict lhs,
                                          const Position *const restrict rhs) {
 #if __GNUC__ >= 13
-  static_assert(sizeof(Position) % sizeof(u32) == 0);
+  static_assert(sizeof(Position) % sizeof(u64) == 0);
 #endif
-  for (u32 i = 0; i < sizeof(Position) / sizeof(u32); i++) {
-    if (((const u32 *)lhs)[i] != ((const u32 *)rhs)[i]) {
+  for (u64 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+    if (((const u64*)lhs)[i] != ((const u64*)rhs)[i]) {
       return false;
     }
   }
