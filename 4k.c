@@ -875,7 +875,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                piece_on(pos, stack[ply].best_move.to));
         if (stack[ply].best_move.takes_piece == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
-                      [stack[ply].best_move.to] += depth * depth;
+                      [stack[ply].best_move.to] += 1 + depth * depth;
           stack[ply].killer = stack[ply].best_move;
         }
         break;
