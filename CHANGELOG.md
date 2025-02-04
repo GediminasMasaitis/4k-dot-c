@@ -2265,6 +2265,11 @@ Killer heuristic and size reductions to fit it
 Fill: 1
 
 ```
+perft 6
+info depth 6 nodes 119060324 time 3597 nps 33099895
+```
+
+```
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2307,4 +2312,32 @@ Score of 4k.c-0.90 vs stash16: 637 - 1041 - 322  [0.399] 2000
 ...      4k.c-0.90 playing Black: 249 - 601 - 150  [0.324] 1000
 ...      White vs Black: 989 - 689 - 322  [0.575] 2000
 Elo difference: -71.2 +/- 14.2, LOS: 0.0 %, DrawRatio: 16.1 %
+```
+
+### 0.91
+
+Reduce size by rewriting piece movegen
+
+64 bit: 3976 bytes (-120)
+Fill: 1
+
+```
+perft 6
+info depth 6 nodes 119060324 time 3595 nps 33118309
+```
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1446 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5624 nps 5624000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17488 nps 5829333 pv b1c3
+info depth 7 score cp 7 time 9 nodes 59172 nps 6574666 pv b1c3
+info depth 8 score cp 16 time 31 nodes 197276 nps 6363741 pv b1c3
+info depth 9 score cp 9 time 121 nodes 749923 nps 6197710 pv b1c3
+info depth 10 score cp 13 time 405 nodes 2439701 nps 6023953 pv b1c3
+info depth 11 score cp 15 time 2400 nodes 13851742 nps 5771559 pv d2d4
+bestmove d2d4
+13851742 nodes 5771559 nps
 ```
