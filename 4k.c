@@ -742,7 +742,7 @@ static i32 eval(const Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 128, inf = 32000, mate = 30000 };
+enum { max_ply = 128, mate = 30000, inf = 40000 };
 static size_t start_time;
 static size_t total_time;
 
@@ -839,8 +839,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // FORWARD FUTILITY PRUNING
-    const i32 gain = material[stack[ply].moves[move_index].takes_piece];
-    if (ply > 0 && depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
+    const i32 gain = material[stack[ply].moves[move_index].takes_piece] + material[stack[ply].moves[move_index].promo];
+    if (depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
       static_eval + 128 * depth + gain < alpha) {
       break;
     }
