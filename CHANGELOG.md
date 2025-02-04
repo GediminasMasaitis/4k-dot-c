@@ -2375,3 +2375,28 @@ Games | N: 2534 W: 1003 L: 814 D: 717
 Penta | [124, 219, 453, 286, 185]
 https://gedas.pythonanywhere.com/test/179/
 ```
+
+### 0.93
+
+Slightly faster position comparison
+
+64 bit: 4064 bytes (=)
+Fill: 1+6
+
+MD5: 0ccb89edfee314dfb6fb9be4c134b509
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1446 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5624 nps 5624000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17271 nps 5757000 pv b1c3
+info depth 7 score cp 7 time 10 nodes 56915 nps 5691500 pv b1c3
+info depth 8 score cp 16 time 33 nodes 184437 nps 5589000 pv b1c3
+info depth 9 score cp 9 time 128 nodes 679083 nps 5305335 pv b1c3
+info depth 10 score cp 13 time 424 nodes 2196293 nps 5179936 pv b1c3
+info depth 11 score cp 8 time 3031 nodes 14913502 nps 4920323 pv b1c3
+bestmove b1c3
+14913502 nodes 4920323 nps
+```
