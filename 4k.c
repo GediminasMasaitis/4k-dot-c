@@ -383,8 +383,7 @@ static void init_diag_masks() {
          | ray(sq, blockers, -1, ~0x8080808080808080ull); // West
 }
 
-[[nodiscard]] static u64 knight(const i32 sq, const u64 blockers) {
-  (void)blockers;
+[[nodiscard]] static u64 knight(const i32 sq) {
   assert(sq >= 0);
   assert(sq < 64);
   const u64 bb = 1ull << sq;
@@ -394,8 +393,7 @@ static void init_diag_masks() {
          (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full;
 }
 
-[[nodiscard]] static u64 king(const i32 sq, const u64 blockers) {
-  (void)blockers;
+[[nodiscard]] static u64 king(const i32 sq) {
   assert(sq >= 0);
   assert(sq < 64);
   const u64 bb = 1ull << sq;
@@ -471,12 +469,12 @@ static void flip_pos(Position *const restrict pos) {
   const u64 pawns = pos->colour[them] & pos->pieces[Pawn];
   const u64 pawn_attacks = them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns);
   return pawn_attacks & bb ||
-         knight(sq, 0) & pos->colour[them] & pos->pieces[Knight] ||
+         knight(sq) & pos->colour[them] & pos->pieces[Knight] ||
          bishop(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] &
              (pos->pieces[Bishop] | pos->pieces[Queen]) ||
          rook(sq, pos->colour[0] | pos->colour[1]) & pos->colour[them] &
              (pos->pieces[Rook] | pos->pieces[Queen]) ||
-         king(sq, 0) & pos->colour[them] & pos->pieces[King];
+         king(sq) & pos->colour[them] & pos->pieces[King];
 }
 
 static i32 makemove(Position *const restrict pos,
@@ -589,28 +587,50 @@ static void generate_pawn_moves(const Position *const pos,
   }
 }
 
-static void generate_piece_moves(Move *const restrict movelist,
-                                 i32 *restrict num_moves,
-                                 const Position *restrict pos, const i32 piece,
-                                 const u64 to_mask,
-                                 u64 (*f)(const i32, const u64)) {
-  assert(piece == Knight || piece == Bishop || piece == Rook ||
-         piece == Queen || piece == King);
-  u64 copy = pos->colour[0] & pos->pieces[piece];
-  while (copy) {
-    const u8 fr = lsb(copy);
-    assert(fr >= 0);
-    assert(fr < 64);
-    copy &= copy - 1;
-    u64 moves = f(fr, pos->colour[0] | pos->colour[1]) & to_mask;
-    while (moves) {
-      const u8 to = lsb(moves);
-      assert(to >= 0);
-      assert(to < 64);
-      moves &= moves - 1;
-      const u8 takes = piece_on(pos, to);
-      movelist[(*num_moves)++] = (Move){fr, to, None, takes};
-      assert(*num_moves < 256);
+static void generate_piece_moves(Move* const restrict movelist,
+  i32* restrict num_moves,
+  const Position* restrict pos,
+  const u64 to_mask) {
+  for (int piece = Knight; piece <= King; piece++)
+  {
+    assert(piece == Knight || piece == Bishop || piece == Rook ||
+      piece == Queen || piece == King);
+    u64 copy = pos->colour[0] & pos->pieces[piece];
+    while (copy) {
+      const u8 fr = lsb(copy);
+      assert(fr >= 0);
+      assert(fr < 64);
+      copy &= copy - 1;
+
+      u64 moves = 0;
+      if (piece == Knight)
+      {
+        moves = knight(fr);
+      }
+      else if (piece == King) {
+        moves = king(fr);
+      }
+      else {
+        const u64 blockers = pos->colour[0] | pos->colour[1];
+        if (piece == Bishop || piece == Queen) {
+          moves |= bishop(fr, blockers);
+        }
+        if (piece == Rook || piece == Queen) {
+          moves |= rook(fr, blockers);
+        }
+      }
+      moves &= to_mask;
+
+      //u64 moves = f(fr, pos->colour[0] | pos->colour[1]) & to_mask;
+      while (moves) {
+        const u8 to = lsb(moves);
+        assert(to >= 0);
+        assert(to < 64);
+        moves &= moves - 1;
+        const u8 takes = piece_on(pos, to);
+        movelist[(*num_moves)++] = (Move){ fr, to, None, takes };
+        assert(*num_moves < 256);
+      }
     }
   }
 }
@@ -634,12 +654,7 @@ static void generate_piece_moves(Move *const restrict movelist,
                       nw(pawns) & (pos->colour[1] | pos->ep), -7);
   generate_pawn_moves(pos, movelist, &num_moves,
                       ne(pawns) & (pos->colour[1] | pos->ep), -9);
-  generate_piece_moves(movelist, &num_moves, pos, Knight, to_mask, knight);
-  generate_piece_moves(movelist, &num_moves, pos, Bishop, to_mask, bishop);
-  generate_piece_moves(movelist, &num_moves, pos, Rook, to_mask, rook);
-  generate_piece_moves(movelist, &num_moves, pos, Queen, to_mask, rook);
-  generate_piece_moves(movelist, &num_moves, pos, Queen, to_mask, bishop);
-  generate_piece_moves(movelist, &num_moves, pos, King, to_mask, king);
+  generate_piece_moves(movelist, &num_moves, pos, to_mask);
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
       !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
     movelist[num_moves++] = (Move){4, 6, None, None};
