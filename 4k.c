@@ -973,6 +973,60 @@ static void iteratively_deepen(
   putl("\n");
 }
 
+static void display_pos(const Position *pos) {
+  Position npos = *pos;
+  if(npos.flipped) {
+    flip_pos(&npos);
+  }
+  for(i32 rank = 7; rank >= 0; rank--) {
+    for(i32 file = 0; file < 8; file++) {
+      i32 sq = rank * 8 + file;
+      u64 bb = 1ULL << sq;
+      i32 piece = piece_on(&npos, sq);
+      if(bb & npos.colour[0]) {
+        if(piece == Pawn) {
+          putl("P");
+        } else if(piece == Knight) {
+          putl("N");
+        } else if(piece == Bishop) {
+          putl("B");
+        } else if(piece == Rook) {
+          putl("R");
+        } else if(piece == Queen) {
+          putl("Q");
+        } else if(piece == King) {
+          putl("K");
+        }
+      } else if (bb & npos.colour[1]) {
+        if(piece == Pawn) {
+          putl("p");
+        } else if(piece == Knight) {
+          putl("n");
+        } else if(piece == Bishop) {
+          putl("b");
+        } else if(piece == Rook) {
+          putl("r");
+        } else if(piece == Queen) {
+          putl("q");
+        } else if(piece == King) {
+          putl("k");
+        }
+      } else {
+        putl(".");
+      }
+    }
+    putl("\n");
+  }
+  putl("\nTurn: ");
+  putl(pos->flipped ? "Black" : "White");
+  putl("\nEval: ");
+  i32 score = eval(pos);
+  if(pos->flipped) {
+    score = -score;
+  }
+  printf("%i\n", score);
+}
+
 #ifdef FULL
 static void bench() {
   Position pos;
@@ -1046,6 +1100,8 @@ static void run() {
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
       iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+    } else if (!strcmp(line, "d")) {
+      display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       getl(depth_str);
