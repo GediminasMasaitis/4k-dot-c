@@ -824,7 +824,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
           ((u64)(*(u64 *)&stack[ply].best_move ==
                  *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)stack[ply].moves[order_index].takes_piece
+          + (((u64)stack[ply].moves[order_index].takes_piece + (u64)stack[ply].moves[order_index].promo)
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
           + ((u64)(*(u64 *)&stack[ply].killer ==
                    *(u64 *)&stack[ply].moves[order_index])
