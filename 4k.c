@@ -786,7 +786,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const bool in_qsearch = depth <= 0;
+  bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
@@ -796,9 +796,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // REVERSE FUTILITY PRUNING
-  if (!in_qsearch && alpha == beta - 1 && !in_check &&
-      static_eval - 64 * depth >= beta) {
-    return static_eval;
+  if (!in_qsearch && alpha == beta - 1 && !in_check) {
+    if (static_eval - 64 * depth >= beta) {
+        return static_eval;
+    }
+    in_qsearch = static_eval + 256 * depth < alpha;
   }
 
   stack[pos_history_count + ply + 2].history = *pos;
