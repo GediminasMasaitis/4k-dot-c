@@ -25,7 +25,7 @@
 #define u32 unsigned
 #define i16 short
 #define u16 unsigned short
-#define i8 char
+#define i8 signed char
 #define u8 unsigned char
 
 #ifdef NOSTDLIB
