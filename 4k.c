@@ -274,6 +274,7 @@ typedef struct [[nodiscard]] __attribute__((aligned(8))) {
   u8 from;
   u8 to;
   u8 promo;
+  u8 piece;
   u8 takes_piece;
 } Move;
 
@@ -515,8 +516,9 @@ static i32 makemove(Position *const restrict pos,
 
   assert(move->takes_piece != King);
   assert(move->takes_piece == piece_on(pos, move->to));
-  const i32 piece = piece_on(pos, move->from);
-  assert(piece != None);
+  //const i32 piece = piece_on(pos, move->from);
+  //const i32 piece = ;
+  //assert(piece != None);
 
   // Captures
   if (move->takes_piece != None) {
@@ -525,7 +527,7 @@ static i32 makemove(Position *const restrict pos,
   }
 
   // Castling
-  if (piece == King) {
+  if (move->piece == King) {
     const u64 bb = move->to - move->from == 2   ? 0xa0
                    : move->from - move->to == 2 ? 0x9
                                                 : 0;
@@ -535,22 +537,22 @@ static i32 makemove(Position *const restrict pos,
 
   // Move the piece
   pos->colour[0] ^= mask;
-  pos->pieces[piece] ^= mask;
+  pos->pieces[move->piece] ^= mask;
 
   // En passant
-  if (piece == Pawn && to == pos->ep) {
+  if (move->piece == Pawn && to == pos->ep) {
     pos->colour[1] ^= to >> 8;
     pos->pieces[Pawn] ^= to >> 8;
   }
   pos->ep = 0;
 
   // Pawn double move
-  if (piece == Pawn && move->to - move->from == 16) {
+  if (move->piece == Pawn && move->to - move->from == 16) {
     pos->ep = to >> 8;
   }
 
   // Promotions
-  if (piece == Pawn && move->promo != None) {
+  if (move->piece == Pawn && move->promo != None) {
     pos->pieces[Pawn] ^= to;
     pos->pieces[move->promo] ^= to;
   }
@@ -602,10 +604,10 @@ static void generate_pawn_moves(const Position *const pos,
     const u8 takes = piece_on(pos, to);
     if (to > 55) {
       for (u8 piece = Queen; piece >= Knight; piece--) {
-        movelist[(*num_moves)++] = (Move){from, to, piece, takes};
+        movelist[(*num_moves)++] = (Move){from, to, piece, Pawn, takes};
       }
     } else
-      movelist[(*num_moves)++] = (Move){from, to, None, takes};
+      movelist[(*num_moves)++] = (Move){from, to, None, Pawn, takes};
   }
 }
 
@@ -613,7 +615,7 @@ static void generate_piece_moves(Move *const restrict movelist,
                                  i32 *restrict num_moves,
                                  const Position *restrict pos,
                                  const u64 to_mask) {
-  for (int piece = Knight; piece <= King; piece++) {
+  for (i32 piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
            piece == Queen || piece == King);
     u64 copy = pos->colour[0] & pos->pieces[piece];
@@ -632,7 +634,7 @@ static void generate_piece_moves(Move *const restrict movelist,
         assert(to < 64);
         moves &= moves - 1;
         const u8 takes = piece_on(pos, to);
-        movelist[(*num_moves)++] = (Move){from, to, None, takes};
+        movelist[(*num_moves)++] = (Move){from, to, None, piece, takes};
         assert(*num_moves < 256);
       }
     }
@@ -660,11 +662,11 @@ static void generate_piece_moves(Move *const restrict movelist,
                       ne(pawns) & (pos->colour[1] | pos->ep), -9);
   if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 5, true)) {
-    movelist[num_moves++] = (Move){4, 6, None, None};
+    movelist[num_moves++] = (Move){4, 6, None, King, None};
   }
   if (pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 3, true)) {
-    movelist[num_moves++] = (Move){4, 2, None, None};
+    movelist[num_moves++] = (Move){4, 2, None, King, None};
   }
   generate_piece_moves(movelist, &num_moves, pos, to_mask);
 
