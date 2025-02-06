@@ -841,6 +841,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       break;
     }
 
+    // DELTA PRUNING
+    if (in_qsearch && !in_check && static_eval + 64 + gain < alpha) {
+      break;
+    }
+
     Position npos = *pos;
 #ifdef FULL
     (*nodes)++;
