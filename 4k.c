@@ -724,12 +724,17 @@ static i32 eval(const Position *const restrict pos) {
         const int rank = sq >> 3;
         const int file = sq & 7;
 
+        printf("SQ %i: %i ", sq, score);
+
         // MATERIAL
         score += material[p];
+        printf("%i ", score);
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
+        printf("%i ", score);
         score += pst_file[(p - 1) * 8 + file];
+        printf("%i\n", score);
       }
     }
     printf(" E%i: %i", c, score);
