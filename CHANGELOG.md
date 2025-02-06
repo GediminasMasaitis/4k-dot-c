@@ -2400,3 +2400,114 @@ info depth 11 score cp 8 time 3031 nodes 14913502 nps 4920323 pv b1c3
 bestmove b1c3
 14913502 nodes 4920323 nps
 ```
+
+```
+Elo   | 9.13 +- 7.01 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.01 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 4722 W: 1730 L: 1606 D: 1386
+Penta | [165, 410, 1135, 438, 213]
+https://gedas.pythonanywhere.com/test/185/
+```
+
+### 0.94
+
+Use promotion material in forward futility pruning
+
+64 bit: 4080 bytes (+16)
+Fill: 1+6
+
+MD5: 39de294a43458f4bf68989acbc220c85
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 1 nodes 516 nps 516000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1446 nps 1446000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5624 nps 5624000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17271 nps 5757000 pv b1c3
+info depth 7 score cp 7 time 9 nodes 56915 nps 6323888 pv b1c3
+info depth 8 score cp 16 time 27 nodes 184437 nps 6831000 pv b1c3
+info depth 9 score cp 9 time 105 nodes 679083 nps 6467457 pv b1c3
+info depth 10 score cp 13 time 351 nodes 2196293 nps 6257245 pv b1c3
+info depth 11 score cp 8 time 2505 nodes 14913502 nps 5953493 pv b1c3
+bestmove b1c3
+14913502 nodes 5953493 nps
+```
+
+```
+Elo   | 7.90 +- 5.26 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 8398 W: 2896 L: 2705 D: 2797
+Penta | [312, 729, 1957, 858, 343]
+https://gedas.pythonanywhere.com/test/180/
+```
+
+### 0.95
+
+Reorder castling in movegen
+
+64 bit: 4072 bytes (-8)
+Fill: 4+6
+
+MD5: 4677ae9d3a62d9c8bbf3ce6ab744b8ca
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1446 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5624 nps 5624000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17271 nps 5757000 pv b1c3
+info depth 7 score cp 7 time 9 nodes 56915 nps 6323888 pv b1c3
+info depth 8 score cp 16 time 28 nodes 184437 nps 6587035 pv b1c3
+info depth 9 score cp 9 time 109 nodes 679064 nps 6229944 pv b1c3
+info depth 10 score cp 13 time 364 nodes 2196182 nps 6033467 pv b1c3
+info depth 11 score cp 8 time 2558 nodes 14956082 nps 5846787 pv b1c3
+bestmove b1c3
+14956082 nodes 5846787 nps
+```
+
+```
+Elo   | 4.21 +- 5.57 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 8992 W: 3264 L: 3155 D: 2573
+Penta | [432, 868, 1838, 875, 483]
+https://gedas.pythonanywhere.com/test/192/
+```
+
+### 0.96
+
+Allow castling in qsearch
+
+64 bit: 4064 bytes (-8)
+Fill: 4+6
+
+MD5: 866e9de7020cb42d2235fdbc34f10d75
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1446 nps 1446000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5624 nps 5624000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17271 nps 5757000 pv b1c3
+info depth 7 score cp 7 time 8 nodes 56915 nps 7114375 pv b1c3
+info depth 8 score cp 16 time 27 nodes 184539 nps 6834777 pv b1c3
+info depth 9 score cp 9 time 106 nodes 682183 nps 6435688 pv b1c3
+info depth 10 score cp 13 time 356 nodes 2215319 nps 6222806 pv b1c3
+info depth 11 score cp 8 time 2535 nodes 15146501 nps 5974951 pv b1c3
+bestmove b1c3
+15146501 nodes 5974951 nps
+```
+
+```
+Elo   | 4.32 +- 4.99 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.01 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 7954 W: 2844 L: 2745 D: 2365
+Penta | [246, 622, 2182, 641, 286]
+https://gedas.pythonanywhere.com/test/201/
+```
