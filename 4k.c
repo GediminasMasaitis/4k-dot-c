@@ -798,7 +798,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   // REVERSE FUTILITY PRUNING
   if (!in_qsearch && alpha == beta - 1 && !in_check &&
       static_eval - 64 * depth >= beta) {
-    return static_eval;
+    return beta;
   }
 
   stack[pos_history_count + ply + 2].history = *pos;
