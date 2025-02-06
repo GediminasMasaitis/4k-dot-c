@@ -2511,3 +2511,51 @@ Games | N: 7954 W: 2844 L: 2745 D: 2365
 Penta | [246, 622, 2182, 641, 286]
 https://gedas.pythonanywhere.com/test/201/
 ```
+
+### 0.97
+
+No repetition detection in qsearch
+
+64 bit: 4080 bytes (+16)
+Fill: 6
+
+MD5: 9a477d93b47fa7478a4915e0a2b58c10
+
+```
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 26 time 0 nodes 516 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1446 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5624 nps 5624000 pv b1c3
+info depth 6 score cp 1 time 2 nodes 17271 nps 8635500 pv b1c3
+info depth 7 score cp 7 time 8 nodes 56915 nps 7114375 pv b1c3
+info depth 8 score cp 16 time 25 nodes 184539 nps 7381560 pv b1c3
+info depth 9 score cp 9 time 99 nodes 682183 nps 6890737 pv b1c3
+info depth 10 score cp 13 time 331 nodes 2213722 nps 6687981 pv b1c3
+info depth 11 score cp 14 time 2220 nodes 14133336 nps 6366367 pv d2d4
+bestmove d2d4
+14133336 nodes 6366367 nps
+```
+
+```
+Elo   | 15.67 +- 8.47 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.90 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4038 W: 1538 L: 1356 D: 1144
+Penta | [189, 352, 817, 410, 251]
+https://gedas.pythonanywhere.com/test/213/
+```
+
+```
+Score of 4k.c-0.97 vs stash15: 437 - 376 - 187  [0.530] 1000
+...      4k.c-0.97 playing White: 271 - 132 - 97  [0.639] 500
+...      4k.c-0.97 playing Black: 166 - 244 - 90  [0.422] 500
+...      White vs Black: 515 - 298 - 187  [0.609] 1000
+Elo difference: 21.2 +/- 19.4, LOS: 98.4 %, DrawRatio: 18.7 %
+
+Score of 4k.c-0.97 vs stash16: 352 - 489 - 159  [0.431] 1000
+...      4k.c-0.97 playing White: 219 - 195 - 86  [0.524] 500
+...      4k.c-0.97 playing Black: 133 - 294 - 73  [0.339] 500
+...      White vs Black: 513 - 328 - 159  [0.593] 1000
+Elo difference: -47.9 +/- 19.9, LOS: 0.0 %, DrawRatio: 15.9 %
+```

@@ -650,13 +650,13 @@ static void generate_piece_moves(Move *const restrict movelist,
                       nw(pawns) & (pos->colour[1] | pos->ep), -7);
   generate_pawn_moves(pos, movelist, &num_moves,
                       ne(pawns) & (pos->colour[1] | pos->ep), -9);
-  if (pos->castling[0] && !(all & 0x60ull) &&
-      !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
-      movelist[num_moves++] = (Move){ 4, 6, None, None };
+  if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
+      !is_attacked(pos, 5, true)) {
+    movelist[num_moves++] = (Move){4, 6, None, None};
   }
-  if (pos->castling[1] && !(all & 0xEull) &&
-      !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true)) {
-      movelist[num_moves++] = (Move){ 4, 2, None, None };
+  if (pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
+      !is_attacked(pos, 3, true)) {
+    movelist[num_moves++] = (Move){4, 2, None, None};
   }
   generate_piece_moves(movelist, &num_moves, pos, to_mask);
 
@@ -778,7 +778,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // FULL REPETITION DETECTION
-  for (i32 i = pos_history_count + ply; depth >= 0 && i > 0 && ply > 0;
+  const bool in_qsearch = depth <= 0;
+  for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
        i -= 2) {
     if (position_equal(pos, &stack[i].history)) {
       return 0;
@@ -786,7 +787,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
@@ -835,7 +835,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // FORWARD FUTILITY PRUNING
-    const i32 gain = material[stack[ply].moves[move_index].takes_piece] + material[stack[ply].moves[move_index].promo];
+    const i32 gain = material[stack[ply].moves[move_index].takes_piece] +
+                     material[stack[ply].moves[move_index].promo];
     if (depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
         static_eval + 128 * depth + gain < alpha) {
       break;
@@ -975,40 +976,40 @@ static void iteratively_deepen(
 
 static void display_pos(const Position *pos) {
   Position npos = *pos;
-  if(npos.flipped) {
+  if (npos.flipped) {
     flip_pos(&npos);
   }
-  for(i32 rank = 7; rank >= 0; rank--) {
-    for(i32 file = 0; file < 8; file++) {
+  for (i32 rank = 7; rank >= 0; rank--) {
+    for (i32 file = 0; file < 8; file++) {
       i32 sq = rank * 8 + file;
       u64 bb = 1ULL << sq;
       i32 piece = piece_on(&npos, sq);
-      if(bb & npos.colour[0]) {
-        if(piece == Pawn) {
+      if (bb & npos.colour[0]) {
+        if (piece == Pawn) {
           putl("P");
-        } else if(piece == Knight) {
+        } else if (piece == Knight) {
           putl("N");
-        } else if(piece == Bishop) {
+        } else if (piece == Bishop) {
           putl("B");
-        } else if(piece == Rook) {
+        } else if (piece == Rook) {
           putl("R");
-        } else if(piece == Queen) {
+        } else if (piece == Queen) {
           putl("Q");
-        } else if(piece == King) {
+        } else if (piece == King) {
           putl("K");
         }
       } else if (bb & npos.colour[1]) {
-        if(piece == Pawn) {
+        if (piece == Pawn) {
           putl("p");
-        } else if(piece == Knight) {
+        } else if (piece == Knight) {
           putl("n");
-        } else if(piece == Bishop) {
+        } else if (piece == Bishop) {
           putl("b");
-        } else if(piece == Rook) {
+        } else if (piece == Rook) {
           putl("r");
-        } else if(piece == Queen) {
+        } else if (piece == Queen) {
           putl("q");
-        } else if(piece == King) {
+        } else if (piece == King) {
           putl("k");
         }
       } else {
@@ -1021,7 +1022,7 @@ static void display_pos(const Position *pos) {
   putl(pos->flipped ? "Black" : "White");
   putl("\nEval: ");
   i32 score = eval(pos);
-  if(pos->flipped) {
+  if (pos->flipped) {
     score = -score;
   }
   printf("%i\n", score);
