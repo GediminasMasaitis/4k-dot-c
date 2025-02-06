@@ -650,11 +650,11 @@ static void generate_piece_moves(Move *const restrict movelist,
                       nw(pawns) & (pos->colour[1] | pos->ep), -7);
   generate_pawn_moves(pos, movelist, &num_moves,
                       ne(pawns) & (pos->colour[1] | pos->ep), -9);
-  if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
+  if (pos->castling[0] && !(all & 0x60ull) &&
       !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
       movelist[num_moves++] = (Move){ 4, 6, None, None };
   }
-  if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
+  if (pos->castling[1] && !(all & 0xEull) &&
       !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true)) {
       movelist[num_moves++] = (Move){ 4, 2, None, None };
   }
