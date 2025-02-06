@@ -732,7 +732,7 @@ static i32 eval(const Position *const restrict pos) {
         score += pst_file[(p - 1) * 8 + file];
       }
     }
-
+    printf(" E%i: %i", c, score);
     score = -score;
   }
   return score;
