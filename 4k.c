@@ -788,6 +788,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   // QUIESCENCE
   const bool in_qsearch = depth <= 0;
   const i32 static_eval = eval(pos);
+  printf(" Eval: %i Ply: %i\n", static_eval, ply);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
       return static_eval;
@@ -841,11 +842,17 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       break;
     }
 
+    putl("Move: ");
+    char move_name[6];
+    move_str(move_name, &stack[ply].moves[move_index], pos->flipped);
+    putl(move_name);
+
     Position npos = *pos;
 #ifdef FULL
     (*nodes)++;
 #endif
     if (!makemove(&npos, &stack[ply].moves[move_index])) {
+      putl(" Illegal\n");
       continue;
     }
 
@@ -896,6 +903,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                       [stack[ply].best_move.to] += depth * depth;
           stack[ply].killer = stack[ply].best_move;
         }
+        putl(" Beta prune\n");
         break;
       }
     }
@@ -1044,7 +1052,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(12, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(2, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
