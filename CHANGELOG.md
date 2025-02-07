@@ -2559,3 +2559,37 @@ Score of 4k.c-0.97 vs stash16: 352 - 489 - 159  [0.431] 1000
 ...      White vs Black: 513 - 328 - 159  [0.593] 1000
 Elo difference: -47.9 +/- 19.9, LOS: 0.0 %, DrawRatio: 15.9 %
 ```
+
+### 0.98
+
+Pawn double-moves first
+
+64 bit: 4064 bytes (-16)
+Fill: 1+6
+
+MD5: 541add2730303f5295dad30d710feab2
+
+```
+info depth 1 score cp 28 time 1 nodes 20 nps 20000 pv b1c3
+info depth 2 score cp 16 time 1 nodes 76 nps 76000 pv b1c3
+info depth 3 score cp 26 time 1 nodes 514 nps 514000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1442 nps 1442000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 5587 nps 5587000 pv b1c3
+info depth 6 score cp 1 time 3 nodes 17505 nps 5835000 pv b1c3
+info depth 7 score cp 7 time 8 nodes 53760 nps 6720000 pv b1c3
+info depth 8 score cp 16 time 28 nodes 186557 nps 6662750 pv b1c3
+info depth 9 score cp 7 time 122 nodes 793284 nps 6502327 pv b1c3
+info depth 10 score cp 13 time 520 nodes 3297205 nps 6340778 pv g1f3
+info depth 11 score cp 11 time 2624 nodes 15889443 nps 6055427 pv b1c3
+bestmove b1c3
+15889443 nodes 6055427 nps
+```
+
+```
+Elo   | -2.16 +- 2.05 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -0.57 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 71168 W: 24953 L: 25396 D: 20819
+Penta | [3981, 7360, 13218, 7171, 3854]
+https://gedas.pythonanywhere.com/test/221/
+```
