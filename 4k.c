@@ -587,6 +587,25 @@ static void generate_pawn_moves(const Position *const pos,
   }
 }
 
+static u64 get_mobility(const i32 fr, const i32 piece,
+                        const Position *restrict pos) {
+  u64 moves = 0;
+  if (piece == Knight) {
+    moves = knight(fr);
+  } else if (piece == King) {
+    moves = king(fr);
+  } else {
+    const u64 blockers = pos->colour[0] | pos->colour[1];
+    if (piece == Bishop || piece == Queen) {
+      moves |= bishop(fr, blockers);
+    }
+    if (piece == Rook || piece == Queen) {
+      moves |= rook(fr, blockers);
+    }
+  }
+  return moves;
+}
+
 static void generate_piece_moves(Move *const restrict movelist,
                                  i32 *restrict num_moves,
                                  const Position *restrict pos,
@@ -601,20 +620,7 @@ static void generate_piece_moves(Move *const restrict movelist,
       assert(fr < 64);
       copy &= copy - 1;
 
-      u64 moves = 0;
-      if (piece == Knight) {
-        moves = knight(fr);
-      } else if (piece == King) {
-        moves = king(fr);
-      } else {
-        const u64 blockers = pos->colour[0] | pos->colour[1];
-        if (piece == Bishop || piece == Queen) {
-          moves |= bishop(fr, blockers);
-        }
-        if (piece == Rook || piece == Queen) {
-          moves |= rook(fr, blockers);
-        }
-      }
+      u64 moves = get_mobility(fr, piece, pos);
       moves &= to_mask;
 
       // u64 moves = f(fr, pos->colour[0] | pos->colour[1]) & to_mask;
@@ -640,7 +646,7 @@ static void generate_piece_moves(Move *const restrict movelist,
   const u64 pawns = pos->colour[0] & pos->pieces[Pawn];
   if (!only_captures) {
     generate_pawn_moves(pos, movelist, &num_moves,
-      north(north(pawns & 0xFF00) & ~all) & ~all, -16);
+                        north(north(pawns & 0xFF00) & ~all) & ~all, -16);
   }
   generate_pawn_moves(pos, movelist, &num_moves,
                       north(pawns) & ~all &
@@ -692,24 +698,26 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   99,  292, 318,
-                                                           495, 952, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   101, 292, 302,
+                                                           477, 935, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -11, -13, -12, -2, 38, 116, 0,   // Pawn
-    -32, -17, -1,  13,  25, 28, 8,   -25, // Knight
-    -23, -5,  4,   9,   13, 14, 1,   -12, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
-    -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
+    0,   -12, -13, -12, -2, 38, 121, 0,   // Pawn
+    -31, -18, -2,  13,  24, 28, 9,   -24, // Knight
+    -15, -4,  2,   4,   9,  11, 1,   -8,  // Bishop
+    -16, -20, -19, -7,  9,  17, 22,  13,  // Rook
+    -15, -12, -10, -5,  4,  14, 7,   16,  // Queen
+    -25, -9,  -3,  8,   21, 28, 18,  -22, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -3,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
-    -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  1,  5,  -7,  // Bishop
-    -6,  1,  6,  8,  6,  3,  -1, -16, // Rook
-    -21, -9, 2,  5,  4,  6,  6,  6,   // Queen
-    -13, 3,  1,  -1, -2, -3, 7,  -9,  // King
+    -2,  4,  -5, -2, -1, 1,  12, -6,  // Pawn
+    -26, -7, 6,  15, 14, 11, 1,  -14, // Knight
+    -8,  1,  2,  2,  3,  -1, 4,  -3,  // Bishop
+    -4,  0,  4,  6,  5,  3,  -1, -14, // Rook
+    -18, -9, 0,  3,  3,  5,  7,  11,  // Queen
+    -20, 7,  6,  5,  3,  2,  9,  -15, // King
 };
+__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 0, 3,
+                                                            3, 2, -5};
 
 static i32 eval(const Position *const restrict pos) {
   i32 score = 16;
@@ -718,7 +726,8 @@ static i32 eval(const Position *const restrict pos) {
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[c] & pos->pieces[p];
       while (copy) {
-        const i32 sq = lsb(copy) ^ sq_xor;
+        const i32 sq_orig = lsb(copy);
+        const i32 sq = sq_orig ^ sq_xor;
         copy &= copy - 1;
 
         const int rank = sq >> 3;
@@ -730,6 +739,9 @@ static i32 eval(const Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
+
+        score += mobilities[p] *
+                 count(get_mobility(sq_orig, p, pos) & ~pos->colour[c]);
       }
     }
 
