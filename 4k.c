@@ -716,8 +716,7 @@ __attribute__((aligned(8))) static const i8 pst_file[] = {
     -18, -9, 0,  3,  3,  5,  7,  11,  // Queen
     -20, 7,  6,  5,  3,  2,  9,  -15, // King
 };
-__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 0, 3,
-                                                            3, 2, -5};
+__attribute__((aligned(8))) static const i8 mobilities[] = {3, 3, 2, -5};
 
 static i32 eval(const Position *const restrict pos) {
   i32 score = 16;
@@ -740,8 +739,10 @@ static i32 eval(const Position *const restrict pos) {
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
 
-        score += mobilities[p] *
-                 count(get_mobility(sq_orig, p, pos) & ~pos->colour[c]);
+        if (p > Knight) {
+          score += mobilities[p-3] *
+            count(get_mobility(sq_orig, p, pos) & ~pos->colour[c]);
+        }
       }
     }
 
