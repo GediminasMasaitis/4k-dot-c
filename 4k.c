@@ -588,18 +588,19 @@ static void generate_pawn_moves(const Position *const pos,
 }
 
 static u64 get_mobility(const i32 fr, const i32 piece,
-                        const Position *restrict pos) {
+                        const Position *restrict pos,
+                        const bool king_as_queen) {
   u64 moves = 0;
   if (piece == Knight) {
     moves = knight(fr);
-  } else if (piece == King) {
+  } else if (piece == King && !king_as_queen) {
     moves = king(fr);
   } else {
     const u64 blockers = pos->colour[0] | pos->colour[1];
-    if (piece == Bishop || piece == Queen) {
+    if (piece == Bishop || piece == Queen || piece == King) {
       moves |= bishop(fr, blockers);
     }
-    if (piece == Rook || piece == Queen) {
+    if (piece == Rook || piece == Queen || piece == King) {
       moves |= rook(fr, blockers);
     }
   }
@@ -620,7 +621,7 @@ static void generate_piece_moves(Move *const restrict movelist,
       assert(fr < 64);
       copy &= copy - 1;
 
-      u64 moves = get_mobility(fr, piece, pos);
+      u64 moves = get_mobility(fr, piece, pos, false);
       moves &= to_mask;
 
       // u64 moves = f(fr, pos->colour[0] | pos->colour[1]) & to_mask;
@@ -698,25 +699,25 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   101, 292, 302,
-                                                           477, 935, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   101, 294, 302,
+                                                           477, 936, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -12, -13, -12, -2, 38, 121, 0,   // Pawn
-    -31, -18, -2,  13,  24, 28, 9,   -24, // Knight
-    -15, -4,  2,   4,   9,  11, 1,   -8,  // Bishop
-    -16, -20, -19, -7,  9,  17, 22,  13,  // Rook
-    -15, -12, -10, -5,  4,  14, 7,   16,  // Queen
-    -25, -9,  -3,  8,   21, 28, 18,  -22, // King
+    0,   -12, -13, -12, -2, 38, 120, 0,   // Pawn
+    -32, -18, -2,  13,  25, 28, 9,   -24, // Knight
+    -15, -3,  2,   4,   9,  10, 1,   -8,  // Bishop
+    -16, -20, -18, -7,  9,  17, 22,  13,  // Rook
+    -15, -11, -10, -5,  4,  15, 6,   16,  // Queen
+    -21, -12, -3,  8,   21, 26, 14,  -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  4,  -5, -2, -1, 1,  12, -6,  // Pawn
-    -26, -7, 6,  15, 14, 11, 1,  -14, // Knight
-    -8,  1,  2,  2,  3,  -1, 4,  -3,  // Bishop
-    -4,  0,  4,  6,  5,  3,  -1, -14, // Rook
-    -18, -9, 0,  3,  3,  5,  7,  11,  // Queen
-    -20, 7,  6,  5,  3,  2,  9,  -15, // King
+    -3,  4,  -5, -2, -1, 1,  12, -6,  // Pawn
+    -27, -7, 6,  15, 14, 12, 1,  -15, // Knight
+    -8,  0,  1,  2,  3,  -1, 5,  -3,  // Bishop
+    -4,  0,  4,  6,  5,  4,  -1, -14, // Rook
+    -18, -9, 0,  3,  2,  5,  7,  11,  // Queen
+    -16, 5,  7,  7,  5,  3,  7,  -13, // King
 };
-__attribute__((aligned(8))) static const i8 mobilities[] = {3, 3, 2, -5};
+__attribute__((aligned(8))) static const i8 mobilities[] = {3, 3, 2, -2};
 
 static i32 eval(const Position *const restrict pos) {
   i32 score = 16;
@@ -740,8 +741,8 @@ static i32 eval(const Position *const restrict pos) {
         score += pst_file[(p - 1) * 8 + file];
 
         if (p > Knight) {
-          score += mobilities[p-3] *
-            count(get_mobility(sq_orig, p, pos) & ~pos->colour[c]);
+          score += mobilities[p - 3] *
+                   count(get_mobility(sq_orig, p, pos, true) & ~pos->colour[c]);
         }
       }
     }
