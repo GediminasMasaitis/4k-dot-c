@@ -777,8 +777,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // EARLY EXITS
+  const i32 static_eval = eval(pos);
   if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
-    return alpha;
+    return static_eval;
   }
 
   // FULL REPETITION DETECTION
@@ -791,7 +792,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
       return static_eval;
