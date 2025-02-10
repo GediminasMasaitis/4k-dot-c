@@ -928,6 +928,7 @@ static void iteratively_deepen(
 
 ) {
   start_time = get_time();
+  Move best_move;
   u64 move_history[2][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -967,12 +968,16 @@ static void iteratively_deepen(
     putl("\n");
 #endif
 
+    if (elapsed <= total_time / 4) {
+      best_move = stack[0].best_move;
+    }
+
     if (elapsed > total_time / 48) {
       break;
     }
   }
   char move_name[6];
-  move_str(move_name, &stack[0].best_move, pos->flipped);
+  move_str(move_name, &best_move, pos->flipped);
   putl("bestmove ");
   putl(move_name);
   putl("\n");
