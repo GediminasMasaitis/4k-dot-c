@@ -881,11 +881,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     moves_evaluated++;
 
     if (score > alpha) {
-      stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
 #ifdef FULL
       if (alpha != beta - 1) {
-        pv_stack[ply].moves[ply] = stack[ply].best_move;
+        pv_stack[ply].moves[ply] = stack[ply].moves[move_index];
         for (i32 next_ply = ply + 1; next_ply < pv_stack[ply + 1].length;
              next_ply++) {
           pv_stack[ply].moves[next_ply] = pv_stack[ply + 1].moves[next_ply];
@@ -894,14 +893,16 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
-        assert(stack[ply].best_move.takes_piece ==
-               piece_on(pos, stack[ply].best_move.to));
-        if (stack[ply].best_move.takes_piece == None) {
-          move_history[pos->flipped][stack[ply].best_move.from]
-                      [stack[ply].best_move.to] += depth * depth;
-          stack[ply].killer = stack[ply].best_move;
+        assert(stack[ply].moves[move_index].takes_piece ==
+               piece_on(pos, stack[ply].moves[move_index].to));
+        if (stack[ply].moves[move_index].takes_piece == None) {
+          move_history[pos->flipped][stack[ply].moves[move_index].from]
+                      [stack[ply].moves[move_index].to] += depth * depth;
+          stack[ply].killer = stack[ply].moves[move_index];
         }
         break;
+      } else {
+        stack[ply].best_move = stack[ply].moves[move_index];
       }
     }
   }
