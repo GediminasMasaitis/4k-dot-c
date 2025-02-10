@@ -749,6 +749,7 @@ static size_t total_time;
 typedef struct [[nodiscard]] {
   Move killer;
   Move best_move;
+  Move second_best_move;
   Position history;
   Move moves[256];
 } SearchStack;
@@ -823,7 +824,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       const u64 order_move_score =
           ((u64)(*(u64 *)&stack[ply].best_move ==
                  *(u64 *)&stack[ply].moves[order_index])
-           << 60) // PREVIOUS BEST MOVE FIRST
+           << 61) // PREVIOUS BEST MOVE FIRST
+          + ((u64)(*(u64*)&stack[ply].second_best_move ==
+          *(u64*)&stack[ply].moves[order_index])
+          << 60) // SECOND BEST MOVE
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
           + ((u64)(*(u64 *)&stack[ply].killer ==
@@ -881,6 +885,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     moves_evaluated++;
 
     if (score > alpha) {
+      stack[ply].second_best_move = stack[ply].best_move;
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
 #ifdef FULL
