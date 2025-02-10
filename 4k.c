@@ -777,7 +777,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // EARLY EXITS
-  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
+  if (ply > 125) {
     return alpha;
   }
 
@@ -869,6 +869,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                       nodes, pv_stack,
 #endif
                       stack, pos_history_count, move_history);
+
+      if((depth > 4 && get_time() - start_time > total_time / 4)) {
+        return 0;
+      }
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
