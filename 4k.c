@@ -692,54 +692,182 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   100, 294, 308,
-                                                           496, 954, 0};
-__attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -13, -12, -2, 38, 116, 0,   // Pawn
-    -31, -16, 0,   14,  25, 27, 7,   -26, // Knight
-    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
-    -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
-};
-__attribute__((aligned(8))) static const i8 pst_file[] = {
-    -4,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
-    -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  2,  5,  -7,  // Bishop
-    -6,  1,  6,  8,  6,  3,  -1, -17, // Rook
-    -21, -9, 2,  5,  4,  6,  6,  7,   // Queen
-    -13, 3,  1,  -1, -3, -3, 7,  -9,  // King
-};
+#define S(mg, eg) ((eg << 16) + mg)
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#define abs(x) ((x) < 0 ? -(x) : (x))
 
-static i32 eval(const Position *const restrict pos) {
-  i32 score = 16;
-  for (i32 c = 0; c < 2; c++) {
-    if (count(pos->colour[c] & pos->pieces[Bishop]) == 2) {
-      score += 33;
-    }
+const i32 phases[] = { 0, 1, 1, 2, 4, 0 };
+const i32 max_material[] = { 147, 521, 521, 956, 1782, 0, 0 };
+const i32 material[] = { S(89, 147), S(350, 521), S(361, 521), S(479, 956), S(1046, 1782), 0 };
+const i32 pst_rank[] = {
+    0,         S(-3, 0),  S(-3, -1), S(-1, -1), S(1, 0),  S(5, 3),  0,        0,          // Pawn
+    S(-2, -5), S(0, -3),  S(1, -1),  S(3, 3),   S(4, 4),  S(5, 1),  S(2, 0),  S(-15, 1),  // Knight
+    S(0, -2),  S(2, -1),  S(2, 0),   S(2, 0),   S(2, 0),  S(2, 0),  S(-1, 0), S(-10, 2),  // Bishop
+    S(0, -3),  S(-1, -3), S(-2, -2), S(-2, 0),  S(0, 2),  S(2, 2),  S(1, 3),  S(2, 1),    // Rook
+    S(2, -11), S(3, -8),  S(2, -3),  S(0, 2),   S(0, 5),  S(-1, 5), S(-4, 7), S(-2, 4),   // Queen
+    S(-1, -6), S(1, -2),  S(-1, 0),  S(-4, 3),  S(-1, 5), S(5, 4),  S(5, 2),  S(5, -6),   // King
+};
+const i32 pst_file[] = {
+    S(-1, 1),  S(-2, 1),  S(-1, 0), S(0, -1), S(1, 0),  S(2, 0),  S(2, 0),  S(-1, 0),   // Pawn
+    S(-4, -3), S(-1, -1), S(0, 1),  S(2, 3),  S(2, 3),  S(2, 0),  S(1, -1), S(-1, -3),  // Knight
+    S(-2, -1), 0,         S(1, 0),  S(0, 1),  S(1, 1),  S(0, 1),  S(2, 0),  S(-1, -1),  // Bishop
+    S(-2, 0),  S(-1, 1),  S(0, 1),  S(1, 0),  S(2, -1), S(1, 0),  S(1, 0),  S(-1, -1),  // Rook
+    S(-2, -3), S(-1, -1), S(-1, 0), S(0, 1),  S(0, 2),  S(1, 2),  S(2, 0),  S(1, -1),   // Queen
+    S(-2, -5), S(2, -1),  S(-1, 1), S(-4, 2), S(-4, 2), S(-2, 2), S(2, -1), S(0, -5),   // King
+};
+const i32 open_files[] = {
+  // Semi open files
+  S(2, 3),
+  S(-6, 20),
+  S(19, 16),
+  S(3, 18),
+  S(-19, 8),
+  // Open files
+  S(-4, -14),
+  S(-10, -2),
+  S(47, -1),
+  S(-15, 35),
+  S(-61, 0),
+};
+const i32 mobilities[] = { S(8, 5), S(7, 7), S(3, 5), S(3, 2), S(-5, -1) };
+const i32 king_attacks[] = { S(12, -5), S(18, -4), S(27, -9), S(18, 12), 0 };
+const i32 pawn_protection[] = { S(23, 17), S(2, 18), S(6, 19), S(8, 10), S(-8, 22), S(-29, 25) };
+const i32 pawn_threat_penalty[] = { S(-4, 0), S(21, 0), S(12, 7), S(10, 20), S(9, 17), S(4, 8) };
+const i32 passers[] = { S(11, 12), S(51, 47), S(97, 115), S(289, 201) };
+const i32 pawn_passed_protected = S(13, 23);
+const i32 pawn_doubled_penalty = S(11, 38);
+const i32 pawn_phalanx = S(12, 16);
+const i32 pawn_passed_blocked_penalty[] = { S(5, 19), S(-6, 45), S(-8, 87), S(54, 88) };
+const i32 pawn_passed_king_distance[] = { S(-1, -6), S(-3, 12) };
+const i32 bishop_pair = S(29, 84);
+const i32 king_shield[] = { S(33, -10), S(25, -7) };
+const i32 pawn_attacked_penalty[] = { S(63, 14), S(156, 140) };
 
-    const i32 sq_xor = c * 56;
-    for (i32 p = Pawn; p <= King; p++) {
-      u64 copy = pos->colour[c] & pos->pieces[p];
+[[nodiscard]] i32 eval(Position *pos) {
+  // Include side to move bonus
+  i32 score = S(29, 10);
+  i32 phase = 0;
+
+  for (i32 c = 0; c < 2; ++c) {
+    // our pawns, their pawns
+    const u64 pawns[] = { pos->colour[0] & pos->pieces[Pawn], pos->colour[1] & pos->pieces[Pawn] };
+    const i32 kings[] = { lsb(pos->colour[0] & pos->pieces[King]), lsb(pos->colour[1] & pos->pieces[King]) };
+    const u64 protected_by_pawns = nw(pawns[0]) | ne(pawns[0]);
+    const u64 attacked_by_pawns = se(pawns[1]) | sw(pawns[1]);
+
+    // Bishop pair
+    score += bishop_pair * (count(pos->colour[0] & pos->pieces[Bishop]) == 2);
+
+    // Phalanx pawns
+    score += pawn_phalanx * count(west(pawns[0]) & pawns[0]);
+
+    // Doubled pawns
+    score -= pawn_doubled_penalty * count((north(pawns[0]) | north(north(pawns[0]))) & pawns[0]);
+
+    // For each piece type
+    for (i32 p = Pawn; p < None; ++p) {
+      u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
-        const i32 sq = lsb(copy) ^ sq_xor;
+        const i32 sq = lsb(copy);
         copy &= copy - 1;
 
-        const int rank = sq >> 3;
-        const int file = sq & 7;
+        const i32 rank = sq / 8;
+        const i32 file = sq % 8;
 
-        // MATERIAL
+        // Material
+        phase += phases[p];
         score += material[p];
 
-        // SPLIT PIECE-SQUARE TABLES
-        score += pst_rank[(p - 1) * 8 + rank];
-        score += pst_file[(p - 1) * 8 + file];
+        // Split quantized PSTs
+        score += pst_rank[p * 8 + rank] * 8;
+        score += pst_file[p * 8 + file] * 8;
+
+        // Pawn protection
+        const u64 piece_bb = 1ull << sq;
+        if (piece_bb & protected_by_pawns)
+          score += pawn_protection[p];
+
+        // Pawn threat
+        if (0x101010101010101ull << sq & ~piece_bb & attacked_by_pawns)
+          score -= pawn_threat_penalty[p];
+
+        if (p == Pawn) {
+          // Passed pawns
+          if (rank > 2 && !(0x101010101010101ull << sq & (pawns[1] | attacked_by_pawns))) {
+            score += passers[rank - 3];
+
+            // Protected passed pawns
+            if (piece_bb & protected_by_pawns)
+              score += pawn_passed_protected;
+
+            // Blocked passed pawns
+            if (north(piece_bb) & pos->colour[1])
+              score -= pawn_passed_blocked_penalty[rank - 3];
+
+            // King defense/attack
+            // king distance to square in front of passer
+            for (i32 i = 0; i < 2; ++i)
+              score += pawn_passed_king_distance[i] * (rank - 1) *
+              max(abs(kings[i] / 8 - rank - 1), abs(kings[i] % 8 - file));
+          }
+        }
+        else {
+          // Pawn attacks
+          if (piece_bb & attacked_by_pawns)
+            // If we're to move, we'll just lose some options and our tempo.
+            // If we're not to move, we lose a piece?
+            score -= pawn_attacked_penalty[c];
+
+          u64 mobility = 0;
+
+          // Rook, Queen, King
+          if (p > Bishop)
+            mobility = rook(sq, pos->colour[0] | pos->colour[1]);
+
+          // Knight
+          if (p == Knight)
+            mobility = knight(sq);
+
+          // Bishop, Queen, King
+          else if (p != Rook)
+            mobility |= bishop(sq, pos->colour[0] | pos->colour[1]);
+
+          // Use Queen mobilities for the king as a form of king safety.
+          // Don't consider squares attacked by opponent pawns.
+          score += mobilities[p - 1] * count(mobility & ~pos->colour[0] & ~attacked_by_pawns);
+
+          // Attacks on opponent king
+          score += king_attacks[p - 1] * count(mobility & king(kings[1]));
+
+          // Open or semi-open files
+          score += !(0x101010101010101ull << file & pawns[0]) *
+            open_files[!(0x101010101010101ull << file & pawns[1]) * 5 + p - 1];
+
+          if (p == King && piece_bb & 0xC3D7) {
+            // C3D7 = Reasonable king squares
+            // Pawn cover is fixed in position, so it won't
+            // walk around with the king.
+            const u64 shield = 0x700 << 5 * (file > 2);
+            score += count(shield & pawns[0]) * king_shield[0];
+            score += count(north(shield) & pawns[0]) * king_shield[1];
+          }
+        }
       }
     }
 
+    flip_pos(pos);
+
     score = -score;
   }
-  return score;
+
+  assert(phase >= 0);
+
+  // Tapered eval with endgame scaling based on remaining pawn count of the stronger side
+  const i32 stronger_side_pawns_missing = 8 - count(pos->colour[score < 0] & pos->pieces[Pawn]);
+  return ((i16)score * phase + (score + 0x8000 >> 16) *
+    (128 - stronger_side_pawns_missing * stronger_side_pawns_missing) / 128 *
+    (24 - phase)) /
+    24;
 }
 
 enum { max_ply = 128, mate = 30000, inf = 40000 };
@@ -978,7 +1106,7 @@ static void iteratively_deepen(
   putl("\n");
 }
 
-static void display_pos(const Position *pos) {
+static void display_pos(Position *pos) {
   Position npos = *pos;
   if (npos.flipped) {
     flip_pos(&npos);
