@@ -696,9 +696,9 @@ static void generate_piece_moves(Move *const restrict movelist,
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 #define abs(x) ((x) < 0 ? -(x) : (x))
 
-const i32 phases[] = { 0, 1, 1, 2, 4, 0 };
-const i32 max_material[] = { 147, 521, 521, 956, 1782, 0, 0 };
-const i32 material[] = { S(89, 147), S(350, 521), S(361, 521), S(479, 956), S(1046, 1782), 0 };
+const i32 phases[] = { 0, 0, 1, 1, 2, 4, 0 };
+const i32 max_material[] = { 0, 147, 521, 521, 956, 1782, 0, 0 };
+const i32 material[] = { 0, S(89, 147), S(350, 521), S(361, 521), S(479, 956), S(1046, 1782), 0 };
 const i32 pst_rank[] = {
     0,         S(-3, 0),  S(-3, -1), S(-1, -1), S(1, 0),  S(5, 3),  0,        0,          // Pawn
     S(-2, -5), S(0, -3),  S(1, -1),  S(3, 3),   S(4, 4),  S(5, 1),  S(2, 0),  S(-15, 1),  // Knight
@@ -731,8 +731,8 @@ const i32 open_files[] = {
 };
 const i32 mobilities[] = { S(8, 5), S(7, 7), S(3, 5), S(3, 2), S(-5, -1) };
 const i32 king_attacks[] = { S(12, -5), S(18, -4), S(27, -9), S(18, 12), 0 };
-const i32 pawn_protection[] = { S(23, 17), S(2, 18), S(6, 19), S(8, 10), S(-8, 22), S(-29, 25) };
-const i32 pawn_threat_penalty[] = { S(-4, 0), S(21, 0), S(12, 7), S(10, 20), S(9, 17), S(4, 8) };
+const i32 pawn_protection[] = { 0, S(23, 17), S(2, 18), S(6, 19), S(8, 10), S(-8, 22), S(-29, 25) };
+const i32 pawn_threat_penalty[] = {0 , S(-4, 0), S(21, 0), S(12, 7), S(10, 20), S(9, 17), S(4, 8) };
 const i32 passers[] = { S(11, 12), S(51, 47), S(97, 115), S(289, 201) };
 const i32 pawn_passed_protected = S(13, 23);
 const i32 pawn_doubled_penalty = S(11, 38);
@@ -765,7 +765,7 @@ const i32 pawn_attacked_penalty[] = { S(63, 14), S(156, 140) };
     score -= pawn_doubled_penalty * count((north(pawns[0]) | north(north(pawns[0]))) & pawns[0]);
 
     // For each piece type
-    for (i32 p = Pawn; p < None; ++p) {
+    for (i32 p = Pawn; p <= King; ++p) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
         const i32 sq = lsb(copy);
@@ -779,8 +779,8 @@ const i32 pawn_attacked_penalty[] = { S(63, 14), S(156, 140) };
         score += material[p];
 
         // Split quantized PSTs
-        score += pst_rank[p * 8 + rank] * 8;
-        score += pst_file[p * 8 + file] * 8;
+        score += pst_rank[(p - 1) * 8 + rank] * 8;
+        score += pst_file[(p - 1) * 8 + file] * 8;
 
         // Pawn protection
         const u64 piece_bb = 1ull << sq;
@@ -834,14 +834,14 @@ const i32 pawn_attacked_penalty[] = { S(63, 14), S(156, 140) };
 
           // Use Queen mobilities for the king as a form of king safety.
           // Don't consider squares attacked by opponent pawns.
-          score += mobilities[p - 1] * count(mobility & ~pos->colour[0] & ~attacked_by_pawns);
+          score += mobilities[p - 2] * count(mobility & ~pos->colour[0] & ~attacked_by_pawns);
 
           // Attacks on opponent king
-          score += king_attacks[p - 1] * count(mobility & king(kings[1]));
+          score += king_attacks[p - 2] * count(mobility & king(kings[1]));
 
           // Open or semi-open files
           score += !(0x101010101010101ull << file & pawns[0]) *
-            open_files[!(0x101010101010101ull << file & pawns[1]) * 5 + p - 1];
+            open_files[!(0x101010101010101ull << file & pawns[1]) * 5 + p - 2];
 
           if (p == King && piece_bb & 0xC3D7) {
             // C3D7 = Reasonable king squares
@@ -967,8 +967,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // FORWARD FUTILITY PRUNING
-    const i32 gain = material[stack[ply].moves[move_index].takes_piece] +
-                     material[stack[ply].moves[move_index].promo];
+    const i32 gain = max_material[stack[ply].moves[move_index].takes_piece] +
+                     max_material[stack[ply].moves[move_index].promo];
     if (depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
         static_eval + 128 * depth + gain < alpha) {
       break;
