@@ -481,7 +481,7 @@ static void flip_pos(Position *const restrict pos) {
   return moves;
 }
 
-[[nodiscard]] static i32 is_attacked(const Position *const restrict pos,
+[[nodiscard]] static u64 is_attacked(const Position *const restrict pos,
                                      const i32 sq, const i32 them) {
   assert(sq >= 0);
   assert(sq < 64);
@@ -490,12 +490,10 @@ static void flip_pos(Position *const restrict pos) {
   const u64 pawns = theirs & pos->pieces[Pawn];
   const u64 pawn_attacks = them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns);
   const u64 blockers = pos->colour[0] | pos->colour[1];
-  return pawn_attacks & bb || knight(sq) & theirs & pos->pieces[Knight] ||
-         bishop(sq, blockers) & theirs &
-             (pos->pieces[Bishop] | pos->pieces[Queen]) ||
-         rook(sq, blockers) & theirs &
-             (pos->pieces[Rook] | pos->pieces[Queen]) ||
-         king(sq) & theirs & pos->pieces[King];
+  return (pawn_attacks & bb) | (knight(sq) & theirs & pos->pieces[Knight]) |
+         (bishop(sq, blockers) & theirs & (pos->pieces[Bishop] | pos->pieces[Queen])) |
+         (rook(sq, blockers) & theirs & (pos->pieces[Rook] | pos->pieces[Queen])) |
+         (king(sq) & theirs & pos->pieces[King]);
 }
 
 static i32 makemove(Position *const restrict pos,
@@ -777,7 +775,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   assert(ply >= 0);
 
   const bool in_check =
-      is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
+      is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true) != 0;
 
   // IN-CHECK EXTENSION
   if (in_check) {
