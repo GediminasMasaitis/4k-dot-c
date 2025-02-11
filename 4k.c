@@ -777,7 +777,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // EARLY EXITS
-  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
+  if (depth > 4 && get_time() - start_time > total_time / 4) {
     return alpha;
   }
 
@@ -841,7 +841,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     // FORWARD FUTILITY PRUNING
     const i32 gain = material[stack[ply].moves[move_index].takes_piece] +
                      material[stack[ply].moves[move_index].promo];
-    if (depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
+    if (!in_qsearch && !in_check && moves_evaluated &&
         static_eval + 128 * depth + gain < alpha) {
       break;
     }
@@ -1062,7 +1062,7 @@ void _start() {
 #else
 static void run() {
 #endif
-  char line[1024];
+  char line[4096];
   Position pos;
   Move moves[256];
   i32 num_moves;
