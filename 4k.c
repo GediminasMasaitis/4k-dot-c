@@ -743,8 +743,8 @@ static i32 eval(const Position *const restrict pos) {
 }
 
 enum { max_ply = 128, mate = 30000, inf = 40000 };
-static size_t start_time;
-static size_t total_time;
+static size_t stop_time_min;
+static size_t stop_time_max;
 
 typedef struct [[nodiscard]] {
   Move killer;
@@ -777,7 +777,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // EARLY EXITS
-  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
+  if ((depth > 4 && get_time() > stop_time_max) || ply > 125) {
     return alpha;
   }
 
@@ -927,7 +927,6 @@ static void iteratively_deepen(
     const i32 pos_history_count
 
 ) {
-  start_time = get_time();
   u64 move_history[2][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -943,31 +942,8 @@ static void iteratively_deepen(
                        nodes, pv_stack,
 #endif
                        stack, pos_history_count, move_history);
-    size_t elapsed = get_time() - start_time;
 
-#ifdef FULL
-    printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
-           *nodes);
-    if (elapsed > 0) {
-      const u64 nps = *nodes * 1000 / elapsed;
-      printf(" nps %i", nps);
-    }
-
-    putl(" pv ");
-    // const i32 pv_length = pv_stack[0].length;
-    const i32 pv_length = 1;
-    for (i32 i = 0; i < pv_length; i++) {
-      char pv_move_name[6];
-      move_str(pv_move_name, &pv_stack[0].moves[i], pos->flipped ^ (i % 2));
-      putl(pv_move_name);
-      if (i != pv_length - 1) {
-        putl(" ");
-      }
-    }
-    putl("\n");
-#endif
-
-    if (elapsed > total_time / 48) {
+    if (get_time() > stop_time_min) {
       break;
     }
   }
@@ -1168,10 +1144,14 @@ static void run() {
       }
       iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
 #else
+      i32 total_time;
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         total_time = atoi(line);
       }
+      const size_t start_time = get_time();
+      stop_time_min = start_time + total_time / 48;
+      stop_time_max = start_time + total_time / 4;
       iteratively_deepen(&pos, stack, pos_history_count);
 #endif
     }
