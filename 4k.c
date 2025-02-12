@@ -490,12 +490,11 @@ static void flip_pos(Position *const restrict pos) {
   const u64 pawns = theirs & pos->pieces[Pawn];
   const u64 pawn_attacks = them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns);
   const u64 blockers = pos->colour[0] | pos->colour[1];
-  return pawn_attacks & bb || knight(sq) & theirs & pos->pieces[Knight] ||
+  return pawn_attacks & bb || knight(sq) & theirs & pos->pieces[Knight] || king(sq) & theirs & pos->pieces[King] ||
          bishop(sq, blockers) & theirs &
              (pos->pieces[Bishop] | pos->pieces[Queen]) ||
          rook(sq, blockers) & theirs &
-             (pos->pieces[Rook] | pos->pieces[Queen]) ||
-         king(sq) & theirs & pos->pieces[King];
+             (pos->pieces[Rook] | pos->pieces[Queen]);
 }
 
 static i32 makemove(Position *const restrict pos,
