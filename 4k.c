@@ -849,8 +849,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     // FORWARD FUTILITY PRUNING
     const i32 gain = material[stack[ply].moves[move_index].takes_piece] +
                      material[stack[ply].moves[move_index].promo];
-    if (depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
-        static_eval + 128 * depth + gain < alpha) {
+    if (depth < 8 && !in_check && moves_evaluated &&
+        static_eval + 128 * (in_qsearch ? 1 : depth) + gain < alpha) {
       break;
     }
 
