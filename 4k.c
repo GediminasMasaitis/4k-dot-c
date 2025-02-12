@@ -340,7 +340,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 se(const u64 bb) { return east(south(bb)); }
 
-[[nodiscard]] u64 xattack(const i32 sq, const u64 blockers,
+[[nodiscard]] __attribute__((optimize("O3"))) u64 xattack(const i32 sq, const u64 blockers,
                           const u64 dir_mask) {
   return dir_mask &
          ((blockers & dir_mask) - (1ULL << sq) ^
@@ -785,7 +785,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // EARLY EXITS
-  if ((depth > 4 && get_time() - start_time > total_time / 4) || ply > 125) {
+  if (depth > 4 && get_time() - start_time > total_time / 4) {
     return alpha;
   }
 
