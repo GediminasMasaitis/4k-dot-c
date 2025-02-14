@@ -658,6 +658,7 @@ static void generate_piece_moves(Move *const restrict movelist,
                       nw(pawns) & (pos->colour[1] | pos->ep), -7);
   generate_pawn_moves(pos, movelist, &num_moves,
                       ne(pawns) & (pos->colour[1] | pos->ep), -9);
+  generate_piece_moves(movelist, &num_moves, pos, to_mask);
   if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 5, true)) {
     movelist[num_moves++] = (Move){4, 6, None, None};
@@ -666,7 +667,6 @@ static void generate_piece_moves(Move *const restrict movelist,
       !is_attacked(pos, 3, true)) {
     movelist[num_moves++] = (Move){4, 2, None, None};
   }
-  generate_piece_moves(movelist, &num_moves, pos, to_mask);
 
   assert(num_moves < 256);
   return num_moves;
