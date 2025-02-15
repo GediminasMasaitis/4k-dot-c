@@ -205,6 +205,10 @@ typedef struct [[nodiscard]] {
   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
+[[nodiscard]] static i32 abs(const i32 val) {
+  return val < 0 ? -val : val;
+}
+
 #ifdef ASSERTS
 #define assert(condition)                                                      \
   if (!(condition)) {                                                          \
@@ -700,30 +704,32 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   100, 294, 308,
-                                                           496, 954, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   100, 292, 328,
+                                                           487, 960, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -13, -12, -2, 38, 116, 0,   // Pawn
-    -31, -16, 0,   14,  25, 27, 7,   -26, // Knight
-    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
-    -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
+    0,   -10, -13, -12, -2, 38, 115, 0,   // Pawn
+    -32, -16, 1,   14,  26, 27, 7,   -27, // Knight
+    -16, -6,  -1,  2,   8,  11, 3,   -2,  // Bishop
+    -22, -24, -19, -5,  11, 20, 23,  15,  // Rook
+    -21, -14, -10, -4,  7,  17, 8,   18,  // Queen
+    -9,  -9,  -8,  -1,  11, 20, 15,  -5,  // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -4,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
-    -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  2,  5,  -7,  // Bishop
-    -6,  1,  6,  8,  6,  3,  -1, -17, // Rook
-    -21, -9, 2,  5,  4,  6,  6,  7,   // Queen
-    -13, 3,  1,  -1, -3, -3, 7,  -9,  // King
+    -3,  3,  -6, -2, -1, 1,  13, -6,  // Pawn
+    -28, -7, 7,  15, 14, 12, 1,  -15, // Knight
+    -4,  0,  -1, 0,  1,  -2, 5,  2,   // Bishop
+    -8,  1,  7,  9,  7,  3,  -2, -17, // Rook
+    -19, -8, 1,  4,  3,  5,  6,  9,   // Queen
+    -5,  4,  -2, -7, -7, -6, 7,  -4,  // King
 };
+__attribute__((aligned(8))) static const i8 centralities[] = {0,  0, 0, 4,
+                                                              -2, 1, 4};
 
 static i32 eval(const Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
     if (count(pos->colour[c] & pos->pieces[Bishop]) == 2) {
-      score += 33;
+      score += 34;
     }
 
     const i32 sq_xor = c * 56;
@@ -742,6 +748,9 @@ static i32 eval(const Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
+
+        const int centrality = -abs(7 - rank - file) - abs(rank - file);
+        score += centralities[p] * centrality;
       }
     }
 
