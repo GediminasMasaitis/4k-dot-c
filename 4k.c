@@ -808,7 +808,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // REVERSE FUTILITY PRUNING
-  if (!in_qsearch && alpha == beta - 1 && !in_check &&
+  if (alpha == beta - 1 && !in_check &&
       static_eval - 64 * depth >= beta) {
     return static_eval;
   }
@@ -821,28 +821,33 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   pv_stack[ply].length = ply;
 #endif
 
+  u64 move_scores[256];
+  for (i32 move_index = 0; move_index < num_moves; move_index++) {
+    assert(stack[ply].moves[move_index].takes_piece ==
+      piece_on(pos, stack[ply].moves[move_index].to));
+    move_scores[move_index] = ((u64)(*(u64*)&stack[ply].best_move ==
+        *(u64*)&stack[ply].moves[move_index])
+        << 60) // PREVIOUS BEST MOVE FIRST
+      + ((u64)stack[ply].moves[move_index].takes_piece
+        << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
+      + ((u64)(*(u64*)&stack[ply].killer ==
+        *(u64*)&stack[ply].moves[move_index])
+        << 48) // KILLER MOVE
+      + move_history[pos->flipped][stack[ply].moves[move_index].from]
+      [stack[ply].moves[move_index].to]; // HISTORY HEURISTIC
+  }
+
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
-
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
-      const u64 order_move_score =
-          ((u64)(*(u64 *)&stack[ply].best_move ==
-                 *(u64 *)&stack[ply].moves[order_index])
-           << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)stack[ply].moves[order_index].takes_piece
-             << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
-          + ((u64)(*(u64 *)&stack[ply].killer ==
-                   *(u64 *)&stack[ply].moves[order_index])
-             << 48) // KILLER MOVE
-          + move_history[pos->flipped][stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
-      if (order_move_score > move_score) {
-        move_score = order_move_score;
+      if (move_scores[order_index] > move_score) {
+        move_score = move_scores[order_index];
         swapu64((u64 *)&stack[ply].moves[move_index],
                 (u64 *)&stack[ply].moves[order_index]);
+        swapu64(&move_scores[move_index], &move_scores[order_index]);
       }
     }
 
