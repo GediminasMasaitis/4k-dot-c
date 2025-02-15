@@ -821,6 +821,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   pv_stack[ply].length = ply;
 #endif
 
+  if (ply > 1) {
+    stack[ply - 2].killer = (Move){ 0,0,0,0 };
+  }
+
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
 
