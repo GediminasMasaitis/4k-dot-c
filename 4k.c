@@ -708,7 +708,7 @@ __attribute__((aligned(8))) static const i8 pst_rank[] = {
     -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
     -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
     -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
+    0, -12, -6,  5,   17, 23, 12,  -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
     -4,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
