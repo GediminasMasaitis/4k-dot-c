@@ -790,7 +790,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // FULL REPETITION DETECTION
-  const bool in_qsearch = depth <= 0;
+  bool in_qsearch = depth <= 0;
   for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
        i -= 2) {
     if (position_equal(pos, &stack[i].history)) {
@@ -808,9 +808,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // REVERSE FUTILITY PRUNING
-  if (!in_qsearch && alpha == beta - 1 && !in_check &&
-      static_eval - 64 * depth >= beta) {
-    return static_eval;
+  if (!in_qsearch && alpha == beta - 1 && !in_check) {
+    if (static_eval - 64 * depth >= beta) {
+      return static_eval;
+    }
+    in_qsearch = static_eval + 256 * depth < alpha;
   }
 
   stack[pos_history_count + ply + 2].history = *pos;
