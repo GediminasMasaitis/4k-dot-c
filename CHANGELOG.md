@@ -2703,3 +2703,37 @@ Games | N: 19532 W: 7037 L: 6987 D: 5508
 Penta | [863, 1689, 4603, 1757, 854]
 https://gedas.pythonanywhere.com/test/283/
 ```
+
+### 0.102
+
+64 bit: 4080 bytes (+16)
+Fill: 6
+
+MD5: 50f9262d999f4878b0d0d1875984035a
+
+Reset history on capture
+
+```
+Elo   | 8.95 +- 5.63 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6678 W: 2452 L: 2280 D: 1946
+Penta | [203, 553, 1726, 583, 274]
+https://gedas.pythonanywhere.com/test/298/
+```
+
+```
+Score of 4k.c-0.102 vs stash15: 931 - 742 - 327  [0.547] 2000
+...      4k.c-0.102 playing White: 567 - 290 - 142  [0.639] 999
+...      4k.c-0.102 playing Black: 364 - 452 - 185  [0.456] 1001
+...      White vs Black: 1019 - 654 - 327  [0.591] 2000
+Elo difference: 32.9 +/- 14.0, LOS: 100.0 %, DrawRatio: 16.4 %
+```
+
+```
+Score of 4k.c-0.102 vs stash16: 837 - 1122 - 341  [0.438] 2300
+...      4k.c-0.102 playing White: 528 - 444 - 179  [0.536] 1151
+...      4k.c-0.102 playing Black: 309 - 678 - 162  [0.339] 1149
+...      White vs Black: 1206 - 753 - 341  [0.598] 2300
+Elo difference: -43.3 +/- 13.2, LOS: 0.0 %, DrawRatio: 14.8 %
+```
