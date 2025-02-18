@@ -791,10 +791,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // FULL REPETITION DETECTION
   const bool in_qsearch = depth <= 0;
-  for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
-       i -= 2) {
-    if (position_equal(pos, &stack[i].history)) {
-      return 0;
+  if (!in_qsearch && ply > 0) {
+    for (i32 i = pos_history_count + ply; i > 0; i -= 2) {
+      if (position_equal(pos, &stack[i].history)) {
+        return 0;
+      }
     }
   }
 
