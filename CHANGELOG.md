@@ -2703,3 +2703,21 @@ Games | N: 19532 W: 7037 L: 6987 D: 5508
 Penta | [863, 1689, 4603, 1757, 854]
 https://gedas.pythonanywhere.com/test/283/
 ```
+
+### 0.102
+
+64 bit: 4080 bytes (+16)
+Fill: 6
+
+MD5: 50f9262d999f4878b0d0d1875984035a
+
+Reset history on capture
+
+```
+Elo   | 8.95 +- 5.63 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6678 W: 2452 L: 2280 D: 1946
+Penta | [203, 553, 1726, 583, 274]
+https://gedas.pythonanywhere.com/test/298/
+```
