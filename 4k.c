@@ -499,36 +499,35 @@ static void flip_pos(Position *const restrict pos) {
          king(sq) & theirs & pos->pieces[King];
 }
 
-static i32 makemove(Position *const restrict pos,
-                    const Move *const restrict move) {
-  assert(move->from >= 0);
-  assert(move->from < 64);
-  assert(move->to >= 0);
-  assert(move->to < 64);
-  assert(move->from != move->to);
-  assert(move->promo == None || move->promo == Knight ||
-         move->promo == Bishop || move->promo == Rook || move->promo == Queen);
+static i32 makemove(Position *const restrict pos, const Move move) {
+  assert(move.from >= 0);
+  assert(move.from < 64);
+  assert(move.to >= 0);
+  assert(move.to < 64);
+  assert(move.from != move.to);
+  assert(move.promo == None || move.promo == Knight || move.promo == Bishop ||
+         move.promo == Rook || move.promo == Queen);
 
-  const u64 from = 1ull << move->from;
-  const u64 to = 1ull << move->to;
+  const u64 from = 1ull << move.from;
+  const u64 to = 1ull << move.to;
   const u64 mask = from | to;
 
-  assert(move->takes_piece != King);
-  assert(move->takes_piece == piece_on(pos, move->to));
-  const i32 piece = piece_on(pos, move->from);
+  assert(move.takes_piece != King);
+  assert(move.takes_piece == piece_on(pos, move.to));
+  const i32 piece = piece_on(pos, move.from);
   assert(piece != None);
 
   // Captures
-  if (move->takes_piece != None) {
+  if (move.takes_piece != None) {
     pos->colour[1] ^= to;
-    pos->pieces[move->takes_piece] ^= to;
+    pos->pieces[move.takes_piece] ^= to;
   }
 
   // Castling
   if (piece == King) {
-    const u64 bb = move->to - move->from == 2   ? 0xa0
-                   : move->from - move->to == 2 ? 0x9
-                                                : 0;
+    const u64 bb = move.to - move.from == 2   ? 0xa0
+                   : move.from - move.to == 2 ? 0x9
+                                              : 0;
     pos->colour[0] ^= bb;
     pos->pieces[Rook] ^= bb;
   }
@@ -545,14 +544,14 @@ static i32 makemove(Position *const restrict pos,
   pos->ep = 0;
 
   // Pawn double move
-  if (piece == Pawn && move->to - move->from == 16) {
+  if (piece == Pawn && move.to - move.from == 16) {
     pos->ep = to >> 8;
   }
 
   // Promotions
-  if (piece == Pawn && move->promo != None) {
+  if (piece == Pawn && move.promo != None) {
     pos->pieces[Pawn] ^= to;
-    pos->pieces[move->promo] ^= to;
+    pos->pieces[move.promo] ^= to;
   }
 
   // Update castling permissions
@@ -690,7 +689,7 @@ static void generate_piece_moves(Move *const restrict movelist,
     Position npos = *pos;
 
     // Check move legality
-    if (!makemove(&npos, &moves[i])) {
+    if (!makemove(&npos, moves[i])) {
       continue;
     }
 
@@ -859,7 +858,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
     (*nodes)++;
 #endif
-    if (!makemove(&npos, &stack[ply].moves[move_index])) {
+    if (!makemove(&npos, stack[ply].moves[move_index])) {
       continue;
     }
 
@@ -1150,7 +1149,7 @@ static void run() {
           if (!strcmp(line, move_name)) {
             stack[pos_history_count].history = pos;
             pos_history_count++;
-            makemove(&pos, &moves[i]);
+            makemove(&pos, moves[i]);
             break;
           }
         }
