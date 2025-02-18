@@ -750,7 +750,7 @@ static i32 eval(const Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 128, mate = 30000, inf = 40000 };
+enum { max_ply = 64, mate = 30000, inf = 40000 };
 static size_t start_time;
 static size_t total_time;
 
