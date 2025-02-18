@@ -1113,7 +1113,7 @@ static void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       total_time = 99999999999;
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(max_ply, &nodes, &pos, stack, pos_history_count);
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
@@ -1175,7 +1175,7 @@ static void run() {
           break;
         }
       }
-      iteratively_deepen(128, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(max_ply, &nodes, &pos, stack, pos_history_count);
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
