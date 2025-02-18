@@ -1148,11 +1148,11 @@ static void run() {
           char move_name[6];
           move_str(move_name, &moves[i], pos.flipped);
           if (!strcmp(line, move_name)) {
-            stack[pos_history_count].history = pos;
-            pos_history_count++;
             if (moves[i].takes_piece != None) {
               pos_history_count = 0;
             }
+            stack[pos_history_count].history = pos;
+            pos_history_count++;
             makemove(&pos, &moves[i]);
             break;
           }
