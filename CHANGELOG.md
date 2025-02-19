@@ -2737,3 +2737,21 @@ Score of 4k.c-0.102 vs stash16: 837 - 1122 - 341  [0.438] 2300
 ...      White vs Black: 1206 - 753 - 341  [0.598] 2300
 Elo difference: -43.3 +/- 13.2, LOS: 0.0 %, DrawRatio: 14.8 %
 ```
+
+### 0.103
+
+64 bit: 4072 bytes (-8)
+Fill: 1+6
+
+MD5: 9baf56adc83247f7e8a9594832ebce5f
+
+Make mate detection branchless
+
+```
+Elo   | -0.72 +- 2.94 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 1.30 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 22624 W: 7571 L: 7618 D: 7435
+Penta | [714, 1922, 6086, 1877, 713]
+https://gedas.pythonanywhere.com/test/301/
+```
