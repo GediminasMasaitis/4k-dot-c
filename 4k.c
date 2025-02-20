@@ -905,9 +905,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       if (score >= beta) {
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
+        move_history[pos->flipped][stack[ply].best_move.from]
+                    [stack[ply].best_move.to] += depth * depth;
         if (stack[ply].best_move.takes_piece == None) {
-          move_history[pos->flipped][stack[ply].best_move.from]
-                      [stack[ply].best_move.to] += depth * depth;
           stack[ply].killer = stack[ply].best_move;
         }
         break;
