@@ -426,7 +426,7 @@ static void move_str(char *restrict str, const Move *restrict move,
                                   const i32 sq) {
   assert(sq >= 0);
   assert(sq < 64);
-  for (i32 i = Pawn; i <= King; ++i) {
+  for (i32 i = None; i <= King; ++i) {
     if (pos->pieces[i] & 1ull << sq) {
       return i;
     }
@@ -560,6 +560,8 @@ static i32 makemove(Position *const restrict pos,
   pos->castling[3] &= !(mask & 0x1100000000000000ull);
   pos->castling[0] &= !(mask & 0x90ull);
   pos->castling[1] &= !(mask & 0x11ull);
+
+  pos->pieces[None] = ~(pos->colour[0] | pos->colour[1]);
 
   flip_pos(pos);
 
@@ -1047,7 +1049,7 @@ static void bench() {
 
   pos = (Position){.ep = 0,
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                   .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
+                   .pieces = {0x0000FFFFFFFF0000ull, 0xFF00000000FF00ull, 0x4200000000000042ull,
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
                    .castling = {true, true, true, true}};
@@ -1080,7 +1082,7 @@ static void run() {
 #ifdef FULL
   pos = (Position){.ep = 0,
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                   .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
+                   .pieces = {0x0000FFFFFFFF0000ull, 0xFF00000000FF00ull, 0x4200000000000042ull,
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
                    .castling = {true, true, true, true}};
@@ -1132,7 +1134,7 @@ static void run() {
     } else if (line[0] == 'p') {
       pos = (Position){.ep = 0,
                        .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                       .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
+                       .pieces = {0x0000FFFFFFFF0000ull, 0xFF00000000FF00ull, 0x4200000000000042ull,
                                   0x2400000000000024ull, 0x8100000000000081ull,
                                   0x800000000000008ull, 0x1000000000000010ull},
                        .castling = {true, true, true, true}};
