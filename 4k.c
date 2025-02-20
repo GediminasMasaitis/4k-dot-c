@@ -909,8 +909,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
           for (i32 prev_move_index = 0; prev_move_index < move_index; prev_move_index++) {
-            move_history[pos->flipped][stack[ply].moves[prev_move_index].from]
-              [stack[ply].moves[prev_move_index].to] -= depth * depth;
+            if (stack[ply].moves[prev_move_index].takes_piece == None) {
+              move_history[pos->flipped][stack[ply].moves[prev_move_index].from]
+                [stack[ply].moves[prev_move_index].to] -= depth * depth;
+            }
           }
           stack[ply].killer = stack[ply].best_move;
         }
