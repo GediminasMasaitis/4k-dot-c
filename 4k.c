@@ -801,7 +801,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64]) {
+                  i64 move_history[2][64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -871,13 +871,13 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #endif
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
-    u64 move_score = 0;
+    i64 move_score = 0;
 
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
-      const u64 order_move_score =
+      const i64 order_move_score =
           ((u64)(*(u64 *)&tt_move == *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
@@ -949,6 +949,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         if (stack[ply].best_move.takes_piece == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
+          for (i32 prev_move_index = 0; prev_move_index < move_index; prev_move_index++) {
+            move_history[pos->flipped][stack[ply].moves[prev_move_index].from]
+              [stack[ply].moves[prev_move_index].to] -= depth * depth;
+          }
           stack[ply].killer = stack[ply].best_move;
         }
         break;
@@ -975,7 +979,7 @@ static void iteratively_deepen(
 
 ) {
   start_time = get_time();
-  u64 move_history[2][64][64] = {0};
+  i64 move_history[2][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
     PvStack pv_stack[max_ply + 1];
