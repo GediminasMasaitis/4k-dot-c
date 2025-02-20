@@ -700,30 +700,30 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   100, 294, 308,
-                                                           496, 954, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   155,  396, 414,
+                                                           668, 1285, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -13, -12, -2, 38, 116, 0,   // Pawn
-    -31, -16, 0,   14,  25, 27, 7,   -26, // Knight
-    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
-    -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
+    0,   -35, -38, -37, -23, 30, 102, 0,   // Pawn
+    -42, -21, 0,   19,  34,  36, 9,   -35, // Knight
+    -34, -9,  4,   12,  18,  20, 3,   -13, // Bishop
+    -24, -31, -28, -11, 12,  25, 33,  25,  // Rook
+    -32, -20, -13, -4,  10,  24, 10,  23,  // Queen
+    -25, -17, -8,  7,   23,  31, 17,  -20, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -4,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
-    -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  2,  5,  -7,  // Bishop
-    -6,  1,  6,  8,  6,  3,  -1, -17, // Rook
-    -21, -9, 2,  5,  4,  6,  6,  7,   // Queen
-    -13, 3,  1,  -1, -3, -3, 7,  -9,  // King
+    -5,  5,   -7, -3, -1, 1,  18, -8,  // Pawn
+    -36, -9,  8,  20, 18, 16, 2,  -18, // Knight
+    -17, 0,   3,  7,  8,  2,  7,  -10, // Bishop
+    -8,  1,   8,  11, 8,  4,  -2, -22, // Rook
+    -28, -12, 2,  7,  6,  8,  8,  9,   // Queen
+    -17, 4,   1,  -2, -4, -4, 9,  -12, // King
 };
 
 static i32 eval(const Position *const restrict pos) {
-  i32 score = 16;
+  i32 score = 20;
   for (i32 c = 0; c < 2; c++) {
     if (count(pos->colour[c] & pos->pieces[Bishop]) == 2) {
-      score += 33;
+      score += 45;
     }
 
     const i32 sq_xor = c * 56;
@@ -848,7 +848,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // FORWARD FUTILITY PRUNING
     if (depth > 0 && depth < 8 && !in_check && moves_evaluated &&
-        static_eval + 128 * depth +
+        static_eval + 160 * depth +
                 material[stack[ply].moves[move_index].takes_piece] +
                 material[stack[ply].moves[move_index].promo] <
             alpha) {
