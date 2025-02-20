@@ -700,15 +700,15 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   100, 294, 308,
+__attribute__((aligned(8))) static const i16 material[] = {0,   115, 294, 308,
                                                            496, 954, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -13, -12, -2, 38, 116, 0,   // Pawn
-    -31, -16, 0,   14,  25, 27, 7,   -26, // Knight
-    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
-    -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
+    0,   -26, -28, -27, -17, 22, 76, 0,   // Pawn
+    -31, -16, 0,   14,  25,  27, 7,  -26, // Knight
+    -25, -7,  3,   9,   13,  15, 2,  -10, // Bishop
+    -18, -23, -21, -8,  9,   19, 24, 18,  // Rook
+    -23, -15, -10, -3,  8,   18, 8,  17,  // Queen
+    -18, -12, -6,  5,   17,  23, 12, -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
     -4,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
