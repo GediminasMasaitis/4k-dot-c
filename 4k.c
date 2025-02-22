@@ -700,37 +700,33 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   100, 294, 308,
-                                                           496, 954, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   101, 295, 310,
+                                                           499, 960, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -13, -12, -2, 38, 116, 0,   // Pawn
-    -31, -16, 0,   14,  25, 27, 7,   -26, // Knight
+    0,   -11, -13, -12, -2, 37, 116, 0,   // Pawn
+    -32, -16, 0,   14,  26, 27, 7,   -26, // Knight
     -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
-    -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
+    -18, -23, -21, -8,  9,  19, 24,  19,  // Rook
+    -24, -15, -10, -3,  8,  18, 8,   17,  // Queen
     -18, -12, -6,  5,   17, 23, 12,  -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -4,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
+    -4,  3,  -4, -2, 0,  2,  13, -8,  // Pawn
     -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  2,  5,  -7,  // Bishop
-    -6,  1,  6,  8,  6,  3,  -1, -17, // Rook
-    -21, -9, 2,  5,  4,  6,  6,  7,   // Queen
+    -13, -1, 2,  5,  6,  2,  5,  -7,  // Bishop
+    -6,  1,  6,  8,  6,  2,  -1, -17, // Rook
+    -21, -8, 2,  5,  5,  6,  6,  6,   // Queen
     -13, 3,  1,  -1, -3, -3, 7,  -9,  // King
 };
 
-static i32 eval(const Position *const restrict pos) {
+static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
-    if (count(pos->colour[c] & pos->pieces[Bishop]) == 2) {
-      score += 33;
-    }
 
-    const i32 sq_xor = c * 56;
     for (i32 p = Pawn; p <= King; p++) {
-      u64 copy = pos->colour[c] & pos->pieces[p];
+      u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
-        const i32 sq = lsb(copy) ^ sq_xor;
+        const i32 sq = lsb(copy);
         copy &= copy - 1;
 
         const int rank = sq >> 3;
@@ -745,7 +741,15 @@ static i32 eval(const Position *const restrict pos) {
       }
     }
 
+    if (count(pos->colour[0] & pos->pieces[Bishop]) == 2) {
+      score += 35;
+    }
+
+    const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
+    score -= 29 * count(own_pawns & north(own_pawns));
+
     score = -score;
+    flip_pos(pos);
   }
   return score;
 }
@@ -983,7 +987,7 @@ static void iteratively_deepen(
   putl("\n");
 }
 
-static void display_pos(const Position *pos) {
+static void display_pos(Position *const pos) {
   Position npos = *pos;
   if (npos.flipped) {
     flip_pos(&npos);

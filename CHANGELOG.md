@@ -2808,3 +2808,38 @@ Fill: 2+6
 MD5: 08967df5e61221b3a9410898de9690b8
 
 Smaller moves evaluated
+
+### 0.106
+
+64 bit: 4096 bytes (+32)
+Fill: 7+6
+
+MD5: 520c158f4c837eb6b813ea72e6c5eca2
+
+Doubled pawn evaluation
+
+```
+info depth 1 score cp 29 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 76 pv b1c3
+info depth 3 score cp 27 time 0 nodes 514 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1443 pv b1c3
+info depth 5 score cp 0 time 1 nodes 6130 nps 6130000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 17445 nps 8722500 pv b1c3
+info depth 7 score cp 8 time 7 nodes 48263 nps 6894714 pv b1c3
+info depth 8 score cp 16 time 23 nodes 149877 nps 6516391 pv b1c3
+info depth 9 score cp 8 time 110 nodes 708933 nps 6444845 pv e2e4
+info depth 10 score cp 16 time 388 nodes 2493586 nps 6426768 pv g1f3
+info depth 11 score cp 12 time 1194 nodes 7565504 nps 6336268 pv g1f3
+info depth 12 score cp 9 time 4183 nodes 25892201 nps 6189863 pv g1f3
+bestmove g1f3
+25892201 nodes 6188384 nps
+```
+
+```
+Elo   | 19.81 +- 9.48 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.11 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3442 W: 1339 L: 1143 D: 960
+Penta | [151, 346, 629, 346, 249]
+https://gedas.pythonanywhere.com/test/311/
+```
