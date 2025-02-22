@@ -2799,3 +2799,12 @@ Games | N: 17480 W: 5982 L: 5829 D: 5669
 Penta | [822, 1815, 3353, 1888, 862]
 https://gedas.pythonanywhere.com/test/290/
 ```
+
+### 0.105
+
+64 bit: 4064 bytes (-8)
+Fill: 2+6
+
+MD5: 08967df5e61221b3a9410898de9690b8
+
+Smaller moves evaluated

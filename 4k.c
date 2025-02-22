@@ -871,6 +871,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                         ? 1 + (alpha == beta - 1) + moves_evaluated / 16
                         : 1;
 
+    moves_evaluated++;
+
     i32 score;
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
@@ -886,8 +888,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       low = -beta;
       reduction = 1;
     }
-
-    moves_evaluated++;
 
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
