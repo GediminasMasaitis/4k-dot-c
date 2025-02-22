@@ -2955,11 +2955,55 @@ MD5: 178cc5ab64dfd1e91ec48caf2e3c5060
 
 Use current master branch of GCC for build
 
-```
+```py
 Score of 4k.c-dev vs 4k.c-0.109: 691 - 627 - 682  [0.516] 2000
 ...      4k.c-dev playing White: 421 - 239 - 341  [0.591] 1001
 ...      4k.c-dev playing Black: 270 - 388 - 341  [0.441] 999
 ...      White vs Black: 809 - 509 - 682  [0.575] 2000
 Elo difference: 11.1 +/- 12.4, LOS: 96.1 %, DrawRatio: 34.1 %
 Started game 2018 of 200000 (4k.c-0.109 vs 4k.c-dev)
+```
+
+### 0.111
+
+64 bit: 4096 bytes (+16)
+Fill: 7+6
+
+MD5: 500c5efd99ad1f46acfd46b8128e1d21
+
+Extended doubled pawn eval
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 75 pv b1c3
+info depth 3 score cp 26 time 1 nodes 493 nps 493000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1401 nps 1401000 pv b1c3
+info depth 5 score cp 0 time 1 nodes 5931 nps 5931000 pv b1c3
+info depth 6 score cp 16 time 3 nodes 16532 nps 5510666 pv b1c3
+info depth 7 score cp 8 time 7 nodes 45706 nps 6529428 pv b1c3
+info depth 8 score cp 16 time 24 nodes 158600 nps 6608333 pv b1c3
+info depth 9 score cp 9 time 76 nodes 490736 nps 6457052 pv b1c3
+info depth 10 score cp 14 time 269 nodes 1673529 nps 6221297 pv b1c3
+info depth 11 score cp 14 time 879 nodes 5303794 nps 6033895 pv b1c3
+info depth 12 score cp 12 time 3835 nodes 22196884 nps 5787974 pv d2d4
+bestmove d2d4
+22196884 nodes 5787974 nps
+```
+
+```py
+Elo   | 3.03 +- 2.28 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 58762 W: 21377 L: 20864 D: 16521
+Penta | [3303, 5776, 10886, 5937, 3479]
+https://gedas.pythonanywhere.com/test/350/
+```
+
+```py
+Elo   | 5.57 +- 8.07 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.84 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4550 W: 1599 L: 1526 D: 1425
+Penta | [247, 427, 853, 502, 246]
+https://gedas.pythonanywhere.com/test/351/
 ```
