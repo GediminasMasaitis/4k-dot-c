@@ -809,7 +809,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // REVERSE FUTILITY PRUNING
   if (!in_qsearch && alpha == beta - 1 && !in_check &&
-      static_eval - 64 * depth >= beta) {
+      static_eval - 48 * depth >= beta) {
     return static_eval;
   }
 
@@ -1054,7 +1054,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(12, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(13, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
