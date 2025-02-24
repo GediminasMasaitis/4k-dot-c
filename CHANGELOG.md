@@ -2015,7 +2015,7 @@ Retune eval for 16 tempo
 
 MD5: ed877c31f6e76028c56368b5af5af804
 
-```
+```py
 info depth 1 score cp 24 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 22 time 0 nodes 516 pv b1c3
@@ -2031,7 +2031,7 @@ bestmove b1c3
 11729785 nodes 4845016 nps
 ```
 
-```
+```py
 Elo   | 4.84 +- 3.84 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
@@ -2049,7 +2049,7 @@ Reverse bitboards
 MD5: cecf3ca2861b208f20fa5af4d1115656
 
 (This speed difference is much more pronounced on mini build)
-```
+```py
 info depth 1 score cp 24 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 22 time 0 nodes 516 pv b1c3
@@ -2065,7 +2065,7 @@ bestmove b1c3
 11729785 nodes 5744262 nps
 ```
 
-```
+```py
 Elo   | 43.28 +- 14.57 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
@@ -2074,7 +2074,7 @@ Penta | [53, 95, 283, 160, 107]
 https://gedas.pythonanywhere.com/test/115/
 ```
 
-```
+```py
 Score of 4k.c-0.84 vs stash12: 579 - 273 - 148  [0.653] 1000
 ...      4k.c-0.84 playing White: 329 - 105 - 66  [0.724] 500
 ...      4k.c-0.84 playing Black: 250 - 168 - 82  [0.582] 500
@@ -2096,7 +2096,7 @@ Retune eval with K=2.7
 
 MD5: 75ad68ea998fcb150a3a9a03433af149
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2112,7 +2112,7 @@ bestmove e2e4
 17643223 nodes 5455542 nps
 ```
 
-```
+```py
 Elo   | 4.44 +- 3.54 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
@@ -2129,7 +2129,7 @@ Reduce bytes by not flipping position in eval
 
 MD5: c054c12c4605c8821e3a2b3ccaca63ad
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2145,7 +2145,7 @@ bestmove e2e4
 17643223 nodes 5523864 nps
 ```
 
-```
+```py
 Elo   | -4.54 +- 3.49 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | -2.96 (-2.94, 2.94) [-5.00, 0.00]
@@ -2163,7 +2163,7 @@ Fill: 3
 
 MD5: 6284e220ed1575530e1227427c1bdef2
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2179,7 +2179,7 @@ bestmove e2e4
 17643223 nodes 5364312 nps
 ```
 
-```
+```py
 Elo   | -1.47 +- 1.73 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | -0.13 (-2.94, 2.94) [-5.00, 0.00]
@@ -2206,7 +2206,7 @@ Fill: 0
 
 MD5: 488a6cc0115df9928c2ffcb7dd5bf63d
 
-```
+```py
 info depth 1 score cp 28 time 1 nodes 20 nps 20000 pv b1c3
 info depth 2 score cp 16 time 1 nodes 76 nps 76000 pv b1c3
 info depth 3 score cp 26 time 1 nodes 516 nps 516000 pv b1c3
@@ -2222,7 +2222,7 @@ bestmove b1c3
 13720224 nodes 6130573 nps
 ```
 
-```
+```py
 Elo   | 47.26 +- 15.24 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
@@ -2231,7 +2231,7 @@ Penta | [50, 95, 249, 162, 106]
 https://gedas.pythonanywhere.com/test/142/
 ```
 
-```
+```py
 Score of 4k.c-0.89 vs stash12: 3492 - 1145 - 863  [0.713] 5500
 ...      4k.c-0.89 playing White: 1952 - 422 - 376  [0.778] 2750
 ...      4k.c-0.89 playing Black: 1540 - 723 - 487  [0.649] 2750
@@ -2264,12 +2264,12 @@ Killer heuristic and size reductions to fit it
 64 bit: 4096 bytes (=)
 Fill: 1
 
-```
+```py
 perft 6
 info depth 6 nodes 119060324 time 3597 nps 33099895
 ```
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2285,7 +2285,7 @@ bestmove d2d4
 13875847 nodes 6145193 nps
 ```
 
-```
+```py
 Elo   | 16.14 +- 8.60 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
@@ -2294,7 +2294,7 @@ Penta | [224, 374, 794, 441, 289]
 https://gedas.pythonanywhere.com/test/165/
 ```
 
-```
+```py
 Score of 4k.c-0.90 vs stash14: 1039 - 621 - 341  [0.604] 2001
 ...      4k.c-0.90 playing White: 600 - 223 - 178  [0.688] 1001
 ...      4k.c-0.90 playing Black: 439 - 398 - 163  [0.520] 1000
@@ -2321,12 +2321,12 @@ Reduce size by rewriting piece movegen
 64 bit: 3976 bytes (-120)
 Fill: 1
 
-```
+```py
 perft 6
 info depth 6 nodes 119060324 time 3595 nps 33118309
 ```
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2351,7 +2351,7 @@ Fill: 1+6
 
 MD5: 0ba3915d062dbad43df2a1a86c399acb
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2367,7 +2367,7 @@ bestmove b1c3
 14913502 nodes 5830141 nps
 ```
 
-```
+```py
 Elo   | 25.96 +- 11.23 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.02 (-2.94, 2.94) [0.00, 5.00]
@@ -2385,7 +2385,7 @@ Fill: 1+6
 
 MD5: 0ccb89edfee314dfb6fb9be4c134b509
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2401,7 +2401,7 @@ bestmove b1c3
 14913502 nodes 4920323 nps
 ```
 
-```
+```py
 Elo   | 9.13 +- 7.01 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [-5.00, 0.00]
@@ -2419,7 +2419,7 @@ Fill: 1+6
 
 MD5: 39de294a43458f4bf68989acbc220c85
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 1 nodes 516 nps 516000 pv b1c3
@@ -2435,7 +2435,7 @@ bestmove b1c3
 14913502 nodes 5953493 nps
 ```
 
-```
+```py
 Elo   | 7.90 +- 5.26 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
@@ -2453,7 +2453,7 @@ Fill: 4+6
 
 MD5: 4677ae9d3a62d9c8bbf3ce6ab744b8ca
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2469,7 +2469,7 @@ bestmove b1c3
 14956082 nodes 5846787 nps
 ```
 
-```
+```py
 Elo   | 4.21 +- 5.57 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.95 (-2.94, 2.94) [-5.00, 0.00]
@@ -2487,7 +2487,7 @@ Fill: 4+6
 
 MD5: 866e9de7020cb42d2235fdbc34f10d75
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2503,7 +2503,7 @@ bestmove b1c3
 15146501 nodes 5974951 nps
 ```
 
-```
+```py
 Elo   | 4.32 +- 4.99 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [-5.00, 0.00]
@@ -2521,7 +2521,7 @@ Fill: 6
 
 MD5: 9a477d93b47fa7478a4915e0a2b58c10
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 516 pv b1c3
@@ -2537,7 +2537,7 @@ bestmove d2d4
 14133336 nodes 6366367 nps
 ```
 
-```
+```py
 Elo   | 15.67 +- 8.47 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.90 (-2.94, 2.94) [0.00, 5.00]
@@ -2546,7 +2546,7 @@ Penta | [189, 352, 817, 410, 251]
 https://gedas.pythonanywhere.com/test/213/
 ```
 
-```
+```py
 Score of 4k.c-0.97 vs stash15: 437 - 376 - 187  [0.530] 1000
 ...      4k.c-0.97 playing White: 271 - 132 - 97  [0.639] 500
 ...      4k.c-0.97 playing Black: 166 - 244 - 90  [0.422] 500
@@ -2569,7 +2569,7 @@ Fill: 1+6
 
 MD5: 541add2730303f5295dad30d710feab2
 
-```
+```py
 info depth 1 score cp 28 time 1 nodes 20 nps 20000 pv b1c3
 info depth 2 score cp 16 time 1 nodes 76 nps 76000 pv b1c3
 info depth 3 score cp 26 time 1 nodes 514 nps 514000 pv b1c3
@@ -2585,7 +2585,7 @@ bestmove b1c3
 15889443 nodes 6055427 nps
 ```
 
-```
+```py
 Elo   | -2.16 +- 2.05 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | -0.57 (-2.94, 2.94) [-5.00, 0.00]
@@ -2603,7 +2603,7 @@ Fill: 2+6
 
 MD5: 4fe6511f871edba5485a4169310e93dd
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 514 pv b1c3
@@ -2619,7 +2619,7 @@ bestmove b1c3
 14434289 nodes 6176418 nps
 ```
 
-```
+```py
 Elo   | 9.14 +- 6.07 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
@@ -2628,7 +2628,7 @@ Penta | [390, 826, 1432, 911, 453]
 https://gedas.pythonanywhere.com/test/227/
 ```
 
-```
+```py
 Score of 4k.c-0.99 vs stash15: 477 - 378 - 145  [0.549] 1000
 ...      4k.c-0.99 playing White: 281 - 145 - 74  [0.636] 500
 ...      4k.c-0.99 playing Black: 196 - 233 - 71  [0.463] 500
@@ -2645,7 +2645,7 @@ Fill: 6+6
 
 MD5: ee6667f63ad57feda7bcba60d59e5261
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 514 pv b1c3
@@ -2661,7 +2661,7 @@ bestmove b1c3
 14434289 nodes 6449637 nps
 ```
 
-```
+```py
 Elo   | 1.23 +- 3.63 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.00 (-2.94, 2.94) [-5.00, 0.00]
@@ -2679,7 +2679,7 @@ MD5: 4b16f2f7f3afd2cc13166b9cd7d932ab
 
 No ply check for early exits
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 26 time 0 nodes 514 pv b1c3
@@ -2695,7 +2695,7 @@ bestmove b1c3
 14434289 nodes 6197633 nps
 ```
 
-```
+```py
 Elo   | 0.89 +- 3.54 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [-5.00, 0.00]
@@ -2713,7 +2713,7 @@ MD5: 50f9262d999f4878b0d0d1875984035a
 
 Reset history on capture
 
-```
+```py
 Elo   | 8.95 +- 5.63 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
@@ -2722,7 +2722,7 @@ Penta | [203, 553, 1726, 583, 274]
 https://gedas.pythonanywhere.com/test/298/
 ```
 
-```
+```py
 Score of 4k.c-0.102 vs stash15: 931 - 742 - 327  [0.547] 2000
 ...      4k.c-0.102 playing White: 567 - 290 - 142  [0.639] 999
 ...      4k.c-0.102 playing Black: 364 - 452 - 185  [0.456] 1001
@@ -2730,7 +2730,7 @@ Score of 4k.c-0.102 vs stash15: 931 - 742 - 327  [0.547] 2000
 Elo difference: 32.9 +/- 14.0, LOS: 100.0 %, DrawRatio: 16.4 %
 ```
 
-```
+```py
 Score of 4k.c-0.102 vs stash16: 837 - 1122 - 341  [0.438] 2300
 ...      4k.c-0.102 playing White: 528 - 444 - 179  [0.536] 1151
 ...      4k.c-0.102 playing Black: 309 - 678 - 162  [0.339] 1149
@@ -2747,7 +2747,7 @@ MD5: 9baf56adc83247f7e8a9594832ebce5f
 
 Make mate detection branchless
 
-```
+```py
 Elo   | -0.72 +- 2.94 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 1.30 (-2.94, 2.94) [-5.00, 0.00]
@@ -2765,7 +2765,7 @@ MD5: 8a5543c033890e9e1e16b416cc24c147
 
 Reverse futility pruning margin 48
 
-```
+```py
 info depth 1 score cp 28 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 1 nodes 76 nps 76000 pv b1c3
 info depth 3 score cp 26 time 1 nodes 514 nps 514000 pv b1c3
@@ -2782,7 +2782,7 @@ bestmove b1c3
 27934527 nodes 5934677 nps
 ```
 
-```
+```py
 Elo   | 7.35 +- 5.22 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.04 (-2.94, 2.94) [0.00, 5.00]
@@ -2791,7 +2791,7 @@ Penta | [591, 1084, 2081, 1148, 677]
 https://gedas.pythonanywhere.com/test/288/
 ```
 
-```
+```py
 Elo   | 3.04 +- 3.98 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
 LLR   | 1.04 (-2.94, 2.94) [0.00, 5.00]
@@ -2818,7 +2818,7 @@ MD5: 520c158f4c837eb6b813ea72e6c5eca2
 
 Doubled pawn evaluation
 
-```
+```py
 info depth 1 score cp 29 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 76 pv b1c3
 info depth 3 score cp 27 time 0 nodes 514 pv b1c3
@@ -2835,7 +2835,7 @@ bestmove g1f3
 25892201 nodes 6188384 nps
 ```
 
-```
+```py
 Elo   | 19.81 +- 9.48 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.11 (-2.94, 2.94) [0.00, 5.00]
@@ -2844,7 +2844,7 @@ Penta | [151, 346, 629, 346, 249]
 https://gedas.pythonanywhere.com/test/311/
 ```
 
-```
+```py
 Score of 4k.c-0.106 vs stash15: 472 - 363 - 166  [0.554] 1001
 ...      4k.c-0.106 playing White: 270 - 157 - 74  [0.613] 501
 ...      4k.c-0.106 playing Black: 202 - 206 - 92  [0.496] 500
@@ -2856,4 +2856,56 @@ Score of 4k.c-0.106 vs stash16: 758 - 937 - 305  [0.455] 2000
 ...      4k.c-0.106 playing Black: 277 - 562 - 161  [0.357] 1000
 ...      White vs Black: 1043 - 652 - 305  [0.598] 2000
 Elo difference: -31.2 +/- 14.1, LOS: 0.0 %, DrawRatio: 15.3 %
+```
+
+### 0.107
+
+64 bit: 4096 bytes (=)
+Fill: 6
+
+MD5: 3a0f8572f63294014ed05186e57c957a
+
+Allow FFP in QS
+
+```py
+info depth 1 score cp 29 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 75 nps 75000 pv b1c3
+info depth 3 score cp 27 time 1 nodes 493 nps 493000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1401 nps 1401000 pv b1c3
+info depth 5 score cp 0 time 1 nodes 5874 nps 5874000 pv b1c3
+info depth 6 score cp 16 time 3 nodes 16472 nps 5490666 pv b1c3
+info depth 7 score cp 8 time 7 nodes 45508 nps 6501142 pv b1c3
+info depth 8 score cp 16 time 24 nodes 157408 nps 6558666 pv b1c3
+info depth 9 score cp 6 time 78 nodes 508892 nps 6524256 pv b1c3
+info depth 10 score cp 16 time 245 nodes 1564690 nps 6386489 pv b1c3
+info depth 11 score cp 10 time 1022 nodes 6323987 nps 6187854 pv b1c3
+info depth 12 score cp 15 time 4528 nodes 26860197 nps 5932022 pv g1f3
+bestmove g1f3
+26860197 nodes 5932022 nps
+```
+
+```py
+Elo   | 7.28 +- 5.26 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 10880 W: 4037 L: 3809 D: 3034
+Penta | [578, 1031, 2061, 1125, 645]
+https://gedas.pythonanywhere.com/test/326/
+```
+
+```py
+Elo   | 3.18 +- 4.29 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 1.01 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 15280 W: 5259 L: 5119 D: 4902
+Penta | [700, 1684, 2803, 1682, 771]
+https://gedas.pythonanywhere.com/test/328/
+```
+
+```py
+Score of 4k.c-0.107 vs stash15: 965 - 736 - 299  [0.557] 2000
+...      4k.c-0.107 playing White: 568 - 298 - 133  [0.635] 999
+...      4k.c-0.107 playing Black: 397 - 438 - 166  [0.480] 1001
+...      White vs Black: 1006 - 695 - 299  [0.578] 2000
+Elo difference: 40.0 +/- 14.1, LOS: 100.0 %, DrawRatio: 14.9 %
 ```
