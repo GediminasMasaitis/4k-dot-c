@@ -700,8 +700,8 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   101, 295, 310,
-                                                           499, 960, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   101, 295,
+                                                           310, 499, 960};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -11, -13, -12, -2, 37, 116, 0,   // Pawn
     -32, -16, 0,   14,  26, 27, 7,   -26, // Knight
@@ -853,7 +853,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // FORWARD FUTILITY PRUNING
-    if (depth > 0 && depth < 8 && !in_check && moves_evaluated &&
+    if (depth < 8 && !in_check && moves_evaluated &&
         static_eval + 128 * depth +
                 material[stack[ply].moves[move_index].takes_piece] +
                 material[stack[ply].moves[move_index].promo] <
