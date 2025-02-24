@@ -742,7 +742,7 @@ static i32 eval(Position *const restrict pos) {
     }
 
     // BISHOP PAIR
-    if (count(pos->colour[0] & pos->pieces[Bishop]) == 2) {
+    if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
       score += 35;
     }
 
@@ -853,7 +853,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // FORWARD FUTILITY PRUNING
-    if (depth > 0 && depth < 8 && !in_check && moves_evaluated &&
+    if (depth < 8 && !in_check && moves_evaluated &&
         static_eval + 128 * depth +
                 material[stack[ply].moves[move_index].takes_piece] +
                 material[stack[ply].moves[move_index].promo] <
@@ -872,12 +872,12 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
 
+    moves_evaluated++;
+
     // LATE MOVE REDCUCTION
-    i32 reduction = depth > 1 && moves_evaluated > 5
+    i32 reduction = depth > 1 && moves_evaluated > 6
                         ? 1 + (alpha == beta - 1) + moves_evaluated / 16
                         : 1;
-
-    moves_evaluated++;
 
     i32 score;
     while (true) {
