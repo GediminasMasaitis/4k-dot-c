@@ -359,11 +359,13 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 }
 
 static u64 *diag_mask;
+static u64 *file_mask;
 
 static void init_diag_masks() {
   for (i32 sq = 0; sq < 64; sq++) {
     diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
                     ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
+    file_mask[sq] = 1ULL << sq ^ 0x101010101010101ULL << sq % 8;
   }
 }
 
@@ -378,7 +380,7 @@ static void init_diag_masks() {
 [[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
-  return xattack(sq, blockers, 1ULL << sq ^ 0x101010101010101ULL << sq % 8) |
+  return xattack(sq, blockers, file_mask[sq]) |
          ray(sq, blockers, 1, ~0x101010101010101ull)      // East
          | ray(sq, blockers, -1, ~0x8080808080808080ull); // West
 }
@@ -1080,7 +1082,9 @@ static void run() {
   i32 pos_history_count;
   SearchStack stack[1024];
   u64 diag_mask_local[64];
+  u64 file_mask_local[64];
   diag_mask = diag_mask_local;
+  file_mask = file_mask_local;
   init_diag_masks();
 
 #ifdef FULL
@@ -1208,7 +1212,9 @@ int main(int argc, char **argv) {
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
     u64 diag_mask_local[64];
+    u64 file_mask_local[64];
     diag_mask = diag_mask_local;
+    file_mask = file_mask_local;
     init_diag_masks();
     bench();
     exit_now();
