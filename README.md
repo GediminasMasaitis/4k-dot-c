@@ -8,7 +8,7 @@ The engine is a <= 4096 byte UCI engine executable, without:
 * On-the-fly compilation
 
 ### Current specifications
-64 bit: 4064 bytes
+64 bit: 4096 bytes
 
 ### How to install gcc 14.2:
 ```bash

@@ -2918,3 +2918,38 @@ Fill: 5+6
 MD5: 21ab23f4d401783868632f2a1b602829
 
 Smaller pawn movegen
+
+### 0.109
+
+64 bit: 4096 bytes (=)
+Fill: 3+6
+
+MD5: 311463e72b58ae493354570a2240c895
+
+Quadratic FFP
+
+```py
+info depth 1 score cp 29 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 75 pv b1c3
+info depth 3 score cp 27 time 0 nodes 206 pv b1c3
+info depth 4 score cp 16 time 0 nodes 827 pv b1c3
+info depth 5 score cp 0 time 0 nodes 3546 pv b1c3
+info depth 6 score cp 16 time 1 nodes 9391 nps 9391000 pv b1c3
+info depth 7 score cp 8 time 4 nodes 29313 nps 7328250 pv b1c3
+info depth 8 score cp 16 time 16 nodes 108405 nps 6775312 pv b1c3
+info depth 9 score cp 8 time 79 nodes 516477 nps 6537683 pv e2e4
+info depth 10 score cp 12 time 274 nodes 1762995 nps 6434288 pv e2e4
+info depth 11 score cp 10 time 1309 nodes 8116105 nps 6200233 pv g1f3
+info depth 12 score cp 10 time 3299 nodes 19974290 nps 6054649 pv g1f3
+bestmove g1f3
+19974290 nodes 6054649 nps
+```
+
+```py
+Elo   | 6.17 +- 4.65 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 14014 W: 5126 L: 4877 D: 4011
+Penta | [735, 1404, 2583, 1447, 838]
+https://gedas.pythonanywhere.com/test/337/
+```
