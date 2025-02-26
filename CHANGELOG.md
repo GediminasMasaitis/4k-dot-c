@@ -2909,3 +2909,12 @@ Score of 4k.c-0.107 vs stash15: 965 - 736 - 299  [0.557] 2000
 ...      White vs Black: 1006 - 695 - 299  [0.578] 2000
 Elo difference: 40.0 +/- 14.1, LOS: 100.0 %, DrawRatio: 14.9 %
 ```
+
+### 0.108
+
+64 bit: 4096 bytes (=)
+Fill: 5+6
+
+MD5: 21ab23f4d401783868632f2a1b602829
+
+Smaller pawn movegen
