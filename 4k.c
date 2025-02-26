@@ -470,11 +470,11 @@ static void flip_pos(Position *const restrict pos) {
     moves = king(sq);
   } else {
     const u64 blockers = pos->colour[0] | pos->colour[1];
-    if (piece == Bishop || piece == Queen) {
-      moves |= bishop(sq, blockers);
-    }
     if (piece == Rook || piece == Queen) {
       moves |= rook(sq, blockers);
+    }
+    if (piece == Bishop || piece == Queen) {
+      moves |= bishop(sq, blockers);
     }
   }
   return moves;
