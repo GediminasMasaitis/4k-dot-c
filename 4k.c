@@ -858,7 +858,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                 material[stack[ply].moves[move_index].takes_piece] +
                 material[stack[ply].moves[move_index].promo] <
             alpha) {
-      break;
+      return static_eval;
     }
 
     Position npos = *pos;
