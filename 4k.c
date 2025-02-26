@@ -645,19 +645,22 @@ static void generate_piece_moves(Move *const restrict movelist,
   i32 num_moves = 0;
   const u64 all = pos->colour[0] | pos->colour[1];
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
-  const u64 pawns = pos->colour[0] & pos->pieces[Pawn];
   if (!only_captures) {
-    generate_pawn_moves(pos, movelist, &num_moves,
-                        north(north(pawns & 0xFF00) & ~all) & ~all, -16);
+    generate_pawn_moves(
+        pos, movelist, &num_moves,
+        north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all,
+        -16);
   }
   generate_pawn_moves(pos, movelist, &num_moves,
-                      north(pawns) & ~all &
+                      north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
                           (only_captures ? 0xFF00000000000000ull : ~0ull),
                       -8);
-  generate_pawn_moves(pos, movelist, &num_moves,
-                      nw(pawns) & (pos->colour[1] | pos->ep), -7);
-  generate_pawn_moves(pos, movelist, &num_moves,
-                      ne(pawns) & (pos->colour[1] | pos->ep), -9);
+  generate_pawn_moves(
+      pos, movelist, &num_moves,
+      nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -7);
+  generate_pawn_moves(
+      pos, movelist, &num_moves,
+      ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
   if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 5, true)) {
     movelist[num_moves++] = (Move){4, 6, None, None};
