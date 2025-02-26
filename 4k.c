@@ -1051,7 +1051,7 @@ static void bench() {
   Position pos;
   Move moves[256];
   i32 num_moves;
-  i32 pos_history_count;
+  i32 pos_history_count = 0;
   SearchStack stack[1024];
 
   pos = (Position){.ep = 0,
