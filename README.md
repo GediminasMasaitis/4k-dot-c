@@ -27,5 +27,14 @@ sudo update-alternatives --install /usr/bin/gcc gcc /usr/local/gcc-14.2.0/bin/gc
 
 Change `-j 4` to your core count for faster building
 
+### How to contribute
+
+* You must have the *correct* gcc-14.2 version on your system. I have seen instances where people have gcc 14.2 and it produces binaries around 100 bytes larger. I think the only way to esnsure it's the correct version is to try to build it and check the output of the build.
+* To check the binary size, run `make NOSTDLIB=true MINI=true`, with no changes it should report a size (and hopefully md5) that is matching the one in the last log of CHANGELOG.md
+* To get the latest bench, run `make && ./build/4kc bench`
+* If you have a size reduction, just PR it.
+* If you have an idea for an elo improvement, also PR it, I will run it through.
+* All PRs are welcome, I will sort though them
+
 ## Thanks
 * **zamfofex** for helping with initial set up of a minimal Hello World executable and helping with 64 bit compilation, reducing code size

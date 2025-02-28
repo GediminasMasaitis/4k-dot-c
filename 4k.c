@@ -237,7 +237,6 @@ static bool getl(char *restrict string) {
 
     const char c = getchar();
 
-    // Assume stdin never closes on mini build
     if (c == EOF) {
       exit_now();
     }

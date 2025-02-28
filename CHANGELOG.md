@@ -2909,3 +2909,39 @@ Score of 4k.c-0.107 vs stash15: 965 - 736 - 299  [0.557] 2000
 ...      White vs Black: 1006 - 695 - 299  [0.578] 2000
 Elo difference: 40.0 +/- 14.1, LOS: 100.0 %, DrawRatio: 14.9 %
 ```
+
+### 0.108
+
+64 bit: 4096 bytes (=)
+Fill: 5+6
+
+MD5: 5edc18c5ad92e7debfd9ec9d222cc5aa
+
+Smaller mobility
+
+```py
+Elo   | 4.37 +- 4.91 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 7548 W: 2716 L: 2621 D: 2211
+Penta | [217, 527, 2226, 552, 252]
+https://gedas.pythonanywhere.com/test/348/
+```
+
+### 0.109
+
+64 bit: 4088 bytes (-8)
+Fill: 2+6
+
+MD5: be06d3d881e6313d8ae7326cd04cdec0
+
+Smaller pawn movegen
+
+```py
+Elo   | 0.02 +- 2.39 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 28018 W: 9970 L: 9968 D: 8080
+Penta | [756, 1781, 8949, 1751, 772]
+https://gedas.pythonanywhere.com/test/345/
+```
