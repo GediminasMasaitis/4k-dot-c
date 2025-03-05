@@ -924,7 +924,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
+  if (ply > 0 && !in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
     if (static_eval - 42 * depth >= beta) {
       return static_eval;
@@ -935,7 +935,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // NULL MOVE PRUNING
-  if (depth > 2 && do_null && static_eval >= beta && alpha == beta - 1 &&
+  if (ply > 0 && depth > 2 && do_null && static_eval >= beta && alpha == beta - 1 &&
       !in_check) {
     Position npos = *pos;
     flip_pos(&npos);
@@ -1055,16 +1055,26 @@ static void iteratively_deepen(
 ) {
   start_time = get_time();
   u64 move_history[2][64][64] = {0};
+  i32 score = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    i32 score = search(pos, 0, depth, -inf, inf,
+    i32 window = 64;
+    while (true) {
+      const i32 alpha = score - window;
+      const i32 beta = score + window;
+      score = search(pos, 0, depth, alpha, beta,
 #ifdef FULL
                        nodes,
 #endif
                        stack, pos_history_count, move_history, false);
+      if (score > alpha && score < beta) {
+        break;
+      }
+      window = inf;
+    }
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
