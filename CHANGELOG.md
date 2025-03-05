@@ -2945,3 +2945,21 @@ Games | N: 28018 W: 9970 L: 9968 D: 8080
 Penta | [756, 1781, 8949, 1751, 772]
 https://gedas.pythonanywhere.com/test/345/
 ```
+
+### 0.110
+
+64 bit: 4080 bytes (-8)
+Fill: 1+6
+
+MD5: 178cc5ab64dfd1e91ec48caf2e3c5060
+
+Use current master branch of GCC for build
+
+```
+Score of 4k.c-dev vs 4k.c-0.109: 691 - 627 - 682  [0.516] 2000
+...      4k.c-dev playing White: 421 - 239 - 341  [0.591] 1001
+...      4k.c-dev playing Black: 270 - 388 - 341  [0.441] 999
+...      White vs Black: 809 - 509 - 682  [0.575] 2000
+Elo difference: 11.1 +/- 12.4, LOS: 96.1 %, DrawRatio: 34.1 %
+Started game 2018 of 200000 (4k.c-0.109 vs 4k.c-dev)
+```
