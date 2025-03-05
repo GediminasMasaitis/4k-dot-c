@@ -792,11 +792,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     depth++;
   }
 
-  // EARLY EXITS
-  if (depth > 4 && get_time() - start_time > total_time / 4) {
-    return alpha;
-  }
-
   // FULL REPETITION DETECTION
   const bool in_qsearch = depth <= 0;
   for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
@@ -891,6 +886,11 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
+      }
+
+      // EARLY EXITS
+      if (depth > 4 && get_time() - start_time > total_time / 4) {
+        return alpha;
       }
 
       low = -beta;
