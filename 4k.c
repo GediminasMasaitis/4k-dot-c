@@ -630,7 +630,7 @@ static void generate_piece_moves(Move *const restrict movelist,
         assert(to >= 0);
         assert(to < 64);
         moves &= moves - 1;
-        movelist[(*num_moves)++] = (Move){from, to, None, piece_on(pos, to) };
+        movelist[(*num_moves)++] = (Move){from, to, None, piece_on(pos, to)};
         assert(*num_moves < 256);
       }
     }
@@ -701,23 +701,23 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   102, 296, 311,
-                                                           500, 962, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   96,  293, 320,
+                                                          498, 959, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -11, -13, -12, -1, 37, 117, 0,   // Pawn
-    -31, -16, 0,   14,  25, 27, 7,   -26, // Knight
-    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  19,  // Rook
-    -24, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
+    0,   -9,  -17, -13, -1, 40, 117, 0,   // Pawn
+    -33, -18, -1,  14,  26, 28, 8,   -25, // Knight
+    -24, -5,  4,   9,   13, 14, 1,   -12, // Bishop
+    -18, -24, -20, -8,  9,  19, 23,  18,  // Rook
+    -24, -15, -9,  -2,  8,  18, 7,   17,  // Queen
+    -19, -13, -6,  5,   18, 23, 12,  -16, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -5,  3,  -4, -2, 0,  3,  13, -8,  // Pawn
-    -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  2,  5,  -7,  // Bishop
+    -2,  2,  -4, -2, -1, 1,  11, -5,  // Pawn
+    -28, -7, 6,  15, 14, 13, 2,  -14, // Knight
+    -13, -1, 2,  5,  6,  2,  5,  -7,  // Bishop
     -6,  1,  6,  8,  6,  2,  -1, -17, // Rook
-    -21, -9, 2,  5,  5,  6,  6,  6,   // Queen
-    -13, 3,  1,  -1, -3, -3, 7,  -9,  // King
+    -21, -9, 2,  5,  4,  6,  6,  7,   // Queen
+    -13, 3,  0,  -1, -3, -3, 7,  -9,  // King
 };
 
 static i32 eval(Position *const restrict pos) {
@@ -742,15 +742,9 @@ static i32 eval(Position *const restrict pos) {
       }
     }
 
-    // BISHOP PAIR
-    if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
-      score += 35;
-    }
-
-    // DOUBLED PAWNS
+    // PROTECTED PAWNS
     const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
-    score -=
-        25 * count(own_pawns & (north(own_pawns) | north(north(own_pawns))));
+    score += 12 * count(own_pawns & (nw(own_pawns) | ne(own_pawns)));
 
     score = -score;
     flip_pos(pos);
