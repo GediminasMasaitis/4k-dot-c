@@ -630,8 +630,7 @@ static void generate_piece_moves(Move *const restrict movelist,
         assert(to >= 0);
         assert(to < 64);
         moves &= moves - 1;
-        const u8 takes = piece_on(pos, to);
-        movelist[(*num_moves)++] = (Move){from, to, None, takes};
+        movelist[(*num_moves)++] = (Move){from, to, None, piece_on(pos, to) };
         assert(*num_moves < 256);
       }
     }

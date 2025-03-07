@@ -3007,3 +3007,20 @@ Games | N: 4550 W: 1599 L: 1526 D: 1425
 Penta | [247, 427, 853, 502, 246]
 https://gedas.pythonanywhere.com/test/351/
 ```
+
+```py
+Score of 4k.c-0.111 vs stash15: 2438 - 1810 - 752  [0.563] 5000
+...      4k.c-0.111 playing White: 1409 - 763 - 329  [0.629] 2501
+...      4k.c-0.111 playing Black: 1029 - 1047 - 423  [0.496] 2499
+...      White vs Black: 2456 - 1792 - 752  [0.566] 5000
+Elo difference: 43.9 +/- 8.9, LOS: 100.0 %, DrawRatio: 15.0 %
+```
+
+### 0.112
+
+64 bit: 4088 bytes (-8)
+Fill: 2+6
+
+MD5: 6d756d2fa5902ca32224f634293631e0
+
+Smaller piece takes
