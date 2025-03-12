@@ -3024,3 +3024,59 @@ Fill: 2+6
 MD5: 6d756d2fa5902ca32224f634293631e0
 
 Smaller piece takes
+
+### 0.113
+
+64 bit: 4088 bytes (=)
+Fill: 7+6
+
+MD5: efee3c92cc4cb1f11dc752e06989b3ae
+
+More aggressive TM
+
+```py
+Elo   | 17.66 +- 8.85 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3466 W: 1286 L: 1110 D: 1070
+Penta | [136, 324, 695, 384, 194]
+https://gedas.pythonanywhere.com/test/368/
+```
+
+With adjudication:
+```py
+Elo   | 17.31 +- 8.67 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3476 W: 1253 L: 1080 D: 1143
+Penta | [127, 331, 702, 398, 180]
+https://gedas.pythonanywhere.com/test/366/
+```
+
+Without adjudication:
+```py
+Elo   | 9.79 +- 6.19 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6742 W: 2281 L: 2091 D: 2370
+Penta | [265, 680, 1333, 786, 307]
+https://gedas.pythonanywhere.com/test/367/
+```
+
+```py
+Score of 4k.c-0.113 vs stash15: 3409 - 2553 - 1038  [0.561] 7000
+...      4k.c-0.113 playing White: 2005 - 1010 - 485  [0.642] 3500
+...      4k.c-0.113 playing Black: 1404 - 1543 - 553  [0.480] 3500
+...      White vs Black: 3548 - 2414 - 1038  [0.581] 7000
+Elo difference: 42.7 +/- 7.5, LOS: 100.0 %, DrawRatio: 14.8 %
+```
+
+```py
+Score of 4k.c-0.113 vs stash16: 1962 - 2304 - 734  [0.466] 5000
+...      4k.c-0.113 playing White: 1192 - 939 - 369  [0.551] 2500
+...      4k.c-0.113 playing Black: 770 - 1365 - 365  [0.381] 2500
+...      White vs Black: 2557 - 1709 - 734  [0.585] 5000
+Elo difference: -23.8 +/- 8.9, LOS: 0.0 %, DrawRatio: 14.7 %
+```
+
+No losses on time observed
