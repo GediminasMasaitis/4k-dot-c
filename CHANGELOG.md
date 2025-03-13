@@ -3080,3 +3080,29 @@ Elo difference: -23.8 +/- 8.9, LOS: 0.0 %, DrawRatio: 14.7 %
 ```
 
 No losses on time observed
+
+### 0.114
+
+64 bit: 4096 bytes (+8)
+Fill: 2+6
+
+MD5: 555b5c3a4288257c0b687325eb71d67b
+
+Open files evaluation, deleting bishop pair and doubled pawns
+
+```py
+Elo   | 24.17 +- 10.85 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.04 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2808 W: 1127 L: 932 D: 749
+Penta | [147, 242, 502, 295, 218]
+https://gedas.pythonanywhere.com/test/372/
+```
+
+```py
+Score of 4k.c-0.114 vs stash16: 2110 - 2073 - 817  [0.504] 5000
+...      4k.c-0.114 playing White: 1267 - 817 - 415  [0.590] 2499
+...      4k.c-0.114 playing Black: 843 - 1256 - 402  [0.417] 2501
+...      White vs Black: 2523 - 1660 - 817  [0.586] 5000
+Elo difference: 2.6 +/- 8.8, LOS: 71.6 %, DrawRatio: 16.3 %
+```
