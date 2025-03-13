@@ -922,7 +922,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // MATE / STALEMATE DETECTION
   if (moves_evaluated == 0 && !in_qsearch) {
-    return -mate * in_check;
+    return (ply-mate) * in_check;
   }
 
   return alpha;
