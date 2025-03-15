@@ -3106,3 +3106,21 @@ Score of 4k.c-0.114 vs stash16: 2110 - 2073 - 817  [0.504] 5000
 ...      White vs Black: 2523 - 1660 - 817  [0.586] 5000
 Elo difference: 2.6 +/- 8.8, LOS: 71.6 %, DrawRatio: 16.3 %
 ```
+
+### 0.115
+
+64 bit: 4096 bytes (=)
+Fill: 1+6
+
+MD5: 9bf8206f28d307d02b72661779288915
+
+Branchless open files
+
+```py
+Elo   | 4.61 +- 3.49 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 14018 W: 5088 L: 4902 D: 4028
+Penta | [370, 947, 4248, 1015, 429]
+https://gedas.pythonanywhere.com/test/376/
+```

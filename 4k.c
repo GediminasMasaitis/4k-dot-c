@@ -735,9 +735,7 @@ static i32 eval(Position *const restrict pos) {
         copy &= copy - 1;
 
         // OPEN FILES / DOUBLED PAWNS
-        if ((0x101010101010101ULL << sq % 8 & ~(1ULL << sq) & own_pawns) == 0) {
-          score += open_files[p];
-        }
+        score += open_files[p] * ((0x101010101010101ULL << sq % 8 & ~(1ULL << sq) & own_pawns) == 0);
 
         const int rank = sq >> 3;
         const int file = sq & 7;
