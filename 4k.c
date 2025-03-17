@@ -859,15 +859,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
     }
 
-    // FORWARD FUTILITY PRUNING
-    if (depth < 8 && !in_check && moves_evaluated &&
-        static_eval + 128 * depth +
-                material[stack[ply].moves[move_index].takes_piece] +
-                material[stack[ply].moves[move_index].promo] <
-            alpha) {
-      break;
-    }
-
     Position npos = *pos;
 #ifdef FULL
     (*nodes)++;
