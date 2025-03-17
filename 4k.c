@@ -64,7 +64,8 @@ static void exit_now() {
 #ifdef ARCH32
   _sys(1, 0, 0, 0);
 #else
-  _sys(60, 0, 0, 0);
+  asm volatile("movl $60, %eax\n\t" // syscall number for exit
+               "syscall");          // invoke syscall
 #endif
 }
 
@@ -326,7 +327,10 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   // return west(north(bb));
 }
 
-[[nodiscard]] static u64 ne(const u64 bb) { return east(north(bb)); }
+[[nodiscard]] static u64 ne(const u64 bb)
+{
+  return east(north(bb));
+}
 
 [[nodiscard]] static u64 sw(const u64 bb) { return west(south(bb)); }
 
@@ -728,7 +732,8 @@ static i32 eval(Position *const restrict pos) {
         copy &= copy - 1;
 
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p] * ((0x101010101010101ULL << sq % 8 & ~(1ULL << sq) & own_pawns) == 0);
+        score += open_files[p] * ((0x101010101010101ULL << sq % 8 &
+                                   ~(1ULL << sq) & own_pawns) == 0);
 
         const int rank = sq >> 3;
         const int file = sq & 7;
@@ -1121,13 +1126,14 @@ static void run() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed,
              nps);
-    } else if (!strcmp(line, "quit")) {
-      break;
     }
 #endif
     if (line[0] == 'i') {
       putl("readyok\n");
-    } else if (line[0] == 'p') {
+    } else if (line[0] == 'q') {
+      exit_now();
+    }
+    else if (line[0] == 'p') {
       pos = (Position){.ep = 0,
                        .colour = {0xFFFFull, 0xFFFF000000000000ull},
                        .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
