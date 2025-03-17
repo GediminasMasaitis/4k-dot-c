@@ -3124,3 +3124,12 @@ Games | N: 14018 W: 5088 L: 4902 D: 4028
 Penta | [370, 947, 4248, 1015, 429]
 https://gedas.pythonanywhere.com/test/376/
 ```
+
+### 0.116
+
+64 bit: 4088 bytes (-8)
+Fill: 1+6
+
+MD5: 76271d249a3baabbdf5aad4359ec5d4f
+
+Optimized move string comparison (Suggested by Zamfofex)

@@ -118,18 +118,6 @@ static bool getl(char *restrict string) {
   }
 }
 
-[[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                 const char *restrict rhs) {
-  while (*lhs || *rhs) {
-    if (*lhs != *rhs) {
-      return true;
-    }
-    lhs++;
-    rhs++;
-  }
-  return false;
-}
-
 [[nodiscard]] static size_t atoi(const char *restrict string) {
   size_t result = 0;
   while (true) {
@@ -295,6 +283,11 @@ typedef struct [[nodiscard]] {
     }
   }
   return true;
+}
+
+[[nodiscard]] static bool move_string_equal(const char* restrict lhs,
+  const char* restrict rhs) {
+  return *(i32*)lhs == *(i32*)rhs && lhs[4] == rhs[4];
 }
 
 [[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
@@ -1148,7 +1141,7 @@ static void run() {
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[6];
           move_str(move_name, &moves[i], pos.flipped);
-          if (!strcmp(line, move_name)) {
+          if (move_string_equal(line, move_name)) {
             stack[pos_history_count].history = pos;
             pos_history_count++;
             if (moves[i].takes_piece != None) {
