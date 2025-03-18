@@ -546,7 +546,7 @@ static i32 makemove(Position *const restrict pos,
   }
 
   // Promotions
-  if (piece == Pawn && move->promo != None) {
+  if (move->promo != None) {
     pos->pieces[Pawn] ^= to;
     pos->pieces[move->promo] ^= to;
   }
