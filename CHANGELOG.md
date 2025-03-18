@@ -3133,3 +3133,21 @@ Fill: 1+6
 MD5: 76271d249a3baabbdf5aad4359ec5d4f
 
 Optimized move string comparison (Suggested by Zamfofex)
+
+### 0.117
+
+64 bit: 4080 bytes (-8)
+Fill: 6
+
+MD5: af39bfc83d5a7ea91c6f789f5c56fec3
+
+Smaller promotions in makemove (Suggested by Zamfofex)
+
+```py
+Elo   | -0.08 +- 2.26 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.94 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 30122 W: 10663 L: 10670 D: 8789
+Penta | [777, 1878, 9750, 1887, 769]
+https://gedas.pythonanywhere.com/test/383/
+```
