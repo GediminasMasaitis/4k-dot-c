@@ -120,6 +120,18 @@ static bool getl(char *restrict string) {
   }
 }
 
+[[nodiscard]] static bool strcmp(const char* restrict lhs,
+  const char* restrict rhs) {
+  while (*lhs || *rhs) {
+    if (*lhs != *rhs) {
+      return true;
+    }
+    lhs++;
+    rhs++;
+  }
+  return false;
+}
+
 [[nodiscard]] static size_t atoi(const char *restrict string) {
   size_t result = 0;
   while (true) {
