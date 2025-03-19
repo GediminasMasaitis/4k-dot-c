@@ -120,8 +120,8 @@ static bool getl(char *restrict string) {
   }
 }
 
-[[nodiscard]] static bool strcmp(const char* restrict lhs,
-  const char* restrict rhs) {
+[[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                 const char *restrict rhs) {
   while (*lhs || *rhs) {
     if (*lhs != *rhs) {
       return true;
@@ -1056,7 +1056,11 @@ static void bench() {
   Move moves[256];
   i32 num_moves;
   i32 pos_history_count = 0;
+#ifdef LOWSTACK
+  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
+#else
   SearchStack stack[1024];
+#endif
 
   pos = (Position){.ep = 0,
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
@@ -1085,7 +1089,11 @@ static void run() {
   Move moves[256];
   i32 num_moves;
   i32 pos_history_count;
+#ifdef LOWSTACK
+  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
+#else
   SearchStack stack[1024];
+#endif
   u64 diag_mask_local[64];
   diag_mask = diag_mask_local;
   init_diag_masks();
@@ -1156,7 +1164,8 @@ static void run() {
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[8];
           move_str(move_name, &moves[i], pos.flipped);
-          assert(move_string_equal(line, move_name) == !strcmp(line, move_name));
+          assert(move_string_equal(line, move_name) ==
+                 !strcmp(line, move_name));
           if (move_string_equal(line, move_name)) {
             stack[pos_history_count].history = pos;
             pos_history_count++;

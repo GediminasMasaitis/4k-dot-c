@@ -14,11 +14,15 @@ ifeq ($(NOSTDLIB), true)
     CFLAGS += -DNOSTDLIB -nostdlib -fno-pic -fno-builtin -fno-stack-protector -march=haswell -Oz
 	LDFLAGS += -nostdlib -Wl,-T $(LDFILE) -Wl,-Map=$(EXE).map
 else
-	CFLAGS += -march=native -O3
+	CFLAGS += -march=native -static -O3
 endif
 
 ifneq ($(MINI), true)
 	CFLAGS += -DFULL
+endif
+
+ifeq ($(LOWSTACK), true)
+	CFLAGS += -DLOWSTACK
 endif
 
 ifeq ($(ASSERTS), true)
@@ -35,6 +39,10 @@ all:
 	ls -la $(EXE)
 	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map || true; fi
 	md5sum $(EXE)
+
+win:
+	if not exist build mkdir build
+	$(CC) $(CFLAGS) -o $(EXE) 4k.c
 
 pgo:
 	mkdir -p build
