@@ -287,7 +287,7 @@ typedef struct [[nodiscard]] {
 
 [[nodiscard]] static bool move_string_equal(const char* restrict lhs,
   const char* restrict rhs) {
-  return *(i32*)lhs == *(i32*)rhs && lhs[4] == rhs[4];
+  return ((*(const u64*)lhs ^ *(const u64*)rhs) << 24) == 0;
 }
 
 [[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
@@ -1139,7 +1139,7 @@ static void run() {
         const bool line_continue = getl(line);
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
-          char move_name[6];
+          char move_name[8];
           move_str(move_name, &moves[i], pos.flipped);
           if (move_string_equal(line, move_name)) {
             stack[pos_history_count].history = pos;
