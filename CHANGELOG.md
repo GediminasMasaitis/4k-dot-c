@@ -3160,3 +3160,12 @@ Fill: 3+6
 MD5: 33ac757e48c2235d7c567c1410a0f233
 
 Even smaller move string comparison (Suggested by swedishchef)
+
+### 0.119
+
+64 bit: 4088 bytes (+16)
+Fill: 6+6
+
+MD5: 5cdd8e1a76d55256ba52ed7a13d81c6c
+
+Proper quit command support

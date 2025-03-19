@@ -62,9 +62,11 @@ static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
 
 static void exit_now() {
 #ifdef ARCH32
-  _sys(1, 0, 0, 0);
+  asm volatile("movl $1, %eax\n\t"
+               "int $0x80");
 #else
-  _sys(60, 0, 0, 0);
+  asm volatile("movl $60, %eax\n\t"
+               "syscall");
 #endif
 }
 
@@ -1122,11 +1124,11 @@ static void run() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed,
              nps);
-    } else if (!strcmp(line, "quit")) {
-      break;
     }
 #endif
-    if (line[0] == 'i') {
+    if (line[0] == 'q') {
+      exit_now();
+    } else if (line[0] == 'i') {
       putl("readyok\n");
     } else if (line[0] == 'p') {
       pos = (Position){.ep = 0,
@@ -1183,8 +1185,6 @@ static void run() {
 #endif
     }
   }
-
-  exit_now();
 }
 
 #if !defined(NOSTDLIB) || defined(FULL)
