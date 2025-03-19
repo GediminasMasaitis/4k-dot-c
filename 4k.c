@@ -1007,12 +1007,19 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #endif
                       stack, pos_history_count, true);
 
-      if (score <= alpha || (low == -beta && reduction == 1)) {
-        break;
-      }
+      if (score > alpha)
+      {
+        if (reduction != 1) {
+          reduction = 1;
+          continue;
+        }
 
-      low = -beta;
-      reduction = 1;
+        if (low != -beta) {
+          low = -beta;
+          continue;
+        }
+      }
+      break;
     }
 
     if (score > alpha) {
