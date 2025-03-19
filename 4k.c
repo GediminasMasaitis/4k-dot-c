@@ -1156,6 +1156,7 @@ static void run() {
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[8];
           move_str(move_name, &moves[i], pos.flipped);
+          assert(move_string_equal(line, move_name) == !strcmp(line, move_name));
           if (move_string_equal(line, move_name)) {
             stack[pos_history_count].history = pos;
             pos_history_count++;
