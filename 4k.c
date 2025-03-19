@@ -285,9 +285,9 @@ typedef struct [[nodiscard]] {
   return true;
 }
 
-[[nodiscard]] static bool move_string_equal(const char* restrict lhs,
-  const char* restrict rhs) {
-  return *(i32*)lhs == *(i32*)rhs && lhs[4] == rhs[4];
+[[nodiscard]] static bool move_string_equal(const char *restrict lhs,
+                                            const char *restrict rhs) {
+  return ((*(const u64 *)lhs ^ *(const u64 *)rhs) << 24) == 0;
 }
 
 [[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
@@ -728,7 +728,8 @@ static i32 eval(Position *const restrict pos) {
         copy &= copy - 1;
 
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p] * ((0x101010101010101ULL << sq % 8 & ~(1ULL << sq) & own_pawns) == 0);
+        score += open_files[p] * ((0x101010101010101ULL << sq % 8 &
+                                   ~(1ULL << sq) & own_pawns) == 0);
 
         const int rank = sq >> 3;
         const int file = sq & 7;
@@ -960,7 +961,7 @@ static void iteratively_deepen(
     // const i32 pv_length = pv_stack[0].length;
     const i32 pv_length = 1;
     for (i32 i = 0; i < pv_length; i++) {
-      char pv_move_name[6];
+      char pv_move_name[8];
       move_str(pv_move_name, &pv_stack[0].moves[i], pos->flipped ^ (i % 2));
       putl(pv_move_name);
       if (i != pv_length - 1) {
@@ -974,7 +975,7 @@ static void iteratively_deepen(
       break;
     }
   }
-  char move_name[6];
+  char move_name[8];
   move_str(move_name, &stack[0].best_move, pos->flipped);
   putl("bestmove ");
   putl(move_name);
@@ -1139,7 +1140,7 @@ static void run() {
         const bool line_continue = getl(line);
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
-          char move_name[6];
+          char move_name[8];
           move_str(move_name, &moves[i], pos.flipped);
           if (move_string_equal(line, move_name)) {
             stack[pos_history_count].history = pos;

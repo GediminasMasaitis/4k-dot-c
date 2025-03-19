@@ -3151,3 +3151,12 @@ Games | N: 30122 W: 10663 L: 10670 D: 8789
 Penta | [777, 1878, 9750, 1887, 769]
 https://gedas.pythonanywhere.com/test/383/
 ```
+
+### 0.118
+
+64 bit: 4072 bytes (-8)
+Fill: 3+6
+
+MD5: 33ac757e48c2235d7c567c1410a0f233
+
+Even smaller move string comparison (Suggested by swedishchef)
