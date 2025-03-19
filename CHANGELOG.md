@@ -3169,3 +3169,12 @@ Fill: 6+6
 MD5: 5cdd8e1a76d55256ba52ed7a13d81c6c
 
 Proper quit command support
+
+### 0.120
+
+64 bit: 4088 bytes (=)
+Fill: 6+6
+
+MD5: c43978d052d157bbf5762411f87df09f
+
+Increase line buffer for safety

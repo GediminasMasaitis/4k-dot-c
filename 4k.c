@@ -1080,7 +1080,7 @@ void _start() {
 #else
 static void run() {
 #endif
-  char line[1024];
+  char line[4096];
   Position pos;
   Move moves[256];
   i32 num_moves;
