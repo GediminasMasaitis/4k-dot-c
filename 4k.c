@@ -899,6 +899,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     i32 reduction = depth > 1 && moves_evaluated > 6
                         ? 1 + (alpha == beta - 1) + moves_evaluated / 16
                         : 1;
+    if(reduction > 1 && reduction > depth) {
+      reduction = depth;
+    }
 
     i32 score;
     while (true) {
