@@ -916,16 +916,24 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
-                      nodes, pv_stack,
+        nodes,
+        pv_stack,
 #endif
-                      stack, pos_history_count, move_history);
+        stack, pos_history_count, move_history);
 
-      if (score <= alpha || (low == -beta && reduction == 1)) {
-        break;
+      if (score > alpha)
+      {
+        if (reduction != 1) {
+          reduction = 1;
+          continue;
+        }
+
+        if (low != -beta) {
+          low = -beta;
+          continue;
+        }
       }
-
-      low = -beta;
-      reduction = 1;
+      break;
     }
 
     if (score > alpha) {
