@@ -708,26 +708,26 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   89,  296, 325,
-                                                           485, 961, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   96,   319, 351,
+                                                           523, 1036, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -10, -12, -11, -3, 36, 113, 0,   // Pawn
-    -32, -17, -1,  14,  25, 27, 8,   -25, // Knight
-    -23, -5,  4,   9,   12, 13, 1,   -13, // Bishop
-    -15, -22, -20, -9,  9,  17, 22,  17,  // Rook
-    -21, -14, -9,  -2,  8,  16, 6,   17,  // Queen
-    -20, -12, -5,  6,   17, 23, 13,  -14, // King
+    0,   -11, -13, -11, -3, 39, 122, 0,   // Pawn
+    -34, -18, -1,  15,  27, 30, 9,   -27, // Knight
+    -25, -5,  5,   10,  13, 14, 1,   -14, // Bishop
+    -16, -24, -22, -9,  10, 18, 24,  19,  // Rook
+    -23, -15, -10, -2,  8,  17, 7,   18,  // Queen
+    -21, -13, -5,  7,   19, 25, 14,  -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  3,  -4, -2, -1, 5,  10, -8,  // Pawn
-    -28, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -13, 0,  3,  6,  6,  1,  5,  -7,  // Bishop
-    -4,  0,  3,  4,  3,  6,  0,  -13, // Rook
-    -21, -9, 1,  4,  3,  7,  7,  8,   // Queen
-    -13, 2,  1,  1,  -1, -3, 6,  -10, // King
+    -2,  3,  -5, -2, -1, 6,  11, -9,  // Pawn
+    -30, -8, 7,  16, 15, 13, 2,  -15, // Knight
+    -14, 0,  4,  6,  7,  1,  5,  -8,  // Bishop
+    -4,  0,  3,  4,  3,  7,  0,  -14, // Rook
+    -23, -9, 1,  4,  4,  7,  8,  8,   // Queen
+    -14, 3,  1,  1,  -1, -3, 7,  -11, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {0,  15, -1, -3,
-                                                            22, 8,  -7};
+__attribute__((aligned(8))) static const i8 open_files[] = {0,  16, -1, -4,
+                                                            24, 9,  -8};
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
