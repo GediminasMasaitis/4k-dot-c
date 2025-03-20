@@ -359,7 +359,11 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   assert(sq < 64);
   u64 result = shift(1ull << sq, shift_by, mask);
   for (i32 i = 0; i < 6; i++) {
-    result |= shift(result & ~blockers, shift_by, mask);
+    const u64 new_result = result | shift(result & ~blockers, shift_by, mask);
+    if(new_result == result) {
+      break;
+    }
+    result = new_result;
   }
   return result;
 }
