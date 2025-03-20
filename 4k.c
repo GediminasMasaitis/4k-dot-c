@@ -364,7 +364,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return result;
 }
 
-static u64 *diag_mask;
+static u64 diag_mask[64];
 
 static void init_diag_masks() {
   for (i32 sq = 0; sq < 64; sq++) {
@@ -1094,8 +1094,6 @@ static void run() {
 #else
   SearchStack stack[1024];
 #endif
-  u64 diag_mask_local[64];
-  diag_mask = diag_mask_local;
   init_diag_masks();
 
 #ifdef FULL
@@ -1222,8 +1220,6 @@ int main(int argc, char **argv) {
 #endif
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
-    u64 diag_mask_local[64];
-    diag_mask = diag_mask_local;
     init_diag_masks();
     bench();
     exit_now();

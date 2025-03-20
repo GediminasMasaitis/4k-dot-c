@@ -3187,3 +3187,12 @@ Fill: 6+8
 MD5: 464fe849dfebae91bc425385724c8dcc
 
 Don't include bss in binary
+
+### 0.122
+
+64 bit: 4018 bytes (-40)
+Fill: 0
+
+MD5: a234a9e247d7fbe6701f4a6c7b0cfffc
+
+Remove bss prevention hack
