@@ -3178,3 +3178,12 @@ Fill: 6+6
 MD5: c43978d052d157bbf5762411f87df09f
 
 Increase line buffer for safety
+
+### 0.121
+
+64 bit: 4058 bytes (-30)
+Fill: 6+8
+
+MD5: 464fe849dfebae91bc425385724c8dcc
+
+Don't include bss in binary
