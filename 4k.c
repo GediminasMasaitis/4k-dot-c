@@ -590,9 +590,9 @@ static i32 makemove(Position *const restrict pos,
   return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
 }
 
-static void generate_pawn_moves(const Position *const pos,
-                                Move *const restrict movelist, u64 to_mask,
-                                const i32 offset
+static Move *generate_pawn_moves(const Position *const pos,
+                                 Move *const restrict movelist, u64 to_mask,
+                                 const i32 offset
 
 ) {
   while (to_mask) {
@@ -612,11 +612,13 @@ static void generate_pawn_moves(const Position *const pos,
     } else
       *(movelist++) = (Move){from, to, None, takes};
   }
+
+  return movelist;
 }
 
-static void generate_piece_moves(Move *const restrict movelist,
-                                 const Position *restrict pos,
-                                 const u64 to_mask) {
+static Move *generate_piece_moves(Move *const restrict movelist,
+                                  const Position *restrict pos,
+                                  const u64 to_mask) {
   for (int piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
            piece == Queen || piece == King);
@@ -639,6 +641,8 @@ static void generate_piece_moves(Move *const restrict movelist,
       }
     }
   }
+
+  return movelist;
 }
 
 [[nodiscard]] static i32 movegen(const Position *const restrict pos,
@@ -649,19 +653,19 @@ static void generate_piece_moves(Move *const restrict movelist,
   const u64 all = pos->colour[0] | pos->colour[1];
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   if (!only_captures) {
-    generate_pawn_moves(
+    movelist = generate_pawn_moves(
         pos, movelist,
         north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all,
         -16);
   }
-  generate_pawn_moves(pos, movelist,
+  movelist = generate_pawn_moves(pos, movelist,
                       north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
                           (only_captures ? 0xFF00000000000000ull : ~0ull),
                       -8);
-  generate_pawn_moves(
+  movelist = generate_pawn_moves(
       pos, movelist,
       nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -7);
-  generate_pawn_moves(
+  movelist = generate_pawn_moves(
       pos, movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
   if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
@@ -672,7 +676,7 @@ static void generate_piece_moves(Move *const restrict movelist,
       !is_attacked(pos, 3, true)) {
     *(movelist++) = (Move){4, 2, None, None};
   }
-  generate_piece_moves(movelist, pos, to_mask);
+  movelist = generate_piece_moves(movelist, pos, to_mask);
 
   i32 num_moves = movelist - start;
   assert(num_moves < 256);
