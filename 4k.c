@@ -591,7 +591,7 @@ static i32 makemove(Position *const restrict pos,
 }
 
 static Move *generate_pawn_moves(const Position *const pos,
-                                 Move *const restrict movelist, u64 to_mask,
+                                 Move *restrict movelist, u64 to_mask,
                                  const i32 offset
 
 ) {
@@ -616,7 +616,7 @@ static Move *generate_pawn_moves(const Position *const pos,
   return movelist;
 }
 
-static Move *generate_piece_moves(Move *const restrict movelist,
+static Move *generate_piece_moves(Move *restrict movelist,
                                   const Position *restrict pos,
                                   const u64 to_mask) {
   for (int piece = Knight; piece <= King; piece++) {
@@ -646,7 +646,7 @@ static Move *generate_piece_moves(Move *const restrict movelist,
 }
 
 [[nodiscard]] static i32 movegen(const Position *const restrict pos,
-                                 Move *const restrict movelist,
+                                 Move *restrict movelist,
                                  const i32 only_captures) {
 
   Move *start = movelist;
