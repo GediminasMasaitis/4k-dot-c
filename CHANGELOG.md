@@ -3231,3 +3231,12 @@ Games | N: 4704 W: 1807 L: 1607 D: 1290
 Penta | [250, 442, 834, 510, 316]
 https://gedas.pythonanywhere.com/test/403/
 ```
+
+### 0.124
+
+64 bit: 4042 bytes (-32)
+Fill: 1
+
+MD5: b3fe1f5bf4e21fe6662fb368fdeebf90
+
+Shrink movegen (Implemented by cj5716)

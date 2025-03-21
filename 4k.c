@@ -590,10 +590,9 @@ static i32 makemove(Position *const restrict pos,
   return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
 }
 
-static void generate_pawn_moves(const Position *const pos,
-                                Move *const restrict movelist,
-                                i32 *const restrict num_moves, u64 to_mask,
-                                const i32 offset
+static Move *generate_pawn_moves(const Position *const pos,
+                                 Move *restrict movelist, u64 to_mask,
+                                 const i32 offset
 
 ) {
   while (to_mask) {
@@ -608,17 +607,18 @@ static void generate_pawn_moves(const Position *const pos,
     const u8 takes = piece_on(pos, to);
     if (to > 55) {
       for (u8 piece = Queen; piece >= Knight; piece--) {
-        movelist[(*num_moves)++] = (Move){from, to, piece, takes};
+        *(movelist++) = (Move){from, to, piece, takes};
       }
     } else
-      movelist[(*num_moves)++] = (Move){from, to, None, takes};
+      *(movelist++) = (Move){from, to, None, takes};
   }
+
+  return movelist;
 }
 
-static void generate_piece_moves(Move *const restrict movelist,
-                                 i32 *restrict num_moves,
-                                 const Position *restrict pos,
-                                 const u64 to_mask) {
+static Move *generate_piece_moves(Move *restrict movelist,
+                                  const Position *restrict pos,
+                                  const u64 to_mask) {
   for (int piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
            piece == Queen || piece == King);
@@ -637,45 +637,48 @@ static void generate_piece_moves(Move *const restrict movelist,
         assert(to >= 0);
         assert(to < 64);
         moves &= moves - 1;
-        movelist[(*num_moves)++] = (Move){from, to, None, piece_on(pos, to)};
-        assert(*num_moves < 256);
+        *(movelist++) = (Move){from, to, None, piece_on(pos, to)};
       }
     }
   }
+
+  return movelist;
 }
 
 [[nodiscard]] static i32 movegen(const Position *const restrict pos,
-                                 Move *const restrict movelist,
+                                 Move *restrict movelist,
                                  const i32 only_captures) {
-  i32 num_moves = 0;
+
+  Move *start = movelist;
   const u64 all = pos->colour[0] | pos->colour[1];
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   if (!only_captures) {
-    generate_pawn_moves(
-        pos, movelist, &num_moves,
+    movelist = generate_pawn_moves(
+        pos, movelist,
         north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all,
         -16);
   }
-  generate_pawn_moves(pos, movelist, &num_moves,
+  movelist = generate_pawn_moves(pos, movelist,
                       north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
                           (only_captures ? 0xFF00000000000000ull : ~0ull),
                       -8);
-  generate_pawn_moves(
-      pos, movelist, &num_moves,
+  movelist = generate_pawn_moves(
+      pos, movelist,
       nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -7);
-  generate_pawn_moves(
-      pos, movelist, &num_moves,
+  movelist = generate_pawn_moves(
+      pos, movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
   if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 5, true)) {
-    movelist[num_moves++] = (Move){4, 6, None, None};
+    *(movelist++) = (Move){4, 6, None, None};
   }
   if (pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 3, true)) {
-    movelist[num_moves++] = (Move){4, 2, None, None};
+    *(movelist++) = (Move){4, 2, None, None};
   }
-  generate_piece_moves(movelist, &num_moves, pos, to_mask);
+  movelist = generate_piece_moves(movelist, pos, to_mask);
 
+  i32 num_moves = movelist - start;
   assert(num_moves < 256);
   return num_moves;
 }
