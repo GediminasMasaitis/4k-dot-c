@@ -658,10 +658,11 @@ static Move *generate_piece_moves(Move *restrict movelist,
         north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all,
         -16);
   }
-  movelist = generate_pawn_moves(pos, movelist,
-                      north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
-                          (only_captures ? 0xFF00000000000000ull : ~0ull),
-                      -8);
+  movelist =
+      generate_pawn_moves(pos, movelist,
+                          north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
+                              (only_captures ? 0xFF00000000000000ull : ~0ull),
+                          -8);
   movelist = generate_pawn_moves(
       pos, movelist,
       nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -7);
@@ -711,28 +712,30 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   88,  300, 315,
-                                                           488, 967, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   89,  276, 272,
+                                                           465, 931, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -9,  -16, -12, -2, 38, 114, 0,   // Pawn
-    -32, -16, 1,   15,  26, 27, 6,   -27, // Knight
-    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -15, -23, -20, -8,  9,  17, 22,  17,  // Rook
-    -22, -14, -9,  -2,  8,  16, 6,   17,  // Queen
-    -20, -12, -5,  6,   18, 23, 13,  -14, // King
+    0,   -9,  -15, -12, -3, 38, 117, 0,   // Pawn
+    -20, -12, -5,  8,   18, 19, 8,   -17, // Knight
+    -8,  -1,  0,   -1,  4,  8,  0,   -2,  // Bishop
+    -13, -20, -18, -8,  8,  16, 21,  14,  // Rook
+    -11, -10, -11, -7,  2,  14, 5,   18,  // Queen
+    -25, -11, -3,  8,   20, 26, 17,  -18, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -1,  2,  -4, -2, -1, 4,  9, -7,  // Pawn
-    -29, -7, 7,  16, 15, 13, 1, -15, // Knight
-    -14, 0,  3,  6,  7,  2,  5, -8,  // Bishop
-    -4,  0,  3,  4,  3,  6,  0, -13, // Rook
-    -22, -9, 1,  4,  4,  7,  7, 8,   // Queen
-    -14, 2,  0,  0,  -2, -3, 6, -10, // King
+    -1,  2,  -4, -1, 0, 5,  8, -8,  // Pawn
+    -19, -6, 0,  11, 9, 8,  3, -5,  // Knight
+    -4,  0,  0,  -1, 0, -3, 5, 2,   // Bishop
+    -4,  0,  3,  4,  3, 6,  0, -13, // Rook
+    -17, -9, -1, 1,  1, 4,  8, 14,  // Queen
+    -20, 3,  2,  2,  0, -1, 7, -16, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {0,  13, -2, -2,
-                                                            22, 8,  -7};
-static const i8 protected_pawn = 10;
-static const i8 bishop_pair = 36;
+__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 5, 6,
+                                                            3, 3, -2};
+__attribute__((aligned(8))) static const i8 open_files[] = {0,  13, -1, 0,
+                                                            16, 5,  -7};
+const i8 protected_pawn = 9;
+const i8 bishop_pair = 39;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
@@ -752,7 +755,7 @@ static i32 eval(Position *const restrict pos) {
 
         // OPEN FILES / DOUBLED PAWNS
         score += open_files[p] * ((0x101010101010101ULL << sq % 8 &
-          ~(1ULL << sq) & own_pawns) == 0);
+                                   ~(1ULL << sq) & own_pawns) == 0);
 
         const int rank = sq >> 3;
         const int file = sq & 7;
@@ -763,6 +766,9 @@ static i32 eval(Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
+
+        // MOBILITY
+        score += mobilities[p] * count(get_mobility(sq, p, pos));
       }
     }
 
