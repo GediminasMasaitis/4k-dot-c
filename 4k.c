@@ -658,10 +658,11 @@ static Move *generate_piece_moves(Move *restrict movelist,
         north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all,
         -16);
   }
-  movelist = generate_pawn_moves(pos, movelist,
-                      north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
-                          (only_captures ? 0xFF00000000000000ull : ~0ull),
-                      -8);
+  movelist =
+      generate_pawn_moves(pos, movelist,
+                          north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
+                              (only_captures ? 0xFF00000000000000ull : ~0ull),
+                          -8);
   movelist = generate_pawn_moves(
       pos, movelist,
       nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -7);
@@ -711,33 +712,37 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   88,  296, 326,
-                                                           487, 965, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   88,  297, 327,
+                                                           488, 967, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -9,  -15, -12, -2, 38, 114, 0,   // Pawn
-    -32, -17, -1,  14,  26, 28, 8,   -25, // Knight
-    -23, -5,  4,   9,   13, 14, 1,   -13, // Bishop
-    -15, -23, -20, -8,  9,  17, 22,  17,  // Rook
-    -22, -14, -9,  -2,  8,  16, 6,   17,  // Queen
-    -20, -12, -5,  6,   18, 23, 13,  -14, // King
+    0,   -11, -16, -11, -2, 39, 116, 0,   // Pawn
+    -32, -17, 0,   14,  26, 28, 7,   -26, // Knight
+    -23, -5,  5,   9,   13, 14, 0,   -13, // Bishop
+    -15, -23, -19, -8,  9,  17, 22,  17,  // Rook
+    -22, -14, -8,  -2,  8,  16, 6,   17,  // Queen
+    -20, -12, -5,  7,   18, 24, 13,  -14, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -1,  1,  -4, -2, -1, 5,  8, -7,  // Pawn
+    1,   1,  -4, -2, -1, 4,  7, -6,  // Pawn
     -29, -8, 6,  15, 15, 13, 2, -14, // Knight
-    -14, 0,  3,  6,  7,  1,  5, -8,  // Bishop
-    -4,  0,  3,  4,  3,  6,  0, -13, // Rook
-    -22, -9, 1,  4,  4,  7,  7, 8,   // Queen
-    -14, 2,  1,  0,  -1, -2, 6, -10, // King
+    -14, -1, 3,  6,  6,  1,  6, -8,  // Bishop
+    -4,  0,  3,  4,  3,  6,  1, -13, // Rook
+    -22, -9, 1,  4,  4,  7,  7, 7,   // Queen
+    -14, 2,  0,  0,  -2, -2, 6, -10, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {0,  12, -1, -3,
+__attribute__((aligned(8))) static const i8 open_files[] = {0,  11, 0, -3,
                                                             22, 8,  -7};
-static const i8 protected_pawn = 10;
+const i8 protected_pawn = 13;
+const i8 phalanx_pawn = 9;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
 
     const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
+
+    // PHALANX PAWNS
+    score += phalanx_pawn * count(own_pawns & west(own_pawns));
 
     // PROTECTED PAWNS
     score +=
