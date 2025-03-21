@@ -658,10 +658,11 @@ static Move *generate_piece_moves(Move *restrict movelist,
         north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all,
         -16);
   }
-  movelist = generate_pawn_moves(pos, movelist,
-                      north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
-                          (only_captures ? 0xFF00000000000000ull : ~0ull),
-                      -8);
+  movelist =
+      generate_pawn_moves(pos, movelist,
+                          north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
+                              (only_captures ? 0xFF00000000000000ull : ~0ull),
+                          -8);
   movelist = generate_pawn_moves(
       pos, movelist,
       nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -7);
@@ -711,38 +712,35 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   88,  300, 315,
-                                                           488, 967, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   88,  295, 327,
+                                                           487, 965, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -9,  -16, -12, -2, 38, 114, 0,   // Pawn
-    -32, -16, 1,   15,  26, 27, 6,   -27, // Knight
-    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
-    -15, -23, -20, -8,  9,  17, 22,  17,  // Rook
-    -22, -14, -9,  -2,  8,  16, 6,   17,  // Queen
-    -20, -12, -5,  6,   18, 23, 13,  -14, // King
+    0,   -9,  -16, -11, -2, 38, 115, 0,   // Pawn
+    -31, -16, -2,  13,  25, 27, 8,   -25, // Knight
+    -23, -5,  4,   9,   13, 14, 1,   -13, // Bishop
+    -14, -22, -20, -9,  9,  17, 22,  17,  // Rook
+    -23, -14, -8,  -1,  8,  16, 6,   17,  // Queen
+    -20, -12, -5,  7,   18, 23, 13,  -14, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -1,  2,  -4, -2, -1, 4,  9, -7,  // Pawn
-    -29, -7, 7,  16, 15, 13, 1, -15, // Knight
-    -14, 0,  3,  6,  7,  2,  5, -8,  // Bishop
+    0,   1,  -4, -2, -1, 5,  8, -7,  // Pawn
+    -28, -8, 6,  16, 15, 12, 1, -14, // Knight
+    -14, 0,  3,  6,  6,  1,  5, -8,  // Bishop
     -4,  0,  3,  4,  3,  6,  0, -13, // Rook
-    -22, -9, 1,  4,  4,  7,  7, 8,   // Queen
-    -14, 2,  0,  0,  -2, -3, 6, -10, // King
+    -22, -9, 1,  4,  4,  7,  8, 7,   // Queen
+    -14, 2,  1,  0,  -1, -2, 6, -10, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {0,  13, -2, -2,
+__attribute__((aligned(8))) static const i8 open_files[] = {0,  12, -1, -3,
                                                             22, 8,  -7};
-static const i8 protected_pawn = 10;
-static const i8 bishop_pair = 36;
+__attribute__((aligned(8))) static const i8 pawn_protection[] = {0, 10, 6, 1,
+                                                                 3, -3, 0};
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
 
     const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
-
-    // PROTECTED PAWNS
-    score +=
-        protected_pawn * count(own_pawns & (nw(own_pawns) | ne(own_pawns)));
+    const u64 pawn_protected = nw(own_pawns) | ne(own_pawns);
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
@@ -752,7 +750,7 @@ static i32 eval(Position *const restrict pos) {
 
         // OPEN FILES / DOUBLED PAWNS
         score += open_files[p] * ((0x101010101010101ULL << sq % 8 &
-          ~(1ULL << sq) & own_pawns) == 0);
+                                   ~(1ULL << sq) & own_pawns) == 0);
 
         const int rank = sq >> 3;
         const int file = sq & 7;
@@ -763,12 +761,12 @@ static i32 eval(Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
-      }
-    }
 
-    // BISHOP PAIR
-    if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
-      score += bishop_pair;
+        const u64 piece_bb = 1ULL << sq;
+        if (piece_bb & pawn_protected) {
+          score += pawn_protection[p];
+        }
+      }
     }
 
     score = -score;
