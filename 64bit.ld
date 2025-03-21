@@ -5,9 +5,9 @@ pos = 0x400000;                     /* Start address */
 
 SECTIONS
 {
-	header :                         /* ELF header */
-	{
-		QUAD(0x00010102464C457F)     /* ELF magic number */
+	/* ELF Header */
+	header : {
+		QUAD(0x00010102464C457F)    /* ELF magic number */
 		QUAD(0)                     /* Reserved */
 		SHORT(2)                    /* Executable type */
 		SHORT(0x3E)                 /* x86-64 machine */
@@ -21,28 +21,48 @@ SECTIONS
 		SHORT(1)                    /* Number of program headers */
 		SHORT(0)                    /* Section header entries */
 		LONG(0)                     /* Section header string index */
-		prog = . ;                  /* Current location (program start) */
+		
+		/* Program Header */
+		prog = .;                   /* Current location (program start) */
 		LONG(1)                     /* Loadable segment */
 		QUAD(7)                     /* RWX flags */
 		LONG(0)                     /* File offset */
 		QUAD(pos)                   /* Virtual address */
 		QUAD(pos)                   /* Physical address */
 		QUAD(filesize)              /* File size */
-		QUAD(filesize)              /* Memory size */
+		QUAD(memsize)               /* Memory size (header + .data + .bss) */
 		QUAD(8)                     /* Alignment */
-		size = . ;                  /* Current location (end of header) */
+		size = .;                   /* End of header */
 	}
 	
-	data = . ;                      /* Current location (data start) */
-	.data (data + pos) : AT(data)   /* Data section at memory + file offset */
-	{
-		*(.text) *(.text.*)        /* Include .text sections */
-		*(.rodata) *(.rodata.*)    /* Include .rodata sections */
-		*(.bss) *(.bss.*)          /* Include .bss sections */
-		*(.data) *(.data.*)        /* Include .data sections */
+	/* Save header size */
+	header_size = size;
+	
+	/* Set the VMA for the following sections */
+	. = pos + header_size;
+	
+	/* Code and Data Sections */
+	.data : AT(header_size) {
+		*(.text) *(.text.*)
+		*(.rodata) *(.rodata.*)
+		*(.data) *(.data.*)
+	}
+	data_end = .;  /* End of .data section */
+	
+	/* Compute file size: header size plus size of .data */
+	filesize = header_size + (data_end - (pos + header_size));
+	
+	/* BSS Section: Allocated in memory but not in file */
+	.bss (NOLOAD) : {
+		. = ALIGN(16);
+		bss_start = .;
+		*(.bss) *(.bss.*)
+		. = ALIGN(16);
+		bss_end = .;
 	}
 	
-	/DISCARD/ : { *(*) }            /* Discard others */
+	/* Compute total memory size */
+	memsize = . - pos;
 	
-	filesize = . ;                  /* Current location (end of file) */
+	/DISCARD/ : { *(*) } /* Discard unneeded sections */
 }

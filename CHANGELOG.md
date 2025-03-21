@@ -3178,3 +3178,56 @@ Fill: 6+6
 MD5: c43978d052d157bbf5762411f87df09f
 
 Increase line buffer for safety
+
+### 0.121
+
+64 bit: 4058 bytes (-30)
+Fill: 6+8
+
+MD5: 464fe849dfebae91bc425385724c8dcc
+
+Don't include bss in binary
+
+### 0.122
+
+64 bit: 4018 bytes (-40)
+Fill: 0
+
+MD5: a234a9e247d7fbe6701f4a6c7b0cfffc
+
+Remove bss prevention hack
+
+### 0.123
+
+64 bit: 4074 bytes (+56)
+Fill: 3
+
+MD5: a2a9678bd0d37ca76e6c43e453fef11d
+
+Protected pawn eval
+
+```py
+info depth 1 score cp 29 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 75 pv b1c3
+info depth 3 score cp 26 time 0 nodes 493 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1398 nps 1398000 pv b1c3
+info depth 5 score cp 0 time 1 nodes 5962 nps 5962000 pv b1c3
+info depth 6 score cp 7 time 3 nodes 16155 nps 5385000 pv b1c3
+info depth 7 score cp 10 time 8 nodes 46904 nps 5863000 pv b1c3
+info depth 8 score cp 16 time 25 nodes 141120 nps 5644800 pv b1c3
+info depth 9 score cp 10 time 88 nodes 509813 nps 5793329 pv b1c3
+info depth 10 score cp 16 time 319 nodes 1799165 nps 5640015 pv b1c3
+info depth 11 score cp 11 time 1601 nodes 8961482 nps 5597427 pv e2e3
+info depth 12 score cp 11 time 4020 nodes 22525797 nps 5603432 pv e2e3
+bestmove e2e3
+22525797 nodes 5603432 nps
+```
+
+```py
+Elo   | 14.78 +- 8.22 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4704 W: 1807 L: 1607 D: 1290
+Penta | [250, 442, 834, 510, 316]
+https://gedas.pythonanywhere.com/test/403/
+```
