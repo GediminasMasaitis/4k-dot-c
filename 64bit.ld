@@ -43,9 +43,9 @@ SECTIONS
 	
 	/* Code and Data Sections */
 	.data : AT(header_size) {
-		*(.text) *(.text.*)
 		*(.rodata) *(.rodata.*)
 		*(.data) *(.data.*)
+		*(.text) *(.text.*)
 	}
 	data_end = .;  /* End of .data section */
 	

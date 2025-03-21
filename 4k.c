@@ -711,27 +711,28 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   88,  296, 326,
-                                                           487, 965, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   88,  300, 315,
+                                                           488, 967, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -9,  -15, -12, -2, 38, 114, 0,   // Pawn
-    -32, -17, -1,  14,  26, 28, 8,   -25, // Knight
-    -23, -5,  4,   9,   13, 14, 1,   -13, // Bishop
+    0,   -9,  -16, -12, -2, 38, 114, 0,   // Pawn
+    -32, -16, 1,   15,  26, 27, 6,   -27, // Knight
+    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
     -15, -23, -20, -8,  9,  17, 22,  17,  // Rook
     -22, -14, -9,  -2,  8,  16, 6,   17,  // Queen
     -20, -12, -5,  6,   18, 23, 13,  -14, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -1,  1,  -4, -2, -1, 5,  8, -7,  // Pawn
-    -29, -8, 6,  15, 15, 13, 2, -14, // Knight
-    -14, 0,  3,  6,  7,  1,  5, -8,  // Bishop
+    -1,  2,  -4, -2, -1, 4,  9, -7,  // Pawn
+    -29, -7, 7,  16, 15, 13, 1, -15, // Knight
+    -14, 0,  3,  6,  7,  2,  5, -8,  // Bishop
     -4,  0,  3,  4,  3,  6,  0, -13, // Rook
     -22, -9, 1,  4,  4,  7,  7, 8,   // Queen
-    -14, 2,  1,  0,  -1, -2, 6, -10, // King
+    -14, 2,  0,  0,  -2, -3, 6, -10, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {0,  12, -1, -3,
+__attribute__((aligned(8))) static const i8 open_files[] = {0,  13, -2, -2,
                                                             22, 8,  -7};
 static const i8 protected_pawn = 10;
+static const i8 bishop_pair = 36;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
@@ -751,7 +752,7 @@ static i32 eval(Position *const restrict pos) {
 
         // OPEN FILES / DOUBLED PAWNS
         score += open_files[p] * ((0x101010101010101ULL << sq % 8 &
-                                   ~(1ULL << sq) & own_pawns) == 0);
+          ~(1ULL << sq) & own_pawns) == 0);
 
         const int rank = sq >> 3;
         const int file = sq & 7;
@@ -763,6 +764,11 @@ static i32 eval(Position *const restrict pos) {
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
       }
+    }
+
+    // BISHOP PAIR
+    if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
+      score += bishop_pair;
     }
 
     score = -score;

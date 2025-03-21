@@ -3240,3 +3240,37 @@ Fill: 1
 MD5: b3fe1f5bf4e21fe6662fb368fdeebf90
 
 Shrink movegen (Implemented by cj5716)
+
+### 0.125
+
+64 bit: 4067 bytes (+25)
+
+MD5: 436d35a71e0adbbe6b7b0a4486dd1597
+
+Bishop pair eval
+
+```py
+info depth 1 score cp 31 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 75 pv b1c3
+info depth 3 score cp 29 time 1 nodes 491 nps 491000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1396 nps 1396000 pv b1c3
+info depth 5 score cp -3 time 2 nodes 5950 nps 2975000 pv b1c3
+info depth 6 score cp 6 time 3 nodes 15514 nps 5171333 pv b1c3
+info depth 7 score cp 13 time 9 nodes 49564 nps 5507111 pv b1c3
+info depth 8 score cp 16 time 24 nodes 136461 nps 5685875 pv b1c3
+info depth 9 score cp 7 time 147 nodes 814298 nps 5539442 pv g1f3
+info depth 10 score cp 13 time 422 nodes 2304618 nps 5461180 pv g1f3
+info depth 11 score cp 11 time 1413 nodes 7645596 nps 5410895 pv b1c3
+info depth 12 score cp 10 time 6006 nodes 31023053 nps 5165343 pv e2e3
+bestmove e2e3
+31023053 nodes 5165343 nps
+```
+
+```py
+Elo   | 9.42 +- 6.26 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 7932 W: 2982 L: 2767 D: 2183
+Penta | [430, 743, 1489, 790, 514]
+https://gedas.pythonanywhere.com/test/405/
+```
