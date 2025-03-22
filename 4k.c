@@ -782,8 +782,8 @@ static size_t start_time;
 static size_t total_time;
 
 typedef struct [[nodiscard]] {
-  Move killer;
   Move best_move;
+  Move killer;
   Position history;
   Move moves[256];
 } SearchStack;
@@ -961,6 +961,7 @@ static void iteratively_deepen(
 ) {
   start_time = get_time();
   u64 move_history[2][64][64] = {0};
+  char move_name[8];
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
     PvStack pv_stack[max_ply + 1];
@@ -976,8 +977,11 @@ static void iteratively_deepen(
 #endif
                        stack, pos_history_count, move_history);
     size_t elapsed = get_time() - start_time;
-
-#ifdef FULL
+    move_str(move_name, &stack[0].best_move, pos->flipped);
+#ifndef FULL
+    putl("info pv ");
+    putl(move_name);
+#else
     printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
            *nodes);
     if (elapsed > 0) {
@@ -998,13 +1002,10 @@ static void iteratively_deepen(
     }
     putl("\n");
 #endif
-
     if (elapsed > total_time / 32) {
       break;
     }
   }
-  char move_name[8];
-  move_str(move_name, &stack[0].best_move, pos->flipped);
   putl("bestmove ");
   putl(move_name);
   putl("\n");
