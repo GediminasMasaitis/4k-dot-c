@@ -3274,3 +3274,46 @@ Games | N: 7932 W: 2982 L: 2767 D: 2183
 Penta | [430, 743, 1489, 790, 514]
 https://gedas.pythonanywhere.com/test/405/
 ```
+
+### 1.0
+
+Safety features
+
+64 bit: 4080 bytes (+13)
+
+### 1.1
+
+64 bit: 4083 bytes (+3)
+
+MD5: 4b679bf945d6c68a6c9dc1d5cfffde2f
+
+Transposition table
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 26 time 1 nodes 564 nps 564000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1499 nps 1499000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 4630 nps 2315000 pv b1c3
+info depth 6 score cp 0 time 4 nodes 12309 nps 3077250 pv b1c3
+info depth 7 score cp 7 time 10 nodes 32680 nps 3268000 pv b1c3
+info depth 8 score cp 16 time 22 nodes 80877 nps 3676227 pv b1c3
+info depth 9 score cp 9 time 57 nodes 228299 nps 4005245 pv b1c3
+info depth 10 score cp 17 time 131 nodes 547731 nps 4181152 pv b1c3
+info depth 11 score cp 10 time 317 nodes 1359414 nps 4288372 pv b1c3
+info depth 12 score cp 9 time 722 nodes 2996764 nps 4150642 pv b1c3
+info depth 13 score cp 9 time 1173 nodes 4834673 nps 4121630 pv b1c3
+info depth 14 score cp 9 time 2943 nodes 12055907 nps 4096468 pv b1c3
+info depth 15 score cp 12 time 5023 nodes 20267558 nps 4034950 pv b1c3
+bestmove b1c3
+20267558 nodes 4034950 nps
+```
+
+```py
+Elo   | 44.37 +- 15.54 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.94 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1480 W: 663 L: 475 D: 342
+Penta | [70, 118, 251, 156, 145]
+https://gedas.pythonanywhere.com/test/435/
+```
