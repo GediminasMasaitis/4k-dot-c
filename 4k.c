@@ -880,6 +880,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       stack[ply].best_move = tt_entry->move;
       return tt_entry->score;
     }
+  } else {
+    depth -= depth > 3;
   }
 
   // QUIESCENCE
@@ -1148,7 +1150,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(14, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(16, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
