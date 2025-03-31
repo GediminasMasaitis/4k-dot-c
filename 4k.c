@@ -814,25 +814,15 @@ TTEntry tt[tt_length];
 
 [[nodiscard]] u64 get_hash(const Position* const pos) {
   const u64 m = 0xc6a4a7935bd1e995ULL;
-  const i32 r = 47;
-  const u64* data = (const u64*)pos;
-
   u64 h = 6379633040001738036ULL ^ (88 * m);
-
-  // Process 88 bytes in 11 blocks of 8 bytes
   for (i32 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
-    u64 k = data[i];
+    u64 k = ((const u64*)pos)[i];
     k *= m;
-    k ^= k >> r;
+    k ^= k >> 47;
     k *= m;
     h ^= k;
     h *= m;
   }
-
-  // Finalization
-  h ^= h >> r;
-  h *= m;
-  h ^= h >> r;
 
   return h;
 }
