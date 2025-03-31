@@ -877,7 +877,6 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     tt_move = tt_entry->move;
     if (alpha == beta - 1 && tt_entry->depth >= depth &&
       tt_entry->flag != tt_entry->score <= alpha) {
-      stack[ply].best_move = tt_entry->move;
       return tt_entry->score;
     }
   } else {
