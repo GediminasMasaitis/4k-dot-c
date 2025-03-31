@@ -801,7 +801,7 @@ typedef struct [[nodiscard]] {
   u16 flag;
 } TTEntry;
 
-enum { tt_length = 1024 * 1024 / sizeof(TTEntry) };
+enum { tt_length = 16 * 1024 * 1024 / sizeof(TTEntry) };
 
 enum
 {
@@ -1148,7 +1148,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(13, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(14, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
