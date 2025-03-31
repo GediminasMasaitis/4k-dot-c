@@ -286,18 +286,18 @@ typedef struct [[nodiscard]] {
   bool flipped;
 } Position;
 
-[[nodiscard]] static bool position_equal(const Position *const restrict lhs,
-                                         const Position *const restrict rhs) {
-#if __GNUC__ >= 13
-  static_assert(sizeof(Position) % sizeof(u64) == 0);
-#endif
-  for (u64 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
-    if (((const u64 *)lhs)[i] != ((const u64 *)rhs)[i]) {
-      return false;
-    }
-  }
-  return true;
-}
+//[[nodiscard]] static bool position_equal(const Position *const restrict lhs,
+//                                         const Position *const restrict rhs) {
+//#if __GNUC__ >= 13
+//  static_assert(sizeof(Position) % sizeof(u64) == 0);
+//#endif
+//  for (u64 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+//    if (((const u64 *)lhs)[i] != ((const u64 *)rhs)[i]) {
+//      return false;
+//    }
+//  }
+//  return true;
+//}
 
 [[nodiscard]] static bool move_string_equal(const char *restrict lhs,
                                             const char *restrict rhs) {
@@ -784,7 +784,7 @@ static size_t total_time;
 typedef struct [[nodiscard]] {
   Move killer;
   Move best_move;
-  Position history;
+  u64 history;
   Move moves[256];
 } SearchStack;
 
@@ -792,6 +792,50 @@ typedef struct [[nodiscard]] {
   i32 length;
   Move moves[max_ply + 1];
 } PvStack;
+
+typedef struct [[nodiscard]] {
+  u64 key;
+  Move move;
+  i32 score;
+  i32 depth;
+  u16 flag;
+} TTEntry;
+
+enum { tt_length = 1024 * 1024 / sizeof(TTEntry) };
+
+enum
+{
+  Upper = 0,
+  Lower = 1,
+  Exact = 2
+};
+
+TTEntry tt[tt_length];
+
+[[nodiscard]] u64 get_hash(const Position* const pos) {
+  const u64 m = 0xc6a4a7935bd1e995ULL;
+  const i32 r = 47;
+  const u64* data = (const u64*)pos;
+
+  u64 h = 6379633040001738036ULL ^ (88 * m);
+
+  // Process 88 bytes in 11 blocks of 8 bytes
+  for (i32 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+    u64 k = data[i];
+    k *= m;
+    k ^= k >> r;
+    k *= m;
+    h ^= k;
+    h *= m;
+  }
+
+  // Finalization
+  h ^= h >> r;
+  h *= m;
+  h ^= h >> r;
+
+  return h;
+}
 
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
@@ -816,12 +860,25 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return alpha;
   }
 
+  const u64 tt_key = get_hash(pos);
+
   // FULL REPETITION DETECTION
   const bool in_qsearch = depth <= 0;
   for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
        i -= 2) {
-    if (position_equal(pos, &stack[i].history)) {
+    if (tt_key == stack[i].history) {
       return 0;
+    }
+  }
+
+  TTEntry* tt_entry = &tt[tt_key % tt_length];
+  Move tt_move = {};
+  if (tt_entry->key == tt_key) {
+    tt_move = tt_entry->move;
+    if (alpha == beta - 1 && tt_entry->depth >= depth &&
+      tt_entry->flag != tt_entry->score <= alpha) {
+      stack[ply].best_move = tt_entry->move;
+      return tt_entry->score;
     }
   }
 
@@ -840,9 +897,10 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     return static_eval;
   }
 
-  stack[pos_history_count + ply + 2].history = *pos;
+  stack[pos_history_count + ply + 2].history = tt_key;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  u16 tt_flag = Upper;
 
 #ifdef FULL
   pv_stack[ply].length = ply;
@@ -856,8 +914,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const u64 order_move_score =
-          ((u64)(*(u64 *)&stack[ply].best_move ==
-                 *(u64 *)&stack[ply].moves[order_index])
+          ((u64)(*(u64 *)&stack[ply].best_move == *(u64 *)&stack[ply].moves[order_index])
+          //((u64)(*(u64*)&tt_move == *(u64*)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
@@ -919,6 +977,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
+      tt_flag = Exact;
 #ifdef FULL
       if (alpha != beta - 1) {
         pv_stack[ply].moves[ply] = stack[ply].best_move;
@@ -930,6 +989,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 #endif
       if (score >= beta) {
+        tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
         if (stack[ply].best_move.takes_piece == None) {
@@ -946,6 +1006,9 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   if (moves_evaluated == 0 && !in_qsearch) {
     return (ply - mate) * in_check;
   }
+
+  *tt_entry =
+    (TTEntry){ tt_key, stack[ply].best_move, alpha, depth, tt_flag };
 
   return alpha;
 }
@@ -1179,7 +1242,7 @@ static void run() {
           assert(move_string_equal(line, move_name) ==
                  !strcmp(line, move_name));
           if (move_string_equal(line, move_name)) {
-            stack[pos_history_count].history = pos;
+            stack[pos_history_count].history = get_hash(&pos);
             pos_history_count++;
             if (moves[i].takes_piece != None) {
               pos_history_count = 0;
