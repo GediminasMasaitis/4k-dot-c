@@ -778,7 +778,7 @@ typedef struct [[nodiscard]] {
   u16 flag;
 } TTEntry;
 
-enum { tt_length = 16 * 1024 * 1024 / sizeof(TTEntry) };
+enum { tt_length = 128 * 1024 * 1024 / sizeof(TTEntry) };
 
 enum
 {
