@@ -840,8 +840,7 @@ TTEntry tt[tt_length];
 typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] u64 get_hash(const Position* const pos) {
-  const u64 init = (*(const u64*)&pos->castling) & 0xFFFFFFFFFFull;
-  i128 x = { (i64)init };
+  i128 x = { *(const i64*)&pos->castling & 0xFFFFFFFFFFll };
 
   const u8* const data = (const u8*)pos;
   for (i32 i = 0; i < 5; i++) {
@@ -850,9 +849,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
     x = __builtin_ia32_aesenc128(x, key);
   }
 
-  u64 result;
-  __builtin_memcpy(&result, &x, 8);
-  return result;
+  return x[0] ^ x[1];
 }
 
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
