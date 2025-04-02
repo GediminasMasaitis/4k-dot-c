@@ -831,9 +831,8 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // TT PROBING
   TTEntry *tt_entry = &tt[tt_key % tt_length];
-  Move tt_move = {};
   if (tt_entry->key == tt_key) {
-    tt_move = tt_entry->move;
+    stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
     if (alpha == beta - 1 && tt_entry->depth >= depth &&
@@ -877,7 +876,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const u64 order_move_score =
-          ((u64)(*(u64 *)&tt_move == *(u64 *)&stack[ply].moves[order_index])
+          ((u64)(*(u64 *)&stack[ply].best_move == *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
