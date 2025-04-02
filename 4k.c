@@ -834,6 +834,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   Move tt_move = {};
   if (tt_entry->key == tt_key) {
     tt_move = tt_entry->move;
+    stack[ply].best_move = tt_move;
 
     // TT PRUNING
     if (alpha == beta - 1 && tt_entry->depth >= depth &&
@@ -957,7 +958,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // MATE / STALEMATE DETECTION
   if (moves_evaluated == 0 && !in_qsearch) {
-    return (ply - mate) * in_check;
+    return -mate * in_check;
   }
 
   *tt_entry = (TTEntry){tt_key, stack[ply].best_move, alpha, depth, tt_flag};
