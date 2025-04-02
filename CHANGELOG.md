@@ -3493,3 +3493,11 @@ info depth 15 score cp 9 time 4845 nodes 21398552 nps 4416625 pv g1f3
 bestmove g1f3
 21398552 nodes 4416625 nps
 ```
+
+### 1.7
+
+64 bit: 4081 bytes (+20)
+
+MD5: ce943d40ac5921c852f945ed20f7d0b7
+
+Preserve TT move
