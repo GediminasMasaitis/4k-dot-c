@@ -800,6 +800,7 @@ TTEntry tt[tt_length];
 //  return h;
 //}
 
+#if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] u64 get_hash(const Position *const pos) {
@@ -814,6 +815,33 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
   return hash[0];
 }
+#elif defined(__aarch64__)
+
+#include <arm_neon.h>
+
+ __attribute__((target("aes")))
+[[nodiscard]] u64 get_hash(const Position *const pos) {
+  uint8x16_t hash = vdupq_n_u8(0);
+  u64 init = (*(const i64*)&pos->castling) & 0xFFFFFFFFFFull;
+  memcpy(&hash, &init, 8);
+
+  const u8 *data = (const u8 *)pos;
+  for (i32 i = 0; i < 5; ++i) {
+    uint8x16_t key;
+    memcpy(&key, data + i * 16, 16);
+
+    hash = vaeseq_u8(hash, key);
+    hash = vaesmcq_u8(hash);
+  }
+
+  u64 result;
+  memcpy(&result, &hash, sizeof(result));
+  return result;
+}
+
+#else
+#error "Unsupported architecture: get_hash only implemented for x86_64 and aarch64"
+#endif
 
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
