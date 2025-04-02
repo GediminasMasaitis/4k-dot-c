@@ -897,7 +897,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const i16 static_eval = eval(pos);
+  i16 static_eval = eval(pos);
+
+  if (tt_entry->key == tt_key && tt_entry->flag != static_eval > tt_entry->score) {
+    static_eval = tt_entry->score;
+  }
+
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
       return static_eval;
