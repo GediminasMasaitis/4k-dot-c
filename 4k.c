@@ -812,7 +812,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
     hash = __builtin_ia32_aesenc128(hash, key);
   }
 
-  return hash[0];
+  return hash[0]^ hash[1];
 }
 
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
