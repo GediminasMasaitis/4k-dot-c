@@ -3493,3 +3493,31 @@ info depth 15 score cp 9 time 4845 nodes 21398552 nps 4416625 pv g1f3
 bestmove g1f3
 21398552 nodes 4416625 nps
 ```
+
+### 1.7
+
+64 bit: 4081 bytes (+20)
+
+MD5: ce943d40ac5921c852f945ed20f7d0b7
+
+Preserve TT move
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 26 time 0 nodes 564 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1499 nps 1499000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 4628 nps 4628000 pv b1c3
+info depth 6 score cp 0 time 4 nodes 12307 nps 3076750 pv b1c3
+info depth 7 score cp 7 time 9 nodes 32723 nps 3635888 pv b1c3
+info depth 8 score cp 16 time 23 nodes 83877 nps 3646826 pv b1c3
+info depth 9 score cp 9 time 61 nodes 231353 nps 3792672 pv b1c3
+info depth 10 score cp 13 time 146 nodes 566725 nps 3881678 pv b1c3
+info depth 11 score cp 8 time 350 nodes 1378037 nps 3937248 pv b1c3
+info depth 12 score cp 12 time 715 nodes 2818878 nps 3942486 pv b1c3
+info depth 13 score cp 15 time 1315 nodes 5208000 nps 3960456 pv b1c3
+info depth 14 score cp 12 time 2533 nodes 10126337 nps 3997764 pv b1c3
+info depth 15 score cp 10 time 6897 nodes 27245341 nps 3950317 pv b1c3
+bestmove b1c3
+27245341 nodes 3950317 nps
+```
