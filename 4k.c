@@ -775,45 +775,45 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 
 TTEntry tt[tt_length];
 
-//[[nodiscard]] u64 get_hash(const Position* const pos) {
-//  const u64 m = 0xc6a4a7935bd1e995ULL;
-//  const i32 r = 47;
-//  const u64* data = (const u64*)pos;
-//
-//  u64 h = 6379633040001738036ULL ^ (88 * m);
-//
-//  // Process 88 bytes in 11 blocks of 8 bytes
-//  for (i32 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
-//    u64 k = data[i];
-//    k *= m;
-//    k ^= k >> r;
-//    k *= m;
-//    h ^= k;
-//    h *= m;
-//  }
-//
-//  // Finalization
-//  h ^= h >> r;
-//  h *= m;
-//  h ^= h >> r;
-//
-//  return h;
-//}
+[[nodiscard]] u64 get_hash(const Position* const pos) {
+ const u64 m = 0xc6a4a7935bd1e995ULL;
+ const i32 r = 47;
+ const u64* data = (const u64*)pos;
 
-typedef long long __attribute__((__vector_size__(16))) i128;
+ u64 h = 6379633040001738036ULL ^ (88 * m);
 
-[[nodiscard]] u64 get_hash(const Position *const pos) {
-  i128 hash = { (*(const i64*)&pos->castling) & 0xFFFFFFFFFFull };
+ // Process 88 bytes in 11 blocks of 8 bytes
+ for (i32 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+   u64 k = data[i];
+   k *= m;
+   k ^= k >> r;
+   k *= m;
+   h ^= k;
+   h *= m;
+ }
 
-  const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; i++) {
-    i128 key = {0};
-    __builtin_memcpy(&key, data + i * 16, 16);
-    hash = __builtin_ia32_aesenc128(hash, key);
-  }
+ // Finalization
+ h ^= h >> r;
+ h *= m;
+ h ^= h >> r;
 
-  return hash[0];
+ return h;
 }
+
+// typedef long long __attribute__((__vector_size__(16))) i128;
+
+// [[nodiscard]] u64 get_hash(const Position *const pos) {
+//   i128 hash = { (*(const i64*)&pos->castling) & 0xFFFFFFFFFFull };
+
+//   const u8 *const data = (const u8 *)pos;
+//   for (i32 i = 0; i < 5; i++) {
+//     i128 key = {0};
+//     __builtin_memcpy(&key, data + i * 16, 16);
+//     hash = __builtin_ia32_aesenc128(hash, key);
+//   }
+
+//   return hash[0];
+// }
 
 static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
