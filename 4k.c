@@ -699,7 +699,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   99,  292, 318,
+__attribute__((aligned(8))) static const i16 material[] = {99,  292, 318,
                                                            495, 952, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -11, -13, -12, -2, 38, 116, 0,   // Pawn
@@ -718,21 +718,21 @@ __attribute__((aligned(8))) static const i8 pst_file[] = {
     -13, 3,  1,  -1, -2, -3, 7,  -9,  // King
 };
 
-static i32 eval(const Position *const restrict pos) {
-  i32 score = 16;
+static i16 eval(const Position *const restrict pos) {
+  i16 score = 16;
   for (i32 c = 0; c < 2; c++) {
-    const i32 sq_xor = c * 56;
+    const i8 sq_xor = c * 56;
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[c] & pos->pieces[p];
       while (copy) {
-        const i32 sq = lsb(copy) ^ sq_xor;
+        const i16 sq = lsb(copy) ^ sq_xor;
         copy &= copy - 1;
 
         const int rank = sq >> 3;
         const int file = sq & 7;
 
         // MATERIAL
-        score += material[p];
+        score += material[p - 1];
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
@@ -745,7 +745,7 @@ static i32 eval(const Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 128, mate = 30000, inf = 32000 };
+enum { max_ply = 96, mate = 30000, inf = 32000 };
 static size_t start_time;
 static size_t total_time;
 
@@ -795,7 +795,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   return hash[0];
 }
 
-static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
+static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
                   u64 *nodes, PvStack pv_stack[max_ply + 1],
@@ -846,7 +846,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const i32 static_eval = eval(pos);
+  const i16 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
       return static_eval;
@@ -911,7 +911,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
                         ? 1 + (alpha == beta - 1) + moves_evaluated / 16
                         : 1;
 
-    i32 score;
+    i16 score;
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL

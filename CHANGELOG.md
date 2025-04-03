@@ -3364,7 +3364,7 @@ Penta | [28, 121, 229, 147, 100]
 https://gedas.pythonanywhere.com/test/459/
 ```
 
-### 1.2
+### 1.3
 
 64 bit: 4088 bytes (-4)
 
@@ -3392,7 +3392,16 @@ bestmove b1c3
 28648795 nodes 4617794 nps
 ```
 
-### 1.3
+```py
+Elo   | 0.20 +- 5.66 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.99 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 8690 W: 2833 L: 2828 D: 3029
+Penta | [410, 971, 1571, 990, 403]
+https://gedas.pythonanywhere.com/test/462/
+```
+
+### 1.4
 
 64 bit: 4087 bytes (-1)
 
@@ -3418,4 +3427,41 @@ info depth 14 score cp 9 time 2931 nodes 13240076 nps 4517255 pv g1f3
 info depth 15 score cp 9 time 4783 nodes 21398552 nps 4473876 pv g1f3
 bestmove g1f3
 21398552 nodes 4473876 nps
+```
+
+```py
+Elo   | 1.02 +- 10.32 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.43 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 2718 W: 917 L: 909 D: 892
+Penta | [132, 298, 507, 274, 148]
+https://gedas.pythonanywhere.com/test/465/
+```
+
+### 1.5
+
+64 bit: 4077 bytes (-10)
+
+MD5: 9f535c2c9333625f4a8b488f49c572f3
+
+Various size reductions
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 26 time 0 nodes 564 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1499 nps 1499000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 4630 nps 2315000 pv b1c3
+info depth 6 score cp 0 time 4 nodes 12309 nps 3077250 pv b1c3
+info depth 7 score cp 7 time 9 nodes 32680 nps 3631111 pv b1c3
+info depth 8 score cp 16 time 22 nodes 81868 nps 3721272 pv b1c3
+info depth 9 score cp 9 time 54 nodes 226783 nps 4199685 pv b1c3
+info depth 10 score cp 17 time 135 nodes 586776 nps 4346488 pv b1c3
+info depth 11 score cp 8 time 327 nodes 1439442 nps 4401963 pv b1c3
+info depth 12 score cp 12 time 756 nodes 3360741 nps 4445424 pv e2e4
+info depth 13 score cp 12 time 1624 nodes 7216729 nps 4443798 pv e2e4
+info depth 14 score cp 9 time 2995 nodes 13240076 nps 4420726 pv g1f3
+info depth 15 score cp 9 time 4875 nodes 21398552 nps 4389446 pv g1f3
+bestmove g1f3
+21398552 nodes 4389446 nps
 ```
