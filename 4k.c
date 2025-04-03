@@ -812,8 +812,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
     hash = __builtin_ia32_aesenc128(hash, key);
   }
 
-  i128 zero = {0};
-  hash = __builtin_ia32_aesenc128(hash, zero);
+  hash = __builtin_ia32_aesenc128(hash, hash);
 
   return hash[0];
 }
