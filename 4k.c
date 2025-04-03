@@ -961,7 +961,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return (ply - mate) * in_check;
   }
 
-  *tt_entry = (TTEntry){tt_key, stack[ply].best_move, alpha, depth, tt_flag};
+  *tt_entry = (TTEntry){tt_key, stack[ply].best_move, alpha, depth * !in_qsearch, tt_flag};
 
   return alpha;
 }
