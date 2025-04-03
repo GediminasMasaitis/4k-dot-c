@@ -3363,3 +3363,31 @@ Games | N: 1250 W: 492 L: 322 D: 436
 Penta | [28, 121, 229, 147, 100]
 https://gedas.pythonanywhere.com/test/459/
 ```
+
+### 1.2
+
+64 bit: 4088 bytes (-4)
+
+MD5: 91c1fd9a613cd2d4fe610f51fe206afe
+
+Use self as key for final AES round
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 26 time 0 nodes 564 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1499 nps 1499000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 4630 nps 2315000 pv b1c3
+info depth 6 score cp 0 time 4 nodes 12309 nps 3077250 pv b1c3
+info depth 7 score cp 7 time 9 nodes 32680 nps 3631111 pv b1c3
+info depth 8 score cp 16 time 20 nodes 81991 nps 4099550 pv b1c3
+info depth 9 score cp 9 time 50 nodes 228379 nps 4567580 pv b1c3
+info depth 10 score cp 17 time 121 nodes 551714 nps 4559619 pv b1c3
+info depth 11 score cp 13 time 281 nodes 1318702 nps 4692889 pv b1c3
+info depth 12 score cp 11 time 573 nodes 2696571 nps 4706057 pv b1c3
+info depth 13 score cp 5 time 2020 nodes 9624691 nps 4764698 pv b1c3
+info depth 14 score cp 9 time 3243 nodes 15345945 nps 4732021 pv b1c3
+info depth 15 score cp 6 time 6204 nodes 28648795 nps 4617794 pv b1c3
+bestmove b1c3
+28648795 nodes 4617794 nps
+```
