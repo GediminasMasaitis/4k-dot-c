@@ -803,12 +803,11 @@ TTEntry tt[tt_length];
 typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] u64 get_hash(const Position *const pos) {
-  i128 hash = { (*(const i64*)&pos->castling) & 0xFFFFFFFFFFull };
+  i128 hash = { (*(const i64*)&pos->castling[0]) & 0xFFFFFFFFFFull };
 
-  const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; i++) {
-    i128 key = {0};
-    __builtin_memcpy(&key, data + i * 16, 16);
+  const i64 *const data = (const i64 *)pos;
+  for (i32 i = 0; i < 10; i++) {
+    i128 key = {data[i], data[i]};
     hash = __builtin_ia32_aesenc128(hash, key);
   }
 
