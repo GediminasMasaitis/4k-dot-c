@@ -1154,6 +1154,8 @@ static void run() {
       putl("option name Hash type spin default 1 min 1 max 1\n");
       putl("option name Threads type spin default 1 min 1 max 1\n");
       putl("uciok\n");
+    } else if (!strcmp(line, "d")) {
+      __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
