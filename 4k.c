@@ -770,7 +770,7 @@ typedef struct [[nodiscard]] {
   u8 flag;
 } TTEntry;
 
-enum { tt_length = 16 * 1024 * 1024 / sizeof(TTEntry) };
+enum { tt_length = 128 * 1024 * 1024 / sizeof(TTEntry) };
 
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
@@ -961,7 +961,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return (ply - mate) * in_check;
   }
 
-  *tt_entry = (TTEntry){tt_key, stack[ply].best_move, alpha, depth, tt_flag};
+  *tt_entry = (TTEntry){tt_key, stack[ply].best_move, alpha, depth * !in_qsearch, tt_flag};
 
   return alpha;
 }
