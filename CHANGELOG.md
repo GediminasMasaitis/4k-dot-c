@@ -3465,3 +3465,31 @@ info depth 15 score cp 9 time 4875 nodes 21398552 nps 4389446 pv g1f3
 bestmove g1f3
 21398552 nodes 4389446 nps
 ```
+
+### 1.6
+
+64 bit: 4061 bytes (-16)
+
+MD5: 76ec90083751b32fa5837b98b8a7115e
+
+Reduce size by making make_move non-static
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 26 time 1 nodes 564 nps 564000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1499 nps 1499000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 4630 nps 2315000 pv b1c3
+info depth 6 score cp 0 time 4 nodes 12309 nps 3077250 pv b1c3
+info depth 7 score cp 7 time 9 nodes 32680 nps 3631111 pv b1c3
+info depth 8 score cp 16 time 20 nodes 81868 nps 4093400 pv b1c3
+info depth 9 score cp 9 time 52 nodes 226783 nps 4361211 pv b1c3
+info depth 10 score cp 17 time 131 nodes 586776 nps 4479206 pv b1c3
+info depth 11 score cp 8 time 319 nodes 1439442 nps 4512357 pv b1c3
+info depth 12 score cp 12 time 736 nodes 3360741 nps 4566224 pv e2e4
+info depth 13 score cp 12 time 1588 nodes 7216729 nps 4544539 pv e2e4
+info depth 14 score cp 9 time 2959 nodes 13240076 nps 4474510 pv g1f3
+info depth 15 score cp 9 time 4845 nodes 21398552 nps 4416625 pv g1f3
+bestmove g1f3
+21398552 nodes 4416625 nps
+```

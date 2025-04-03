@@ -492,7 +492,7 @@ static void flip_pos(Position *const restrict pos) {
          king(sq) & theirs & pos->pieces[King];
 }
 
-static i32 makemove(Position *const restrict pos,
+i32 makemove(Position *const restrict pos,
                     const Move *const restrict move) {
   assert(move->from >= 0);
   assert(move->from < 64);
