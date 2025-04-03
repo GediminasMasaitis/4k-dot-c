@@ -807,9 +807,9 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
   const u8 *const data = (const u8 *)pos;
   for (i32 i = 0; i < 5; i++) {
-    i128 key = {0};
-    __builtin_memcpy(&key, data + i * 16, 16);
-    hash = __builtin_ia32_aesenc128(hash, key);
+    i128 round_data = {0};
+    __builtin_memcpy(&round_data, data + i * 16, 16);
+    hash = __builtin_ia32_aesenc128(round_data, hash);
   }
 
   return hash[0];
