@@ -745,7 +745,7 @@ static i32 eval(const Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 128, mate = 30000, inf = 40000 };
+enum { max_ply = 128, mate = 30000, inf = 32000 };
 static size_t start_time;
 static size_t total_time;
 
@@ -764,9 +764,9 @@ typedef struct [[nodiscard]] {
 typedef struct [[nodiscard]] {
   u64 key;
   Move move;
-  i32 score;
-  i32 depth;
-  u16 flag;
+  i16 score;
+  i8 depth;
+  u8 flag;
 } TTEntry;
 
 enum { tt_length = 16 * 1024 * 1024 / sizeof(TTEntry) };
@@ -863,7 +863,7 @@ static i32 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[pos_history_count + ply + 2].history = tt_key;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
-  u16 tt_flag = Upper;
+  u8 tt_flag = Upper;
 
 #ifdef FULL
   pv_stack[ply].length = ply;
