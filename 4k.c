@@ -197,7 +197,7 @@ typedef struct [[nodiscard]] {
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-[[nodiscard]] static size_t get_time() {
+[[nodiscard]] size_t get_time() {
   timespec ts;
 #ifdef ARCH64
   _sys(228, 1, (ssize_t)&ts, 0);
@@ -965,6 +965,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   return alpha;
 }
+// #define FULL true
 
 static void iteratively_deepen(
 #ifdef FULL
@@ -1153,8 +1154,6 @@ static void run() {
       putl("option name Hash type spin default 1 min 1 max 1\n");
       putl("option name Threads type spin default 1 min 1 max 1\n");
       putl("uciok\n");
-    } else if (!strcmp(line, "ucinewgame")) {
-      __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {

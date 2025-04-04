@@ -3281,24 +3281,6 @@ Safety features
 
 64 bit: 4080 bytes (+13)
 
-60+0.6:
-```py
-Score of 4k.c-1.0 vs stash16: 1408 - 1897 - 695  [0.439] 4000
-...      4k.c-1.0 playing White: 907 - 723 - 370  [0.546] 2000
-...      4k.c-1.0 playing Black: 501 - 1174 - 325  [0.332] 2000
-...      White vs Black: 2081 - 1224 - 695  [0.607] 4000
-Elo difference: -42.7 +/- 9.8, LOS: 0.0 %, DrawRatio: 17.4 %
-```
-
-60+0.6:
-```py
-Score of 4k.c-1.0 vs stash17: 771 - 1348 - 381  [0.385] 2500
-...      4k.c-1.0 playing White: 515 - 532 - 203  [0.493] 1250
-...      4k.c-1.0 playing Black: 256 - 816 - 178  [0.276] 1250
-...      White vs Black: 1331 - 788 - 381  [0.609] 2500
-Elo difference: -81.7 +/- 12.8, LOS: 0.0 %, DrawRatio: 15.2 %
-```
-
 ### 1.1
 
 64 bit: 4083 bytes (+3)
