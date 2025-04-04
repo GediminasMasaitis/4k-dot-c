@@ -3539,3 +3539,31 @@ info depth 15 score cp 10 time 6897 nodes 27245341 nps 3950317 pv b1c3
 bestmove b1c3
 27245341 nodes 3950317 nps
 ```
+
+### 1.8
+
+64 bit: 4070 bytes (-11)
+
+MD5: 8e1c8c1c8f2f0834dc10903943e53fc9
+
+Smaller AES hashing
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 26 time 0 nodes 564 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1511 nps 1511000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 4667 nps 2333500 pv b1c3
+info depth 6 score cp 0 time 4 nodes 12748 nps 3187000 pv b1c3
+info depth 7 score cp 7 time 10 nodes 33800 nps 3380000 pv b1c3
+info depth 8 score cp 16 time 22 nodes 82756 nps 3761636 pv b1c3
+info depth 9 score cp 9 time 59 nodes 235271 nps 3987644 pv b1c3
+info depth 10 score cp 13 time 149 nodes 608078 nps 4081060 pv b1c3
+info depth 11 score cp 15 time 342 nodes 1405160 nps 4108654 pv b1c3
+info depth 12 score cp 12 time 770 nodes 3323523 nps 4316263 pv b1c3
+info depth 13 score cp 8 time 1579 nodes 6882166 nps 4358559 pv b1c3
+info depth 14 score cp 11 time 3389 nodes 14652291 nps 4323485 pv b1c3
+info depth 15 score cp 7 time 5388 nodes 23209903 nps 4307702 pv b1c3
+bestmove b1c3
+23209903 nodes 4307702 nps
+```
