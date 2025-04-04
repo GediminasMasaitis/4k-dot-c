@@ -284,6 +284,7 @@ typedef struct [[nodiscard]] {
   u64 ep;
   bool castling[4];
   bool flipped;
+  bool padding[11];
 } Position;
 
 [[nodiscard]] static bool move_string_equal(const char *restrict lhs,
@@ -778,12 +779,11 @@ TTEntry tt[tt_length];
 typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] u64 get_hash(const Position *const pos) {
-  // CASTLING AND SIDE-TO-MOVE AS DATA
-  i128 hash = {(*(const i64 *)&pos->castling) & 0xFFFFFFFFFFull};
+  i128 hash = {0};
 
-  // USE BITBOARDS AS KEYS FOR AES
+  // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; i++) {
+  for (i32 i = 0; i < 6; i++) {
     i128 key = {0};
     __builtin_memcpy(&key, data + i * 16, 16);
     hash = __builtin_ia32_aesenc128(hash, key);
