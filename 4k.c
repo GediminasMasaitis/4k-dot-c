@@ -832,7 +832,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   Move tt_move = {};
   if (tt_entry->key == tt_key) {
     tt_move = tt_entry->move;
-    stack[ply].best_move = tt_move;
 
     // TT PRUNING
     if (alpha == beta - 1 && tt_entry->depth >= depth &&
@@ -863,6 +862,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     in_qsearch = static_eval + 128 * depth < alpha;
   }
 
+  stack[ply].best_move = tt_move;
   stack[pos_history_count + ply + 2].history = tt_key;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
