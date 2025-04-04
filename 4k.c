@@ -837,7 +837,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     stack[ply].best_move = tt_move;
 
     // TT PRUNING
-    if (alpha == beta - 1 && tt_entry->depth >= depth &&
+    if (tt_entry->depth >= depth &&
         tt_entry->flag != tt_entry->score <= alpha) {
       return tt_entry->score;
     }
