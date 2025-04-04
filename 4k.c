@@ -862,6 +862,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     in_qsearch = static_eval + 128 * depth < alpha;
   }
 
+  stack[ply].best_move = tt_move;
   stack[pos_history_count + ply + 2].history = tt_key;
   stack[ply].best_move = tt_move;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
