@@ -637,6 +637,10 @@ static Move *generate_piece_moves(Move *restrict movelist,
                                  Move *restrict movelist,
                                  const i32 only_captures) {
 
+#if ASSERTS
+  Move* movelist_start = movelist;
+#endif
+
   Move *start = movelist;
   const u64 all = pos->colour[0] | pos->colour[1];
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
@@ -668,6 +672,13 @@ static Move *generate_piece_moves(Move *restrict movelist,
   movelist = generate_piece_moves(movelist, pos, to_mask);
 
   i32 num_moves = movelist - start;
+
+#if ASSERTS
+  for (i32 move_index = 0; move_index < num_moves; move_index++) {
+    assert(movelist_start[move_index].takes_piece == piece_on(pos, movelist_start[move_index].to));
+  }
+#endif
+
   assert(num_moves < 256);
   return num_moves;
 }
@@ -755,6 +766,7 @@ typedef struct [[nodiscard]] {
   Move best_move;
   u64 history;
   Move moves[256];
+  i32 move_count;
 } SearchStack;
 
 typedef struct [[nodiscard]] {
@@ -795,6 +807,74 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   return hash[0];
 }
 
+static void display_pos(Position* const pos) {
+  Position npos = *pos;
+  if (npos.flipped) {
+    flip_pos(&npos);
+}
+  for (i32 rank = 7; rank >= 0; rank--) {
+    for (i32 file = 0; file < 8; file++) {
+      i32 sq = rank * 8 + file;
+      u64 bb = 1ULL << sq;
+      i32 piece = piece_on(&npos, sq);
+      if (bb & npos.colour[0]) {
+        if (piece == Pawn) {
+          putl("P");
+        }
+        else if (piece == Knight) {
+          putl("N");
+        }
+        else if (piece == Bishop) {
+          putl("B");
+        }
+        else if (piece == Rook) {
+          putl("R");
+        }
+        else if (piece == Queen) {
+          putl("Q");
+        }
+        else if (piece == King) {
+          putl("K");
+        }
+      }
+      else if (bb & npos.colour[1]) {
+        if (piece == Pawn) {
+          putl("p");
+        }
+        else if (piece == Knight) {
+          putl("n");
+        }
+        else if (piece == Bishop) {
+          putl("b");
+        }
+        else if (piece == Rook) {
+          putl("r");
+        }
+        else if (piece == Queen) {
+          putl("q");
+        }
+        else if (piece == King) {
+          putl("k");
+        }
+      }
+      else {
+        putl(".");
+      }
+    }
+    putl("\n");
+  }
+  putl("\nTurn: ");
+  putl(pos->flipped ? "Black" : "White");
+  putl("\nEval: ");
+  i32 score = eval(pos);
+  if (pos->flipped) {
+    score = -score;
+  }
+  printf("%i\n", score);
+}
+
+u64 nodes2 = 0;
+
 static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
@@ -804,6 +884,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 move_history[2][64][64]) {
   assert(alpha < beta);
   assert(ply >= 0);
+
+  assert(ply < 256);
 
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
@@ -863,6 +945,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   stack[pos_history_count + ply + 2].history = tt_key;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
+  stack[ply].move_count = num_moves;
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
@@ -870,13 +953,47 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   pv_stack[ply].length = ply;
 #endif
 
+#if ASSERTS
+  for (i32 i = 0; i < num_moves; i++) {
+    assert(stack[ply].moves[i].takes_piece == piece_on(pos, stack[ply].moves[i].to));
+  }
+#endif
+
+  //if (*nodes < nodes2)
+  //{
+  //  printf("!Hash: %llu, Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Move count: %d, Nodes: %llu, Nodes2: %llu\n",
+  //    tt_key, depth, ply, alpha, beta, num_moves, *nodes, nodes2);
+
+  //  assert(false);
+  //  //assert(*nodes < nodes2);
+
+  //}
+  nodes2 = *nodes;
+
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
 
+    assert(tt_key == get_hash(pos));
+
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
+      if (stack[ply].moves[order_index].takes_piece != piece_on(pos, stack[ply].moves[order_index].to)) {
+        printf("Hash: %llu, Alpha: %d, Beta: %d, Move index: %d, Order index: %d, Move count: %d\n", tt_key, alpha, beta, move_index, order_index, num_moves);
+        for (i32 i = 0; i < num_moves; i++) {
+          printf("  Move %d --- From: %d, To: %d, Takes: %d, Takes2: %d\n",
+            i,
+            stack[ply].moves[i].from,
+            stack[ply].moves[i].to,
+            stack[ply].moves[i].takes_piece,
+            piece_on(pos, stack[ply].moves[i].to)
+          );
+        }
+        display_pos(pos);
+        fflush(stdout);
+      }
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
+      assert(stack[ply].moves[order_index].from != stack[ply].moves[order_index].to);
       const u64 order_move_score =
           ((u64)(*(u64 *)&tt_move == *(u64 *)&stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
@@ -912,13 +1029,109 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                         ? 1 + (alpha == beta - 1) + moves_evaluated / 16
                         : 1;
 
+    if (ply >= 18) {
+      if (stack[18].moves[0].from == stack[18].moves[0].to)
+      {
+        printf("Hash: %llu, Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Move index: %d, Move count: %d, Nodes: %llu\n",
+          tt_key, depth, ply, alpha, beta, move_index, num_moves, *nodes);
+        assert(false);
+      }
+    }
+
     i16 score;
     while (true) {
+      for (i32 i = 0; i < num_moves; i++) {
+        assert(stack[ply].moves[i].from != stack[ply].moves[i].to);
+      }
+
+      const Move currentMove = stack[ply].moves[move_index];
+      bool same = false;
+      //if (tt_key == 6885433935876502377 && depth == 75 && ply == 18) {
+      //  printf("FOUND1!!!\n");
+      //  printf("!Hash: %llu, Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Move index: %d, Move count: %d, Nodes: %llu\n",
+      //    tt_key, depth, ply, alpha, beta, move_index, num_moves, *nodes);
+      //  printf("!Current: --- From: %d, To: %d, Takes: %d, Takes2: %d, Promo: %d\n",
+      //    currentMove.from,
+      //    currentMove.to,
+      //    currentMove.takes_piece,
+      //    piece_on(pos, currentMove.to),
+      //    currentMove.promo
+      //  );
+      //  //FILE* file = fopen("tt.tt", "wb");
+      //  //fwrite(tt, sizeof(TTEntry), tt_length, file);
+      //  //fflush(file);
+      //  //fclose(file);
+
+      //  //FILE* file = fopen("tt.tt", "rb");
+      //  //fread(tt, sizeof(TTEntry), tt_length, file);
+      //  //fclose(file);
+      //}
+
+      if (tt_key == 1093471770802174896 && depth == 7 && ply == 96 && move_index == 2) {
+        printf("FOUND2!!!\n");
+        printf("!Hash: %llu, Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Move index: %d, Move count: %d, Nodes: %llu\n",
+          tt_key, depth, ply, alpha, beta, move_index, num_moves, *nodes);
+        printf("!Current: --- From: %d, To: %d, Takes: %d, Takes2: %d, Promo: %d\n",
+          currentMove.from,
+          currentMove.to,
+          currentMove.takes_piece,
+          piece_on(pos, currentMove.to),
+          currentMove.promo
+        );
+        same = true;
+      }
+
+      if (ply >= 18) {
+        if (stack[18].moves[0].from == stack[18].moves[0].to)
+        {
+          printf("Hash: %llu, Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Move index: %d, Move count: %d, Nodes: %llu, Same: %d\n",
+            tt_key, depth, ply, alpha, beta, move_index, num_moves, *nodes, same);
+          assert(false);
+        }
+      }
+
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
                       nodes, pv_stack,
 #endif
                       stack, pos_history_count, move_history);
+
+      for (i32 i = 0; i < num_moves; i++) {
+        if (stack[ply].moves[i].from == stack[ply].moves[i].to) {
+          printf("Hash: %llu, Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Move index: %d, Move count: %d, Nodes: %llu, same: %d\n",
+            tt_key, depth, ply, alpha, beta, move_index, num_moves, *nodes, same);
+          printf("Current: Move %d --- From: %d, To: %d, Takes: %d, Takes2: %d, Promo: %d\n",
+            i,
+            currentMove.from,
+            currentMove.to,
+            currentMove.takes_piece,
+            piece_on(pos, currentMove.to),
+            currentMove.promo
+          );
+          printf("Broken: Move %d --- From: %d, To: %d, Takes: %d, Takes2: %d, Promo: %d\n",
+            i,
+            stack[ply].moves[i].from,
+            stack[ply].moves[i].to,
+            stack[ply].moves[i].takes_piece,
+            piece_on(pos, stack[ply].moves[i].to),
+            stack[ply].moves[i].promo
+          );
+          display_pos(pos);
+          display_pos(&npos);
+          assert(stack[ply].moves[i].from != stack[ply].moves[i].to);
+        }
+      }
+
+      if (ply >= 18) {
+        if (stack[18].moves[0].from == stack[18].moves[0].to)
+        {
+          printf("Hash: %llu, Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Move index: %d, Move count: %d, Nodes: %llu, Same:%d\n",
+            tt_key, depth, ply, alpha, beta, move_index, num_moves, *nodes, same);
+          display_pos(pos);
+          display_pos(&npos);
+          assert(false);
+        }
+      }
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -1025,60 +1238,6 @@ static void iteratively_deepen(
   putl("\n");
 }
 
-static void display_pos(Position *const pos) {
-  Position npos = *pos;
-  if (npos.flipped) {
-    flip_pos(&npos);
-  }
-  for (i32 rank = 7; rank >= 0; rank--) {
-    for (i32 file = 0; file < 8; file++) {
-      i32 sq = rank * 8 + file;
-      u64 bb = 1ULL << sq;
-      i32 piece = piece_on(&npos, sq);
-      if (bb & npos.colour[0]) {
-        if (piece == Pawn) {
-          putl("P");
-        } else if (piece == Knight) {
-          putl("N");
-        } else if (piece == Bishop) {
-          putl("B");
-        } else if (piece == Rook) {
-          putl("R");
-        } else if (piece == Queen) {
-          putl("Q");
-        } else if (piece == King) {
-          putl("K");
-        }
-      } else if (bb & npos.colour[1]) {
-        if (piece == Pawn) {
-          putl("p");
-        } else if (piece == Knight) {
-          putl("n");
-        } else if (piece == Bishop) {
-          putl("b");
-        } else if (piece == Rook) {
-          putl("r");
-        } else if (piece == Queen) {
-          putl("q");
-        } else if (piece == King) {
-          putl("k");
-        }
-      } else {
-        putl(".");
-      }
-    }
-    putl("\n");
-  }
-  putl("\nTurn: ");
-  putl(pos->flipped ? "Black" : "White");
-  putl("\nEval: ");
-  i32 score = eval(pos);
-  if (pos->flipped) {
-    score = -score;
-  }
-  printf("%i\n", score);
-}
-
 #ifdef FULL
 static void bench() {
   Position pos;
@@ -1140,6 +1299,10 @@ static void run() {
   getl(line);
   putl("uciok\n");
 #endif
+
+  FILE* file = fopen("tt.tt", "rb");
+  fread(tt, sizeof(TTEntry), tt_length, file);
+  fclose(file);
 
   // UCI loop
   while (true) {
