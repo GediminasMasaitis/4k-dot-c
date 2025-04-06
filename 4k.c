@@ -754,7 +754,6 @@ typedef struct [[nodiscard]] {
   Move killer;
   Move best_move;
   u64 history;
-  Move moves[256];
 } SearchStack;
 
 typedef struct [[nodiscard]] {
@@ -862,7 +861,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   stack[pos_history_count + ply + 2].history = tt_key;
-  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
+  Move moves[256];
+  const i32 num_moves = movegen(pos, moves, in_qsearch);
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
@@ -875,22 +875,22 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < num_moves; order_index++) {
-      assert(stack[ply].moves[order_index].takes_piece ==
-             piece_on(pos, stack[ply].moves[order_index].to));
+      assert(moves[order_index].takes_piece ==
+             piece_on(pos, moves[order_index].to));
       const u64 order_move_score =
-          ((u64)(*(u64 *)&tt_move == *(u64 *)&stack[ply].moves[order_index])
+          ((u64)(*(u64 *)&tt_move == *(u64 *)&moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)stack[ply].moves[order_index].takes_piece
+          + ((u64)moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
           + ((u64)(*(u64 *)&stack[ply].killer ==
-                   *(u64 *)&stack[ply].moves[order_index])
+                   *(u64 *)&moves[order_index])
              << 48) // KILLER MOVE
-          + move_history[pos->flipped][stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
+          + move_history[pos->flipped][moves[order_index].from]
+                        [moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
         move_score = order_move_score;
-        swapu64((u64 *)&stack[ply].moves[move_index],
-                (u64 *)&stack[ply].moves[order_index]);
+        swapu64((u64 *)&moves[move_index],
+                (u64 *)&moves[order_index]);
       }
     }
 
@@ -898,7 +898,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
     (*nodes)++;
 #endif
-    if (!makemove(&npos, &stack[ply].moves[move_index])) {
+    if (!makemove(&npos, &moves[move_index])) {
       continue;
     }
 
@@ -929,7 +929,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     if (score > alpha) {
-      stack[ply].best_move = stack[ply].moves[move_index];
+      stack[ply].best_move = moves[move_index];
       alpha = score;
       tt_flag = Exact;
 #ifdef FULL
@@ -1085,11 +1085,7 @@ static void bench() {
   Move moves[256];
   i32 num_moves;
   i32 pos_history_count = 0;
-#ifdef LOWSTACK
-  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
-#else
-  SearchStack stack[1024];
-#endif
+  SearchStack stack[4096];
 
   pos = (Position){.ep = 0,
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
@@ -1118,11 +1114,7 @@ static void run() {
   Move moves[256];
   i32 num_moves;
   i32 pos_history_count;
-#ifdef LOWSTACK
-  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
-#else
-  SearchStack stack[1024];
-#endif
+  SearchStack stack[4096];
   init_diag_masks();
 
 #ifdef FULL
