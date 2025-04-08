@@ -459,7 +459,7 @@ static void flip_pos(Position *const restrict pos) {
   swapu64(&pos->colour[0], &pos->colour[1]);
 }
 
-[[nodiscard]] static u64 get_mobility(const i32 sq, const i32 piece,
+[[nodiscard]] static u64 get_mobility(const u8 sq, const u8 piece,
                                       const Position *pos) {
   u64 moves = 0;
   if (piece == Knight) {
@@ -610,7 +610,7 @@ static Move *generate_pawn_moves(const Position *const pos,
 static Move *generate_piece_moves(Move *restrict movelist,
                                   const Position *restrict pos,
                                   const u64 to_mask) {
-  for (int piece = Knight; piece <= King; piece++) {
+  for (u8 piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
            piece == Queen || piece == King);
     u64 copy = pos->colour[0] & pos->pieces[piece];
