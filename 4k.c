@@ -777,20 +777,28 @@ TTEntry tt[tt_length];
 typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] u64 get_hash(const Position *const pos) {
-  i128 hash = {0};
+  const u64 m = 0xc6a4a7935bd1e995ULL;
+  const i32 r = 47;
+  const u64* data = (const u64*)pos;
 
-  // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
-  const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 6; i++) {
-    i128 key = {0};
-    __builtin_memcpy(&key, data + i * 16, 16);
-    hash = __builtin_ia32_aesenc128(hash, key);
+  u64 h = 6379633040001738036ULL ^ (88 * m);
+
+  // Process 88 bytes in 11 blocks of 8 bytes
+  for (i32 i = 0; i < sizeof(Position) / sizeof(u64); i++) {
+    u64 k = data[i];
+    k *= m;
+    k ^= k >> r;
+    k *= m;
+    h ^= k;
+    h *= m;
   }
 
-  // FINAL ROUND FOR BIT MIXING
-  hash = __builtin_ia32_aesenc128(hash, hash);
+  // Finalization
+  h ^= h >> r;
+  h *= m;
+  h ^= h >> r;
 
-  return hash[0];
+  return h;
 }
 
 static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
