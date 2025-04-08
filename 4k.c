@@ -355,7 +355,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 static u64 diag_mask[64];
 
 static void init_diag_masks() {
-  for (i32 sq = 0; sq < 64; sq++) {
+  for (i32 sq = 63; sq >= 0; sq--) {
     diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
                     ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
   }
@@ -670,7 +670,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
   }
   movelist = generate_piece_moves(movelist, pos, to_mask);
 
-  i32 num_moves = movelist - start;
+  const i32 num_moves = movelist - start;
   assert(num_moves < 256);
   return num_moves;
 }
@@ -703,24 +703,25 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {99,  292, 318,
-                                                           495, 952, 0};
+__attribute__((aligned(8))) static const i16 material[] = {100, 294, 308,
+                                                           496, 953, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -11, -13, -12, -2, 38, 116, 0,   // Pawn
-    -32, -17, -1,  13,  25, 28, 8,   -25, // Knight
-    -23, -5,  4,   9,   13, 14, 1,   -12, // Bishop
+    0,   -10, -13, -12, -2, 38, 116, 0,   // Pawn
+    -31, -16, 0,   14,  25, 27, 7,   -26, // Knight
+    -25, -7,  3,   9,   13, 15, 2,   -10, // Bishop
     -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
     -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
     -18, -12, -6,  5,   17, 23, 12,  -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -3,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
+    -4,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
     -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  1,  5,  -7,  // Bishop
-    -6,  1,  6,  8,  6,  3,  -1, -16, // Rook
-    -21, -9, 2,  5,  4,  6,  6,  6,   // Queen
-    -13, 3,  1,  -1, -2, -3, 7,  -9,  // King
+    -12, 0,  2,  5,  6,  2,  5,  -7,  // Bishop
+    -6,  1,  6,  8,  6,  3,  -1, -17, // Rook
+    -21, -9, 2,  5,  4,  6,  6,  7,   // Queen
+    -13, 3,  1,  -1, -3, -3, 7,  -9,  // King
 };
+const i8 bishop_pair = 33;
 
 static i16 eval(const Position *const restrict pos) {
   i16 score = 16;
@@ -729,7 +730,7 @@ static i16 eval(const Position *const restrict pos) {
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[c] & pos->pieces[p];
       while (copy) {
-        const i16 sq = lsb(copy) ^ sq_xor;
+        const i32 sq = lsb(copy) ^ sq_xor;
         copy &= copy - 1;
 
         const int rank = sq >> 3;
@@ -744,6 +745,11 @@ static i16 eval(const Position *const restrict pos) {
       }
     }
 
+    // BISHOP PAIR
+    if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
+      score += bishop_pair;
+    }
+
     score = -score;
   }
   return score;
@@ -754,8 +760,8 @@ static size_t start_time;
 static size_t total_time;
 
 typedef struct [[nodiscard]] {
-  Move killer;
   Move best_move;
+  Move killer;
   u64 history;
   Move moves[256];
 } SearchStack;
