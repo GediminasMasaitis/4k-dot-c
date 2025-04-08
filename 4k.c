@@ -786,7 +786,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   u8 flag;
 } TTEntry;
 
-enum { tt_length = 16 * 1024 * 1024 / sizeof(TTEntry) };
+enum { tt_length = 128 * 1024 * 1024 / sizeof(TTEntry) };
 
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
