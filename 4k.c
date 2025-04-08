@@ -759,7 +759,7 @@ typedef struct [[nodiscard]] {
 
 typedef struct [[nodiscard]] {
   i32 length;
-  Move moves[max_ply + 1];
+  Move moves[max_ply * 2];
 } PvStack;
 
 typedef struct [[nodiscard]] {
@@ -798,7 +798,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
-                  u64 *nodes, PvStack pv_stack[max_ply + 1],
+                  u64 *nodes, PvStack pv_stack[max_ply * 2],
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
                   u64 move_history[2][64][64]) {
@@ -978,8 +978,8 @@ static void iteratively_deepen(
   u64 move_history[2][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
-    PvStack pv_stack[max_ply + 1];
-    for (i32 i = 0; i < max_ply + 1; i++) {
+    PvStack pv_stack[max_ply * 2];
+    for (i32 i = 0; i < max_ply * 2; i++) {
       pv_stack[i].length = 0;
     }
 #else
