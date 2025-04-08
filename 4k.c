@@ -704,6 +704,38 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
+enum { max_ply = 96, mate = 30000, inf = 32000 };
+static size_t start_time;
+static size_t total_time;
+
+typedef struct [[nodiscard]] {
+  Move killer;
+  Move best_move;
+  u64 history;
+  Move moves[256];
+  } SearchStack;
+
+typedef struct [[nodiscard]] {
+  i32 length;
+  Move moves[max_ply * 2];
+  } PvStack;
+
+typedef struct [[nodiscard]] {
+  u64 key;
+  Move move;
+  i16 score;
+  i8 depth;
+  u8 flag;
+  } TTEntry;
+
+enum { tt_length = 16 * 1024 * 1024 / sizeof(TTEntry) };
+
+enum { Upper = 0, Lower = 1, Exact = 2 };
+
+TTEntry tt[tt_length];
+
+typedef long long __attribute__((__vector_size__(16))) i128;
+
 __attribute__((aligned(8))) static const i16 material[] = {99,  292, 318,
                                                            495, 952, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
@@ -750,38 +782,6 @@ static i16 eval(const Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 96, mate = 30000, inf = 32000 };
-static size_t start_time;
-static size_t total_time;
-
-typedef struct [[nodiscard]] {
-  Move killer;
-  Move best_move;
-  u64 history;
-  Move moves[256];
-} SearchStack;
-
-typedef struct [[nodiscard]] {
-  i32 length;
-  Move moves[max_ply * 2];
-} PvStack;
-
-typedef struct [[nodiscard]] {
-  u64 key;
-  Move move;
-  i16 score;
-  i8 depth;
-  u8 flag;
-} TTEntry;
-
-enum { tt_length = 16 * 1024 * 1024 / sizeof(TTEntry) };
-
-enum { Upper = 0, Lower = 1, Exact = 2 };
-
-TTEntry tt[tt_length];
-
-typedef long long __attribute__((__vector_size__(16))) i128;
-
 [[nodiscard]] u64 get_hash(const Position *const pos) {
   i128 hash = {0};
 
@@ -799,10 +799,62 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   return hash[0];
 }
 
+[[nodiscard]] static i32 is_pseudolegal_move(const Position* const pos, const Move* const move) {
+  Move moves[256];
+  const i32 num_moves = movegen(pos, moves, false);
+  for (i32 i = 0; i < num_moves; ++i) {
+    if (*(const u64*)&moves[i] == *(const u64*)move) {
+      return true;
+  }
+}
+  return false;
+}
+
+static void print_pv(const Position* const pos, const Move* const move, const SearchStack * const stack, const i32 pos_history_count) {
+  // Check move pseudolegality
+  if (!is_pseudolegal_move(pos, move)) {
+    return;
+  }
+
+  // Check move legality
+  Position npos = *pos;
+  if (!makemove(&npos, move)) {
+    return;
+  }
+
+  // Print current move
+  char pv_move_name[8];
+  move_str(pv_move_name, move, pos->flipped);
+  putl(" ");
+  putl(pv_move_name);
+
+  // Probe the TT in the resulting position
+  const u64 tt_key = get_hash(&npos);
+  const TTEntry* tt_entry = &tt[tt_key % tt_length];
+
+  // Only continue if the move was valid and comes from a PV search
+  if (tt_entry->key != tt_key /*|| tt_entry.move == no_move*/ || tt_entry->flag != Exact) {
+    return;
+  }
+
+  // Avoid infinite recursion on a repetition
+  for (i32 i = 0; i < pos_history_count; i++) {
+    if (tt_key == stack[i].history) {
+      return;
+    }
+  }
+
+  //for (const u64 old_hash : hash_history)
+  //  if (old_hash == tt_key)
+  //    return;
+
+  print_pv(&npos, &tt_entry->move, stack, pos_history_count + 1);
+}
+
 static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
-                  u64 *nodes, PvStack pv_stack[max_ply * 2],
+                  u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
                   u64 move_history[2][64][64]) {
@@ -870,10 +922,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
-#ifdef FULL
-  pv_stack[ply].length = ply;
-#endif
-
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
 
@@ -920,7 +968,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
-                      nodes, pv_stack,
+                      nodes,
 #endif
                       stack, pos_history_count, move_history);
 
@@ -936,16 +984,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
       tt_flag = Exact;
-#ifdef FULL
-      if (alpha != beta - 1) {
-        pv_stack[ply].moves[ply] = stack[ply].best_move;
-        for (i32 next_ply = ply + 1; next_ply < pv_stack[ply + 1].length;
-             next_ply++) {
-          pv_stack[ply].moves[next_ply] = pv_stack[ply + 1].moves[next_ply];
-        }
-        pv_stack[ply].length = pv_stack[ply + 1].length;
-      }
-#endif
       if (score >= beta) {
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
@@ -982,16 +1020,12 @@ static void iteratively_deepen(
   u64 move_history[2][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
-    PvStack pv_stack[max_ply * 2];
-    for (i32 i = 0; i < max_ply * 2; i++) {
-      pv_stack[i].length = 0;
-    }
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     i32 score = search(pos, 0, depth, -inf, inf,
 #ifdef FULL
-                       nodes, pv_stack,
+                       nodes,
 #endif
                        stack, pos_history_count, move_history);
     size_t elapsed = get_time() - start_time;
@@ -1004,17 +1038,18 @@ static void iteratively_deepen(
       printf(" nps %i", nps);
     }
 
-    putl(" pv ");
-    // const i32 pv_length = pv_stack[0].length;
-    const i32 pv_length = 1;
-    for (i32 i = 0; i < pv_length; i++) {
-      char pv_move_name[8];
-      move_str(pv_move_name, &pv_stack[0].moves[i], pos->flipped ^ (i % 2));
-      putl(pv_move_name);
-      if (i != pv_length - 1) {
-        putl(" ");
-      }
-    }
+    putl(" pv");
+    print_pv(pos, &stack[0].best_move, stack, pos_history_count);
+    //// const i32 pv_length = pv_stack[0].length;
+    //const i32 pv_length = 1;
+    //for (i32 i = 0; i < pv_length; i++) {
+    //  char pv_move_name[8];
+    //  move_str(pv_move_name, &pv_stack[0].moves[i], pos->flipped ^ (i % 2));
+    //  putl(pv_move_name);
+    //  if (i != pv_length - 1) {
+    //    putl(" ");
+    //  }
+    //}
     putl("\n");
 #endif
 
