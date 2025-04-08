@@ -434,8 +434,8 @@ static void swapu64(u64 *const lhs, u64 *const rhs) {
   *rhs = temp;
 }
 
-static void swapmoves(Move* const lhs, Move* const rhs) {
-  swapu64((u64*)lhs, (u64*)rhs);
+static void swapmoves(Move *const lhs, Move *const rhs) {
+  swapu64((u64 *)lhs, (u64 *)rhs);
 }
 
 static void swapbool(bool *const restrict lhs, bool *const restrict rhs) {
@@ -497,8 +497,7 @@ static void flip_pos(Position *const restrict pos) {
          king(sq) & theirs & pos->pieces[King];
 }
 
-i32 makemove(Position *const restrict pos,
-                    const Move *const restrict move) {
+i32 makemove(Position *const restrict pos, const Move *const restrict move) {
   assert(move->from >= 0);
   assert(move->from < 64);
   assert(move->to >= 0);
@@ -762,11 +761,6 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] {
-  i32 length;
-  Move moves[max_ply * 2];
-} PvStack;
-
-typedef struct [[nodiscard]] {
   u64 key;
   Move move;
   i16 score;
@@ -802,7 +796,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
-                  u64 *nodes, PvStack pv_stack[max_ply * 2],
+                  u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
                   u64 move_history[2][64][64]) {
@@ -870,10 +864,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
-#ifdef FULL
-  pv_stack[ply].length = ply;
-#endif
-
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
     u64 move_score = 0;
 
@@ -894,7 +884,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       if (order_move_score > move_score) {
         move_score = order_move_score;
         swapmoves(&stack[ply].moves[move_index],
-                &stack[ply].moves[order_index]);
+                  &stack[ply].moves[order_index]);
       }
     }
 
@@ -920,7 +910,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
-                      nodes, pv_stack,
+                      nodes,
 #endif
                       stack, pos_history_count, move_history);
 
@@ -936,16 +926,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
       tt_flag = Exact;
-#ifdef FULL
-      if (alpha != beta - 1) {
-        pv_stack[ply].moves[ply] = stack[ply].best_move;
-        for (i32 next_ply = ply + 1; next_ply < pv_stack[ply + 1].length;
-             next_ply++) {
-          pv_stack[ply].moves[next_ply] = pv_stack[ply + 1].moves[next_ply];
-        }
-        pv_stack[ply].length = pv_stack[ply + 1].length;
-      }
-#endif
       if (score >= beta) {
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
@@ -965,7 +945,11 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return (ply - mate) * in_check;
   }
 
-  *tt_entry = (TTEntry){tt_key, stack[ply].best_move, alpha, depth, tt_flag};
+  *tt_entry = (TTEntry){.key = tt_key,
+                        .move = stack[ply].best_move,
+                        .score = alpha,
+                        .depth = depth,
+                        .flag = tt_flag};
 
   return alpha;
 }
@@ -982,16 +966,12 @@ static void iteratively_deepen(
   u64 move_history[2][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
-    PvStack pv_stack[max_ply * 2];
-    for (i32 i = 0; i < max_ply * 2; i++) {
-      pv_stack[i].length = 0;
-    }
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     i32 score = search(pos, 0, depth, -inf, inf,
 #ifdef FULL
-                       nodes, pv_stack,
+                       nodes,
 #endif
                        stack, pos_history_count, move_history);
     size_t elapsed = get_time() - start_time;
@@ -1005,16 +985,9 @@ static void iteratively_deepen(
     }
 
     putl(" pv ");
-    // const i32 pv_length = pv_stack[0].length;
-    const i32 pv_length = 1;
-    for (i32 i = 0; i < pv_length; i++) {
-      char pv_move_name[8];
-      move_str(pv_move_name, &pv_stack[0].moves[i], pos->flipped ^ (i % 2));
-      putl(pv_move_name);
-      if (i != pv_length - 1) {
-        putl(" ");
-      }
-    }
+    char move_name[8];
+    move_str(move_name, &stack[0].best_move, pos->flipped);
+    putl(move_name);
     putl("\n");
 #endif
 
