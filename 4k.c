@@ -819,7 +819,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   const u64 tt_key = get_hash(pos);
 
   // FULL REPETITION DETECTION
-  const bool in_qsearch = depth <= 0;
+  bool in_qsearch = depth <= 0;
   for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
        i -= 2) {
     if (tt_key == stack[i].history) {
@@ -853,10 +853,14 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  // REVERSE FUTILITY PRUNING
-  if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check &&
-      static_eval - 48 * depth >= beta) {
-    return static_eval;
+  if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
+    // REVERSE FUTILITY PRUNING
+    if (static_eval - 48 * depth >= beta) {
+      return static_eval;
+    }
+
+    // RAZORING
+    in_qsearch = static_eval + 256 * depth < alpha;
   }
 
   stack[pos_history_count + ply + 2].history = tt_key;

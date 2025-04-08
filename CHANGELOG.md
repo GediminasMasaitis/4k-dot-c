@@ -3585,3 +3585,67 @@ Games | N: 44170 W: 14128 L: 14214 D: 15828
 Penta | [1985, 5082, 8035, 5000, 1983]
 https://gedas.pythonanywhere.com/test/481/
 ```
+
+### 1.9
+
+64 bit: 4096 bytes (+26)
+
+MD5: e6075a755bf5f196bade69cca7c458b9
+
+Razoring
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 26 time 0 nodes 564 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1511 nps 1511000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 4667 nps 2333500 pv b1c3
+info depth 6 score cp 0 time 5 nodes 12748 nps 2549600 pv b1c3
+info depth 7 score cp 7 time 11 nodes 32441 nps 2949181 pv b1c3
+info depth 8 score cp 16 time 23 nodes 80428 nps 3496869 pv b1c3
+info depth 9 score cp 9 time 58 nodes 218658 nps 3769965 pv b1c3
+info depth 10 score cp 13 time 143 nodes 554702 nps 3879034 pv b1c3
+info depth 11 score cp 11 time 367 nodes 1484057 nps 4043752 pv b1c3
+info depth 12 score cp 11 time 816 nodes 3422562 nps 4194316 pv b1c3
+info depth 13 score cp 12 time 1410 nodes 5784245 nps 4102301 pv b1c3
+info depth 14 score cp 12 time 2164 nodes 8676553 nps 4009497 pv b1c3
+info depth 15 score cp 11 time 3755 nodes 14802746 nps 3942142 pv b1c3
+bestmove b1c3
+14802746 nodes 3942142 nps
+```
+
+```py
+Elo   | 39.67 +- 13.65 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.10 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1592 W: 625 L: 444 D: 523
+Penta | [52, 144, 291, 189, 120]
+https://gedas.pythonanywhere.com/test/501/
+```
+
+10+0.1:
+```py
+Score of 4k.c-1.9 vs stash16: 309 - 119 - 86  [0.685] 514
+...      4k.c-1.9 playing White: 178 - 48 - 33  [0.751] 259
+...      4k.c-1.9 playing Black: 131 - 71 - 53  [0.618] 255
+...      White vs Black: 249 - 179 - 86  [0.568] 514
+Elo difference: 134.8 +/- 29.1, LOS: 100.0 %, DrawRatio: 16.7 %
+```
+
+10+0.1:
+```
+Score of 4k.c-1.9 vs stash17: 281 - 162 - 57  [0.619] 500
+...      4k.c-1.9 playing White: 169 - 58 - 24  [0.721] 251
+...      4k.c-1.9 playing Black: 112 - 104 - 33  [0.516] 249
+...      White vs Black: 273 - 170 - 57  [0.603] 500
+Elo difference: 84.3 +/- 29.4, LOS: 100.0 %, DrawRatio: 11.4 %
+```
+
+10+0.1
+```py
+Score of 4k.c-1.9 vs 4ku-1.1: 217 - 593 - 190  [0.312] 1000
+...      4k.c-1.9 playing White: 140 - 257 - 104  [0.383] 501
+...      4k.c-1.9 playing Black: 77 - 336 - 86  [0.240] 499
+...      White vs Black: 476 - 334 - 190  [0.571] 1000
+Elo difference: -137.4 +/- 20.5, LOS: 0.0 %, DrawRatio: 19.0 %
+```
