@@ -3448,11 +3448,11 @@ bestmove g1f3
 ```
 
 ```py
-Elo   | 1.02 +- 10.32 (95%)
+Elo   | 5.43 +- 6.06 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 0.43 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 2718 W: 917 L: 909 D: 892
-Penta | [132, 298, 507, 274, 148]
+LLR   | 3.00 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 7608 W: 2554 L: 2435 D: 2619
+Penta | [351, 798, 1414, 863, 378]
 https://gedas.pythonanywhere.com/test/465/
 ```
 
@@ -3540,6 +3540,15 @@ bestmove b1c3
 27245341 nodes 3950317 nps
 ```
 
+```py
+Elo   | 31.76 +- 12.14 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1854 W: 683 L: 514 D: 657
+Penta | [62, 167, 348, 240, 110]
+https://gedas.pythonanywhere.com/test/468/
+```
+
 ### 1.8
 
 64 bit: 4070 bytes (-11)
@@ -3566,4 +3575,13 @@ info depth 14 score cp 11 time 3389 nodes 14652291 nps 4323485 pv b1c3
 info depth 15 score cp 7 time 5388 nodes 23209903 nps 4307702 pv b1c3
 bestmove b1c3
 23209903 nodes 4307702 nps
+```
+
+```py
+Elo   | -0.68 +- 2.48 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 44170 W: 14128 L: 14214 D: 15828
+Penta | [1985, 5082, 8035, 5000, 1983]
+https://gedas.pythonanywhere.com/test/481/
 ```

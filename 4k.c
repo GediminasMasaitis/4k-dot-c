@@ -434,6 +434,10 @@ static void swapu64(u64 *const lhs, u64 *const rhs) {
   *rhs = temp;
 }
 
+static void swapmoves(Move* const lhs, Move* const rhs) {
+  swapu64((u64*)lhs, (u64*)rhs);
+}
+
 static void swapbool(bool *const restrict lhs, bool *const restrict rhs) {
   const bool temp = *lhs;
   *lhs = *rhs;
@@ -889,8 +893,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
         move_score = order_move_score;
-        swapu64((u64 *)&stack[ply].moves[move_index],
-                (u64 *)&stack[ply].moves[order_index]);
+        swapmoves(&stack[ply].moves[move_index],
+                &stack[ply].moves[order_index]);
       }
     }
 
