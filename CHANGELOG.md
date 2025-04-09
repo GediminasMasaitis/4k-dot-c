@@ -3769,3 +3769,41 @@ Games | N: 3716 W: 1291 L: 1152 D: 1273
 Penta | [157, 384, 661, 475, 181]
 https://gedas.pythonanywhere.com/test/529/
 ```
+
+### 1.13
+
+64 bit: 4093 bytes (+43)
+
+MD5: 63aed21c47366d9ae758f3c389ef8b99
+
+* Add open file evaluation
+* Remove killer heuristic
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 24 time 0 nodes 574 pv b1c3
+info depth 4 score cp 16 time 0 nodes 1523 pv b1c3
+info depth 5 score cp 0 time 1 nodes 4674 nps 4674000 pv b1c3
+info depth 6 score cp 2 time 3 nodes 12687 nps 4229000 pv b1c3
+info depth 7 score cp 6 time 10 nodes 34616 nps 3461600 pv b1c3
+info depth 8 score cp 15 time 24 nodes 87408 nps 3642000 pv b1c3
+info depth 9 score cp 13 time 62 nodes 245013 nps 3951822 pv b1c3
+info depth 10 score cp 12 time 185 nodes 743094 nps 4016724 pv b1c3
+info depth 11 score cp 12 time 364 nodes 1461810 nps 4015961 pv b1c3
+info depth 12 score cp 14 time 735 nodes 3040375 nps 4136564 pv b1c3
+info depth 13 score cp 3 time 1601 nodes 6655101 nps 4156840 pv b1c3
+info depth 14 score cp 4 time 2714 nodes 11241642 nps 4142093 pv b1c3
+info depth 15 score cp 4 time 4434 nodes 18369730 nps 4142925 pv b1c3
+bestmove b1c3
+18369730 nodes 4142925 nps
+```
+
+```py
+Elo   | 22.46 +- 10.21 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.05 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2912 W: 1089 L: 901 D: 922
+Penta | [122, 298, 499, 344, 193]
+https://gedas.pythonanywhere.com/test/552/
+```

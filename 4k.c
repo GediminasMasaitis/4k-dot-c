@@ -272,9 +272,9 @@ static void putl(const char *const restrict string) {
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
+  u8 promo;
   u8 from;
   u8 to;
-  u8 promo;
   u8 takes_piece;
 } Move;
 
@@ -623,7 +623,7 @@ static Move *generate_pawn_moves(const Position *const pos,
 static Move *generate_piece_moves(Move *restrict movelist,
                                   const Position *restrict pos,
                                   const u64 to_mask) {
-  for (int piece = Knight; piece <= King; piece++) {
+  for (i32 piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
            piece == Queen || piece == King);
     u64 copy = pos->colour[0] & pos->pieces[piece];
@@ -721,37 +721,45 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {99,  292, 318,
-                                                           495, 952, 0};
+__attribute__((aligned(16))) static const i16 material[] = {100, 297, 323,
+                                                            486, 955, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -11, -13, -12, -2, 38, 116, 0,   // Pawn
-    -32, -17, -1,  13,  25, 28, 8,   -25, // Knight
-    -23, -5,  4,   9,   13, 14, 1,   -12, // Bishop
-    -18, -23, -21, -8,  9,  19, 24,  18,  // Rook
-    -23, -15, -10, -3,  8,  18, 8,   17,  // Queen
-    -18, -12, -6,  5,   17, 23, 12,  -15, // King
+    0,   -11, -13, -12, -2, 39, 120, 0,   // Pawn
+    -31, -17, -1,  14,  25, 27, 8,   -26, // Knight
+    -23, -5,  4,   10,  13, 13, 0,   -13, // Bishop
+    -15, -22, -20, -9,  7,  17, 23,  19,  // Rook
+    -22, -14, -9,  -3,  7,  17, 7,   17,  // Queen
+    -19, -12, -5,  6,   17, 22, 12,  -16, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -3,  3,  -5, -2, -1, 1,  13, -6,  // Pawn
-    -27, -7, 6,  15, 14, 12, 1,  -14, // Knight
-    -12, 0,  2,  5,  6,  1,  5,  -7,  // Bishop
-    -6,  1,  6,  8,  6,  3,  -1, -16, // Rook
-    -21, -9, 2,  5,  4,  6,  6,  6,   // Queen
-    -13, 3,  1,  -1, -2, -3, 7,  -9,  // King
+    0,   4,  -6, -2, -2, 2,  10, -6,  // Pawn
+    -28, -7, 7,  16, 15, 11, 1,  -15, // Knight
+    -13, 0,  4,  6,  7,  1,  4,  -8,  // Bishop
+    -3,  0,  3,  5,  4,  5,  -1, -13, // Rook
+    -21, -9, 1,  4,  4,  6,  7,  7,   // Queen
+    -14, 3,  1,  1,  -1, -3, 6,  -10, // King
 };
+__attribute__((aligned(8))) static const i8 open_files[] = {0,  -6, -6,
+                                                            17, 4,  -12};
 
-static i16 eval(const Position *const restrict pos) {
-  i16 score = 16;
+static i32 eval(Position *const restrict pos) {
+  i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
-    const i8 sq_xor = c * 56;
+
+    const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
+
     for (i32 p = Pawn; p <= King; p++) {
-      u64 copy = pos->colour[c] & pos->pieces[p];
+      u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
-        const i16 sq = lsb(copy) ^ sq_xor;
+        const i32 sq = lsb(copy);
         copy &= copy - 1;
 
         const int rank = sq >> 3;
         const int file = sq & 7;
+
+        // OPEN FILES
+        score += open_files[p - 1] *
+                 ((0x101010101010101ULL << file & own_pawns) == 0);
 
         // MATERIAL
         score += material[p - 1];
@@ -762,6 +770,7 @@ static i16 eval(const Position *const restrict pos) {
       }
     }
 
+    flip_pos(pos);
     score = -score;
   }
   return score;
@@ -772,7 +781,6 @@ static size_t start_time;
 static size_t total_time;
 
 typedef struct [[nodiscard]] {
-  Move killer;
   Move best_move;
   u64 history;
   Move moves[256];
@@ -897,7 +905,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // QUIESCENCE
-  const i16 static_eval = eval(pos);
+  const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
       return static_eval;
@@ -933,8 +941,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
-          + ((u64)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
-             << 48) // KILLER MOVE
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
@@ -989,7 +995,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         if (stack[ply].best_move.takes_piece == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
-          stack[ply].killer = stack[ply].best_move;
         }
         break;
       }
