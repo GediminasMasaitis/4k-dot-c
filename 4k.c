@@ -784,11 +784,11 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   for (i32 i = 0; i < 6; i++) {
     i128 key = {0};
     __builtin_memcpy(&key, data + i * 16, 16);
-    hash = __builtin_ia32_aesenc128(hash, key);
+    hash = __builtin_ia32_aesenclast128(hash, key);
   }
 
   // FINAL ROUND FOR BIT MIXING
-  hash = __builtin_ia32_aesenc128(hash, hash);
+  hash = __builtin_ia32_aesenclast128(hash, hash);
 
   return hash[0];
 }
