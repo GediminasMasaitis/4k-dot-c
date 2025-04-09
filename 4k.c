@@ -334,13 +334,6 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 se(const u64 bb) { return east(south(bb)); }
 
-[[nodiscard]] u64 xattack(const i32 sq, const u64 blockers,
-                          const u64 dir_mask) {
-  return dir_mask &
-         ((blockers & dir_mask) - (1ULL << sq) ^
-          flip_bb(flip_bb(blockers & dir_mask) - flip_bb(1ULL << sq)));
-}
-
 [[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
                              const i32 shift_by, const u64 mask) {
   assert(sq >= 0);
@@ -352,29 +345,22 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return result;
 }
 
-static u64 diag_mask[64];
-
-static void init_diag_masks() {
-  for (i32 sq = 0; sq < 64; sq++) {
-    diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
-                    ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
-  }
-}
-
 [[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
-
-  return xattack(sq, blockers, diag_mask[sq]) |
-         xattack(sq, blockers, flip_bb(diag_mask[sq ^ 56]));
+  return ray(sq, blockers, 7, ~0x8080808080808080ull) |  // Northwest
+         ray(sq, blockers, 9, ~0x101010101010101ull) |   // Northeast
+         ray(sq, blockers, -9, ~0x8080808080808080ull) | // Southwest
+         ray(sq, blockers, -7, ~0x101010101010101ull);   // Southeast
 }
 
 [[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
-  return xattack(sq, blockers, 1ULL << sq ^ 0x101010101010101ULL << sq % 8) |
-         ray(sq, blockers, 1, ~0x101010101010101ull)      // East
-         | ray(sq, blockers, -1, ~0x8080808080808080ull); // West
+  return ray(sq, blockers, 8, ~0x0ull) |                 // North
+         ray(sq, blockers, -1, ~0x8080808080808080ull) | // West
+         ray(sq, blockers, -8, ~0x0ull) |                // South
+         ray(sq, blockers, 1, ~0x101010101010101ull);    // East
 }
 
 [[nodiscard]] static u64 knight(const i32 sq) {
@@ -1104,7 +1090,6 @@ static void run() {
 #else
   SearchStack stack[1024];
 #endif
-  init_diag_masks();
 
 #ifdef FULL
   pos = (Position){.ep = 0,
@@ -1232,7 +1217,6 @@ int main(int argc, char **argv) {
 #endif
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
-    init_diag_masks();
     bench();
     exit_now();
   }
