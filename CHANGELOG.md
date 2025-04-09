@@ -3649,3 +3649,49 @@ Score of 4k.c-1.9 vs 4ku-1.1: 217 - 593 - 190  [0.312] 1000
 ...      White vs Black: 476 - 334 - 190  [0.571] 1000
 Elo difference: -137.4 +/- 20.5, LOS: 0.0 %, DrawRatio: 19.0 %
 ```
+
+### 1.10
+
+64 bit: 4096 bytes (=)
+
+MD5: 0043720135875d9197f1fd242c260c49
+
+Razoring margin 128
+
+```py
+info depth 1 score cp 28 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 94 nps 94000 pv b1c3
+info depth 3 score cp 26 time 1 nodes 564 nps 564000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1511 nps 1511000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 4647 nps 2323500 pv b1c3
+info depth 6 score cp 0 time 4 nodes 12476 nps 3119000 pv b1c3
+info depth 7 score cp 7 time 9 nodes 30358 nps 3373111 pv b1c3
+info depth 8 score cp 16 time 21 nodes 72932 nps 3472952 pv b1c3
+info depth 9 score cp 9 time 51 nodes 198575 nps 3893627 pv b1c3
+info depth 10 score cp 13 time 126 nodes 498567 nps 3956880 pv b1c3
+info depth 11 score cp 11 time 323 nodes 1317735 nps 4079674 pv b1c3
+info depth 12 score cp 12 time 614 nodes 2582193 nps 4205526 pv b1c3
+info depth 13 score cp 8 time 1180 nodes 5082739 nps 4307405 pv b1c3
+info depth 14 score cp 7 time 2873 nodes 12403950 nps 4317420 pv b1c3
+info depth 15 score cp 10 time 5933 nodes 25158467 nps 4240429 pv g1f3
+bestmove g1f3
+25158467 nodes 4240429 nps
+```
+
+```py
+Elo   | 15.88 +- 8.30 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3920 W: 1370 L: 1191 D: 1359
+Penta | [140, 413, 754, 434, 219]
+https://gedas.pythonanywhere.com/test/512/
+```
+
+```py
+Elo   | 20.79 +- 9.60 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2828 W: 977 L: 808 D: 1043
+Penta | [89, 301, 519, 362, 143]
+https://gedas.pythonanywhere.com/test/514/
+```
