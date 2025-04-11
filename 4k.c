@@ -774,15 +774,17 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 
 TTEntry tt[tt_length];
 
+#if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
 
-[[nodiscard]] u64 get_hash(const Position *const pos) {
+[[nodiscard]] __attribute__((target("aes"))) u64
+get_hash(const Position *const pos) {
   i128 hash = {0};
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
   for (i32 i = 0; i < 6; i++) {
-    i128 key = {0};
+    i128 key;
     __builtin_memcpy(&key, data + i * 16, 16);
     hash = __builtin_ia32_aesenc128(hash, key);
   }
@@ -790,8 +792,41 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   // FINAL ROUND FOR BIT MIXING
   hash = __builtin_ia32_aesenc128(hash, hash);
 
+  // USE FIRST 64 BITS AS POSITION HASH
   return hash[0];
 }
+#elif defined(__aarch64__)
+
+#include <arm_neon.h>
+
+[[nodiscard]] __attribute__((target("+aes"))) u64
+get_hash(const Position *const pos) {
+  uint8x16_t hash = vdupq_n_u8(0);
+
+  // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
+  const u8 *const data = (const u8 *)pos;
+  for (i32 i = 0; i < 6; ++i) {
+    uint8x16_t key;
+    memcpy(&key, data + i * 16, 16);
+
+    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+    hash = veorq_u8(hash, key);
+  }
+
+  // FINAL ROUND FOR BIT MIXING
+  uint8x16_t key = hash;
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key);
+
+  // USE FIRST 64 BITS AS POSITION HASH
+  u64 result;
+  memcpy(&result, &hash, sizeof(result));
+  return result;
+}
+
+#else
+#error "Unsupported architecture: get_hash only for x86_64 and aarch64"
+#endif
 
 static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
