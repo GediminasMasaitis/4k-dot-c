@@ -271,7 +271,7 @@ static void putl(const char *const restrict string) {
 
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
-typedef struct [[nodiscard]] __attribute__((aligned(8))) {
+typedef struct [[nodiscard]] {
   u8 from;
   u8 to;
   u8 promo;
@@ -289,7 +289,7 @@ typedef struct [[nodiscard]] {
 
 [[nodiscard]] static bool move_string_equal(const char *restrict lhs,
                                             const char *restrict rhs) {
-  return ((*(const u64 *)lhs ^ *(const u64 *)rhs) << 24) == 0;
+  return (*(const u64 *)lhs ^ *(const u64 *)rhs) << 24 == 0;
 }
 
 [[nodiscard]] static u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
@@ -434,14 +434,24 @@ static void swapu64(u64 *const lhs, u64 *const rhs) {
   *rhs = temp;
 }
 
+static void swapu32(u32 *const lhs, u32 *const rhs) {
+  const u32 temp = *lhs;
+  *lhs = *rhs;
+  *rhs = temp;
+}
+
 static void swapmoves(Move *const lhs, Move *const rhs) {
-  swapu64((u64 *)lhs, (u64 *)rhs);
+  swapu32((u32 *)lhs, (u32 *)rhs);
 }
 
 static void swapbool(bool *const restrict lhs, bool *const restrict rhs) {
   const bool temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
+}
+
+[[nodiscard]] static bool move_equal(Move *const lhs, Move *const rhs) {
+  return *(u32 *)lhs == *(u32 *)rhs;
 }
 
 static void flip_pos(Position *const restrict pos) {
@@ -598,10 +608,13 @@ static Move *generate_pawn_moves(const Position *const pos,
     const u8 takes = piece_on(pos, to);
     if (to > 55) {
       for (u8 piece = Queen; piece >= Knight; piece--) {
-        *(movelist++) = (Move){from, to, piece, takes};
+        *movelist++ = (Move){
+            .from = from, .to = to, .promo = piece, .takes_piece = takes};
       }
-    } else
-      *(movelist++) = (Move){from, to, None, takes};
+    } else {
+      *movelist++ =
+          (Move){.from = from, .to = to, .promo = None, .takes_piece = takes};
+    }
   }
 
   return movelist;
@@ -628,7 +641,10 @@ static Move *generate_piece_moves(Move *restrict movelist,
         assert(to >= 0);
         assert(to < 64);
         moves &= moves - 1;
-        *(movelist++) = (Move){from, to, None, piece_on(pos, to)};
+        *movelist++ = (Move){.from = from,
+                             .to = to,
+                             .promo = None,
+                             .takes_piece = piece_on(pos, to)};
       }
     }
   }
@@ -640,7 +656,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
                                  Move *restrict movelist,
                                  const i32 only_captures) {
 
-  Move *start = movelist;
+  const Move *start = movelist;
   const u64 all = pos->colour[0] | pos->colour[1];
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   if (!only_captures) {
@@ -662,11 +678,13 @@ static Move *generate_piece_moves(Move *restrict movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
   if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 5, true)) {
-    *(movelist++) = (Move){4, 6, None, None};
+    *movelist++ =
+        (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
   if (pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 3, true)) {
-    *(movelist++) = (Move){4, 2, None, None};
+    *movelist++ =
+        (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
   movelist = generate_piece_moves(movelist, pos, to_mask);
 
@@ -760,7 +778,7 @@ typedef struct [[nodiscard]] {
   Move moves[256];
 } SearchStack;
 
-typedef struct [[nodiscard]] {
+typedef struct [[nodiscard]] __attribute__((packed)) {
   u64 key;
   Move move;
   i16 score;
@@ -864,7 +882,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // TT PROBING
   TTEntry *tt_entry = &tt[tt_key % tt_length];
-  Move tt_move = {};
+  Move tt_move = {0};
   if (tt_entry->key == tt_key) {
     tt_move = tt_entry->move;
 
@@ -911,12 +929,11 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const u64 order_move_score =
-          ((u64)(*(u64 *)&tt_move == *(u64 *)&stack[ply].moves[order_index])
+          ((u64)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
           + ((u64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
-          + ((u64)(*(u64 *)&stack[ply].killer ==
-                   *(u64 *)&stack[ply].moves[order_index])
+          + ((u64)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
              << 48) // KILLER MOVE
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
