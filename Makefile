@@ -1,7 +1,7 @@
 ARCH ?= 64
 EXE ?= ./build/4kc
 CC := gcc
-CFLAGS := -std=gnu2x -Wno-deprecated-declarations -Wno-format -maes
+CFLAGS := -std=gnu2x -Wno-deprecated-declarations -Wno-format
 LDFILE := 64bit.ld
 LDFLAGS :=
 
