@@ -998,7 +998,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // MATE / STALEMATE DETECTION
   if (moves_evaluated == 0 && !in_qsearch) {
-    return (ply - mate) * in_check;
+    alpha = (ply - mate) * in_check;
   }
 
   *tt_entry = (TTEntry){.key = tt_key,
