@@ -779,7 +779,7 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  u64 key;
+  u32 key;
   Move move;
   i16 score;
   i8 depth;
@@ -869,7 +869,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return alpha;
   }
 
-  const u64 tt_key = get_hash(pos);
+  const u32 tt_key = get_hash(pos);
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
