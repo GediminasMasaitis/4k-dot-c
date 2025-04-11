@@ -919,6 +919,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[ply].best_move = tt_move;
   const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
+  i32 best_score = -inf;
   u8 tt_flag = Upper;
 
   for (i32 move_index = 0; move_index < num_moves; move_index++) {
@@ -978,8 +979,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       reduction = 1;
     }
 
-    if (score > alpha) {
+    if (score > best_score) {
+      best_score = score;
       stack[ply].best_move = stack[ply].moves[move_index];
+    }
+
+    if (score > alpha) {
       alpha = score;
       tt_flag = Exact;
       if (score >= beta) {
