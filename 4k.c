@@ -892,9 +892,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     if (static_eval - 48 * depth >= beta) {
       return static_eval;
     }
-
-    // RAZORING
-    in_qsearch = static_eval + 128 * depth < alpha;
   }
 
   stack[pos_history_count + ply + 2].history = tt_key;
