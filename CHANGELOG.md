@@ -3807,3 +3807,66 @@ Games | N: 2912 W: 1089 L: 901 D: 922
 Penta | [122, 298, 499, 344, 193]
 https://gedas.pythonanywhere.com/test/552/
 ```
+
+### 1.14
+
+64 bit: 4096 bytes (+3)
+
+MD5: b7286fe79a667bdc996837d25a6dce7f
+
+Doubled pawns through open files
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 21 time 0 nodes 574 pv b1c3
+info depth 4 score cp 16 time 1 nodes 1529 nps 1529000 pv b1c3
+info depth 5 score cp 0 time 2 nodes 5493 nps 2746500 pv b1c3
+info depth 6 score cp 9 time 6 nodes 18384 nps 3064000 pv f2f4
+info depth 7 score cp 10 time 17 nodes 57281 nps 3369470 pv g1f3
+info depth 8 score cp 16 time 29 nodes 108606 nps 3745034 pv g1f3
+info depth 9 score cp 10 time 63 nodes 247680 nps 3931428 pv g1f3
+info depth 10 score cp 10 time 154 nodes 612289 nps 3975902 pv g1f3
+info depth 11 score cp 10 time 302 nodes 1204177 nps 3987341 pv g1f3
+info depth 12 score cp 6 time 906 nodes 3739840 nps 4127858 pv g1f3
+info depth 13 score cp 8 time 1626 nodes 6751203 nps 4152031 pv g1f3
+info depth 14 score cp 8 time 3252 nodes 13451364 nps 4136335 pv g1f3
+bestmove g1f3
+13451364 nodes 4136335 nps
+```
+
+```py
+Elo   | 23.04 +- 10.42 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2764 W: 1039 L: 856 D: 869
+Penta | [124, 259, 480, 348, 171]
+https://gedas.pythonanywhere.com/test/555/
+```
+
+10+0.1
+```py
+Score of 4k.c-1.14 vs 4ku-1.1: 501 - 1116 - 383  [0.346] 2000
+...      4k.c-1.14 playing White: 307 - 456 - 237  [0.425] 1000
+...      4k.c-1.14 playing Black: 194 - 660 - 146  [0.267] 1000
+...      White vs Black: 967 - 650 - 383  [0.579] 2000
+Elo difference: -110.4 +/- 14.2, LOS: 0.0 %, DrawRatio: 19.1 %
+```
+
+10+0.1
+```py
+Score of 4k.c-1.14 vs stash16: 642 - 223 - 135  [0.710] 1000
+...      4k.c-1.14 playing White: 374 - 75 - 52  [0.798] 501
+...      4k.c-1.14 playing Black: 268 - 148 - 83  [0.620] 499
+...      White vs Black: 522 - 343 - 135  [0.590] 1000
+Elo difference: 155.1 +/- 21.7, LOS: 100.0 %, DrawRatio: 13.5 %
+```
+
+10+0.1
+```py
+Score of 4k.c-1.14 vs stash17: 617 - 252 - 131  [0.682] 1000
+...      4k.c-1.14 playing White: 362 - 91 - 48  [0.770] 501
+...      4k.c-1.14 playing Black: 255 - 161 - 83  [0.594] 499
+...      White vs Black: 523 - 346 - 131  [0.589] 1000
+Elo difference: 132.9 +/- 21.3, LOS: 100.0 %, DrawRatio: 13.1 %
+```
