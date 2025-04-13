@@ -809,7 +809,8 @@ get_hash(const Position *const pos) {
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 6; i++) {
+  for (i32 i = 0
+      ; i < 6; i++) {
     i128 key;
     __builtin_memcpy(&key, data + i * 16, 16);
     hash = __builtin_ia32_aesenc128(hash, key);
@@ -920,7 +921,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // RAZORING
-    in_qsearch = static_eval + 128 * depth < alpha;
+    in_qsearch = static_eval + 128 * depth <= alpha;
   }
 
   stack[pos_history_count + ply + 2].history = tt_key;
@@ -965,7 +966,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction = depth > 1 && moves_evaluated > 6
-                        ? 1 + (alpha == beta - 1) + moves_evaluated / 16
+                        ? 2 + moves_evaluated / 16
                         : 1;
 
     i16 score;
@@ -1138,7 +1139,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(15, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(16, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
