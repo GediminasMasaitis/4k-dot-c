@@ -745,20 +745,20 @@ __attribute__((aligned(8))) static const i8 open_files[] = {15, -1, -3,
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
-
+    const i8 sq_xor = c * 56;
     const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
-        const i32 sq = lsb(copy);
+        const i32 sq = lsb(copy) ^ sq_xor;
         copy &= copy - 1;
-
-        // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p - 1] * ((0x101010101010101ULL << sq % 8 & ~(1ULL << sq) & own_pawns) == 0);
 
         const int rank = sq >> 3;
         const int file = sq & 7;
+
+        // OPEN FILES / DOUBLED PAWNS
+        score += open_files[p - 1] * ((0x101010101010101ULL << rank % 8 & own_pawns) == 0);
 
         // MATERIAL
         score += material[p - 1];
@@ -770,7 +770,7 @@ static i32 eval(Position *const restrict pos) {
     }
 
     score = -score;
-    flip_pos(pos);
+    //flip_pos(pos);
   }
   return score;
 }
