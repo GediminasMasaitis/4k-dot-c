@@ -758,8 +758,8 @@ static i32 eval(Position *const restrict pos) {
         const int file = sq & 7;
 
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p - 1] *
-                 ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
+        score += open_files[p-1] * ((0x101010101010101ULL << file &
+            ~(1ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
         score += material[p - 1];
