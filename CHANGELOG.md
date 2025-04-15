@@ -4032,3 +4032,31 @@ https://gedas.pythonanywhere.com/test/575/
 MD5: bc3bedb9923b8db85dbcf886705a8c81
 
 Use search stack for move parsing
+
+### 1.20
+
+64 bit: 4075 bytes (-6)
+
+MD5: 5fbfa814a85caf679c6de9a766ede0bc
+
+Store move count on search stack
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 21 time 0 nodes 341 pv b1c3
+info depth 4 score cp 16 time 0 nodes 945 pv b1c3
+info depth 5 score cp 0 time 1 nodes 2990 nps 2990000 pv b1c3
+info depth 6 score cp 9 time 3 nodes 10774 nps 3591333 pv f2f4
+info depth 7 score cp 8 time 8 nodes 30823 nps 3852875 pv b1c3
+info depth 8 score cp 9 time 15 nodes 59481 nps 3965400 pv b1c3
+info depth 9 score cp 10 time 33 nodes 130792 nps 3963393 pv b1c3
+info depth 10 score cp 12 time 73 nodes 297222 nps 4071534 pv b1c3
+info depth 11 score cp 13 time 186 nodes 762904 nps 4101634 pv b1c3
+info depth 12 score cp 9 time 444 nodes 1880981 nps 4236443 pv b1c3
+info depth 13 score cp 6 time 1044 nodes 4439740 nps 4252624 pv b1c3
+info depth 14 score cp 6 time 1943 nodes 8044561 nps 4140278 pv b1c3
+info depth 15 score cp 9 time 3490 nodes 14221640 nps 4074968 pv b1c3
+bestmove b1c3
+14221640 nodes 4074968 nps
+```
