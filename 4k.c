@@ -721,30 +721,36 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {78,  304, 330,
-                                                           482, 964, 0};
+__attribute__((aligned(8))) static const i16 material[] = {78,  308, 319,
+                                                           483, 966, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -12, -14, -13, -1, 40, 114, 0,   // Pawn
-    -36, -20, 0,   15,  27, 29, 9,   -24, // Knight
-    -25, -7,  4,   10,  14, 14, 2,   -12, // Bishop
-    -11, -19, -19, -9,  6,  16, 21,  16,  // Rook
+    -36, -19, 1,   16,  28, 28, 8,   -25, // Knight
+    -27, -9,  3,   10,  15, 15, 3,   -9,  // Bishop
+    -11, -19, -19, -9,  6,  15, 21,  16,  // Rook
     -21, -13, -9,  -3,  6,  16, 6,   16,  // Queen
-    -20, -12, -5,  6,   18, 23, 13,  -15, // King
+    -20, -12, -5,  6,   18, 24, 13,  -15, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  2,  -5, -2, -1, 5,  10, -8,  // Pawn
-    -28, -7, 6,  15, 14, 13, 2,  -14, // Knight
+    -2,  2,  -5, -2, 0,  5,  10, -8,  // Pawn
+    -28, -7, 6,  15, 14, 13, 1,  -14, // Knight
     -13, 0,  3,  5,  6,  1,  5,  -7,  // Bishop
     -2,  0,  3,  5,  4,  6,  -2, -14, // Rook
     -22, -9, 2,  6,  5,  6,  6,  6,   // Queen
-    -13, 3,  1,  0,  -1, -2, 6,  -10, // King
+    -13, 3,  1,  0,  -2, -2, 6,  -10, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {26, -10, -7,
+__attribute__((aligned(8))) static const i8 open_files[] = {27, -11, -7,
                                                             25, 5,   -7};
+const i8 bishop_pair = 35;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
+
+    // BISHOP PAIR
+    if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
+      score += bishop_pair;
+    }
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
 
