@@ -106,14 +106,10 @@ static bool getl(char *restrict string) {
     }
 #endif
 
-    if (*string == '\n') {
+    const char ch = *string;
+    if (ch == '\n' || ch == ' ') {
       *string = 0;
-      return false;
-    }
-
-    if (*string == ' ') {
-      *string = 0;
-      return true;
+      return ch != '\n';
     }
 
     string++;
@@ -132,8 +128,11 @@ static bool getl(char *restrict string) {
   return false;
 }
 
-[[nodiscard]] static size_t atoi(const char *restrict string) {
-  size_t result = 0;
+[[nodiscard]] static u32 atoi(const char *restrict string) {
+  // Will break if reads a value over 4294967295
+  // This works out to be just over 49 days
+
+  u32 result = 0;
   while (true) {
     if (!*string) {
       return result;
@@ -688,7 +687,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
   }
   movelist = generate_piece_moves(movelist, pos, to_mask);
 
-  i32 num_moves = movelist - start;
+  const i32 num_moves = movelist - start;
   assert(num_moves < 256);
   return num_moves;
 }
@@ -923,9 +922,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     in_qsearch = static_eval + 128 * depth <= alpha;
   }
 
+  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
+
   stack[pos_history_count + ply + 2].history = tt_key;
   stack[ply].best_move = tt_move;
-  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
@@ -967,7 +967,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     i32 reduction =
         depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 16 : 1;
 
-    i16 score;
+    i32 score;
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
