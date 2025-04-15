@@ -106,14 +106,9 @@ static bool getl(char *restrict string) {
     }
 #endif
 
-    if (*string == '\n') {
+    if (*string == '\n' || *string == ' ') {
       *string = 0;
-      return false;
-    }
-
-    if (*string == ' ') {
-      *string = 0;
-      return true;
+      return *string == ' ';
     }
 
     string++;
@@ -688,7 +683,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
   }
   movelist = generate_piece_moves(movelist, pos, to_mask);
 
-  i32 num_moves = movelist - start;
+  const i32 num_moves = movelist - start;
   assert(num_moves < 256);
   return num_moves;
 }
@@ -748,7 +743,7 @@ static i32 eval(Position *const restrict pos) {
 
     const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
 
-    for (i32 p = Pawn; p <= King; p++) {
+    for (i32 p = Pawn - 1; p <= King - 1; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
         const i32 sq = lsb(copy);
@@ -758,15 +753,15 @@ static i32 eval(Position *const restrict pos) {
         const int file = sq & 7;
 
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p - 1] *
+        score += open_files[p] *
                  ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
-        score += material[p - 1];
+        score += material[p];
 
         // SPLIT PIECE-SQUARE TABLES
-        score += pst_rank[(p - 1) * 8 + rank];
-        score += pst_file[(p - 1) * 8 + file];
+        score += pst_rank[p * 8 + rank];
+        score += pst_file[p * 8 + file];
       }
     }
 
@@ -923,9 +918,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     in_qsearch = static_eval + 128 * depth <= alpha;
   }
 
+  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
+
   stack[pos_history_count + ply + 2].history = tt_key;
   stack[ply].best_move = tt_move;
-  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
@@ -967,7 +963,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     i32 reduction =
         depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 16 : 1;
 
-    i16 score;
+    i32 score;
     while (true) {
       score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
