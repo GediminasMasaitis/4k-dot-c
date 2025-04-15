@@ -1159,7 +1159,6 @@ static void run() {
 #endif
   char line[4096];
   Position pos;
-  Move moves[256];
   i32 num_moves;
   i32 pos_history_count;
 #ifdef LOWSTACK
@@ -1233,19 +1232,19 @@ static void run() {
       pos_history_count = 0;
       while (true) {
         const bool line_continue = getl(line);
-        num_moves = movegen(&pos, moves, false);
+        num_moves = movegen(&pos, stack[0].moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[8];
-          move_str(move_name, &moves[i], pos.flipped);
+          move_str(move_name, &stack[0].moves[i], pos.flipped);
           assert(move_string_equal(line, move_name) ==
                  !strcmp(line, move_name));
           if (move_string_equal(line, move_name)) {
             stack[pos_history_count].history = get_hash(&pos);
             pos_history_count++;
-            if (moves[i].takes_piece != None) {
+            if (stack[0].moves[i].takes_piece != None) {
               pos_history_count = 0;
             }
-            makemove(&pos, &moves[i]);
+            makemove(&pos, &stack[0].moves[i]);
             break;
           }
         }

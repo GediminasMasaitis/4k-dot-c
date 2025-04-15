@@ -4024,3 +4024,11 @@ Games | N: 8138 W: 2614 L: 2618 D: 2906
 Penta | [361, 953, 1444, 951, 360]
 https://gedas.pythonanywhere.com/test/575/
 ```
+
+### 1.19
+
+64 bit: 4081 bytes (-8)
+
+MD5: bc3bedb9923b8db85dbcf886705a8c81
+
+Use search stack for move parsing
