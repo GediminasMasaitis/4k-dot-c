@@ -4060,3 +4060,39 @@ info depth 15 score cp 9 time 3490 nodes 14221640 nps 4074968 pv b1c3
 bestmove b1c3
 14221640 nodes 4074968 nps
 ```
+
+### 1.21
+
+64 bit: 4095 bytes (+20)
+
+MD5: b5df64aa66b074aeeef95a440d88391e
+
+Bishop pair eval
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 0 nodes 341 pv b1c3
+info depth 4 score cp 16 time 1 nodes 945 nps 945000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 2991 nps 2991000 pv b1c3
+info depth 6 score cp 11 time 4 nodes 11268 nps 2817000 pv f2f4
+info depth 7 score cp 5 time 10 nodes 29429 nps 2942900 pv g1f3
+info depth 8 score cp 16 time 17 nodes 53639 nps 3155235 pv g1f3
+info depth 9 score cp 8 time 41 nodes 138198 nps 3370682 pv g1f3
+info depth 10 score cp 12 time 92 nodes 325207 nps 3534858 pv g1f3
+info depth 11 score cp 12 time 217 nodes 798686 nps 3680580 pv g1f3
+info depth 12 score cp 12 time 440 nodes 1640973 nps 3729484 pv g1f3
+info depth 13 score cp 7 time 1047 nodes 3944334 nps 3767272 pv g1f3
+info depth 14 score cp 8 time 1893 nodes 7122333 nps 3762458 pv g1f3
+info depth 15 score cp 8 time 2785 nodes 10640446 nps 3820626 pv g1f3
+bestmove g1f3
+10640446 nodes 3820626 nps
+```
+
+```py
+Score of 4k.c-1.21 vs 4ku-1.1: 555 - 1049 - 396  [0.377] 2000
+...      4k.c-1.21 playing White: 345 - 448 - 207  [0.449] 1000
+...      4k.c-1.21 playing Black: 210 - 601 - 189  [0.304] 1000
+...      White vs Black: 946 - 658 - 396  [0.572] 2000
+Elo difference: -87.6 +/- 13.9, LOS: 0.0 %, DrawRatio: 19.8 %
+```
