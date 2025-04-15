@@ -650,6 +650,8 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return movelist;
 }
 
+enum { max_moves = 218 };
+
 [[nodiscard]] static i32 movegen(const Position *const restrict pos,
                                  Move *restrict movelist,
                                  const i32 only_captures) {
@@ -687,7 +689,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
   movelist = generate_piece_moves(movelist, pos, to_mask);
 
   const i32 num_moves = movelist - start;
-  assert(num_moves < 256);
+  assert(num_moves < max_moves);
   return num_moves;
 }
 
@@ -702,7 +704,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
   }
 
   u64 nodes = 0;
-  Move moves[256];
+  Move moves[max_moves];
   const i32 num_moves = movegen(pos, moves, false);
 
   for (i32 i = 0; i < num_moves; ++i) {
@@ -774,7 +776,9 @@ static i32 eval(Position *const restrict pos) {
   return score;
 }
 
-enum { max_ply = 96, mate = 30000, inf = 32000 };
+enum { max_ply = 96 };
+enum { mate = 30000, inf = 32000 };
+
 static size_t start_time;
 static size_t total_time;
 
@@ -782,7 +786,7 @@ typedef struct [[nodiscard]] {
   u64 history;
   Move best_move;
   Move killer;
-  Move moves[256];
+  Move moves[max_moves];
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1122,7 +1126,7 @@ static void display_pos(Position *const pos) {
 #ifdef FULL
 static void bench() {
   Position pos;
-  Move moves[256];
+  Move moves[max_moves];
   i32 num_moves;
   i32 pos_history_count = 0;
 #ifdef LOWSTACK
