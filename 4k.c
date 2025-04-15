@@ -797,7 +797,7 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  u64 key;
+  u32 key;
   Move move;
   i16 score;
   i8 depth;
@@ -901,7 +901,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   // TT PROBING
   TTEntry *tt_entry = &tt[tt_key % tt_length];
   Move tt_move = {0};
-  if (tt_entry->key == tt_key) {
+  if (tt_entry->key == (tt_key & 0xFFFFFFFFULL)) {
     tt_move = tt_entry->move;
 
     // TT PRUNING
