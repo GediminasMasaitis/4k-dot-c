@@ -4090,9 +4090,64 @@ bestmove g1f3
 ```
 
 ```py
+Elo   | 10.51 +- 6.56 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6382 W: 2130 L: 1937 D: 2315
+Penta | [268, 674, 1159, 777, 313]
+https://gedas.pythonanywhere.com/test/581/
+```
+
+```py
+Elo   | 13.31 +- 7.40 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4596 W: 1487 L: 1311 D: 1798
+Penta | [156, 502, 837, 616, 187]
+https://gedas.pythonanywhere.com/test/583/
+```
+
+```py
 Score of 4k.c-1.21 vs 4ku-1.1: 555 - 1049 - 396  [0.377] 2000
 ...      4k.c-1.21 playing White: 345 - 448 - 207  [0.449] 1000
 ...      4k.c-1.21 playing Black: 210 - 601 - 189  [0.304] 1000
 ...      White vs Black: 946 - 658 - 396  [0.572] 2000
 Elo difference: -87.6 +/- 13.9, LOS: 0.0 %, DrawRatio: 19.8 %
+```
+
+### 1.22
+
+64 bit: 4093 bytes (-2)
+
+MD5: d0a2a019d4da516344105e13a807df54
+
+4 byte hash in TT
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 0 nodes 341 pv b1c3
+info depth 4 score cp 16 time 1 nodes 945 nps 945000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 2991 nps 2991000 pv b1c3
+info depth 6 score cp 11 time 4 nodes 11268 nps 2817000 pv f2f4
+info depth 7 score cp 5 time 9 nodes 29429 nps 3269888 pv g1f3
+info depth 8 score cp 16 time 16 nodes 53508 nps 3344250 pv g1f3
+info depth 9 score cp 8 time 38 nodes 137219 nps 3611026 pv g1f3
+info depth 10 score cp 16 time 87 nodes 325056 nps 3736275 pv g1f3
+info depth 11 score cp 6 time 233 nodes 883223 nps 3790656 pv g1f3
+info depth 12 score cp 9 time 498 nodes 1931142 nps 3877795 pv g1f3
+info depth 13 score cp 14 time 1025 nodes 4095438 nps 3995549 pv g1f3
+info depth 14 score cp 11 time 2071 nodes 8284797 nps 4000384 pv g1f3
+info depth 15 score cp 8 time 3852 nodes 15301998 nps 3972481 pv g1f3
+bestmove g1f3
+15301998 nodes 3972481 nps
+```
+
+```py
+Elo   | 4.09 +- 5.34 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.02 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 9164 W: 2971 L: 2863 D: 3330
+Penta | [367, 1025, 1727, 1059, 404]
+https://gedas.pythonanywhere.com/test/589/
 ```
