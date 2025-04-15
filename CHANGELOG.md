@@ -3933,3 +3933,29 @@ https://gedas.pythonanywhere.com/test/559/
 MD5: 350d45ca7b880717ef0aaf41b6288267
 
 Reduce size
+
+### 1.17
+
+64 bit: 4093 bytes (+18)
+
+MD5: cb938b3547b8bbcef7bed262acee9799
+
+Killer heuristic
+
+```py
+Elo   | 21.27 +- 9.84 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2928 W: 1061 L: 882 D: 985
+Penta | [124, 269, 538, 370, 163]
+https://gedas.pythonanywhere.com/test/564/
+```
+
+```py
+Elo   | 53.62 +- 15.81 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1058 W: 417 L: 255 D: 386
+Penta | [22, 91, 188, 159, 69]
+https://gedas.pythonanywhere.com/test/565/
+```
