@@ -720,7 +720,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {78,  304, 330,
+__attribute__((aligned(8))) static const i16 material[] = {0, 78,  304, 330,
                                                            482, 964, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -12, -14, -13, -1, 40, 114, 0,   // Pawn
@@ -761,7 +761,7 @@ static i32 eval(Position *const restrict pos) {
                  ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
-        score += material[p - 1];
+        score += material[p];
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
@@ -951,6 +951,15 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         swapmoves(&stack[ply].moves[move_index],
                   &stack[ply].moves[order_index]);
       }
+    }
+
+    // FORWARD FUTILITY PRUNING
+    if (depth < 8 && !in_check && moves_evaluated &&
+      static_eval + 128 * depth +
+      material[stack[ply].moves[move_index].takes_piece] +
+      material[stack[ply].moves[move_index].promo] <
+      alpha) {
+      break;
     }
 
     Position npos = *pos;
