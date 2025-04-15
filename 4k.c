@@ -746,7 +746,7 @@ static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
 
-    const u64 own_pawns = (pos->colour[0] & pos->pieces[Pawn]);
+    const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
@@ -783,6 +783,7 @@ static size_t start_time;
 static size_t total_time;
 
 typedef struct [[nodiscard]] {
+  i32 num_moves;
   u64 history;
   Move best_move;
   Move killer;
@@ -926,18 +927,19 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     in_qsearch = static_eval + 128 * depth <= alpha;
   }
 
-  const i32 num_moves = movegen(pos, stack[ply].moves, in_qsearch);
+  stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
 
   stack[pos_history_count + ply + 2].history = tt_key;
   stack[ply].best_move = tt_move;
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
-  for (i32 move_index = 0; move_index < num_moves; move_index++) {
+  for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     u64 move_score = 0;
 
     // MOVE ORDERING
-    for (i32 order_index = move_index; order_index < num_moves; order_index++) {
+    for (i32 order_index = move_index; order_index < stack[ply].num_moves;
+         order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const u64 order_move_score =
@@ -1126,8 +1128,6 @@ static void display_pos(Position *const pos) {
 #ifdef FULL
 static void bench() {
   Position pos;
-  Move moves[max_moves];
-  i32 num_moves;
   i32 pos_history_count = 0;
 #ifdef LOWSTACK
   SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
@@ -1159,7 +1159,6 @@ static void run() {
 #endif
   char line[4096];
   Position pos;
-  i32 num_moves;
   i32 pos_history_count;
 #ifdef LOWSTACK
   SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
@@ -1232,7 +1231,7 @@ static void run() {
       pos_history_count = 0;
       while (true) {
         const bool line_continue = getl(line);
-        num_moves = movegen(&pos, stack[0].moves, false);
+        const i32 num_moves = movegen(&pos, stack[0].moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[8];
           move_str(move_name, &stack[0].moves[i], pos.flipped);
