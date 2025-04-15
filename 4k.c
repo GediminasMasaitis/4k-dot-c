@@ -1024,7 +1024,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
                         .score = alpha,
-                        .depth = depth,
+                        .depth = depth * !in_qsearch,
                         .flag = tt_flag};
 
   return alpha;
