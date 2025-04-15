@@ -721,26 +721,26 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {78,  304, 330,
-                                                           482, 964, 0};
+__attribute__((aligned(8))) static const i16 material[] = {93,  297, 326,
+                                                           488, 964, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -12, -14, -13, -1, 40, 114, 0,   // Pawn
-    -36, -20, 0,   15,  27, 29, 9,   -24, // Knight
-    -25, -7,  4,   10,  14, 14, 2,   -12, // Bishop
-    -11, -19, -19, -9,  6,  16, 21,  16,  // Rook
-    -21, -13, -9,  -3,  6,  16, 6,   16,  // Queen
-    -20, -12, -5,  6,   18, 23, 13,  -15, // King
+    0,   -12, -14, -13, -1, 40, 118, 0,   // Pawn
+    -31, -17, 0,   14,  25, 27, 8,   -26, // Knight
+    -22, -5,  5,   9,   13, 13, 0,   -13, // Bishop
+    -15, -22, -20, -9,  8,  17, 23,  19,  // Rook
+    -22, -14, -9,  -2,  7,  17, 7,   17,  // Queen
+    -19, -11, -5,  5,   17, 22, 11,  -17, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  2,  -5, -2, -1, 5,  10, -8,  // Pawn
-    -28, -7, 6,  15, 14, 13, 2,  -14, // Knight
-    -13, 0,  3,  5,  6,  1,  5,  -7,  // Bishop
-    -2,  0,  3,  5,  4,  6,  -2, -14, // Rook
-    -22, -9, 2,  6,  5,  6,  6,  6,   // Queen
-    -13, 3,  1,  0,  -1, -2, 6,  -10, // King
+    -2,  3,  -5, -2, -1, 5,  10, -8,  // Pawn
+    -28, -7, 7,  16, 14, 12, 1,  -14, // Knight
+    -13, 0,  3,  6,  6,  1,  5,  -8,  // Bishop
+    -3,  0,  2,  4,  3,  6,  0,  -12, // Rook
+    -21, -9, 1,  4,  4,  7,  7,  7,   // Queen
+    -14, 3,  1,  0,  -2, -3, 6,  -10, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {26, -10, -7,
-                                                            25, 5,   -7};
+__attribute__((aligned(8))) static const i8 open_files[] = {13, -2, -3,
+                                                            21, 7,  -7};
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
@@ -758,8 +758,8 @@ static i32 eval(Position *const restrict pos) {
         const int file = sq & 7;
 
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p - 1] *
-                 ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
+        score += open_files[p - 1] * ((0x101010101010101ULL << file &
+                                       ~(1ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
         score += material[p - 1];
