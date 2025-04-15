@@ -3933,3 +3933,57 @@ https://gedas.pythonanywhere.com/test/559/
 MD5: 350d45ca7b880717ef0aaf41b6288267
 
 Reduce size
+
+### 1.17
+
+64 bit: 4093 bytes (+18)
+
+MD5: cb938b3547b8bbcef7bed262acee9799
+
+Killer heuristic
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 85 nps 85000 pv b1c3
+info depth 3 score cp 21 time 1 nodes 341 nps 341000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 954 nps 954000 pv b1c3
+info depth 5 score cp 0 time 2 nodes 3016 nps 1508000 pv b1c3
+info depth 6 score cp 9 time 5 nodes 11020 nps 2204000 pv f2f4
+info depth 7 score cp 8 time 10 nodes 31681 nps 3168100 pv b1c3
+info depth 8 score cp 9 time 19 nodes 61675 nps 3246052 pv b1c3
+info depth 9 score cp 10 time 42 nodes 147141 nps 3503357 pv b1c3
+info depth 10 score cp 10 time 100 nodes 357766 nps 3577660 pv b1c3
+info depth 11 score cp 8 time 278 nodes 998330 nps 3591115 pv b1c3
+info depth 12 score cp 8 time 562 nodes 2059565 nps 3664706 pv b1c3
+info depth 13 score cp 9 time 1067 nodes 4011012 nps 3759149 pv b1c3
+info depth 14 score cp 11 time 1796 nodes 6929920 nps 3858530 pv b1c3
+info depth 15 score cp 5 time 4525 nodes 17634300 nps 3897082 pv b1c3
+bestmove b1c3
+17634300 nodes 3897082 nps
+```
+
+```py
+Elo   | 21.27 +- 9.84 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2928 W: 1061 L: 882 D: 985
+Penta | [124, 269, 538, 370, 163]
+https://gedas.pythonanywhere.com/test/564/
+```
+
+```py
+Elo   | 53.62 +- 15.81 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1058 W: 417 L: 255 D: 386
+Penta | [22, 91, 188, 159, 69]
+https://gedas.pythonanywhere.com/test/565/
+```
+
+```py
+Score of 4k.c-1.17 vs 4ku-1.1: 1079 - 2151 - 770  [0.366] 4000
+...      4k.c-1.17 playing White: 647 - 892 - 462  [0.439] 2001
+...      4k.c-1.17 playing Black: 432 - 1259 - 308  [0.293] 1999
+...      White vs Black: 1906 - 1324 - 770  [0.573] 4000
+Elo difference: -95.4 +/- 9.9, LOS: 0.0 %, DrawRatio: 19.3 %
+```
