@@ -865,6 +865,33 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
+#define TUNE_PARAMETER(name, initial, min, max, step) \
+    int name = initial;     \
+    int name##_min = min;   \
+    int name##_max = max;   \
+    int name##_step = step;
+
+#define PRINT_TUNE_OPTION(name) printf("option name " #name " type spin default %i min -32768 max 32767\n", name)
+
+#define READ_TUNE_OPTION(name) \
+    else if (!strcmp(line, #name)) { \
+      getl(line); \
+      getl(line); \
+      name = atoi(line); \
+    }
+
+#define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %i, 0.002\n", name, name##_min, name##_max, name##_step)
+
+TUNE_PARAMETER(rfp_margin, 42, 32, 128, 5)
+TUNE_PARAMETER(razor_margin, 128, 64, 320, 13)
+TUNE_PARAMETER(mvv_weight, 1024, 256, 4096, 200)
+TUNE_PARAMETER(killer_weight, 1024, 256, 4096, 200)
+TUNE_PARAMETER(lmr_depth, 1, 1, 3, 1)
+TUNE_PARAMETER(lmr_moves, 6, 2, 10, 1)
+TUNE_PARAMETER(lmr_move_div, 16, 8, 24, 2)
+TUNE_PARAMETER(lmp_moves, 3, 1, 5, 1)
+
+
 static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
@@ -932,12 +959,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 42 * depth >= beta) {
+    if (static_eval - rfp_margin * depth >= beta) {
       return static_eval;
     }
 
     // RAZORING
-    in_qsearch = static_eval + 128 * depth <= alpha;
+    in_qsearch = static_eval + razor_margin * depth <= alpha;
   }
 
   // NULL MOVE PRUNING
@@ -974,9 +1001,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 1024 +
+          + (i32)stack[ply].moves[order_index].takes_piece * mvv_weight +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              1024 // KILLER MOVE
+          killer_weight // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
@@ -1002,7 +1029,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 16 : 1;
+        depth > lmr_depth && moves_evaluated > lmr_moves ? 2 + moves_evaluated / lmr_move_div : 1;
 
     i32 score;
     while (true) {
@@ -1055,7 +1082,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE PRUNING
     if (!in_check && alpha == beta - 1 &&
-        quiets_evaluated > 3 + depth * depth) {
+        quiets_evaluated > lmp_moves + depth * depth) {
       break;
     }
   }
@@ -1243,6 +1270,15 @@ static void run() {
       putl("\n");
       putl("option name Hash type spin default 1 min 1 max 1\n");
       putl("option name Threads type spin default 1 min 1 max 1\n");
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(lmr_depth);
+      PRINT_TUNE_OPTION(lmr_moves);
+      PRINT_TUNE_OPTION(lmr_move_div);
+      PRINT_TUNE_OPTION(lmp_moves);
+      
       putl("uciok\n");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
@@ -1264,6 +1300,29 @@ static void run() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed,
              nps);
+    }
+    else if (!strcmp(line, "setoption")) {
+      getl(line);
+      getl(line);
+      if (false) {}
+      READ_TUNE_OPTION(rfp_margin)
+      READ_TUNE_OPTION(razor_margin)
+      READ_TUNE_OPTION(mvv_weight)
+      READ_TUNE_OPTION(killer_weight)
+      READ_TUNE_OPTION(lmr_depth)
+      READ_TUNE_OPTION(lmr_moves)
+      READ_TUNE_OPTION(lmr_move_div)
+      READ_TUNE_OPTION(lmp_moves)
+    }
+    else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(lmr_depth);
+      PRINT_TUNE_INPUT(lmr_moves);
+      PRINT_TUNE_INPUT(lmr_move_div);
+      PRINT_TUNE_INPUT(lmp_moves);
     }
 #endif
     if (line[0] == 'q') {
