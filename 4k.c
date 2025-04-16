@@ -925,12 +925,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 48 * depth >= beta) {
+    if (static_eval - 40 * depth >= beta) {
       return static_eval;
     }
 
     // RAZORING
-    in_qsearch = static_eval + 128 * depth <= alpha;
+    in_qsearch = static_eval + 112 * depth < alpha;
   }
 
   stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
@@ -979,7 +979,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 16 : 1;
+        depth > 1 && moves_evaluated > 5 ? 2 + moves_evaluated / 16 : 1;
 
     i32 score;
     while (true) {
