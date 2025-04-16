@@ -3808,6 +3808,15 @@ Penta | [122, 298, 499, 344, 193]
 https://gedas.pythonanywhere.com/test/552/
 ```
 
+```py
+Elo   | -1.25 +- 4.10 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | -2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 17460 W: 5841 L: 5904 D: 5715
+Penta | [912, 1908, 3158, 1835, 917]
+https://gedas.pythonanywhere.com/test/554/
+```
+
 ### 1.14
 
 64 bit: 4096 bytes (+3)
@@ -3895,7 +3904,7 @@ Elo difference: -110.4 +/- 14.2, LOS: 0.0 %, DrawRatio: 19.1 %
 
 MD5: ad7c39ff26ee23568a50288100162225
 
-Sipmplified LMR
+Simplified LMR
 
 ```py
 info depth 1 score cp 23 time 0 nodes 20 pv b1c3
@@ -3924,6 +3933,15 @@ LLR   | 3.02 (-2.94, 2.94) [-5.00, 0.00]
 Games | N: 1764 W: 641 L: 486 D: 637
 Penta | [68, 158, 304, 255, 97]
 https://gedas.pythonanywhere.com/test/559/
+```
+
+```py
+Elo   | -4.84 +- 5.83 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | -2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 8182 W: 2593 L: 2707 D: 2882
+Penta | [408, 921, 1498, 905, 359]
+https://gedas.pythonanywhere.com/test/560/
 ```
 
 ### 1.16
@@ -4017,11 +4035,11 @@ bestmove b1c3
 ```
 
 ```py
-Elo   | -0.17 +- 5.79 (95%)
+Elo   | -0.70 +- 2.41 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 0.77 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 8138 W: 2614 L: 2618 D: 2906
-Penta | [361, 953, 1444, 951, 360]
+LLR   | 2.99 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 45916 W: 14637 L: 14730 D: 16549
+Penta | [2013, 5208, 8596, 5141, 2000]
 https://gedas.pythonanywhere.com/test/575/
 ```
 
@@ -4121,7 +4139,7 @@ Elo difference: -87.6 +/- 13.9, LOS: 0.0 %, DrawRatio: 19.8 %
 
 MD5: d0a2a019d4da516344105e13a807df54
 
-4 byte hash in TT
+4 byte (32 bit) partial hash in TT entry
 
 ```py
 info depth 1 score cp 23 time 0 nodes 20 pv b1c3
@@ -4150,4 +4168,56 @@ LLR   | 3.02 (-2.94, 2.94) [-5.00, 0.00]
 Games | N: 9164 W: 2971 L: 2863 D: 3330
 Penta | [367, 1025, 1727, 1059, 404]
 https://gedas.pythonanywhere.com/test/589/
+```
+
+### 1.23
+
+64 bit: 4093 bytes (=)
+
+MD5: 3e2e80bffc328a7551cd05d6e1af25c6
+
+RFP margin 42
+
+```py
+Elo   | 4.35 +- 3.45 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 22120 W: 7153 L: 6876 D: 8091
+Penta | [888, 2487, 4126, 2578, 981]
+https://gedas.pythonanywhere.com/test/603/
+```
+
+```py
+Elo   | 4.54 +- 3.59 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 19448 W: 6150 L: 5896 D: 7402
+Penta | [714, 2191, 3749, 2267, 803]
+https://gedas.pythonanywhere.com/test/604/
+```
+
+### 1.24
+
+64 bit: 4093 bytes (=)
+
+MD5: ee3602f77b3e11db85f744bba11d4a70
+
+2 byte (16 bit) partial hash in TT entry
+
+```py
+Elo   | 1.23 +- 1.78 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -2.94 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 82592 W: 26355 L: 26062 D: 30175
+Penta | [3448, 9298, 15625, 9363, 3562]
+https://gedas.pythonanywhere.com/test/590/
+```
+
+```py
+Elo   | 15.37 +- 8.08 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3982 W: 1317 L: 1141 D: 1524
+Penta | [143, 405, 770, 479, 194]
+https://gedas.pythonanywhere.com/test/605/
 ```
