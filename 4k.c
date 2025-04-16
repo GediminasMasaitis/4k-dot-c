@@ -889,6 +889,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   const u64 tt_hash = get_hash(pos);
+  __builtin_prefetch(&tt[tt_hash % tt_length]);
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
