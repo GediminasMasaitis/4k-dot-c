@@ -41,7 +41,7 @@ all:
 
 loader: all
 	$(CC) $(CFLAGS) -c loader.c
-	$(CC) $(LDFLAGS) -o ./build/loader loader.o
+	$(CC) -nostdlib -Wl,-T 64bit2.ld -o ./build/loader loader.o
 	ls -la ./build/loader
 	md5sum $(EXE)
 
