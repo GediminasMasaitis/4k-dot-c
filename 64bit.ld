@@ -1,7 +1,7 @@
 OUTPUT_FORMAT(binary)               /* Binary output */
 OUTPUT_ARCH(i386:x86-64)            /* x86-64 architecture */
 
-pos = 0x400000;                     /* Start address */
+start_address = 0x400000;           /* Start address */
 
 SECTIONS
 {
@@ -17,7 +17,7 @@ SECTIONS
 		QUAD(0)                     /* Section header offset */
 		LONG(0)                     /* Flags */
 		SHORT(prog)                 /* Header size */
-		SHORT(size - prog)          /* Program header size */
+		SHORT(header_size - prog)   /* Program header size */
 		SHORT(1)                    /* Number of program headers */
 		SHORT(0)                    /* Section header entries */
 		LONG(0)                     /* Section header string index */
@@ -27,19 +27,16 @@ SECTIONS
 		LONG(1)                     /* Loadable segment */
 		QUAD(7)                     /* RWX flags */
 		LONG(0)                     /* File offset */
-		QUAD(pos)                   /* Virtual address */
-		QUAD(pos)                   /* Physical address */
+		QUAD(start_address)         /* Virtual address */
+		QUAD(start_address)         /* Physical address */
 		QUAD(filesize)              /* File size */
 		QUAD(memsize)               /* Memory size (header + .data + .bss) */
 		QUAD(8)                     /* Alignment */
-		size = .;                   /* End of header */
+		header_size = .;            /* End of header */
 	}
 	
-	/* Save header size */
-	header_size = size;
-	
 	/* Set the VMA for the following sections */
-	. = pos + header_size;
+	. = start_address + header_size;
 	
 	/* Code and Data Sections */
 	.data : AT(header_size) {
@@ -47,22 +44,17 @@ SECTIONS
 		*(.data) *(.data.*)
 		*(.text) *(.text.*)
 	}
-	data_end = .;  /* End of .data section */
 	
 	/* Compute file size: header size plus size of .data */
-	filesize = header_size + (data_end - (pos + header_size));
+	filesize = (. - start_address);
 	
 	/* BSS Section: Allocated in memory but not in file */
 	.bss (NOLOAD) : {
-		. = ALIGN(16);
 		bss_start = .;
 		*(.bss) *(.bss.*)
-		. = ALIGN(16);
-		bss_end = .;
 	}
 	
-	/* Compute total memory size */
-	memsize = . - pos;
+	memsize = . - start_address; /* Compute total memory size */
 	
 	/DISCARD/ : { *(*) } /* Discard unneeded sections */
 }
