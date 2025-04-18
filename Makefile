@@ -40,7 +40,7 @@ all:
 	md5sum $(EXE)
 
 loader:
-	gcc -std=gnu2x loader.c -o build/loader
+	gcc $(CFLAGS) loader.c -o build/loader
 	./build/loader
 
 
