@@ -4,18 +4,21 @@
 #include <sys/mman.h>
 #include <stdio.h>
 
-#include "./build/4kc.h"
+//#include "./build/4kc.h"
+
+char payload[] = {
+#embed "./build/4kc"
+};
 
 int main() {
-  int fd = syscall(SYS_memfd_create, "4kc", MFD_CLOEXEC);
-  write(fd, __build_4kc, __build_4kc_len);
+  int fd = syscall(319, "4kc", 0x0001);
+  write(fd, payload, sizeof(payload));
 
-  char path[64] = {0};
+  char path[64] = "/proc/self/fd/";
+  printf("/proc/self/fd/%d\n", fd);
   sprintf(path, "/proc/self/fd/%d", fd);
   char* const null_args[] = { NULL };
-  syscall(SYS_execve, path, null_args, null_args);
+  syscall(59, path, null_args, null_args);
 
-  // If syscall returns, it failed
-  perror("syscall execve failed");
   return 1;
 }
