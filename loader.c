@@ -13,15 +13,6 @@
 #endif
 #endif
 
-#define i64 long long
-#define u64 unsigned long long
-#define i32 int
-#define u32 unsigned
-#define i16 short
-#define u16 unsigned short
-#define i8 signed char
-#define u8 unsigned char
-
 char payload[] = {
 #embed "./build/4kc"
 };
@@ -40,18 +31,20 @@ void _start() {
   int fd = _sys(319, (ssize_t)"4kc", 0x0001, 0);
   _sys(1, fd, (ssize_t)payload, (ssize_t)sizeof(payload));
 
-  // Can I hardcode fd=3?
-  char path[64] = "/proc/self/fd/";
-  char num_buf[64] = {};
-  int num_len = 0;
-  while (fd != 0) {
-    num_buf[num_len++] = '0' + fd % 10;
-    fd /= 10;
-  }
+  // Non-hardcoded fd
+  //char path[64] = "/proc/self/fd/";
+  //char num_buf[64] = {};
+  //int num_len = 0;
+  //while (fd != 0) {
+  //  num_buf[num_len++] = '0' + fd % 10;
+  //  fd /= 10;
+  //}
 
-  for (int i = 0; i < num_len; i++) {
-    path[14 + i] = num_buf[num_len - 1 - i];
-  }
+  //for (int i = 0; i < num_len; i++) {
+  //  path[14 + i] = num_buf[num_len - 1 - i];
+  //}
+
+  char* path = "/proc/self/fd/3";
 
   char* const null_args[] = { 0 };
   _sys(59, (ssize_t)path, (ssize_t)null_args, (ssize_t)null_args);
