@@ -39,10 +39,11 @@ all:
 	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map || true; fi
 	md5sum $(EXE)
 
-loader:
-	gcc $(CFLAGS) loader.c -o build/loader
-	./build/loader
-
+loader: all
+	$(CC) $(CFLAGS) -c loader.c
+	$(CC) $(LDFLAGS) -o ./build/loader loader.o
+	ls -la ./build/loader
+	md5sum $(EXE)
 
 win:
 	if not exist build mkdir build
