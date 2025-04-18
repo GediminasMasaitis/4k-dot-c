@@ -15,8 +15,17 @@ int main() {
   write(fd, payload, sizeof(payload));
 
   char path[64] = "/proc/self/fd/";
-  printf("/proc/self/fd/%d\n", fd);
-  sprintf(path, "/proc/self/fd/%d", fd);
+  char num_buf[64] = {};
+  int num_len = 0;
+  while (fd != 0) {
+    num_buf[num_len++] = '0' + fd % 10;
+    fd /= 10;
+  }
+
+  for (int i = 0; i < num_len; i++) {
+    path[14 + i] = num_buf[num_len - 1 - i];
+  }
+
   char* const null_args[] = { NULL };
   syscall(59, path, null_args, null_args);
 
