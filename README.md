@@ -3,7 +3,6 @@ A chess engine designed to fit into 4kB.
 
 The engine is a <= 4096 byte UCI engine executable, without:
 * Any external dependencies (including libc)
-* Compression
 * Minification
 * On-the-fly compilation
 

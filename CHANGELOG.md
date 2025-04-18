@@ -4335,3 +4335,15 @@ info depth 15 score cp 7 time 7824 nodes 29273342 nps 3741480 pv b1c3
 bestmove b1c3
 29273342 nodes 3741480 nps
 ```
+
+### 2.0
+
+64 bit: 3970 bytes (-116)
+
+MD5: cab3ac3d7d9135c51f247e1033699062
+
+LZ4 compression
+
+Thanks to:
+* **zamfofex** for helping me throughout the implementation of this
+* **ONE_RANDOM_HUMAN** for the idea of loading the executable into the same virtual address space
