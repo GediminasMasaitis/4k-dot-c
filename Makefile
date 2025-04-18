@@ -35,10 +35,14 @@ all:
 	mkdir -p build
 	$(CC) $(CFLAGS) -c 4k.c
 	$(CC) $(LDFLAGS) -o $(EXE) 4k.o
-	rm *.o
 	ls -la $(EXE)
 	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map || true; fi
 	md5sum $(EXE)
+
+loader:
+	gcc loader.c -o build/loader
+	./build/loader
+
 
 win:
 	if not exist build mkdir build
