@@ -146,7 +146,7 @@ static bool getl(char *restrict string) {
 #define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
 
 static void _printf(const char *format, const size_t *args) {
-  int value;
+  long long value;
   char buffer[16], *string;
 
   while (true) {
@@ -1160,6 +1160,7 @@ static void bench() {
 #endif
 
 #if !defined(FULL) && defined(NOSTDLIB)
+//__attribute__((section(".start"), used))
 void _start() {
 #else
 static void run() {
