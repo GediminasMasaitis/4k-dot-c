@@ -28,8 +28,8 @@ static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
 }
 
 void _start() {
-  int fd = _sys(319, (ssize_t)"4kc", 0x0001, 0);
-  _sys(1, fd, (ssize_t)payload, (ssize_t)sizeof(payload));
+  int fd = _sys(319, (ssize_t)"4kc", 0x0001, 0); // memfd_create
+  _sys(1, fd, (ssize_t)payload, (ssize_t)sizeof(payload)); // write
 
   // Non-hardcoded fd
   //char path[64] = "/proc/self/fd/";
@@ -47,5 +47,5 @@ void _start() {
   char* path = "/proc/self/fd/3";
 
   char* const null_args[] = { 0 };
-  _sys(59, (ssize_t)path, (ssize_t)null_args, (ssize_t)null_args);
+  _sys(59, (ssize_t)path, (ssize_t)null_args, (ssize_t)null_args); // execve
 }
