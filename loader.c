@@ -1,19 +1,46 @@
-#define _GNU_SOURCE
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-#include <stdio.h>
+#if defined(_WIN64) || defined(__x86_64__) || defined(__ppc64__) ||            \
+    defined(__aarch64__)
+#define ARCH64 1
+#ifdef NOSTDLIB
+#define size_t unsigned long long
+#define ssize_t long long
+#endif
+#else
+#define ARCH32 1
+#ifdef NOSTDLIB
+#define size_t unsigned int
+#define ssize_t int
+#endif
+#endif
 
-//#include "./build/4kc.h"
+#define i64 long long
+#define u64 unsigned long long
+#define i32 int
+#define u32 unsigned
+#define i16 short
+#define u16 unsigned short
+#define i8 signed char
+#define u8 unsigned char
 
 char payload[] = {
 #embed "./build/4kc"
 };
 
-int main() {
-  int fd = syscall(319, "4kc", 0x0001);
-  write(fd, payload, sizeof(payload));
+// Maybe 32bit is smaller?
+static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
+  ssize_t ret;
+  asm volatile("syscall"
+    : "=a"(ret)
+    : "a"(call), "D"(arg1), "S"(arg2), "d"(arg3)
+    : "rcx", "r11", "memory");
+  return ret;
+}
 
+void _start() {
+  int fd = _sys(319, (ssize_t)"4kc", 0x0001, 0);
+  _sys(1, fd, (ssize_t)payload, (ssize_t)sizeof(payload));
+
+  // Can I hardcode fd=3?
   char path[64] = "/proc/self/fd/";
   char num_buf[64] = {};
   int num_len = 0;
@@ -26,8 +53,6 @@ int main() {
     path[14 + i] = num_buf[num_len - 1 - i];
   }
 
-  char* const null_args[] = { NULL };
-  syscall(59, path, null_args, null_args);
-
-  return 1;
+  char* const null_args[] = { 0 };
+  _sys(59, (ssize_t)path, (ssize_t)null_args, (ssize_t)null_args);
 }
