@@ -9,5 +9,5 @@ void _start() {
   //  "jmp 4200827"
   //);
 
-  ((void (*)(void))(0x400dd5))();
+  ((void (*)(void))(0x400d5d))();
 }
