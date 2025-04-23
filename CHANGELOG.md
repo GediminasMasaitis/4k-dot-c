@@ -4307,3 +4307,31 @@ Games | N: 1658 W: 581 L: 420 D: 657
 Penta | [41, 169, 293, 240, 86]
 https://gedas.pythonanywhere.com/test/607/
 ```
+
+### 1.26
+
+64 bit: 4086 bytes (-7)
+
+MD5: 20b9abd15525001a13211ae9a79b8df4
+
+Smaller partial TT key computing
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 0 nodes 341 pv b1c3
+info depth 4 score cp 16 time 1 nodes 945 nps 945000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 2922 nps 2922000 pv b1c3
+info depth 6 score cp 11 time 3 nodes 7519 nps 2506333 pv b1c3
+info depth 7 score cp 8 time 7 nodes 19419 nps 2774142 pv b1c3
+info depth 8 score cp 16 time 17 nodes 47345 nps 2785000 pv b1c3
+info depth 9 score cp 8 time 43 nodes 125534 nps 2919395 pv b1c3
+info depth 10 score cp 13 time 99 nodes 311094 nps 3142363 pv b1c3
+info depth 11 score cp 9 time 237 nodes 822879 nps 3472063 pv b1c3
+info depth 12 score cp 15 time 573 nodes 2046255 nps 3571125 pv b1c3
+info depth 13 score cp 10 time 1471 nodes 5377441 nps 3655636 pv b1c3
+info depth 14 score cp 8 time 3498 nodes 13034952 nps 3726401 pv b1c3
+info depth 15 score cp 7 time 7824 nodes 29273342 nps 3741480 pv b1c3
+bestmove b1c3
+29273342 nodes 3741480 nps
+```

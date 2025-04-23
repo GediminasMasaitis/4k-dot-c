@@ -790,7 +790,7 @@ static size_t total_time;
 
 typedef struct [[nodiscard]] {
   i32 num_moves;
-  u64 history;
+  u64 position_hash;
   Move best_move;
   Move killer;
   Move moves[max_moves];
@@ -798,7 +798,7 @@ typedef struct [[nodiscard]] {
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   Move move;
-  u16 key;
+  u16 partial_hash;
   i16 score;
   i8 depth;
   u8 flag;
@@ -887,21 +887,22 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return alpha;
   }
 
-  const u64 tt_key = get_hash(pos);
+  const u64 tt_hash = get_hash(pos);
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
   for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
        i -= 2) {
-    if (tt_key == stack[i].history) {
+    if (tt_hash == stack[i].position_hash) {
       return 0;
     }
   }
 
   // TT PROBING
-  TTEntry *tt_entry = &tt[tt_key % tt_length];
+  TTEntry *tt_entry = &tt[tt_hash % tt_length];
+  const u16 tt_hash_partial = tt_hash / tt_length;
   Move tt_move = {0};
-  if (tt_entry->key == (u16)(tt_key >> 48)) {
+  if (tt_entry->partial_hash == tt_hash_partial) {
     tt_move = tt_entry->move;
 
     // TT PRUNING
@@ -935,7 +936,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
 
-  stack[pos_history_count + ply + 2].history = tt_key;
+  stack[pos_history_count + ply + 2].position_hash = tt_hash;
   stack[ply].best_move = tt_move;
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
@@ -1020,7 +1021,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return (ply - mate) * in_check;
   }
 
-  *tt_entry = (TTEntry){.key = tt_key >> 48,
+  *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
                         .score = alpha,
                         .depth = depth,
@@ -1244,7 +1245,7 @@ static void run() {
           assert(move_string_equal(line, move_name) ==
                  !strcmp(line, move_name));
           if (move_string_equal(line, move_name)) {
-            stack[pos_history_count].history = get_hash(&pos);
+            stack[pos_history_count].position_hash = get_hash(&pos);
             pos_history_count++;
             if (stack[0].moves[i].takes_piece != None) {
               pos_history_count = 0;
