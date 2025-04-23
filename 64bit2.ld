@@ -1,7 +1,7 @@
 OUTPUT_FORMAT(binary)               /* Binary output */
 OUTPUT_ARCH(i386:x86-64)            /* x86-64 architecture */
 
-pos = 0x400000;                     /* Start address */
+pos = 0x300000;                     /* Start address */
 
 SECTIONS
 {
@@ -36,10 +36,15 @@ SECTIONS
 	data = . ;                      /* Current location (data start) */
 	.data (data + pos) : AT(data)   /* Data section at memory + file offset */
 	{
-		*(.text) *(.text.*)        /* Include .text sections */
 		*(.rodata) *(.rodata.*)    /* Include .rodata sections */
-		*(.bss) *(.bss.*)          /* Include .bss sections */
 		*(.data) *(.data.*)        /* Include .data sections */
+		*(.bss) *(.bss.*)          /* Include .bss sections */
+		*(.text) *(.text.*)        /* Include .text sections */
+	}
+
+	.payload 0x400000 :
+	{
+		*(.payload) *(.payload.*)
 	}
 	
 	/DISCARD/ : { *(*) }            /* Discard others */

@@ -146,7 +146,7 @@ static bool getl(char *restrict string) {
 #define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
 
 static void _printf(const char *format, const size_t *args) {
-  int value;
+  long long value;
   char buffer[16], *string;
 
   while (true) {
@@ -1159,11 +1159,17 @@ static void bench() {
 }
 #endif
 
+void _start();
+
 #if !defined(FULL) && defined(NOSTDLIB)
 void _start() {
 #else
 static void run() {
 #endif
+  printf("%i\n", (long long) & material[Queen-1]);
+  printf("%i\n", material[Queen-1]);
+  printf("%i\n", (long long)_start);
+
   char line[4096];
   Position pos;
   i32 pos_history_count;
@@ -1287,26 +1293,8 @@ static void run() {
   }
 }
 
-#if !defined(NOSTDLIB) || defined(FULL)
-#ifdef NOSTDLIB
-__attribute__((naked)) void _start() {
-#ifdef FULL
-  register long *stack asm("rsp");
-  int argc = (int)*stack;
-  char **argv = (char **)(stack + 1);
-#endif
-#else
-int main(int argc, char **argv) {
-#endif
-#ifdef FULL
-  if (argc > 1 && !strcmp(argv[1], "bench")) {
-    init_diag_masks();
-    bench();
-    exit_now();
-  }
-#endif
+void _start() {
   run();
 }
-#endif
 
 #pragma endregion
