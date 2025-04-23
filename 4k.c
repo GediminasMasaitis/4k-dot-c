@@ -1159,9 +1159,8 @@ static void bench() {
 }
 #endif
 
-void _start();
-
 #if !defined(FULL) && defined(NOSTDLIB)
+//__attribute__((section(".start"), used))
 void _start() {
 #else
 static void run() {

@@ -9,7 +9,7 @@ SECTIONS
 	. = start_address;
 	
 	/* Code and Data Sections */
-	.data : AT(0) {
+	.data : {
 		*(.rodata) *(.rodata.*)
 		*(.data) *(.data.*)
 		*(.text) *(.text.*)
