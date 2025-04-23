@@ -42,7 +42,7 @@ SECTIONS
 		*(.text) *(.text.*)        /* Include .text sections */
 	}
 
-	.payload 0x400000 + 0x1000 :
+	.payload 0x400000 + 0x80 :
 	{
 		*(.payload) *(.payload.*)
 	}

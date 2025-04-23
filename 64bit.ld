@@ -1,7 +1,7 @@
 OUTPUT_FORMAT(binary)               /* Binary output */
 OUTPUT_ARCH(i386:x86-64)            /* x86-64 architecture */
 
-start_address = 0x400000 + 0x1000;           /* Start address */
+start_address = 0x400000 + 0x80;           /* Start address */
 
 SECTIONS
 {
