@@ -1293,8 +1293,5 @@ static void run() {
   }
 }
 
-void _start() {
-  run();
-}
 
 #pragma endregion
