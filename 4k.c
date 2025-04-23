@@ -1166,10 +1166,6 @@ void _start() {
 #else
 static void run() {
 #endif
-  printf("%i\n", (long long) & material[Queen-1]);
-  printf("%i\n", material[Queen-1]);
-  printf("%i\n", (long long)_start);
-
   char line[4096];
   Position pos;
   i32 pos_history_count;
