@@ -1,7 +1,7 @@
 OUTPUT_FORMAT(binary)               /* Binary output */
 OUTPUT_ARCH(i386:x86-64)            /* x86-64 architecture */
 
-pos = 0x3FF000;                     /* Start address */
+pos = 0x400000;                     /* Start address */
 
 SECTIONS
 {
@@ -42,7 +42,7 @@ SECTIONS
 		*(.text) *(.text.*)        /* Include .text sections */
 	}
 
-	.payload 0x400000 :
+	.payload 0x400000 + 0x1000 :
 	{
 		*(.payload) *(.payload.*)
 	}
