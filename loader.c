@@ -70,7 +70,7 @@ void _start() {
   //  "jmp 0x40187a"
   //);
 
-  ((void (*)(void))71310126)();
+  ((void (*)(void))4200699)();
 
   //char* path = "/proc/self/fd/3";
   //char* const null_args[] = { 0 };

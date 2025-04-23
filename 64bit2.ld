@@ -28,7 +28,7 @@ SECTIONS
 		QUAD(pos)                   /* Virtual address */
 		QUAD(pos)                   /* Physical address */
 		QUAD(filesize)              /* File size */
-		QUAD(filesize)              /* Memory size */
+		QUAD(0x10000000)            /* Memory size */
 		QUAD(8)                     /* Alignment */
 		size = . ;                  /* Current location (end of header) */
 	}
@@ -49,5 +49,5 @@ SECTIONS
 	
 	/DISCARD/ : { *(*) }            /* Discard others */
 	
-	filesize = . ;                  /* Current location (end of file) */
+	filesize = . - pos ;                  /* Current location (end of file) */
 }
