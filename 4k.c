@@ -890,7 +890,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   const u64 tt_hash = get_hash(pos);
 
   // FULL REPETITION DETECTION
-  bool in_qsearch = depth <= 0;
+  bool in_qsearch = !in_check && depth <= 0;
   for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
        i -= 2) {
     if (tt_hash == stack[i].position_hash) {
