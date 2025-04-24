@@ -870,7 +870,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64]) {
+                  u64 move_history[2][64][64], const bool do_null) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -891,7 +891,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
-  for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0;
+  for (i32 i = pos_history_count + ply; !in_qsearch && i > 0 && ply > 0 && do_null;
        i -= 2) {
     if (tt_hash == stack[i].position_hash) {
       return 0;
@@ -932,6 +932,20 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // RAZORING
     in_qsearch = static_eval + 128 * depth <= alpha;
+  }
+
+    // NULL MOVE PRUNING
+  if (depth > 3 && do_null && alpha == beta - 1 && !in_check) {
+    Position npos = *pos;
+    flip_pos(&npos);
+    npos.ep = 0;
+    if (-search(&npos, ply + 1, depth - 4, -beta, -alpha,
+#ifdef FULL
+      nodes,
+#endif
+      stack, pos_history_count, move_history, false) >= beta) {
+      return beta;
+    }
   }
 
   stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
@@ -988,7 +1002,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes,
 #endif
-                      stack, pos_history_count, move_history);
+                      stack, pos_history_count, move_history, true);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -1049,7 +1063,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes,
 #endif
-                       stack, pos_history_count, move_history);
+                       stack, pos_history_count, move_history, false);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
