@@ -4347,3 +4347,58 @@ LZ4 compression
 Thanks to:
 * **zamfofex** for helping me throughout the implementation of this
 * **ONE_RANDOM_HUMAN** for the idea of loading the executable into the same virtual address space
+
+### 2.1
+
+64 bit: 4089 bytes (+119)
+
+MD5: f223db1e5a7107148acc0bcb1a3663fe
+
+Null move pruning
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 1 nodes 341 nps 341000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 945 nps 945000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 2922 nps 1461000 pv b1c3
+info depth 6 score cp 11 time 3 nodes 6898 nps 2299333 pv b1c3
+info depth 7 score cp 7 time 7 nodes 20248 nps 2892571 pv b1c3
+info depth 8 score cp 13 time 14 nodes 37518 nps 2679857 pv b1c3
+info depth 9 score cp 8 time 38 nodes 99642 nps 2622157 pv b1c3
+info depth 10 score cp 14 time 61 nodes 166560 nps 2730491 pv b1c3
+info depth 11 score cp 9 time 131 nodes 398901 nps 3045045 pv b1c3
+info depth 12 score cp 11 time 271 nodes 898344 nps 3314922 pv b1c3
+info depth 13 score cp 9 time 601 nodes 2088817 nps 3475569 pv b1c3
+info depth 14 score cp 10 time 1207 nodes 4259169 nps 3528723 pv b1c3
+info depth 15 score cp 14 time 2783 nodes 9986438 nps 3588371 pv b1c3
+info depth 16 score cp 15 time 4612 nodes 16464738 nps 3569977 pv b1c3
+bestmove b1c3
+16464738 nodes 3569977 nps
+```
+
+```py
+Elo   | 70.69 +- 17.99 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.02 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 842 W: 361 L: 192 D: 289
+Penta | [15, 58, 159, 121, 68]
+https://gedas.pythonanywhere.com/test/615/
+```
+
+```py
+Elo   | 76.43 +- 41.73 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.69 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 194 W: 84 L: 42 D: 68
+Penta | [6, 11, 33, 29, 18]
+https://gedas.pythonanywhere.com/test/623/
+```
+
+```py
+Score of 4k.c-2.1 vs 4ku-1.1: 592 - 986 - 422  [0.402] 2000
+...      4k.c-2.1 playing White: 379 - 387 - 234  [0.496] 1000
+...      4k.c-2.1 playing Black: 213 - 599 - 188  [0.307] 1000
+...      White vs Black: 978 - 600 - 422  [0.595] 2000
+Elo difference: -69.4 +/- 13.7, LOS: 0.0 %, DrawRatio: 21.1 %
+```

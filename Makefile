@@ -45,9 +45,9 @@ loader:
 	tail -c +12 $(EXE).lz4 > $(EXE).lz4-noheader
 
 	$(CC) $(CFLAGS) -DPAYLOAD_START='"'$$(grep '_start' $(EXE).map | awk '{print $$1}')'"' -c loader.c
-	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o ./build/loader loader.o
-	ls -la ./build/loader
-	md5sum ./build/loader
+	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) loader.o
+	ls -la $(EXE)
+	md5sum $(EXE)
 
 win:
 	if not exist build mkdir build
