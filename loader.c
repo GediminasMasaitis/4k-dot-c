@@ -24,15 +24,18 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
   unsigned char history[sizeof(payload_decompressed)];
   int history_index = 0;
 
-  while (compressed < payload_compressed + sizeof(payload_compressed) - 4) {
+  const unsigned char* compressed_end = payload_compressed + sizeof(payload_compressed) - 4;
+  while (compressed < compressed_end) {
     const unsigned char token = *compressed++;
     unsigned int length1 = token >> 4;
     compressed = read_length(compressed, &length1);
-    for (int i = 0; i < length1; i++) {
-      *decompressed++ = history[history_index++] = *compressed++;
-    }
+    __builtin_memcpy(decompressed, compressed, length1);
+    __builtin_memcpy(&history[history_index], compressed, length1);
+    decompressed += length1;
+    history_index += length1;
+    compressed += length1;
 
-    if (compressed == payload_compressed + sizeof(payload_compressed) - 4) {
+    if (compressed == compressed_end) {
       break;
     }
 
