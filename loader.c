@@ -5,7 +5,7 @@ const unsigned char payload_compressed[] = {
 __attribute__((section(".payload"), used))
 char payload_decompressed[4096];
 
-//#include <stdio.h>
+#include <stdio.h>
 
 static const unsigned char * read_length(const unsigned char* compressed, unsigned int* length) {
   if (*length == 0x0F) {
@@ -30,7 +30,6 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
     compressed = read_length(compressed, &length1);
     for (int i = 0; i < length1; i++) {
       *decompressed++ = history[history_index++] = *compressed++;
-      history_index %= sizeof(history);
     }
 
     if (compressed == payload_compressed + sizeof(payload_compressed) - 4) {
@@ -45,9 +44,7 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 
     unsigned int history_index2 = history_index - delta;
     for (int i = 0; i < length2 + 4; i++) {
-      history_index2 %= sizeof(history);
       *decompressed++ = history[history_index++] = history[history_index2++];
-      history_index %= sizeof(history);
     }
   }
 }
