@@ -5,7 +5,7 @@ const unsigned char payload_compressed[] = {
 __attribute__((section(".payload"), used))
 char payload_decompressed[4096 * 2];
 
-static const unsigned char * read_length(const unsigned char* compressed, unsigned int* length) {
+static const unsigned char * read_length(const unsigned char* restrict compressed, unsigned int* restrict length) {
   if (*length == 0x0F) {
     for (;;) {
       *length += *compressed++;
@@ -17,7 +17,7 @@ static const unsigned char * read_length(const unsigned char* compressed, unsign
   return compressed;
 }
 
-static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
+static void decompress_lz4(unsigned char* restrict decompressed, const unsigned char* restrict compressed)
 {
   unsigned char history[sizeof(payload_decompressed)];
   int history_index = 0;
@@ -53,7 +53,7 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 }
 
 void _start() {
-  unlz4(payload_decompressed, payload_compressed);
+  decompress_lz4(payload_decompressed, payload_compressed);
 
   __asm__ volatile (
     "jmp " PAYLOAD_START
