@@ -32,7 +32,7 @@ all:
 	$(CC) $(CFLAGS) -c 4k.c
 	$(CC) $(LDFLAGS) $(NOSTDLIBLDFLAGS) -o $(EXE) 4k.o
 	ls -la $(EXE)
-	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map || true; fi
+	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
 	md5sum $(EXE)
 
 loader:
@@ -40,12 +40,12 @@ loader:
 	$(CC) $(CFLAGS) -c 4k.c
 	$(CC) $(LDFLAGS) -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	ls -la $(EXE)
-	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map || true; fi
+	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
 	md5sum $(EXE)
 	lz4 -12 --no-frame-crc -f $(EXE) $(EXE).lz4
 	tail -c +12 ./build/4kc.lz4 > ./build/4kc.lz4-noheader
 
-	$(CC) $(CFLAGS) -c loader.c
+	$(CC) $(CFLAGS) -DPAYLOAD_START='"'$$(grep '_start' $(EXE).map | awk '{print $$1}')'"' -c loader.c
 	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o ./build/loader loader.o
 	ls -la ./build/loader
 	md5sum ./build/loader

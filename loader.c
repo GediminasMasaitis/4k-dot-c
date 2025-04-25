@@ -22,6 +22,7 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
   unsigned char history[sizeof(payload_decompressed)];
   int history_index = 0;
 
+  // Possible that the -4 breaks at some point?
   const unsigned char* compressed_end = payload_compressed + sizeof(payload_compressed) - 4;
   //while (compressed < compressed_end) {
   while (1) { // Sketchy, restore previous condition if it fails
@@ -52,12 +53,9 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 }
 
 void _start() {
-  //__builtin_memcpy(decompressed, compressed, sizeof(compressed));
   unlz4(payload_decompressed, payload_compressed);
 
-  //__asm__ volatile (
-  //  "jmp 0x400c45"
-  //);
-
-  ((void (*)(void))(0x400c45))();
+  __asm__ volatile (
+    "jmp " PAYLOAD_START
+  );
 }
