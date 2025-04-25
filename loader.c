@@ -7,6 +7,18 @@ char payload_decompressed[4096];
 
 //#include <stdio.h>
 
+static const unsigned char * read_length(const unsigned char* compressed, unsigned int* length) {
+  if (*length == 0x0F) {
+    for (;;) {
+      *length += *compressed++;
+      if (compressed[-1] != 0xFF) {
+        break;
+      }
+    }
+  }
+  return compressed;
+}
+
 static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 {
   unsigned char history[64 * 1024];
@@ -16,20 +28,12 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 
     const unsigned char token = *compressed++;
     unsigned int length = token >> 4;
-
-    if (length == 0x0F) {
-      for (;;) {
-        length += *compressed++;
-        if (compressed[-1] != 0xFF) {
-          break;
-        }
-      }
-    }
+    compressed = read_length(compressed, &length);
 
     while (length > 0) {
       length--;
       *decompressed++ = history[position++] = *compressed++;
-      position %= sizeof history;
+      position %= sizeof(history);
     }
 
     if (compressed == payload_compressed + sizeof(payload_compressed) - 4) {
@@ -40,22 +44,15 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
     delta |= *compressed++ << 8;
 
     length = token & 0x0F;
-    if (length == 0x0F) {
-      for (;;) {
-        length += *compressed++;
-        if (compressed[-1] != 0xFF) {
-          break;
-        }
-      }
-    }
+    compressed = read_length(compressed, &length);
 
     length += 4;
     unsigned int position0 = position - delta;
     while (length > 0) {
       length--;
-      position0 %= sizeof history;
+      position0 %= sizeof(history);
       *decompressed++ = history[position++] = history[position0++];
-      position %= sizeof history;
+      position %= sizeof(history);
     }
   }
 }
