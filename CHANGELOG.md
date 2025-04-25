@@ -4403,7 +4403,7 @@ Score of 4k.c-2.1 vs 4ku-1.1: 592 - 986 - 422  [0.402] 2000
 Elo difference: -69.4 +/- 13.7, LOS: 0.0 %, DrawRatio: 21.1 %
 ```
 
-### 2.1
+### 2.2
 
 64 bit: 4095 bytes (+6)
 
@@ -4439,4 +4439,42 @@ LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
 Games | N: 4152 W: 1438 L: 1257 D: 1457
 Penta | [167, 415, 773, 512, 209]
 https://gedas.pythonanywhere.com/test/625/
+```
+
+### 2.3
+
+64 bit: 4095 bytes (=)
+
+MD5: 22fe27dd319d6e7d0af9b67deed33e3f
+
+NMP from depth 2
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 1 nodes 341 nps 341000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 840 nps 840000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 2798 nps 2798000 pv b1c3
+info depth 6 score cp 11 time 2 nodes 6335 nps 3167500 pv b1c3
+info depth 7 score cp 7 time 7 nodes 18029 nps 2575571 pv b1c3
+info depth 8 score cp 13 time 12 nodes 31415 nps 2617916 pv b1c3
+info depth 9 score cp 12 time 28 nodes 74591 nps 2663964 pv b1c3
+info depth 10 score cp 16 time 42 nodes 114324 nps 2722000 pv b1c3
+info depth 11 score cp 11 time 89 nodes 273447 nps 3072438 pv b1c3
+info depth 12 score cp 11 time 154 nodes 504216 nps 3274129 pv b1c3
+info depth 13 score cp 9 time 419 nodes 1449090 nps 3458448 pv b1c3
+info depth 14 score cp 10 time 771 nodes 2716000 nps 3522697 pv b1c3
+info depth 15 score cp 17 time 2096 nodes 7491325 nps 3574105 pv e2e4
+info depth 16 score cp 14 time 3264 nodes 11628117 nps 3562535 pv e2e4
+bestmove e2e4
+11628117 nodes 3562535 nps
+```
+
+```py
+Elo   | 19.90 +- 9.31 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2902 W: 1037 L: 871 D: 994
+Penta | [84, 306, 568, 346, 147]
+https://gedas.pythonanywhere.com/test/627/
 ```
