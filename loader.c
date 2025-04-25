@@ -25,13 +25,10 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
   int position = 0;
 
   while (compressed < payload_compressed + sizeof(payload_compressed) - 4) {
-
     const unsigned char token = *compressed++;
-    unsigned int length = token >> 4;
-    compressed = read_length(compressed, &length);
-
-    while (length > 0) {
-      length--;
+    unsigned int length1 = token >> 4;
+    compressed = read_length(compressed, &length1);
+    for (int i = 0; i < length1; i++) {
       *decompressed++ = history[position++] = *compressed++;
       position %= sizeof(history);
     }
@@ -43,13 +40,12 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
     unsigned int delta = *compressed++;
     delta |= *compressed++ << 8;
 
-    length = token & 0x0F;
-    compressed = read_length(compressed, &length);
+    unsigned int length2 = token & 0x0F;
+    compressed = read_length(compressed, &length2);
 
-    length += 4;
+    length2 += 4;
     unsigned int position0 = position - delta;
-    while (length > 0) {
-      length--;
+    for (int i = 0; i < length2; i++) {
       position0 %= sizeof(history);
       *decompressed++ = history[position++] = history[position0++];
       position %= sizeof(history);
