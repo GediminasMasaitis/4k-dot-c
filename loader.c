@@ -8,7 +8,6 @@ char decompressed[4096];
 
 static unsigned char* unlz4(unsigned char* decompressed, const unsigned char* compressed)
 {
-  unsigned char has_checksum;
   unsigned char has_size;
   unsigned char flags;
   unsigned char history[64 * 1024];
@@ -22,7 +21,6 @@ static unsigned char* unlz4(unsigned char* decompressed, const unsigned char* co
   compressed += 4;
 
   flags = *compressed++;
-  has_checksum = flags & 16;
   has_size = flags & 8;
 
   compressed += 2;
@@ -47,7 +45,6 @@ static unsigned char* unlz4(unsigned char* decompressed, const unsigned char* co
         block_size--;
       }
 
-      if (has_checksum) compressed += 4;
       continue;
     }
 
@@ -96,8 +93,6 @@ static unsigned char* unlz4(unsigned char* decompressed, const unsigned char* co
         position %= sizeof history;
       }
     }
-
-    if (has_checksum) compressed += 4;
   }
 
   return decompressed;

@@ -42,12 +42,12 @@ loader:
 	ls -la $(EXE)
 	@if [ -f ./build/4kc.map ]; then grep fill ./build/4kc.map || true; fi
 	md5sum $(EXE)
-	lz4 -12 -f $(EXE) $(EXE).lz4
+	lz4 -12 --no-frame-crc -f $(EXE) $(EXE).lz4
 
 	$(CC) $(CFLAGS) -c loader.c
 	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o ./build/loader loader.o
 	ls -la ./build/loader
-	md5sum $(EXE)
+	md5sum ./build/loader
 
 win:
 	if not exist build mkdir build
