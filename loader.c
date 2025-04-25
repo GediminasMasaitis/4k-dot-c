@@ -1,4 +1,4 @@
-const char payload_compressed[] = {
+const unsigned char payload_compressed[] = {
 #embed "./build/4kc.lz4-noheader"
 };
 
@@ -11,50 +11,38 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 {
   unsigned char history[64 * 1024];
   unsigned int position = 0;
-  unsigned int block_size = sizeof(payload_compressed) - 4;
 
-  //printf("Block size: %d\n", block_size);
-
-  while (block_size > 0) {
+  while (compressed < payload_compressed + sizeof(payload_compressed) - 4) {
 
     const unsigned char token = *compressed++;
-    block_size--;
-
     unsigned int length = token >> 4;
-    //printf("Length 1: %d\n", length);
 
     if (length == 0x0F) {
       for (;;) {
         length += *compressed++;
-        block_size--;
         if (compressed[-1] != 0xFF) {
           break;
         }
       }
     }
 
-    //printf("Length 2: %d\n", length);
-
     while (length > 0) {
       length--;
       *decompressed++ = history[position++] = *compressed++;
       position %= sizeof history;
-      block_size--;
     }
 
-    if (block_size == 0) {
+    if (compressed == payload_compressed + sizeof(payload_compressed) - 4) {
       break;
     }
 
     unsigned int delta = *compressed++;
     delta |= *compressed++ << 8;
-    block_size -= 2;
 
     length = token & 0x0F;
     if (length == 0x0F) {
       for (;;) {
         length += *compressed++;
-        block_size--;
         if (compressed[-1] != 0xFF) {
           break;
         }
