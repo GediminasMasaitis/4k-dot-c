@@ -1,5 +1,5 @@
 const char payload_compressed[] = {
-#embed "./build/4kc.lz4"
+#embed "./build/4kc.lz4-noheader"
 };
 
 __attribute__((section(".payload"), used))
@@ -11,9 +11,7 @@ static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 {
   unsigned char history[64 * 1024];
   unsigned int position = 0;
-  unsigned int block_size = sizeof(payload_compressed) - 15;
-
-  compressed += 11;
+  unsigned int block_size = sizeof(payload_compressed) - 4;
 
   //printf("Block size: %d\n", block_size);
 
