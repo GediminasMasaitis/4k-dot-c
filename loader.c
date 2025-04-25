@@ -22,7 +22,7 @@ static const unsigned char * read_length(const unsigned char* compressed, unsign
 static void unlz4(unsigned char* decompressed, const unsigned char* compressed)
 {
   unsigned char history[64 * 1024];
-  unsigned int position = 0;
+  int position = 0;
 
   while (compressed < payload_compressed + sizeof(payload_compressed) - 4) {
 
