@@ -4519,21 +4519,21 @@ Allow repetition detection after null move
 info depth 1 score cp 23 time 0 nodes 20 pv b1c3
 info depth 2 score cp 16 time 0 nodes 85 pv b1c3
 info depth 3 score cp 22 time 0 nodes 341 pv b1c3
-info depth 4 score cp 16 time 0 nodes 840 pv b1c3
+info depth 4 score cp 16 time 1 nodes 840 nps 840000 pv b1c3
 info depth 5 score cp -1 time 1 nodes 2798 nps 2798000 pv b1c3
-info depth 6 score cp 11 time 2 nodes 6335 nps 3167500 pv b1c3
-info depth 7 score cp 7 time 8 nodes 18029 nps 2253625 pv b1c3
-info depth 8 score cp 13 time 14 nodes 31415 nps 2243928 pv b1c3
-info depth 9 score cp 12 time 35 nodes 74591 nps 2131171 pv b1c3
-info depth 10 score cp 16 time 51 nodes 114324 nps 2241647 pv b1c3
-info depth 11 score cp 11 time 110 nodes 273447 nps 2485881 pv b1c3
-info depth 12 score cp 11 time 191 nodes 504216 nps 2639874 pv b1c3
-info depth 13 score cp 9 time 526 nodes 1449090 nps 2754923 pv b1c3
-info depth 14 score cp 10 time 974 nodes 2716000 nps 2788501 pv b1c3
-info depth 15 score cp 17 time 2675 nodes 7491325 nps 2800495 pv e2e4
-info depth 16 score cp 14 time 4168 nodes 11628117 nps 2789855 pv e2e4
+info depth 6 score cp 11 time 3 nodes 6335 nps 2111666 pv b1c3
+info depth 7 score cp 7 time 7 nodes 18029 nps 2575571 pv b1c3
+info depth 8 score cp 13 time 13 nodes 31415 nps 2416538 pv b1c3
+info depth 9 score cp 12 time 31 nodes 74591 nps 2406161 pv b1c3
+info depth 10 score cp 16 time 47 nodes 114324 nps 2432425 pv b1c3
+info depth 11 score cp 11 time 99 nodes 273447 nps 2762090 pv b1c3
+info depth 12 score cp 11 time 169 nodes 504216 nps 2983526 pv b1c3
+info depth 13 score cp 9 time 447 nodes 1449090 nps 3241812 pv b1c3
+info depth 14 score cp 10 time 828 nodes 2716000 nps 3280193 pv b1c3
+info depth 15 score cp 17 time 2280 nodes 7491325 nps 3285668 pv e2e4
+info depth 16 score cp 14 time 3517 nodes 11628117 nps 3306260 pv e2e4
 bestmove e2e4
-11628117 nodes 2789855 nps
+11628117 nodes 3306260 nps
 ```
 
 ```py
@@ -4544,3 +4544,13 @@ Games | N: 6280 W: 2037 L: 1921 D: 2322
 Penta | [216, 660, 1307, 706, 251]
 https://gedas.pythonanywhere.com/test/636/
 ```
+
+### 2.7
+
+64 bit: 3985 bytes (-25)
+
+MD5: a3f0c7de943b5f5f55754237321900d5
+
+Move history heuristic table to global variable
+
+Thanks to **cj5716**

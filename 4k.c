@@ -808,7 +808,8 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
-TTEntry tt[tt_length];
+static TTEntry tt[tt_length];
+static u64 move_history[2][64][64];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -870,7 +871,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  u64 move_history[2][64][64], const bool do_null) {
+                  const bool do_null) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -944,7 +945,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                 nodes,
 #endif
-                stack, pos_history_count, move_history, false) >= beta) {
+                stack, pos_history_count, false) >= beta) {
       return beta;
     }
   }
@@ -1003,7 +1004,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes,
 #endif
-                      stack, pos_history_count, move_history, true);
+                      stack, pos_history_count, true);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -1050,11 +1051,9 @@ static void iteratively_deepen(
     i32 maxdepth, u64 *nodes,
 #endif
     Position *const restrict pos, SearchStack *restrict stack,
-    const i32 pos_history_count
-
-) {
+    const i32 pos_history_count) {
   start_time = get_time();
-  u64 move_history[2][64][64] = {0};
+  __builtin_memset(move_history, 0, sizeof(move_history));
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1064,7 +1063,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes,
 #endif
-                       stack, pos_history_count, move_history, false);
+                       stack, pos_history_count, false);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
