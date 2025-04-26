@@ -4478,3 +4478,19 @@ Games | N: 2902 W: 1037 L: 871 D: 994
 Penta | [84, 306, 568, 346, 147]
 https://gedas.pythonanywhere.com/test/627/
 ```
+
+```py
+Score of 4k.c-2.3 vs 4ku-1.1: 502 - 683 - 315  [0.440] 1500
+...      4k.c-2.3 playing White: 308 - 270 - 173  [0.525] 751
+...      4k.c-2.3 playing Black: 194 - 413 - 142  [0.354] 749
+...      White vs Black: 721 - 464 - 315  [0.586] 1500
+Elo difference: -42.1 +/- 15.7, LOS: 0.0 %, DrawRatio: 21.0 %
+```
+
+### 2.4
+
+64 bit: 4025 bytes (-70)
+
+MD5: 48ab37d514b2e89e2b3805b66e702526
+
+Smaller loader
