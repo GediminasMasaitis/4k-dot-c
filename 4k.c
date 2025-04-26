@@ -721,26 +721,28 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {78,  308, 319,
-                                                           483, 966, 0};
+__attribute__((aligned(8))) static const i16 material[] = {78,  311, 323,
+                                                          479, 969, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -12, -14, -13, -1, 40, 114, 0,   // Pawn
-    -36, -19, 1,   16,  28, 28, 8,   -25, // Knight
-    -27, -9,  3,   10,  15, 15, 3,   -9,  // Bishop
-    -11, -19, -19, -9,  6,  15, 21,  16,  // Rook
-    -21, -13, -9,  -3,  6,  16, 6,   16,  // Queen
-    -20, -12, -5,  6,   18, 24, 13,  -15, // King
+    0,   -12, -14, -13, -1, 40, 113, 0,   // Pawn
+    -36, -20, -1,  14,  27, 29, 11,  -23, // Knight
+    -28, -10, 2,   9,   14, 16, 5,   -7,  // Bishop
+    -9,  -17, -17, -8,  6,  14, 18,  13,  // Rook
+    -21, -13, -9,  -3,  6,  16, 7,   17,  // Queen
+    -21, -14, -6,  6,   20, 27, 17,  -12, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  2,  -5, -2, 0,  5,  10, -8,  // Pawn
-    -28, -7, 6,  15, 14, 13, 1,  -14, // Knight
-    -13, 0,  3,  5,  6,  1,  5,  -7,  // Bishop
-    -2,  0,  3,  5,  4,  6,  -2, -14, // Rook
+    -3,  2,  -5, -3, 0,  6,  12, -9,  // Pawn
+    -28, -7, 7,  16, 14, 12, 0,  -15, // Knight
+    -13, 0,  4,  6,  6,  1,  4,  -8,  // Bishop
+    -2,  0,  2,  3,  4,  7,  -1, -14, // Rook
     -22, -9, 2,  6,  5,  6,  6,  6,   // Queen
-    -13, 3,  1,  0,  -2, -2, 6,  -10, // King
+    -13, 4,  3,  3,  0,  -2, 6,  -10, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {27, -11, -7,
-                                                            25, 5,   -7};
+__attribute__((aligned(8))) static const i8 open_files[][6] = {
+    {5, -7, -4, 21, 5, -2},
+    {28, -17, -12, 33, 3, -16},
+};
 const i8 bishop_pair = 35;
 
 static i32 eval(Position *const restrict pos) {
@@ -753,6 +755,7 @@ static i32 eval(Position *const restrict pos) {
     }
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
+    const u64 opp_pawns = pos->colour[1] & pos->pieces[Pawn];
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
@@ -760,15 +763,17 @@ static i32 eval(Position *const restrict pos) {
         const i32 sq = lsb(copy);
         copy &= copy - 1;
 
-        const int rank = sq >> 3;
-        const int file = sq & 7;
-
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p - 1] *
-                 ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
+        const u64 in_front = north(0x101010101010101UL << sq);
+        if ((in_front & own_pawns) == 0) {
+          score += open_files[(in_front & opp_pawns) == 0][p-1];
+        }
 
         // MATERIAL
         score += material[p - 1];
+
+        const int rank = sq >> 3;
+        const int file = sq & 7;
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
