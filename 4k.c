@@ -955,6 +955,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   stack[pos_history_count + ply + 2].position_hash = tt_hash;
   stack[ply].best_move = tt_move;
   i32 moves_evaluated = 0;
+  i32 quiets_evaluated = 0;
   u8 tt_flag = Upper;
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
@@ -991,7 +992,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
-
     moves_evaluated++;
 
     // LATE MOVE REDCUCTION
@@ -1037,6 +1037,15 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         }
         break;
       }
+    }
+
+    if (stack[ply].moves[move_index].takes_piece == None) {
+      quiets_evaluated++;
+    }
+
+    // LATE MOVE PRUNING
+    if (!in_check && alpha == beta - 1 && quiets_evaluated > 3 + depth * depth) {
+      break;
     }
   }
 
@@ -1173,7 +1182,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(17, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(18, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
