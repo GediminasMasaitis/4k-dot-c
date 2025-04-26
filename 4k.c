@@ -721,27 +721,28 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {78,  308, 319,
-                                                           483, 966, 0};
+__attribute__((aligned(8))) static const i16 material[] = {80,  308, 290,
+                                                           470, 942, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -12, -14, -13, -1, 40, 114, 0,   // Pawn
-    -36, -19, 1,   16,  28, 28, 8,   -25, // Knight
-    -27, -9,  3,   10,  15, 15, 3,   -9,  // Bishop
-    -11, -19, -19, -9,  6,  15, 21,  16,  // Rook
-    -21, -13, -9,  -3,  6,  16, 6,   16,  // Queen
-    -20, -12, -5,  6,   18, 24, 13,  -15, // King
+    0,   -12, -13, -13, -1, 40, 117, 0,   // Pawn
+    -35, -19, 1,   15,  26, 27, 8,   -25, // Knight
+    -14, -4,  2,   3,   7,  10, 0,   -5,  // Bishop
+    -9,  -17, -17, -9,  5,  14, 20,  13,  // Rook
+    -11, -8,  -8,  -6,  2,  12, 4,   15,  // Queen
+    -25, -10, -2,  9,   21, 28, 18,  -20, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  2,  -5, -2, 0,  5,  10, -8,  // Pawn
-    -28, -7, 6,  15, 14, 13, 1,  -14, // Knight
-    -13, 0,  3,  5,  6,  1,  5,  -7,  // Bishop
-    -2,  0,  3,  5,  4,  6,  -2, -14, // Rook
-    -22, -9, 2,  6,  5,  6,  6,  6,   // Queen
-    -13, 3,  1,  0,  -2, -2, 6,  -10, // King
+    -2,  3,   -5, -2, 0,  5,  10, -9,  // Pawn
+    -29, -7,  7,  17, 15, 14, 0,  -16, // Knight
+    -8,  1,   2,  2,  4,  -1, 4,  -3,  // Bishop
+    -3,  0,   3,  5,  4,  6,  -2, -13, // Rook
+    -19, -10, 0,  4,  4,  5,  6,  10,  // Queen
+    -18, 7,   6,  6,  4,  2,  9,  -14, // King
 };
-__attribute__((aligned(8))) static const i8 open_files[] = {27, -11, -7,
-                                                            25, 5,   -7};
-const i8 bishop_pair = 35;
+__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
+__attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
+                                                            20, 2,   -6};
+const i8 bishop_pair = 38;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
@@ -773,6 +774,10 @@ static i32 eval(Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
+
+        // MOBILITY
+        score += mobilities[p - 1] *
+                 count(get_mobility(sq, p, pos) & ~pos->colour[0]);
       }
     }
 
