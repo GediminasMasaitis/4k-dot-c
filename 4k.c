@@ -995,8 +995,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     moves_evaluated++;
 
     // LATE MOVE REDCUCTION
-    i32 reduction =
-        depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 16 : 1;
+    i32 reduction = depth > 1 && moves_evaluated > 6
+                        ? 2 + (alpha == beta - 1) + moves_evaluated / 16
+                        : 1;
 
     i32 score;
     while (true) {
@@ -1165,7 +1166,7 @@ static void bench() {
   total_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(17, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(18, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
