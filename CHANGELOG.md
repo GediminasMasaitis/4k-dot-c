@@ -4338,6 +4338,12 @@ bestmove b1c3
 
 ### 2.0
 
+Equivalent to version 1.26
+
+Final version without compression
+
+### 2.1
+
 64 bit: 3970 bytes (-116)
 
 MD5: cab3ac3d7d9135c51f247e1033699062
@@ -4348,7 +4354,7 @@ Thanks to:
 * **zamfofex** for helping me throughout the implementation of this
 * **ONE_RANDOM_HUMAN** for the idea of loading the executable into the same virtual address space
 
-### 2.1
+### 2.2
 
 64 bit: 4089 bytes (+119)
 
@@ -4396,14 +4402,14 @@ https://gedas.pythonanywhere.com/test/623/
 ```
 
 ```py
-Score of 4k.c-2.1 vs 4ku-1.1: 592 - 986 - 422  [0.402] 2000
-...      4k.c-2.1 playing White: 379 - 387 - 234  [0.496] 1000
-...      4k.c-2.1 playing Black: 213 - 599 - 188  [0.307] 1000
+Score of 4k.c-2.2 vs 4ku-1.1: 592 - 986 - 422  [0.402] 2000
+...      4k.c-2.2 playing White: 379 - 387 - 234  [0.496] 1000
+...      4k.c-2.2 playing Black: 213 - 599 - 188  [0.307] 1000
 ...      White vs Black: 978 - 600 - 422  [0.595] 2000
 Elo difference: -69.4 +/- 13.7, LOS: 0.0 %, DrawRatio: 21.1 %
 ```
 
-### 2.2
+### 2.3
 
 64 bit: 4095 bytes (+6)
 
@@ -4441,7 +4447,7 @@ Penta | [167, 415, 773, 512, 209]
 https://gedas.pythonanywhere.com/test/625/
 ```
 
-### 2.3
+### 2.4
 
 64 bit: 4095 bytes (=)
 
@@ -4480,14 +4486,14 @@ https://gedas.pythonanywhere.com/test/627/
 ```
 
 ```py
-Score of 4k.c-2.3 vs 4ku-1.1: 502 - 683 - 315  [0.440] 1500
-...      4k.c-2.3 playing White: 308 - 270 - 173  [0.525] 751
-...      4k.c-2.3 playing Black: 194 - 413 - 142  [0.354] 749
+Score of 4k.c-2.4 vs 4ku-1.1: 502 - 683 - 315  [0.440] 1500
+...      4k.c-2.4 playing White: 308 - 270 - 173  [0.525] 751
+...      4k.c-2.4 playing Black: 194 - 413 - 142  [0.354] 749
 ...      White vs Black: 721 - 464 - 315  [0.586] 1500
 Elo difference: -42.1 +/- 15.7, LOS: 0.0 %, DrawRatio: 21.0 %
 ```
 
-### 2.4
+### 2.5
 
 64 bit: 4025 bytes (-70)
 
@@ -4497,7 +4503,7 @@ Smaller loader
 
 Thanks to **ONE_RANDOM_HUMAN**
 
-### 2.5
+### 2.6
 
 64 bit: 4010 bytes (-15)
 
@@ -4507,7 +4513,7 @@ Even smaller loader
 
 Thanks to **ONE_RANDOM_HUMAN**
 
-### 2.6
+### 2.7
 
 64 bit: 4010 bytes (=)
 
@@ -4545,7 +4551,7 @@ Penta | [216, 660, 1307, 706, 251]
 https://gedas.pythonanywhere.com/test/636/
 ```
 
-### 2.7
+### 2.8
 
 64 bit: 3985 bytes (-25)
 
@@ -4555,7 +4561,7 @@ Move history heuristic table to global variable
 
 Thanks to **cj5716**
 
-### 2.8
+### 2.9
 
 64 bit: 4039 bytes (+54)
 
@@ -4602,7 +4608,7 @@ Penta | [37, 101, 244, 178, 81]
 https://gedas.pythonanywhere.com/test/649/
 ```
 
-### 2.9
+### 2.10
 
 64 bit: 4034 bytes (-5)
 
@@ -4612,18 +4618,50 @@ Smaller time management
 
 10+0.1:
 ```py
-Score of 4k.c-2.9 vs 4ku-1.1: 1034 - 1346 - 620  [0.448] 3000
-...      4k.c-2.9 playing White: 631 - 521 - 348  [0.537] 1500
-...      4k.c-2.9 playing Black: 403 - 825 - 272  [0.359] 1500
+Score of 4k.c-2.10 vs 4ku-1.1: 1034 - 1346 - 620  [0.448] 3000
+...      4k.c-2.10 playing White: 631 - 521 - 348  [0.537] 1500
+...      4k.c-2.10 playing Black: 403 - 825 - 272  [0.359] 1500
 ...      White vs Black: 1456 - 924 - 620  [0.589] 3000
 Elo difference: -36.3 +/- 11.1, LOS: 0.0 %, DrawRatio: 20.7 %
 ```
 
 60+0.6:
 ```py
-Score of 4k.c-2.9 vs 4ku-1.1: 513 - 615 - 372  [0.466] 1500
-...      4k.c-2.9 playing White: 327 - 229 - 194  [0.565] 750
-...      4k.c-2.9 playing Black: 186 - 386 - 178  [0.367] 750
+Score of 4k.c-2.10 vs 4ku-1.1: 513 - 615 - 372  [0.466] 1500
+...      4k.c-2.10 playing White: 327 - 229 - 194  [0.565] 750
+...      4k.c-2.10 playing Black: 186 - 386 - 178  [0.367] 750
 ...      White vs Black: 713 - 415 - 372  [0.599] 1500
 Elo difference: -23.7 +/- 15.3, LOS: 0.1 %, DrawRatio: 24.8 %
 ```
+
+### 2.11
+
+64 bit: 4092 bytes (+58)
+
+MD5: 58ee831c562065d98fbaff7c2cdb0ac8
+
+Late move pruning
+
+```py
+Elo   | 52.67 +- 15.80 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1150 W: 475 L: 302 D: 373
+Penta | [34, 89, 204, 166, 82]
+https://gedas.pythonanywhere.com/test/658/
+```
+
+```py
+Elo   | 35.48 +- 12.79 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1582 W: 548 L: 387 D: 647
+Penta | [37, 163, 282, 220, 89]
+https://gedas.pythonanywhere.com/test/659/
+```
+
+### 3.0
+
+Equivalent to 2.11
+
+Last version with LZ4 compression
