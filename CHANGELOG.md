@@ -4494,3 +4494,15 @@ Elo difference: -42.1 +/- 15.7, LOS: 0.0 %, DrawRatio: 21.0 %
 MD5: 48ab37d514b2e89e2b3805b66e702526
 
 Smaller loader
+
+Thanks to **ONE_RANDOM_HUMAN**
+
+### 2.5
+
+64 bit: 4010 bytes (-15)
+
+MD5: fd3faf3520feff9b2576a68865912679
+
+Even smaller loader
+
+Thanks to **ONE_RANDOM_HUMAN**

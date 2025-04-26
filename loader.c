@@ -17,7 +17,7 @@ static const unsigned char * read_length(const unsigned char* restrict compresse
   return compressed;
 }
 
-void decompress_lz4(unsigned char* restrict decompressed, const unsigned char* restrict compressed) {
+static void decompress_lz4(unsigned char* restrict decompressed, const unsigned char* restrict compressed) {
   const unsigned char* compressed_end = compressed + sizeof(payload_compressed);
 
   //while (compressed < compressed_end) {
@@ -53,4 +53,6 @@ void _start() {
   __asm__ volatile (
     "jmp " PAYLOAD_START
   );
+
+  __builtin_unreachable();
 }
