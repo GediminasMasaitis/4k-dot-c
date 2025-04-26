@@ -916,8 +916,13 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     depth -= depth > 3;
   }
 
+  // STATIC EVAL WITH ADJUSTMENT FROM TT
+  i32 static_eval = eval(pos);
+  if (tt_entry->flag != static_eval > tt_entry->score && tt_entry->partial_hash == tt_hash_partial) {
+    static_eval = tt_entry->score;
+  }
+
   // QUIESCENCE
-  const i32 static_eval = eval(pos);
   if (in_qsearch && static_eval > alpha) {
     if (static_eval >= beta) {
       return static_eval;
