@@ -871,7 +871,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  const bool do_null) {
+                  const bool in_zero_window, const bool do_null) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -907,7 +907,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     tt_move = tt_entry->move;
 
     // TT PRUNING
-    if (alpha == beta - 1 && tt_entry->depth >= depth &&
+    if (in_zero_window && tt_entry->depth >= depth &&
         tt_entry->flag != tt_entry->score <= alpha) {
       return tt_entry->score;
     }
@@ -925,7 +925,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
+  if (!in_qsearch && depth < 8 && in_zero_window && !in_check) {
     // REVERSE FUTILITY PRUNING
     if (static_eval - 42 * depth >= beta) {
       return static_eval;
@@ -936,7 +936,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // NULL MOVE PRUNING
-  if (depth > 2 && do_null && static_eval >= beta && alpha == beta - 1 &&
+  if (depth > 2 && do_null && static_eval >= beta && in_zero_window &&
       !in_check) {
     Position npos = *pos;
     flip_pos(&npos);
@@ -945,7 +945,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                 nodes,
 #endif
-                stack, pos_history_count, false) >= beta) {
+                stack, pos_history_count, in_zero_window, false) >= beta) {
       return beta;
     }
   }
@@ -991,6 +991,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
+    bool new_zero_window = moves_evaluated == 0 ? in_zero_window : true;
 
     moves_evaluated++;
 
@@ -1004,7 +1005,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes,
 #endif
-                      stack, pos_history_count, true);
+                      stack, pos_history_count, new_zero_window, true);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -1012,6 +1013,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
       low = -beta;
       reduction = 1;
+      new_zero_window = in_zero_window;
     }
 
     if (score > alpha) {
@@ -1063,7 +1065,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes,
 #endif
-                       stack, pos_history_count, false);
+                       stack, pos_history_count, false, false);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
