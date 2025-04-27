@@ -809,7 +809,7 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
 static TTEntry tt[tt_length];
-static u64 move_history[2][64][64];
+static i64 move_history[2][64][64];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -958,19 +958,19 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   u8 tt_flag = Upper;
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
-    u64 move_score = 0;
+    i64 move_score = ~0x101010101010101LL; // Ends up as large negative
 
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
-      const u64 order_move_score =
-          ((u64)move_equal(&tt_move, &stack[ply].moves[order_index])
+      const i64 order_move_score =
+          ((i64)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)stack[ply].moves[order_index].takes_piece
+          + ((i64)stack[ply].moves[order_index].takes_piece
              << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
-          + ((u64)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
+          + ((i64)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
              << 48) // KILLER MOVE
           + move_history[pos->flipped][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
@@ -1025,6 +1025,14 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         if (stack[ply].best_move.takes_piece == None) {
           move_history[pos->flipped][stack[ply].best_move.from]
                       [stack[ply].best_move.to] += depth * depth;
+          for (i32 prev_move_index = 0; prev_move_index < move_index;
+               prev_move_index++) {
+            const Move prev_move = stack[ply].moves[prev_move_index];
+            if (prev_move.takes_piece == 0) {
+              move_history[pos->flipped][prev_move.from][prev_move.to] -=
+                  depth * depth;
+            }
+          }
           stack[ply].killer = stack[ply].best_move;
         }
         break;
