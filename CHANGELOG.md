@@ -4554,3 +4554,29 @@ MD5: a3f0c7de943b5f5f55754237321900d5
 Move history heuristic table to global variable
 
 Thanks to **cj5716**
+
+### 2.8
+
+64 bit: 4039 bytes (+54)
+
+MD5: 1706777a95a5471e92525defdeb05851
+
+History malus
+
+```py
+Elo   | 24.19 +- 10.51 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2446 W: 860 L: 690 D: 896
+Penta | [81, 249, 448, 309, 136]
+https://gedas.pythonanywhere.com/test/648/
+```
+
+```py
+Elo   | 42.18 +- 29.51 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.66 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 298 W: 104 L: 68 D: 126
+Penta | [8, 24, 57, 44, 16]
+https://gedas.pythonanywhere.com/test/649/
+```
