@@ -4564,6 +4564,27 @@ MD5: 1706777a95a5471e92525defdeb05851
 History malus
 
 ```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 0 nodes 290 pv b1c3
+info depth 4 score cp 16 time 0 nodes 778 pv b1c3
+info depth 5 score cp -1 time 1 nodes 2592 nps 2592000 pv b1c3
+info depth 6 score cp 11 time 3 nodes 8830 nps 2943333 pv f2f4
+info depth 7 score cp 5 time 8 nodes 21284 nps 2660500 pv g1f3
+info depth 8 score cp 16 time 11 nodes 28972 nps 2633818 pv g1f3
+info depth 9 score cp 15 time 32 nodes 80268 nps 2508375 pv b1c3
+info depth 10 score cp 16 time 50 nodes 131164 nps 2623280 pv b1c3
+info depth 11 score cp 8 time 118 nodes 345125 nps 2924788 pv b1c3
+info depth 12 score cp 15 time 231 nodes 746529 nps 3231727 pv b1c3
+info depth 13 score cp 6 time 516 nodes 1758204 nps 3407372 pv b1c3
+info depth 14 score cp 12 time 927 nodes 3228737 nps 3482995 pv b1c3
+info depth 15 score cp 14 time 2315 nodes 8271934 nps 3573189 pv b1c3
+info depth 16 score cp 16 time 5113 nodes 18139884 nps 3547796 pv e2e4
+bestmove e2e4
+18139884 nodes 3547796 nps
+```
+
+```py
 Elo   | 24.19 +- 10.51 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
@@ -4573,10 +4594,36 @@ https://gedas.pythonanywhere.com/test/648/
 ```
 
 ```py
-Elo   | 42.18 +- 29.51 (95%)
+Elo   | 44.97 +- 14.49 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 0.66 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 298 W: 104 L: 68 D: 126
-Penta | [8, 24, 57, 44, 16]
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1282 W: 486 L: 321 D: 475
+Penta | [37, 101, 244, 178, 81]
 https://gedas.pythonanywhere.com/test/649/
+```
+
+### 2.9
+
+64 bit: 4034 bytes (-5)
+
+MD5: fd7db885ed6273aa6a23424ed83e55a3
+
+Smaller time management
+
+10+0.1:
+```py
+Score of 4k.c-2.9 vs 4ku-1.1: 1034 - 1346 - 620  [0.448] 3000
+...      4k.c-2.9 playing White: 631 - 521 - 348  [0.537] 1500
+...      4k.c-2.9 playing Black: 403 - 825 - 272  [0.359] 1500
+...      White vs Black: 1456 - 924 - 620  [0.589] 3000
+Elo difference: -36.3 +/- 11.1, LOS: 0.0 %, DrawRatio: 20.7 %
+```
+
+60+0.6:
+```py
+Score of 4k.c-2.9 vs 4ku-1.1: 513 - 615 - 372  [0.466] 1500
+...      4k.c-2.9 playing White: 327 - 229 - 194  [0.565] 750
+...      4k.c-2.9 playing Black: 186 - 386 - 178  [0.367] 750
+...      White vs Black: 713 - 415 - 372  [0.599] 1500
+Elo difference: -23.7 +/- 15.3, LOS: 0.1 %, DrawRatio: 24.8 %
 ```

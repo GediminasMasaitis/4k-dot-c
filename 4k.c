@@ -786,7 +786,7 @@ enum { max_ply = 96 };
 enum { mate = 30000, inf = 32000 };
 
 static size_t start_time;
-static size_t total_time;
+static size_t max_time;
 
 typedef struct [[nodiscard]] {
   i32 num_moves;
@@ -884,7 +884,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // EARLY EXITS
-  if (depth > 4 && get_time() - start_time > total_time / 2) {
+  if (depth > 4 && get_time() - start_time > max_time) {
     return alpha;
   }
 
@@ -1089,7 +1089,7 @@ static void iteratively_deepen(
     putl("\n");
 #endif
 
-    if (elapsed > total_time / 32) {
+    if (elapsed > max_time / 16) {
       break;
     }
   }
@@ -1170,7 +1170,7 @@ static void bench() {
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
                    .castling = {true, true, true, true}};
-  total_time = 99999999999;
+  max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
   iteratively_deepen(17, &nodes, &pos, stack, pos_history_count);
@@ -1229,7 +1229,7 @@ static void run() {
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
-      total_time = 99999999999;
+      max_time = 99999999999;
       iteratively_deepen(max_ply, &nodes, &pos, stack, pos_history_count);
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
@@ -1286,14 +1286,14 @@ static void run() {
         getl(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
           getl(line);
-          total_time = atoi(line);
+          max_time = atoi(line) / 2;
           break;
         } else if (pos.flipped && !strcmp(line, "btime")) {
           getl(line);
-          total_time = atoi(line);
+          max_time = atoi(line) / 2;
           break;
         } else if (!strcmp(line, "movetime")) {
-          total_time = 40000; // Assume Lichess bot
+          max_time = 20000; // Assume Lichess bot
           break;
         }
       }
@@ -1301,7 +1301,7 @@ static void run() {
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
-        total_time = atoi(line);
+        max_time = atoi(line) / 2;
       }
       iteratively_deepen(&pos, stack, pos_history_count);
 #endif
