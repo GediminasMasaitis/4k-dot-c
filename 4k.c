@@ -957,27 +957,31 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
+  u64 move_scores[max_moves];
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
-    u64 move_score = 0;
+    assert(stack[ply].moves[move_index].takes_piece ==
+           piece_on(pos, stack[ply].moves[move_index].to));
+    move_scores[move_index] =
+        ((u64)move_equal(&tt_move, &stack[ply].moves[move_index])
+         << 60) // PREVIOUS BEST MOVE FIRST
+        + ((u64)stack[ply].moves[move_index].takes_piece
+           << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
+        + ((u64)move_equal(&stack[ply].killer, &stack[ply].moves[move_index])
+           << 48) // KILLER MOVE
+        + move_history[pos->flipped][stack[ply].moves[move_index].from]
+                      [stack[ply].moves[move_index].to]; // HISTORY HEURISTIC
+  }
 
+  for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
+    u64 move_score = 0;
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
-      assert(stack[ply].moves[order_index].takes_piece ==
-             piece_on(pos, stack[ply].moves[order_index].to));
-      const u64 order_move_score =
-          ((u64)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 60) // PREVIOUS BEST MOVE FIRST
-          + ((u64)stack[ply].moves[order_index].takes_piece
-             << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
-          + ((u64)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
-             << 48) // KILLER MOVE
-          + move_history[pos->flipped][stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
-      if (order_move_score > move_score) {
-        move_score = order_move_score;
+      if (move_scores[order_index] > move_score) {
+        move_score = move_scores[order_index];
         swapmoves(&stack[ply].moves[move_index],
                   &stack[ply].moves[order_index]);
+        swapu64(&move_scores[move_index], &move_scores[order_index]);
       }
     }
 
