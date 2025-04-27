@@ -1045,11 +1045,13 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return (ply - mate) * in_check;
   }
 
-  *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                        .move = stack[ply].best_move,
-                        .score = alpha,
-                        .depth = depth,
-                        .flag = tt_flag};
+  if (tt_entry->partial_hash != tt_hash_partial || depth >= tt_entry->depth || tt_flag == Exact) {
+    *tt_entry = (TTEntry){ .partial_hash = tt_hash_partial,
+                          .move = stack[ply].best_move,
+                          .score = alpha,
+                          .depth = depth,
+                          .flag = tt_flag };
+  }
 
   return alpha;
 }
