@@ -957,30 +957,37 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   i32 moves_evaluated = 0;
   u8 tt_flag = Upper;
 
+  // CALCULATE MOVE SCORES
+  i64 move_scores[max_moves];
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
-    i64 move_score = ~0x101010101010101LL; // Ends up as large negative
+    assert(stack[ply].moves[move_index].takes_piece ==
+           piece_on(pos, stack[ply].moves[move_index].to));
+    move_scores[move_index] =
+        ((i64)move_equal(&tt_move, &stack[ply].moves[move_index])
+         << 60) // PREVIOUS BEST MOVE FIRST
+        + ((i64)stack[ply].moves[move_index].takes_piece
+           << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
+        + ((i64)move_equal(&stack[ply].killer, &stack[ply].moves[move_index])
+           << 48) // KILLER MOVE
+        + move_history[pos->flipped][stack[ply].moves[move_index].from]
+                      [stack[ply].moves[move_index].to]; // HISTORY HEURISTIC
+  }
 
+  for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
-      const i64 order_move_score =
-          ((i64)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 60) // PREVIOUS BEST MOVE FIRST
-          + ((i64)stack[ply].moves[order_index].takes_piece
-             << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
-          + ((i64)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
-             << 48) // KILLER MOVE
-          + move_history[pos->flipped][stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
-      if (order_move_score > move_score) {
-        move_score = order_move_score;
+      if (move_scores[order_index] > move_scores[move_index]) {
         swapmoves(&stack[ply].moves[move_index],
                   &stack[ply].moves[order_index]);
+        swapu64((u64 *)&move_scores[move_index],
+                (u64 *)&move_scores[order_index]);
       }
     }
 
+    // MAKE MOVE
     Position npos = *pos;
 #ifdef FULL
     (*nodes)++;
