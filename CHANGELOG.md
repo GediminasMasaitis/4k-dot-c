@@ -4616,6 +4616,28 @@ MD5: fd7db885ed6273aa6a23424ed83e55a3
 
 Smaller time management
 
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 1 nodes 214 nps 214000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 434 nps 434000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 1345 nps 1345000 pv b1c3
+info depth 6 score cp 11 time 3 nodes 3744 nps 1248000 pv f2f4
+info depth 7 score cp 5 time 5 nodes 7828 nps 1565600 pv g1f3
+info depth 8 score cp 15 time 8 nodes 11531 nps 1441375 pv g1f3
+info depth 9 score cp 15 time 13 nodes 18418 nps 1416769 pv g1f3
+info depth 10 score cp 14 time 27 nodes 45602 nps 1688962 pv g1f3
+info depth 11 score cp 10 time 60 nodes 125723 nps 2095383 pv g1f3
+info depth 12 score cp 15 time 121 nodes 307816 nps 2543933 pv g1f3
+info depth 13 score cp 10 time 377 nodes 1109697 nps 2943493 pv e2e4
+info depth 14 score cp 16 time 660 nodes 2023543 nps 3065974 pv e2e4
+info depth 15 score cp 16 time 1153 nodes 3644634 nps 3161000 pv e2e4
+info depth 16 score cp 12 time 2068 nodes 6630121 nps 3206054 pv e2e4
+info depth 17 score cp 12 time 3707 nodes 12035438 nps 3246678 pv e2e4
+bestmove e2e4
+12035438 nodes 3246678 nps
+```
+
 10+0.1:
 ```py
 Score of 4k.c-2.10 vs 4ku-1.1: 1034 - 1346 - 620  [0.448] 3000
@@ -4673,3 +4695,11 @@ Last version with LZ4 compression
 MD5: e708a814053274a81c49ae7dfb67307c
 
 aPLib compression
+
+### 3.2
+
+64 bit: 3859 bytes (-11)
+
+MD5: d49e37d2f507e0a7605ee349359234ae
+
+Smaller aPLib compression
