@@ -116,10 +116,6 @@ static void decompress_aplib(void *restrict destination,
           offset += *state.source++;
 
           length = get_gamma(&state);
-
-          if (offset >= 32000) {
-            length++;
-          }
           if (offset >= 1280) {
             length++;
           }

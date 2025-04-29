@@ -4673,3 +4673,11 @@ Last version with LZ4 compression
 MD5: e708a814053274a81c49ae7dfb67307c
 
 aPLib compression
+
+### 3.2
+
+64 bit: 3859 bytes (-11)
+
+MD5: d49e37d2f507e0a7605ee349359234ae
+
+Smaller compression
