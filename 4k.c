@@ -1045,7 +1045,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE PRUNING
     if (!in_check && alpha == beta - 1 &&
-        quiets_evaluated > 3 + depth * depth) {
+        quiets_evaluated > 1 + depth * depth) {
       break;
     }
   }
