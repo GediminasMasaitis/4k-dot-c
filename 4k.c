@@ -1023,14 +1023,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
         if (stack[ply].best_move.takes_piece == None) {
-          move_history[pos->flipped][stack[ply].best_move.from]
-                      [stack[ply].best_move.to] += depth * depth;
-          for (i32 prev_move_index = 0; prev_move_index < move_index;
-               prev_move_index++) {
+          move_history[pos->flipped][stack[ply].best_move.from][stack[ply].best_move.to] += depth * depth - depth * depth * move_history[pos->flipped][stack[ply].best_move.from][stack[ply].best_move.to] / 512;
+          for (i32 prev_move_index = 0; prev_move_index < move_index; prev_move_index++) {
             const Move prev_move = stack[ply].moves[prev_move_index];
             if (prev_move.takes_piece == 0) {
-              move_history[pos->flipped][prev_move.from][prev_move.to] -=
-                  depth * depth;
+              move_history[pos->flipped][prev_move.from][prev_move.to] -= depth * depth + depth * depth *
+                move_history[pos->flipped][prev_move.from][prev_move.to] / 512;
             }
           }
           stack[ply].killer = stack[ply].best_move;
