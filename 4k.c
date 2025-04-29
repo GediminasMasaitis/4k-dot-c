@@ -809,7 +809,7 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
 static TTEntry tt[tt_length];
-static i64 move_history[2][64][64];
+static i32 move_history[2][7][64][64];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -959,21 +959,21 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   u8 tt_flag = Upper;
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
-    i64 move_score = ~0x101010101010101LL; // Ends up as large negative
+    i32 move_score = ~0x1010101LL; // Ends up as large negative
 
     // MOVE ORDERING
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
-      const i64 order_move_score =
-          ((i64)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 60) // PREVIOUS BEST MOVE FIRST
-          + ((i64)stack[ply].moves[order_index].takes_piece
-             << 50) // MOST-VALUABLE-VICTIM CAPTURES FIRST
-          + ((i64)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
-             << 48) // KILLER MOVE
-          + move_history[pos->flipped][stack[ply].moves[order_index].from]
+      const i32 order_move_score =
+          ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
+           << 30) // PREVIOUS BEST MOVE FIRST
+          + ((i32)stack[ply].moves[order_index].takes_piece
+             << 20) // MOST-VALUABLE-VICTIM CAPTURES FIRST
+          + ((i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index])
+             << 18) // KILLER MOVE
+          + move_history[pos->flipped][stack[ply].moves[order_index].takes_piece][stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
         move_score = order_move_score;
@@ -1022,15 +1022,13 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
+        move_history[pos->flipped][stack[ply].best_move.takes_piece][stack[ply].best_move.from][stack[ply].best_move.to] += depth * depth - depth * depth * move_history[pos->flipped][stack[ply].best_move.takes_piece][stack[ply].best_move.from][stack[ply].best_move.to] / 512;
+        for (i32 prev_move_index = 0; prev_move_index < move_index; prev_move_index++) {
+          const Move prev_move = stack[ply].moves[prev_move_index];
+          move_history[pos->flipped][prev_move.takes_piece][prev_move.from][prev_move.to] -= depth * depth + depth * depth *
+            move_history[pos->flipped][prev_move.takes_piece][prev_move.from][prev_move.to] / 512;
+        }
         if (stack[ply].best_move.takes_piece == None) {
-          move_history[pos->flipped][stack[ply].best_move.from][stack[ply].best_move.to] += depth * depth - depth * depth * move_history[pos->flipped][stack[ply].best_move.from][stack[ply].best_move.to] / 512;
-          for (i32 prev_move_index = 0; prev_move_index < move_index; prev_move_index++) {
-            const Move prev_move = stack[ply].moves[prev_move_index];
-            if (prev_move.takes_piece == 0) {
-              move_history[pos->flipped][prev_move.from][prev_move.to] -= depth * depth + depth * depth *
-                move_history[pos->flipped][prev_move.from][prev_move.to] / 512;
-            }
-          }
           stack[ply].killer = stack[ply].best_move;
         }
         break;
