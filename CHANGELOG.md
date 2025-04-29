@@ -4665,3 +4665,11 @@ https://gedas.pythonanywhere.com/test/659/
 Equivalent to 2.11
 
 Last version with LZ4 compression
+
+### 3.1
+
+64 bit: 3870 bytes (-222)
+
+MD5: e708a814053274a81c49ae7dfb67307c
+
+aPLib compression
