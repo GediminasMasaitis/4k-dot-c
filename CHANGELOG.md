@@ -4703,3 +4703,52 @@ aPLib compression
 MD5: d49e37d2f507e0a7605ee349359234ae
 
 Smaller aPLib compression
+
+### 3.3
+
+64 bit: 3909 bytes (+50)
+
+MD5: 2558390741a13d957482ab7277efc71b
+
+* History gravity
+* Capture history
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 1 nodes 434 nps 434000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 1333 nps 1333000 pv b1c3
+info depth 6 score cp 11 time 3 nodes 3736 nps 1245333 pv f2f4
+info depth 7 score cp 5 time 5 nodes 7338 nps 1467600 pv g1f3
+info depth 8 score cp 17 time 7 nodes 10551 nps 1507285 pv g1f3
+info depth 9 score cp 10 time 16 nodes 24958 nps 1559875 pv g1f3
+info depth 10 score cp 14 time 35 nodes 62772 nps 1793485 pv g1f3
+info depth 11 score cp 15 time 59 nodes 125839 nps 2132864 pv g1f3
+info depth 12 score cp 15 time 120 nodes 315124 nps 2626033 pv g1f3
+info depth 13 score cp 10 time 260 nodes 767877 nps 2953373 pv g1f3
+info depth 14 score cp 12 time 473 nodes 1460577 nps 3087900 pv g1f3
+info depth 15 score cp 12 time 1448 nodes 4665589 nps 3222091 pv e2e4
+info depth 16 score cp 16 time 2142 nodes 6935377 nps 3237804 pv e2e4
+info depth 17 score cp 8 time 5476 nodes 18115444 nps 3308152 pv e2e4
+bestmove e2e4
+18115444 nodes 3308152 nps
+```
+
+```py
+Elo   | 22.80 +- 10.15 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2564 W: 884 L: 716 D: 964
+Penta | [73, 292, 446, 336, 135]
+https://gedas.pythonanywhere.com/test/670/
+```
+
+```py
+Elo   | 45.13 +- 17.74 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 1.83 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 720 W: 251 L: 158 D: 311
+Penta | [10, 68, 135, 113, 34]
+https://gedas.pythonanywhere.com/test/671/
+```

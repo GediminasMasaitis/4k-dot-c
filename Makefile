@@ -41,7 +41,7 @@ loader:
 	$(CC) $(LDFLAGS) -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	ls -la $(EXE)
 	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
-	apultra $(EXE) $(EXE).ap
+	apultra -stats -v $(EXE) $(EXE).ap
 	$(CC) $(CFLAGS) -DPAYLOAD_START='"'$$(grep '_start' $(EXE).map | awk '{print $$1}')'"' -c loader.c
 	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) loader.o
 	ls -la $(EXE)
