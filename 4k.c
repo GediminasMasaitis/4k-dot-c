@@ -809,7 +809,7 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
 static TTEntry tt[tt_length];
-static i32 move_history[2][7][64][64];
+static i16 move_history[2][6][64][64];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -968,7 +968,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
              piece_on(pos, stack[ply].moves[order_index].to));
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 30) // PREVIOUS BEST MOVE FIRST
+           << 16) // PREVIOUS BEST MOVE FIRST
           + (i32)stack[ply].moves[order_index].takes_piece * 1024 +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
               1024 // KILLER MOVE
