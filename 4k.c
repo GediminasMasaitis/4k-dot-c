@@ -721,7 +721,7 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {78,  308, 319,
+__attribute__((aligned(8))) static const i16 material[] = {0, 78,  308, 319,
                                                            483, 966, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -12, -14, -13, -1, 40, 114, 0,   // Pawn
@@ -768,7 +768,7 @@ static i32 eval(Position *const restrict pos) {
                  ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
-        score += material[p - 1];
+        score += material[p];
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
@@ -967,11 +967,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const i32 order_move_score =
-          ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 1024 +
-          (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              1024 // KILLER MOVE
+          ((i32)move_equal(&tt_move, &stack[ply].moves[order_index]) << 30) // PREVIOUS BEST MOVE FIRST
+          + material[stack[ply].moves[order_index].takes_piece] +
+          (stack[ply].moves[order_index].takes_piece || move_equal(&stack[ply].killer, &stack[ply].moves[order_index])) * 1024 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
