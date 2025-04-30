@@ -951,12 +951,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
-
-  stack[pos_history_count + ply + 2].position_hash = tt_hash;
   stack[ply].best_move = tt_move;
+  stack[pos_history_count + ply + 2].position_hash = tt_hash;
   i32 moves_evaluated = 0;
   i32 quiets_evaluated = 0;
   u8 tt_flag = Upper;
+  i32 best_score = in_qsearch ? static_eval : -inf;
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     i32 move_score = ~0x1010101LL; // Ends up as large negative
@@ -1015,6 +1015,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       reduction = 1;
     }
 
+    if (score > best_score) {
+      best_score = score;
+    }
+
     if (score > alpha) {
       stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
@@ -1052,17 +1056,17 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // MATE / STALEMATE DETECTION
-  if (moves_evaluated == 0 && !in_qsearch) {
+  if (best_score == -inf) {
     return (ply - mate) * in_check;
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
-                        .score = alpha,
+                        .score = best_score,
                         .depth = depth,
                         .flag = tt_flag};
 
-  return alpha;
+  return best_score;
 }
 
 static void iteratively_deepen(
