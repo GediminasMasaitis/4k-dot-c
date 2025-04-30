@@ -946,7 +946,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                 nodes,
 #endif
                 stack, pos_history_count, false) >= beta) {
-      return beta;
+      return static_eval;
     }
   }
 
