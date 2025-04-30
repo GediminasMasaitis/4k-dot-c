@@ -918,7 +918,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   i32 static_eval = eval(pos);
-  if (tt_entry->flag != static_eval > tt_entry->score && tt_entry->partial_hash == tt_hash_partial) {
+  if (tt_entry->flag != static_eval > tt_entry->score &&
+      tt_entry->partial_hash == tt_hash_partial) {
     static_eval = tt_entry->score;
   }
 
@@ -973,10 +974,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
              piece_on(pos, stack[ply].moves[order_index].to));
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 1024 +
+           << 30) // TT MOVE FIRST
+          + (i32)stack[ply].moves[order_index].takes_piece *
+                960 // MOST VALUABLE VICTIM
+          +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              1024 // KILLER MOVE
+              768 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
