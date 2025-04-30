@@ -4760,3 +4760,51 @@ https://gedas.pythonanywhere.com/test/671/
 MD5: b198ac9f084af478a4f11f37f812ae0f
 
 Smaller history heuristic
+
+### 3.5
+
+64 bit: 3944 bytes (+39)
+
+MD5: 127fb3523ffb459ac90c50deb8fbd754
+
+Fail-soft main search
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 0 nodes 433 pv b1c3
+info depth 5 score cp -1 time 1 nodes 1308 nps 1308000 pv b1c3
+info depth 6 score cp 11 time 2 nodes 3519 nps 1759500 pv f2f4
+info depth 7 score cp 5 time 5 nodes 7010 nps 1402000 pv g1f3
+info depth 8 score cp 17 time 7 nodes 10226 nps 1460857 pv g1f3
+info depth 9 score cp 8 time 16 nodes 23097 nps 1443562 pv g1f3
+info depth 10 score cp 17 time 23 nodes 36140 nps 1571304 pv g1f3
+info depth 11 score cp 10 time 88 nodes 198211 nps 2252397 pv b1c3
+info depth 12 score cp 15 time 151 nodes 388998 nps 2576145 pv b1c3
+info depth 13 score cp 10 time 269 nodes 743801 nps 2765059 pv b1c3
+info depth 14 score cp 18 time 574 nodes 1671148 nps 2911407 pv b1c3
+info depth 15 score cp 17 time 945 nodes 2799378 nps 2962304 pv b1c3
+info depth 16 score cp 9 time 1937 nodes 5903881 nps 3047950 pv b1c3
+info depth 17 score cp 12 time 4390 nodes 13642699 nps 3107676 pv b1c3
+bestmove b1c3
+13642699 nodes 3107676 nps
+```
+
+```py
+Elo   | 28.90 +- 11.33 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2000 W: 700 L: 534 D: 766
+Penta | [58, 193, 379, 265, 105]
+https://gedas.pythonanywhere.com/test/681/
+```
+
+```py
+Elo   | 32.06 +- 11.82 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1728 W: 598 L: 439 D: 691
+Penta | [45, 162, 322, 259, 76]
+https://gedas.pythonanywhere.com/test/683/
+```
