@@ -4752,3 +4752,11 @@ Games | N: 720 W: 251 L: 158 D: 311
 Penta | [10, 68, 135, 113, 34]
 https://gedas.pythonanywhere.com/test/671/
 ```
+
+### 3.4
+
+64 bit: 3905 bytes (-4)
+
+MD5: b198ac9f084af478a4f11f37f812ae0f
+
+Smaller history heuristic
