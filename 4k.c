@@ -676,12 +676,12 @@ enum { max_moves = 218 };
   movelist = generate_pawn_moves(
       pos, movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
-  if (pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
+  if (!only_captures && pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 5, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
-  if (pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
+  if (!only_captures && pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
       !is_attacked(pos, 3, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
