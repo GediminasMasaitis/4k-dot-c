@@ -1119,6 +1119,41 @@ static void iteratively_deepen(
   putl("\n");
 }
 
+//#define SIGCHLD 17
+//#define CLONE_VM      0x00000100
+//#define CLONE_FS      0x00000200
+//#define CLONE_FILES   0x00000400
+//#define CLONE_SIGHAND 0x00000800
+
+#define MY_THREAD_FLAGS (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD)
+
+static ssize_t _sys6(ssize_t call,
+  ssize_t arg1, ssize_t arg2, ssize_t arg3,
+  ssize_t arg4, ssize_t arg5)
+{
+  ssize_t ret;
+  asm volatile(
+    "mov %4, %%r10\n\t"  // Move arg4 into r10
+    "mov %5, %%r8\n\t"   // Move arg5 into r8
+    "syscall"
+    : "=a"(ret)
+    : "a"(call),
+    "D"(arg1),
+    "S"(arg2),
+    "d"(arg3),
+    "r"(arg4),
+    "r"(arg5)
+    : "rcx", "r11", "memory", "r10", "r8"
+    );
+  return ret;
+}
+
+enum { thread_count = 1 };
+enum { thread_stack_size = 8 * 1024 * 1024 };
+
+__attribute__((aligned(4096))) // Align to page size
+static u8 thread_stacks[thread_count][thread_stack_size];
+
 static void iteratively_deepen_smp(
 #ifdef FULL
   i32 maxdepth, u64* nodes,
@@ -1126,12 +1161,28 @@ static void iteratively_deepen_smp(
   Position* const restrict pos, SearchStack* restrict stack,
   const i32 pos_history_count, const size_t max_time) {
 
-  iteratively_deepen(
-#ifdef FULL
-    maxdepth, nodes,
-#endif
-    pos, stack, pos_history_count, max_time);
+  __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
 
+  for (int i = 0; i < thread_count; i++)
+  {
+    void* stack = malloc(thread_stack_size);
+    void* stack_top = (char*)stack + thread_stack_size;
+    i32 ret = (int)_sys6(56, MY_THREAD_FLAGS, (ssize_t)stack_top, 0, 0, 0);
+    if (ret == 0)
+    {
+      iteratively_deepen(
+#ifdef FULL
+        maxdepth, nodes,
+#endif
+        pos, stack, pos_history_count, max_time);
+    }
+  }
+
+//  iteratively_deepen(
+//#ifdef FULL
+//    maxdepth, nodes,
+//#endif
+//    pos, stack, pos_history_count, max_time);
 }
 
 static void display_pos(Position *const pos) {
