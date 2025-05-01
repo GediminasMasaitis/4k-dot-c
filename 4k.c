@@ -224,6 +224,8 @@ typedef struct [[nodiscard]] {
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 
 [[nodiscard]] static size_t get_time() {
   struct timespec ts;
@@ -786,7 +788,7 @@ enum { max_ply = 96 };
 enum { mate = 30000, inf = 32000 };
 
 static size_t start_time;
-static size_t max_time;
+//static size_t max_time;
 
 typedef struct [[nodiscard]] {
   i32 num_moves;
@@ -809,7 +811,6 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
 static TTEntry tt[tt_length];
-static i32 move_history[2][6][64][64];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -871,7 +872,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                   u64 *nodes,
 #endif
                   SearchStack *restrict stack, const i32 pos_history_count,
-                  const bool do_null) {
+                  i32 move_history[2][6][64][64], const size_t max_time, const bool do_null) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -950,7 +951,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                 nodes,
 #endif
-                stack, pos_history_count, false) >= beta) {
+                stack, pos_history_count, move_history, max_time, false) >= beta) {
       return beta;
     }
   }
@@ -1010,7 +1011,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes,
 #endif
-                      stack, pos_history_count, true);
+                      stack, pos_history_count, move_history, max_time, true);
 
       if (score <= alpha || (low == -beta && reduction == 1)) {
         break;
@@ -1079,9 +1080,9 @@ static void iteratively_deepen(
     i32 maxdepth, u64 *nodes,
 #endif
     Position *const restrict pos, SearchStack *restrict stack,
-    const i32 pos_history_count) {
+    const i32 pos_history_count, const size_t max_time) {
   start_time = get_time();
-  __builtin_memset(move_history, 0, sizeof(move_history));
+  static i32 move_history[2][6][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1091,7 +1092,7 @@ static void iteratively_deepen(
 #ifdef FULL
                        nodes,
 #endif
-                       stack, pos_history_count, false);
+                       stack, pos_history_count, move_history, max_time, false);
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
@@ -1118,6 +1119,85 @@ static void iteratively_deepen(
   putl("bestmove ");
   putl(move_name);
   putl("\n");
+}
+
+enum { thread_count = 1 };
+enum { thread_stack_size = 8 * 1024 * 1024 };
+
+__attribute__((aligned(4096))) u8 thread_stacks[thread_count+1][thread_stack_size];
+
+struct __attribute((aligned(16))) stack_head {
+  void (*entry)(struct stack_head*);
+  int thread_id;
+  Position pos;
+  i32 pos_history_count;
+  size_t max_time;
+  SearchStack stack[1024];
+};
+
+__attribute((naked)) static long newthread(struct stack_head* stack)
+{
+  __asm volatile (
+  "mov  %%rdi, %%rsi\n"     // arg2 = stack
+    "mov  $0x50f00, %%edi\n"  // arg1 = clone flags
+    "mov  $56, %%eax\n"       // SYS_clone
+    "syscall\n"
+    "mov  %%rsp, %%rdi\n"     // entry point argument
+    "ret\n"
+    : : : "rax", "rcx", "rsi", "rdi", "r11", "memory"
+    );
+}
+
+static void threadentry(struct stack_head* head)
+{
+  for (int i = 0; i < 5; i++)
+  {
+    printf("Hello %d from thread %d\n", i, head->thread_id);
+  }
+#ifdef FULL
+  i32 maxdepth = max_ply;
+  u64 nodes = 0;
+#endif
+
+  iteratively_deepen(
+#ifdef FULL
+    maxdepth, &nodes,
+    #endif
+&head->pos, head->stack, head->pos_history_count, head->max_time);
+#ifdef NOSTDLIB
+  exit_now();
+#else
+  syscall(SYS_exit, 0);
+#endif
+}
+
+static void iteratively_deepen_smp(
+#ifdef FULL
+  i32 maxdepth, u64* nodes,
+#endif
+  Position* const restrict pos, SearchStack* restrict stack,
+  const i32 pos_history_count, const size_t max_time) {
+
+  __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+
+  for (int i = 0; i < thread_count; i++)
+  {
+    struct stack_head* head = (struct stack_head*)&thread_stacks[i + 1][0];
+    head->entry = threadentry;
+    head->thread_id = i;
+    head->pos = *pos;
+    head->pos_history_count = pos_history_count;
+    head->max_time = max_time;
+    __builtin_memcpy(head->stack, stack, sizeof(SearchStack) * 1024);
+    newthread(head);
+    printf("created %d\n", i);
+  }
+
+//  iteratively_deepen(
+//#ifdef FULL
+//    maxdepth, nodes,
+//#endif
+//    pos, stack, pos_history_count, max_time);
 }
 
 static void display_pos(Position *const pos) {
@@ -1190,10 +1270,9 @@ static void bench() {
                               0x2400000000000024ull, 0x8100000000000081ull,
                               0x800000000000008ull, 0x1000000000000010ull},
                    .castling = {true, true, true, true}};
-  max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(18, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(18, &nodes, &pos, stack, pos_history_count, 99999999999);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -1205,6 +1284,9 @@ static void bench() {
 void _start() {
 #else
 static void run() {
+#endif
+#ifndef NOSTDLIB
+  setvbuf(stdout, NULL, _IONBF, 0);
 #endif
   char line[4096];
   Position pos;
@@ -1249,8 +1331,7 @@ static void run() {
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
-      max_time = 99999999999;
-      iteratively_deepen(max_ply, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen(max_ply, &nodes, &pos, stack, pos_history_count, 99999999999);
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
@@ -1301,6 +1382,7 @@ static void run() {
         }
       }
     } else if (line[0] == 'g') {
+      size_t max_time;
 #ifdef FULL
       while (true) {
         getl(line);
@@ -1317,13 +1399,13 @@ static void run() {
           break;
         }
       }
-      iteratively_deepen(max_ply, &nodes, &pos, stack, pos_history_count);
+      iteratively_deepen_smp(max_ply, &nodes, &pos, stack, pos_history_count, max_time);
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         max_time = atoi(line) / 2;
       }
-      iteratively_deepen(&pos, stack, pos_history_count);
+      iteratively_deepen_smp(&pos, stack, pos_history_count, max_time);
 #endif
     }
   }
