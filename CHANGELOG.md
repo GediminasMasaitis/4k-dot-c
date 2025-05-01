@@ -5119,3 +5119,20 @@ Smaller aPLib decompressor
 MD5: a0af0e6ce401f402790ff424882b2d80
 
 Even smaller aPLib decompressor
+
+### 3.14
+
+64 bit: 3944 bytes (+2)
+
+MD5: ee8717bdc2dafdbae5d059872b3a575e
+
+No castling in qsearch
+
+```py
+Elo   | 2.94 +- 6.17 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.41 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6380 W: 1998 L: 1944 D: 2438
+Penta | [218, 751, 1218, 765, 238]
+https://gedas.pythonanywhere.com/test/742/
+```
