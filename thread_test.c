@@ -6,37 +6,70 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
-#define STACK_SIZE (1 << 16)
+struct __attribute((aligned(16))) stack_head {
+  void (*entry)(struct stack_head*);
+  // ...
+};
 
-static int thread_func(void* arg) {
-  printf("Hello from thread!\n");
-  fflush(stdout);
-  while (true)
+long syscall6(long n, long a, long b, long c, long d, long e, long f)
+{
+  register long ret;
+  register long r10 asm("r10") = d;
+  register long r8  asm("r8") = e;
+  register long r9  asm("r9") = f;
+  __asm volatile (
+  "syscall"
+    : "=a"(ret)
+    : "a"(n), "D"(a), "S"(b), "d"(c), "r"(r10), "r"(r8), "r"(r9)
+    : "rcx", "r11", "memory"
+    );
+  return ret;
+}
+
+
+static struct stack_head* newstack(long size)
+{
+  unsigned long p = syscall6(9, 0, size, 3, 0x22, -1, 0);
+  long count = size / sizeof(struct stack_head);
+  return (struct stack_head*)p + count - 1;
+}
+
+
+__attribute((naked))
+static long newthread(struct stack_head* stack)
+{
+  __asm volatile (
+  "mov  %%rdi, %%rsi\n"     // arg2 = stack
+    "mov  $0x50f00, %%edi\n"  // arg1 = clone flags
+    "mov  $56, %%eax\n"       // SYS_clone
+    "syscall\n"
+    "mov  %%rsp, %%rdi\n"     // entry point argument
+    "ret\n"
+    : : : "rax", "rcx", "rsi", "rdi", "r11", "memory"
+    );
+}
+
+static void threadentry(struct stack_head* stack)
+{
+  //while (true)
+  for (int i = 0; i < 5; i++)
   {
     sleep(1);
     printf("Hello from thread\n");
     fflush(stdout);
   }
 
-  syscall(SYS_exit, 0);  // or just return 0;
-  return 0;
+  syscall(SYS_exit, 0);
 }
 
 int main() {
-  // Allocate memory for stack
-  void* stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
-    MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
-
-  void* stack_top = (char*)stack + STACK_SIZE;
-
-  pid_t tid = clone(thread_func, stack_top,
-    CLONE_VM | CLONE_FS | CLONE_FILES |
-    CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM,
-    NULL);
+  struct stack_head* stack = newstack(1 << 16);
+  stack->entry = threadentry;
+  newthread(stack);
 
   while (true)
   {
-    sleep(2);
+    getc(stdin);
     printf("Hello from main\n");
   }
 
