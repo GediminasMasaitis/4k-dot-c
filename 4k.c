@@ -224,6 +224,8 @@ typedef struct [[nodiscard]] {
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 
 [[nodiscard]] static size_t get_time() {
   struct timespec ts;
@@ -1119,40 +1121,55 @@ static void iteratively_deepen(
   putl("\n");
 }
 
-//#define SIGCHLD 17
-//#define CLONE_VM      0x00000100
-//#define CLONE_FS      0x00000200
-//#define CLONE_FILES   0x00000400
-//#define CLONE_SIGHAND 0x00000800
-
-#define MY_THREAD_FLAGS (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD)
-
-static ssize_t _sys6(ssize_t call,
-  ssize_t arg1, ssize_t arg2, ssize_t arg3,
-  ssize_t arg4, ssize_t arg5)
-{
-  ssize_t ret;
-  asm volatile(
-    "mov %4, %%r10\n\t"  // Move arg4 into r10
-    "mov %5, %%r8\n\t"   // Move arg5 into r8
-    "syscall"
-    : "=a"(ret)
-    : "a"(call),
-    "D"(arg1),
-    "S"(arg2),
-    "d"(arg3),
-    "r"(arg4),
-    "r"(arg5)
-    : "rcx", "r11", "memory", "r10", "r8"
-    );
-  return ret;
-}
-
 enum { thread_count = 1 };
 enum { thread_stack_size = 8 * 1024 * 1024 };
 
-__attribute__((aligned(4096))) // Align to page size
-static u8 thread_stacks[thread_count][thread_stack_size];
+__attribute__((aligned(4096))) u8 thread_stacks[thread_count+1][thread_stack_size];
+
+struct __attribute((aligned(16))) stack_head {
+  void (*entry)(struct stack_head*);
+  int thread_id;
+  Position pos;
+  i32 pos_history_count;
+  size_t max_time;
+  SearchStack stack[1024];
+};
+
+__attribute((naked)) static long newthread(struct stack_head* stack)
+{
+  __asm volatile (
+  "mov  %%rdi, %%rsi\n"     // arg2 = stack
+    "mov  $0x50f00, %%edi\n"  // arg1 = clone flags
+    "mov  $56, %%eax\n"       // SYS_clone
+    "syscall\n"
+    "mov  %%rsp, %%rdi\n"     // entry point argument
+    "ret\n"
+    : : : "rax", "rcx", "rsi", "rdi", "r11", "memory"
+    );
+}
+
+static void threadentry(struct stack_head* head)
+{
+  for (int i = 0; i < 5; i++)
+  {
+    printf("Hello %d from thread %d\n", i, head->thread_id);
+  }
+#ifdef FULL
+  i32 maxdepth = max_ply;
+  u64 nodes = 0;
+#endif
+
+  iteratively_deepen(
+#ifdef FULL
+    maxdepth, &nodes,
+    #endif
+&head->pos, head->stack, head->pos_history_count, head->max_time);
+#ifdef NOSTDLIB
+  exit_now();
+#else
+  syscall(SYS_exit, 0);
+#endif
+}
 
 static void iteratively_deepen_smp(
 #ifdef FULL
@@ -1165,17 +1182,15 @@ static void iteratively_deepen_smp(
 
   for (int i = 0; i < thread_count; i++)
   {
-    void* stack = malloc(thread_stack_size);
-    void* stack_top = (char*)stack + thread_stack_size;
-    i32 ret = (int)_sys6(56, MY_THREAD_FLAGS, (ssize_t)stack_top, 0, 0, 0);
-    if (ret == 0)
-    {
-      iteratively_deepen(
-#ifdef FULL
-        maxdepth, nodes,
-#endif
-        pos, stack, pos_history_count, max_time);
-    }
+    struct stack_head* head = (struct stack_head*)&thread_stacks[i + 1][0];
+    head->entry = threadentry;
+    head->thread_id = i;
+    head->pos = *pos;
+    head->pos_history_count = pos_history_count;
+    head->max_time = max_time;
+    __builtin_memcpy(head->stack, stack, sizeof(SearchStack) * 1024);
+    newthread(head);
+    printf("created %d\n", i);
   }
 
 //  iteratively_deepen(
@@ -1269,6 +1284,9 @@ static void bench() {
 void _start() {
 #else
 static void run() {
+#endif
+#ifndef NOSTDLIB
+  setvbuf(stdout, NULL, _IONBF, 0);
 #endif
   char line[4096];
   Position pos;
