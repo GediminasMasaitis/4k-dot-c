@@ -4856,3 +4856,69 @@ Games | N: 2938 W: 952 L: 793 D: 1193
 Penta | [67, 331, 561, 396, 114]
 https://gedas.pythonanywhere.com/test/689/
 ```
+
+10+0.1:
+```py
+Score of 4k.c-3.6 vs 4ku-1.1: 2944 - 2707 - 1349  [0.517] 7000
+...      4k.c-3.6 playing White: 1748 - 1023 - 729  [0.604] 3500
+...      4k.c-3.6 playing Black: 1196 - 1684 - 620  [0.430] 3500
+...      White vs Black: 3432 - 2219 - 1349  [0.587] 7000
+Elo difference: 11.8 +/- 7.3, LOS: 99.9 %, DrawRatio: 19.3 %
+```
+
+60+0.6:
+```py
+Score of 4k.c-3.6 vs 4ku-1.1: 439 - 309 - 252  [0.565] 1000
+...      4k.c-3.6 playing White: 271 - 104 - 125  [0.667] 500
+...      4k.c-3.6 playing Black: 168 - 205 - 127  [0.463] 500
+...      White vs Black: 476 - 272 - 252  [0.602] 1000
+Elo difference: 45.4 +/- 18.7, LOS: 100.0 %, DrawRatio: 25.2 %
+```
+
+### 3.7
+
+64 bit: 3978 bytes (-1)
+
+MD5: 4f6993647f78b4909da4f7df1e9d1d6e
+
+LMP base moves = 2
+
+```py
+info depth 1 score cp 23 time 1 nodes 20 nps 20000 pv b1c3
+info depth 2 score cp 16 time 1 nodes 85 nps 85000 pv b1c3
+info depth 3 score cp 22 time 1 nodes 208 nps 208000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 409 nps 409000 pv b1c3
+info depth 5 score cp -1 time 2 nodes 1225 nps 612500 pv b1c3
+info depth 6 score cp 11 time 3 nodes 3176 nps 1058666 pv f2f4
+info depth 7 score cp 5 time 5 nodes 6320 nps 1264000 pv g1f3
+info depth 8 score cp 16 time 9 nodes 10381 nps 1153444 pv g1f3
+info depth 9 score cp 7 time 20 nodes 25994 nps 1299700 pv g1f3
+info depth 10 score cp 16 time 34 nodes 50985 nps 1499558 pv g1f3
+info depth 11 score cp 12 time 100 nodes 221352 nps 2213520 pv e2e4
+info depth 12 score cp 13 time 183 nodes 469693 nps 2566628 pv g1f3
+info depth 13 score cp 10 time 379 nodes 1038059 nps 2738941 pv e2e4
+info depth 14 score cp 13 time 689 nodes 1978028 nps 2870867 pv e2e4
+info depth 15 score cp 16 time 1130 nodes 3265950 nps 2890221 pv e2e4
+info depth 16 score cp 16 time 1849 nodes 5443121 nps 2943818 pv e2e4
+info depth 17 score cp 16 time 3404 nodes 10146672 nps 2980808 pv e2e4
+bestmove e2e4
+10146672 nodes 2980808 nps
+```
+
+```py
+Elo   | 4.56 +- 3.60 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 19954 W: 6408 L: 6146 D: 7400
+Penta | [773, 2262, 3733, 2348, 861]
+https://gedas.pythonanywhere.com/test/694/
+```
+
+```py
+Elo   | 3.59 +- 5.72 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.76 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6964 W: 2098 L: 2026 D: 2840
+Penta | [212, 805, 1397, 835, 233]
+https://gedas.pythonanywhere.com/test/695/
+```

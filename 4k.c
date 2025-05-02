@@ -918,7 +918,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   i32 static_eval = eval(pos);
-  if (tt_entry->flag != static_eval > tt_entry->score && tt_entry->partial_hash == tt_hash_partial) {
+  if (tt_entry->flag != static_eval > tt_entry->score &&
+      tt_entry->partial_hash == tt_hash_partial) {
     static_eval = tt_entry->score;
   }
 
@@ -1055,7 +1056,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE PRUNING
     if (!in_check && alpha == beta - 1 &&
-        quiets_evaluated > 3 + depth * depth) {
+        quiets_evaluated > 2 + depth * depth) {
       break;
     }
   }
