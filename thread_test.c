@@ -64,7 +64,7 @@ static void threadentry(struct stack_head* stack)
   for (int i = 0; i < 5; i++)
   {
     printf("Hello %d from thread %d\n", i, stack->thread_id);
-    fflush(stdout);
+    //fflush(stdout);
     sleep(1);
   }
 
@@ -72,19 +72,23 @@ static void threadentry(struct stack_head* stack)
 }
 
 int main() {
+  setvbuf(stdout, NULL, _IONBF, 0);
 
-  for (int i = 0; i < 1; i++)
+  for (int i = 0; i < 2; i++)
   {
-    struct stack_head* stack = (struct stack_head*)(((char*)&thread_stacks[i+1]) - 4096);
+    //struct stack_head* stack = (struct stack_head*)(((char*)&thread_stacks[i+1]) - 4096);
+    struct stack_head* stack = newstack(stack_size);
     stack->entry = threadentry;
     stack->thread_id = i;
     newthread(stack);
+    printf("created %d\n", i);
   }
 
   while (true)
   {
     getc(stdin);
     printf("Hello from main\n");
+    //fflush(stdout);
   }
 
   //getchar();  // Wait for input
