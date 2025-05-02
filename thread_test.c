@@ -6,8 +6,17 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
+enum { stack_size = 1024 * 1024};
+
+typedef struct {
+  char bytes[stack_size];
+} thread_stack __attribute__((aligned(4096)));
+
+thread_stack thread_stacks[2];
+
 struct __attribute((aligned(16))) stack_head {
   void (*entry)(struct stack_head*);
+  int thread_id;
   // ...
 };
 
@@ -54,18 +63,23 @@ static void threadentry(struct stack_head* stack)
   //while (true)
   for (int i = 0; i < 5; i++)
   {
-    sleep(1);
-    printf("Hello from thread\n");
+    printf("Hello %d from thread %d\n", i, stack->thread_id);
     fflush(stdout);
+    sleep(1);
   }
 
   syscall(SYS_exit, 0);
 }
 
 int main() {
-  struct stack_head* stack = newstack(1 << 16);
-  stack->entry = threadentry;
-  newthread(stack);
+
+  for (int i = 0; i < 1; i++)
+  {
+    struct stack_head* stack = (struct stack_head*)(((char*)&thread_stacks[i+1]) - 4096);
+    stack->entry = threadentry;
+    stack->thread_id = i;
+    newthread(stack);
+  }
 
   while (true)
   {
