@@ -721,7 +721,7 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {80,  309, 290,
+__attribute__((aligned(8))) static const i16 material[] = {0,   80,  309, 290,
                                                            471, 935, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
     0,   -13, -14, -13, -1, 40, 117, 0,   // Pawn
@@ -772,7 +772,7 @@ static i32 eval(Position *const restrict pos) {
                  ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
-        score += material[p - 1];
+        score += material[p];
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
@@ -1003,6 +1003,15 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
     }
 
+    // FORWARD FUTILITY PRUNING / DELTA PRUNING
+    if (depth < 8 && !in_check && moves_evaluated &&
+        static_eval + 128 * depth +
+                material[stack[ply].moves[move_index].takes_piece] +
+                material[stack[ply].moves[move_index].promo] <
+            alpha) {
+      break;
+    }
+
     Position npos = *pos;
 #ifdef FULL
     (*nodes)++;
@@ -1215,7 +1224,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(19, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(20, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
