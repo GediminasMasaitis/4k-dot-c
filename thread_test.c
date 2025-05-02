@@ -6,43 +6,20 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
-enum { stack_size = 1024 * 1024};
+enum { thread_count = 4 };
+enum { thread_stack_size = 8 * 1024 * 1024 };
 
 typedef struct {
-  char bytes[stack_size];
+  char bytes[thread_stack_size];
 } thread_stack __attribute__((aligned(4096)));
 
-thread_stack thread_stacks[2];
+thread_stack thread_stacks[thread_count];
 
 struct __attribute((aligned(16))) stack_head {
   void (*entry)(struct stack_head*);
   int thread_id;
   // ...
 };
-
-long syscall6(long n, long a, long b, long c, long d, long e, long f)
-{
-  register long ret;
-  register long r10 asm("r10") = d;
-  register long r8  asm("r8") = e;
-  register long r9  asm("r9") = f;
-  __asm volatile (
-  "syscall"
-    : "=a"(ret)
-    : "a"(n), "D"(a), "S"(b), "d"(c), "r"(r10), "r"(r8), "r"(r9)
-    : "rcx", "r11", "memory"
-    );
-  return ret;
-}
-
-
-static struct stack_head* newstack(long size)
-{
-  unsigned long p = syscall6(9, 0, size, 3, 0x22, -1, 0);
-  long count = size / sizeof(struct stack_head);
-  return (struct stack_head*)p + count - 1;
-}
-
 
 __attribute((naked))
 static long newthread(struct stack_head* stack)
@@ -74,10 +51,10 @@ static void threadentry(struct stack_head* stack)
 int main() {
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  for (int i = 0; i < 2; i++)
+  for (int i = 0; i < thread_count; i++)
   {
-    //struct stack_head* stack = (struct stack_head*)(((char*)&thread_stacks[i+1]) - 4096);
-    struct stack_head* stack = newstack(stack_size);
+    struct stack_head* stack = (struct stack_head*)(((char*)&thread_stacks[i+1]) - 4096);
+    //struct stack_head* stack = newstack(stack_size);
     stack->entry = threadentry;
     stack->thread_id = i;
     newthread(stack);
