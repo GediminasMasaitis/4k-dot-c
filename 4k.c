@@ -977,7 +977,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
            << 30) // PREVIOUS BEST MOVE FIRST
           + (i32)stack[ply].moves[order_index].takes_piece * 1024 +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              1024 // KILLER MOVE
+              768 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
