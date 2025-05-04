@@ -933,12 +933,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 42 * depth >= beta) {
+    if (static_eval - 47 * depth >= beta) {
       return static_eval;
     }
 
     // RAZORING
-    in_qsearch = static_eval + 128 * depth <= alpha;
+    in_qsearch = static_eval + 131 * depth <= alpha;
   }
 
   // NULL MOVE PRUNING
@@ -975,9 +975,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 1024 +
+          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              1024 // KILLER MOVE
+              915 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
@@ -1003,7 +1003,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 16 : 1;
+        depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 13 : 1;
 
     i32 score;
     while (true) {
@@ -1056,7 +1056,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE PRUNING
     if (!in_check && alpha == beta - 1 &&
-        quiets_evaluated > 2 + depth * depth) {
+        quiets_evaluated > 1 + depth * depth) {
       break;
     }
   }
