@@ -4970,3 +4970,22 @@ Games | N: 5260 W: 1612 L: 1441 D: 2207
 Penta | [152, 571, 1051, 666, 190]
 https://gedas.pythonanywhere.com/test/709/
 ```
+
+### 3.9
+
+64 bit: 3982 bytes (-3)
+
+MD5: d3d8a11c59a07a033d0a46e34de054f1
+
+SPSA tune
+
+Bench same as before
+
+```py
+Elo   | 20.77 +- 9.51 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2898 W: 1008 L: 835 D: 1055
+Penta | [101, 286, 545, 373, 144]
+https://gedas.pythonanywhere.com/test/714/
+```
