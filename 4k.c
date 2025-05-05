@@ -1082,7 +1082,6 @@ static void iteratively_deepen(
     Position *const restrict pos, SearchStack *restrict stack,
     const i32 pos_history_count) {
   start_time = get_time();
-  __builtin_memset(move_history, 0, sizeof(move_history));
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1184,7 +1183,7 @@ static void bench() {
 #else
   SearchStack stack[1024];
 #endif
-
+  __builtin_memset(move_history, 0, sizeof(move_history));
   pos = (Position){.ep = 0,
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
                    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -1215,6 +1214,7 @@ static void run() {
 #else
   SearchStack stack[1024];
 #endif
+  __builtin_memset(move_history, 0, sizeof(move_history));
   init_diag_masks();
 
 #ifdef FULL
@@ -1246,7 +1246,8 @@ static void run() {
       putl("option name Threads type spin default 1 min 1 max 1\n");
       putl("uciok\n");
     } else if (!strcmp(line, "ucinewgame")) {
-      __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
+      __builtin_memset(tt, 0, sizeof(tt));
+      __builtin_memset(move_history, 0, sizeof(move_history));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
