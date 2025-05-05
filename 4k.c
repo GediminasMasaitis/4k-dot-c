@@ -809,7 +809,7 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 
 static TTEntry tt[tt_length];
-static i32 move_history[2][6][64][64];
+static i32 move_history[2][2][64][64];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -979,7 +979,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
               915 // KILLER MOVE
           +
-          move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
+          move_history[pos->flipped][stack[ply].moves[order_index].takes_piece == None]
                       [stack[ply].moves[order_index].from]
                       [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
@@ -1034,13 +1034,13 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
         i32 *const this_hist =
-            &move_history[pos->flipped][stack[ply].best_move.takes_piece]
+            &move_history[pos->flipped][stack[ply].best_move.takes_piece == None]
                          [stack[ply].best_move.from][stack[ply].best_move.to];
         *this_hist += depth * depth - depth * depth * *this_hist / 1024;
         for (i32 prev_index = 0; prev_index < move_index; prev_index++) {
           const Move prev = stack[ply].moves[prev_index];
           i32 *const prev_hist =
-              &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
+              &move_history[pos->flipped][prev.takes_piece == None][prev.from][prev.to];
           *prev_hist -= depth * depth + depth * depth * *prev_hist / 1024;
         }
         if (stack[ply].best_move.takes_piece == None) {
