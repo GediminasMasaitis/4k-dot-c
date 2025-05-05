@@ -351,11 +351,13 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 }
 
 static u64 diag_mask[64];
+static u64 antidiag_mask[64];
 
 static void init_diag_masks() {
   for (i32 sq = 0; sq < 64; sq++) {
     diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
                     ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
+    antidiag_mask[sq ^ 56] = flip_bb(diag_mask[sq]);
   }
 }
 
@@ -364,7 +366,7 @@ static void init_diag_masks() {
   assert(sq < 64);
 
   return xattack(sq, blockers, diag_mask[sq]) |
-         xattack(sq, blockers, flip_bb(diag_mask[sq ^ 56]));
+         xattack(sq, blockers, antidiag_mask[sq]);
 }
 
 [[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
