@@ -14,8 +14,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: install libraries
+      run: sudo apt install libmpfr-dev libgmp3-dev libmpc-dev -y
+
     - name: configure
-      run: ./configure
+      run: ./configure -v --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --prefix=/usr/local/gcc-dev --enable-checking=release --enable-languages=c --disable-multilib --program-suffix=-dev
 
     - name: Install dependencies
       run: make
