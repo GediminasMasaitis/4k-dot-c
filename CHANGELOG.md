@@ -5018,3 +5018,51 @@ Games | N: 1566 W: 563 L: 407 D: 596
 Penta | [38, 139, 308, 225, 73]
 https://gedas.pythonanywhere.com/test/721/
 ```
+
+### 3.10
+
+64 bit: 4049 bytes (+17)
+
+MD5: 54a1e5ecd84dca905f57bf219f9b9da6
+
+King attacks evaluation
+
+```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 24 time 0 nodes 217 pv b1c3
+info depth 4 score cp 16 time 1 nodes 460 nps 460000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 1160 nps 1160000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 2157 nps 1078500 pv b1c3
+info depth 7 score cp 16 time 5 nodes 5034 nps 1006800 pv b1c3
+info depth 8 score cp 16 time 12 nodes 11973 nps 997750 pv b1c3
+info depth 9 score cp 4 time 36 nodes 46779 nps 1299416 pv b1c3
+info depth 10 score cp 16 time 53 nodes 78214 nps 1475735 pv b1c3
+info depth 11 score cp 14 time 86 nodes 151884 nps 1766093 pv b1c3
+info depth 12 score cp 14 time 121 nodes 233278 nps 1927917 pv b1c3
+info depth 13 score cp 13 time 219 nodes 470364 nps 2147780 pv b1c3
+info depth 14 score cp 19 time 381 nodes 873074 nps 2291532 pv b1c3
+info depth 15 score cp 16 time 1631 nodes 4045807 nps 2480568 pv e2e4
+info depth 16 score cp 16 time 2110 nodes 5237943 nps 2482437 pv e2e4
+info depth 17 score cp 14 time 4656 nodes 11768756 nps 2527653 pv e2e4
+bestmove e2e4
+11768756 nodes 2527653 nps
+```
+
+```py
+Elo   | 20.77 +- 9.57 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2830 W: 971 L: 802 D: 1057
+Penta | [94, 287, 527, 370, 137]
+https://gedas.pythonanywhere.com/test/724/
+```
+
+```py
+Elo   | 36.97 +- 22.32 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 500 W: 171 L: 118 D: 211
+Penta | [10, 53, 85, 78, 24]
+https://gedas.pythonanywhere.com/test/725/
+```
