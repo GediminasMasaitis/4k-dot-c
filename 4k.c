@@ -756,7 +756,8 @@ static i32 eval(Position *const restrict pos) {
     }
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
-    const u64 opp_king_zone = king(lsb(pos->colour[1] & pos->pieces[King]));
+    u64 opp_king_zone = pos->colour[1] & pos->pieces[King];
+    opp_king_zone |= king(lsb(opp_king_zone));
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
