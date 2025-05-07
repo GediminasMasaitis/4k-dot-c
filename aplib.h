@@ -18,7 +18,7 @@ struct State {
   const unsigned char *source;
   //unsigned char *destination;
   unsigned int tag;
-  unsigned int bitcount;
+  unsigned char bitcount;
 };
 
 static unsigned int get_bit(struct State *restrict state) {
