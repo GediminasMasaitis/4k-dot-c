@@ -721,29 +721,30 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {80,  309, 290,
-                                                           471, 935, 0};
+__attribute__((aligned(8))) static const i16 material[] = {79,  310, 291,
+                                                           472, 939, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -13, -14, -13, -1, 40, 117, 0,   // Pawn
-    -35, -19, 0,   15,  26, 28, 9,   -25, // Knight
-    -13, -4,  2,   3,   7,  10, 0,   -6,  // Bishop
-    -9,  -16, -17, -9,  5,  14, 19,  13,  // Rook
-    -4,  -2,  -2,  -2,  3,  8,  -1,  1,   // Queen
-    -25, -8,  -1,  10,  22, 29, 19,  -20, // King
+    0,   -15, -13, -12, -1, 40, 117, 0,   // Pawn
+    -34, -19, 1,   16,  26, 27, 8,   -26, // Knight
+    -13, -3,  3,   3,   7,  9,  0,   -6,  // Bishop
+    -9,  -16, -16, -9,  5,  13, 18,  13,  // Rook
+    -4,  -1,  -2,  -2,  2,  7,  -2,  1,   // Queen
+    -24, -8,  3,   13,  24, 29, 20,  -12, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
-    -28, -7, 7,  17, 15, 13, 0,  -16, // Knight
-    -8,  1,  2,  2,  3,  -1, 4,  -4,  // Bishop
-    -2,  0,  4,  5,  4,  6,  -3, -14, // Rook
-    -14, -6, 2,  6,  5,  2,  3,  1,   // Queen
-    -19, 8,  7,  7,  4,  3,  9,  -15, // King
+    -1,  4,  -4, -2, 1,  3,  9,  -10, // Pawn
+    -28, -7, 7,  16, 15, 13, 0,  -16, // Knight
+    -8,  0,  2,  1,  3,  -1, 6,  -4,  // Bishop
+    -2,  0,  3,  4,  4,  8,  -2, -14, // Rook
+    -15, -7, 2,  6,  6,  4,  4,  1,   // Queen
+    -14, 4,  5,  8,  3,  7,  4,  -14, // King
 };
-__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
+__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 1, -1};
 __attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  3,
-                                                              1, 14, 0};
+                                                              1, 13, 0};
 __attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
-                                                            20, 2,   -6};
+                                                            20, 3,   -4};
+__attribute__((aligned(8))) static const i8 king_shield[] = {12, 6};
 const i8 bishop_pair = 38;
 
 static i32 eval(Position *const restrict pos) {
@@ -777,6 +778,13 @@ static i32 eval(Position *const restrict pos) {
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
         score += pst_file[(p - 1) * 8 + file];
+
+        // KING SHIELD
+        if (p == King && 1ULL << sq & 0xC3D7) {
+          const u64 shield = file < 3 ? 0x700 : 0xE000;
+          score += count(shield & own_pawns) * king_shield[0];
+          score += count(north(shield) & own_pawns) * king_shield[1];
+        }
 
         // MOBILITY
         const u64 mobility = get_mobility(sq, p, pos);
