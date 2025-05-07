@@ -73,12 +73,8 @@ static void decompress_aplib(unsigned char *restrict destination,
             offset = (offset << 1) + get_bit(&state);
           }
 
-          if (offset) {
-            *destination = *(destination - offset);
-            destination++;
-          } else {
-            *destination++ = 0x00;
-          }
+          *destination = offset ? *(destination - offset) : 0;
+          destination++;
 
           last_was_match = 0;
         } else {
