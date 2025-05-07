@@ -105,12 +105,7 @@ static void decompress_aplib(unsigned char *restrict destination,
 
           destination = write_destination(destination, offset, length);
         } else {
-          if (last_was_match == 0) {
-            offset -= 3;
-          } else {
-            offset -= 2;
-          }
-
+          offset -= 2 + !last_was_match;
           offset <<= 8;
           offset += *state.source++;
 
