@@ -59,7 +59,7 @@ static void decompress_aplib(unsigned char *restrict destination,
   unsigned int offset;
   unsigned int length;
   unsigned int last_offset = -1;
-  unsigned int last_was_match = 0;
+  unsigned char last_was_match = 0;
 
   *destination++ = *state.source++;
 
@@ -83,9 +83,7 @@ static void decompress_aplib(unsigned char *restrict destination,
           last_was_match = 0;
         } else {
           offset = *state.source++;
-
           length = 2 + (offset & 0x0001);
-
           offset >>= 1;
 
           if (offset) {
