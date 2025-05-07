@@ -5111,3 +5111,11 @@ https://gedas.pythonanywhere.com/test/725/
 MD5: 0ea32c8f9d2541c432422631f9fe119e
 
 Smaller aPLib decompressor
+
+### 3.13
+
+64 bit: 3942 bytes (-57)
+
+MD5: a0af0e6ce401f402790ff424882b2d80
+
+Even smaller aPLib decompressor

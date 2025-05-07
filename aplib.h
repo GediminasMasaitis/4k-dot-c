@@ -42,12 +42,18 @@ static unsigned int get_gamma(struct State *restrict state) {
   return result;
 }
 
-static unsigned char *write_destination(unsigned char *restrict destination,
-                                        const unsigned int offset,
-                                        unsigned int length) {
+static unsigned char *write_single(unsigned char *restrict destination,
+                                   const unsigned int offset) {
+  *destination = offset ? *(destination - offset) : 0;
+  destination++;
+  return destination;
+}
+
+static unsigned char *write_multi(unsigned char *restrict destination,
+                                  const unsigned int offset,
+                                  unsigned int length) {
   for (; length; length--) {
-    *destination = *(destination - offset);
-    destination++;
+    destination = write_single(destination, offset);
   }
   return destination;
 }
@@ -60,7 +66,7 @@ static void decompress_aplib(unsigned char *restrict destination,
 
   unsigned int offset;
   unsigned int length;
-  unsigned int last_offset = -1;
+  unsigned int last_offset;
   unsigned char last_was_match = 0;
 
   *destination++ = *state.source++;
@@ -75,17 +81,15 @@ static void decompress_aplib(unsigned char *restrict destination,
             offset = (offset << 1) + get_bit(&state);
           }
 
-          *destination = offset ? *(destination - offset) : 0;
-          destination++;
-
+          destination = write_single(destination, offset);
           last_was_match = 0;
         } else {
           offset = *state.source++;
-          length = 2 + (offset & 0x0001);
+          length = 2 + (offset & 1);
           offset >>= 1;
 
           if (offset) {
-            destination = write_destination(destination, offset, length);
+            destination = write_multi(destination, offset, length);
           } else {
             return;
           }
@@ -98,7 +102,7 @@ static void decompress_aplib(unsigned char *restrict destination,
 
         if (last_was_match == 0 && offset == 2) {
           length = get_gamma(&state);
-          destination = write_destination(destination, last_offset, length);
+          destination = write_multi(destination, last_offset, length);
         } else {
           offset -= 2 + !last_was_match;
           offset <<= 8;
@@ -112,8 +116,7 @@ static void decompress_aplib(unsigned char *restrict destination,
             length += 2;
           }
 
-          destination = write_destination(destination, offset, length);
-
+          destination = write_multi(destination, offset, length);
           last_offset = offset;
         }
 
