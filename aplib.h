@@ -17,7 +17,7 @@
 struct State {
   const unsigned char *source;
   //unsigned char *destination;
-  unsigned int tag;
+  unsigned char tag;
   unsigned char bitcount;
 };
 
@@ -27,7 +27,7 @@ static unsigned int get_bit(struct State *restrict state) {
     state->bitcount = 7;
   }
 
-  const unsigned int bit = state->tag >> 7 & 0x01;
+  const unsigned int bit = state->tag >> 7;
   state->tag <<= 1;
   return bit;
 }
