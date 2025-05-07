@@ -95,11 +95,8 @@ static void decompress_aplib(unsigned char *restrict destination,
         offset = get_gamma(&state);
 
         if (last_was_match == 0 && offset == 2) {
-          offset = last_offset;
-
           length = get_gamma(&state);
-
-          destination = write_destination(destination, offset, length);
+          destination = write_destination(destination, last_offset, length);
         } else {
           offset -= 2 + !last_was_match;
           offset <<= 8;
