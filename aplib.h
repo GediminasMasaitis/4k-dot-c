@@ -43,19 +43,17 @@ static unsigned int get_gamma(struct State *restrict state) {
 static void decompress_aplib(unsigned char *restrict destination,
                              const unsigned char* restrict source) {
   struct State state;
-  unsigned int offset;
-  unsigned int length;
-
   state.source = source;
   state.bitcount = 0;
 
+  unsigned int offset;
+  unsigned int length;
   unsigned int last_offset = -1;
   unsigned int last_was_match = 0;
-  int done = 0;
 
   *destination++ = *state.source++;
 
-  while (!done) {
+  while (1) {
     if (get_bit(&state)) {
       if (get_bit(&state)) {
         if (get_bit(&state)) {
@@ -86,7 +84,7 @@ static void decompress_aplib(unsigned char *restrict destination,
               destination++;
             }
           } else {
-            done = 1;
+            break;
           }
 
           last_offset = offset;
