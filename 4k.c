@@ -721,30 +721,31 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {80,  309, 290,
-                                                           471, 935, 0};
+__attribute__((aligned(8))) static const i16 material[] = {80,  308, 292,
+                                                           473, 939, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -13, -14, -13, -1, 40, 117, 0,   // Pawn
-    -35, -19, 0,   15,  26, 28, 9,   -25, // Knight
-    -13, -4,  2,   3,   7,  10, 0,   -6,  // Bishop
-    -9,  -16, -17, -9,  5,  14, 19,  13,  // Rook
-    -4,  -2,  -2,  -2,  3,  8,  -1,  1,   // Queen
-    -25, -8,  -1,  10,  22, 29, 19,  -20, // King
+    0,   -12, -16, -14, -1, 42, 118, 0,   // Pawn
+    -35, -20, 1,   16,  27, 28, 8,   -25, // Knight
+    -14, -4,  2,   4,   8,  10, 0,   -6,  // Bishop
+    -9,  -17, -16, -8,  6,  14, 19,  13,  // Rook
+    -5,  -2,  -2,  -2,  3,  8,  -2,  1,   // Queen
+    -26, -8,  -1,  11,  23, 29, 20,  -22, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
-    -28, -7, 7,  17, 15, 13, 0,  -16, // Knight
-    -8,  1,  2,  2,  3,  -1, 4,  -4,  // Bishop
-    -2,  0,  4,  5,  4,  6,  -3, -14, // Rook
-    -14, -6, 2,  6,  5,  2,  3,  1,   // Queen
-    -19, 8,  7,  7,  4,  3,  9,  -15, // King
+    0,   2,  -4, -2, 0,  4,  8,  -8,  // Pawn
+    -29, -7, 7,  17, 15, 13, 0,  -16, // Knight
+    -8,  1,  3,  2,  4,  -1, 4,  -4,  // Bishop
+    -2,  0,  4,  5,  4,  5,  -3, -14, // Rook
+    -14, -6, 2,  6,  6,  2,  3,  1,   // Queen
+    -20, 8,  7,  7,  5,  4,  9,  -16, // King
 };
-__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
+__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 1, -4};
 __attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  3,
                                                               1, 14, 0};
-__attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
-                                                            20, 2,   -6};
-const i8 bishop_pair = 38;
+__attribute__((aligned(8))) static const i8 open_files[] = {23, -9, -3,
+                                                            19, 2,  -5};
+const i8 protected_pawn = 9;
+const i8 bishop_pair = 39;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
@@ -786,6 +787,10 @@ static i32 eval(Position *const restrict pos) {
         score += king_attacks[p - 1] * count(mobility & opp_king_zone);
       }
     }
+
+    // PROTECTED PAWNS
+    score +=
+        protected_pawn * count(own_pawns & (nw(own_pawns) | ne(own_pawns)));
 
     flip_pos(pos);
     score = -score;
