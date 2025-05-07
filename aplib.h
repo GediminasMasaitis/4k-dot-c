@@ -16,7 +16,7 @@
 
 struct State {
   const unsigned char *source;
-  //unsigned char *destination;
+  // unsigned char *destination;
   unsigned char tag;
   unsigned char bitcount;
 };
@@ -40,8 +40,18 @@ static unsigned int get_gamma(struct State *restrict state) {
   return result;
 }
 
+static unsigned char *write_destination(unsigned char *restrict destination,
+                                        const unsigned int offset,
+                                        unsigned int length) {
+  for (; length; length--) {
+    *destination = *(destination - offset);
+    destination++;
+  }
+  return destination;
+}
+
 static void decompress_aplib(unsigned char *restrict destination,
-                             const unsigned char* restrict source) {
+                             const unsigned char *restrict source) {
   struct State state;
   state.source = source;
   state.bitcount = 0;
@@ -79,10 +89,7 @@ static void decompress_aplib(unsigned char *restrict destination,
           offset >>= 1;
 
           if (offset) {
-            for (; length; length--) {
-              *destination = *(destination - offset);
-              destination++;
-            }
+            destination = write_destination(destination, offset, length);
           } else {
             return;
           }
@@ -98,10 +105,7 @@ static void decompress_aplib(unsigned char *restrict destination,
 
           length = get_gamma(&state);
 
-          for (; length; length--) {
-            *destination = *(destination - offset);
-            destination++;
-          }
+          destination = write_destination(destination, offset, length);
         } else {
           if (last_was_match == 0) {
             offset -= 3;
@@ -120,10 +124,7 @@ static void decompress_aplib(unsigned char *restrict destination,
             length += 2;
           }
 
-          for (; length; length--) {
-            *destination = *(destination - offset);
-            destination++;
-          }
+          destination = write_destination(destination, offset, length);
 
           last_offset = offset;
         }
