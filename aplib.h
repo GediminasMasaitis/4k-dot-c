@@ -16,7 +16,7 @@
 
 struct State {
   const unsigned char *source;
-  unsigned char *destination;
+  //unsigned char *destination;
   unsigned int tag;
   unsigned int bitcount;
 };
@@ -40,21 +40,20 @@ static unsigned int get_gamma(struct State *restrict state) {
   return result;
 }
 
-static void decompress_aplib(void *restrict destination,
-                             const void *restrict source) {
+static void decompress_aplib(unsigned char *restrict destination,
+                             const unsigned char* restrict source) {
   struct State state;
   unsigned int offset;
   unsigned int length;
 
-  state.source = (const unsigned char *)source;
-  state.destination = (unsigned char *)destination;
+  state.source = source;
   state.bitcount = 0;
 
   unsigned int last_offset = -1;
   unsigned int last_was_match = 0;
   int done = 0;
 
-  *state.destination++ = *state.source++;
+  *destination++ = *state.source++;
 
   while (!done) {
     if (get_bit(&state)) {
@@ -67,10 +66,10 @@ static void decompress_aplib(void *restrict destination,
           }
 
           if (offset) {
-            *state.destination = *(state.destination - offset);
-            state.destination++;
+            *destination = *(destination - offset);
+            destination++;
           } else {
-            *state.destination++ = 0x00;
+            *destination++ = 0x00;
           }
 
           last_was_match = 0;
@@ -83,8 +82,8 @@ static void decompress_aplib(void *restrict destination,
 
           if (offset) {
             for (; length; length--) {
-              *state.destination = *(state.destination - offset);
-              state.destination++;
+              *destination = *(destination - offset);
+              destination++;
             }
           } else {
             done = 1;
@@ -102,8 +101,8 @@ static void decompress_aplib(void *restrict destination,
           length = get_gamma(&state);
 
           for (; length; length--) {
-            *state.destination = *(state.destination - offset);
-            state.destination++;
+            *destination = *(destination - offset);
+            destination++;
           }
         } else {
           if (last_was_match == 0) {
@@ -124,8 +123,8 @@ static void decompress_aplib(void *restrict destination,
           }
 
           for (; length; length--) {
-            *state.destination = *(state.destination - offset);
-            state.destination++;
+            *destination = *(destination - offset);
+            destination++;
           }
 
           last_offset = offset;
@@ -134,7 +133,7 @@ static void decompress_aplib(void *restrict destination,
         last_was_match = 1;
       }
     } else {
-      *state.destination++ = *state.source++;
+      *destination++ = *state.source++;
       last_was_match = 0;
     }
   }
