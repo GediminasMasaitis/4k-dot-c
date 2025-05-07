@@ -5103,3 +5103,11 @@ Games | N: 534 W: 183 L: 124 D: 227
 Penta | [10, 56, 91, 85, 25]
 https://gedas.pythonanywhere.com/test/725/
 ```
+
+### 3.12
+
+64 bit: 3099 bytes (-67)
+
+MD5: 0ea32c8f9d2541c432422631f9fe119e
+
+Smaller aPLib decompressor

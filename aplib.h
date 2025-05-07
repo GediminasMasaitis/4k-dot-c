@@ -16,9 +16,11 @@
 
 struct State {
   const unsigned char *source;
-  unsigned char *destination;
-  unsigned int tag;
-  unsigned int bitcount;
+#ifdef FULL // Weird bug, needs padding for some reason
+  unsigned char *padding;
+#endif
+  unsigned char tag;
+  unsigned char bitcount;
 };
 
 static unsigned int get_bit(struct State *restrict state) {
@@ -27,7 +29,7 @@ static unsigned int get_bit(struct State *restrict state) {
     state->bitcount = 7;
   }
 
-  const unsigned int bit = state->tag >> 7 & 0x01;
+  const unsigned int bit = state->tag >> 7;
   state->tag <<= 1;
   return bit;
 }
@@ -40,23 +42,30 @@ static unsigned int get_gamma(struct State *restrict state) {
   return result;
 }
 
-static void decompress_aplib(void *restrict destination,
-                             const void *restrict source) {
-  struct State state;
-  unsigned int offset;
-  unsigned int length;
+static unsigned char *write_destination(unsigned char *restrict destination,
+                                        const unsigned int offset,
+                                        unsigned int length) {
+  for (; length; length--) {
+    *destination = *(destination - offset);
+    destination++;
+  }
+  return destination;
+}
 
-  state.source = (const unsigned char *)source;
-  state.destination = (unsigned char *)destination;
+static void decompress_aplib(unsigned char *restrict destination,
+                             const unsigned char *restrict source) {
+  struct State state;
+  state.source = source;
   state.bitcount = 0;
 
+  unsigned int offset;
+  unsigned int length;
   unsigned int last_offset = -1;
-  unsigned int last_was_match = 0;
-  int done = 0;
+  unsigned char last_was_match = 0;
 
-  *state.destination++ = *state.source++;
+  *destination++ = *state.source++;
 
-  while (!done) {
+  while (1) {
     if (get_bit(&state)) {
       if (get_bit(&state)) {
         if (get_bit(&state)) {
@@ -66,28 +75,19 @@ static void decompress_aplib(void *restrict destination,
             offset = (offset << 1) + get_bit(&state);
           }
 
-          if (offset) {
-            *state.destination = *(state.destination - offset);
-            state.destination++;
-          } else {
-            *state.destination++ = 0x00;
-          }
+          *destination = offset ? *(destination - offset) : 0;
+          destination++;
 
           last_was_match = 0;
         } else {
           offset = *state.source++;
-
           length = 2 + (offset & 0x0001);
-
           offset >>= 1;
 
           if (offset) {
-            for (; length; length--) {
-              *state.destination = *(state.destination - offset);
-              state.destination++;
-            }
+            destination = write_destination(destination, offset, length);
           } else {
-            done = 1;
+            return;
           }
 
           last_offset = offset;
@@ -97,21 +97,10 @@ static void decompress_aplib(void *restrict destination,
         offset = get_gamma(&state);
 
         if (last_was_match == 0 && offset == 2) {
-          offset = last_offset;
-
           length = get_gamma(&state);
-
-          for (; length; length--) {
-            *state.destination = *(state.destination - offset);
-            state.destination++;
-          }
+          destination = write_destination(destination, last_offset, length);
         } else {
-          if (last_was_match == 0) {
-            offset -= 3;
-          } else {
-            offset -= 2;
-          }
-
+          offset -= 2 + !last_was_match;
           offset <<= 8;
           offset += *state.source++;
 
@@ -123,10 +112,7 @@ static void decompress_aplib(void *restrict destination,
             length += 2;
           }
 
-          for (; length; length--) {
-            *state.destination = *(state.destination - offset);
-            state.destination++;
-          }
+          destination = write_destination(destination, offset, length);
 
           last_offset = offset;
         }
@@ -134,7 +120,7 @@ static void decompress_aplib(void *restrict destination,
         last_was_match = 1;
       }
     } else {
-      *state.destination++ = *state.source++;
+      *destination++ = *state.source++;
       last_was_match = 0;
     }
   }
