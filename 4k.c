@@ -911,6 +911,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
   }
 
+  const bool in_zero_window = alpha == beta - 1;
+
   // TT PROBING
   TTEntry *tt_entry = &tt[tt_hash % tt_length];
   const u16 tt_hash_partial = tt_hash / tt_length;
@@ -919,7 +921,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     tt_move = tt_entry->move;
 
     // TT PRUNING
-    if (alpha == beta - 1 && tt_entry->depth >= depth &&
+    if (in_zero_window && tt_entry->depth >= depth &&
         tt_entry->flag != tt_entry->score <= alpha) {
       return tt_entry->score;
     }
@@ -945,7 +947,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
+  if (!in_qsearch && depth < 8 && in_zero_window && !in_check) {
     // REVERSE FUTILITY PRUNING
     if (static_eval - 47 * depth >= beta) {
       return static_eval;
@@ -956,7 +958,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // NULL MOVE PRUNING
-  if (depth > 2 && do_null && static_eval >= beta && alpha == beta - 1 &&
+  if (depth > 2 && do_null && static_eval >= beta && in_zero_window &&
       !in_check) {
     Position npos = *pos;
     flip_pos(&npos);
@@ -1016,10 +1018,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     moves_evaluated++;
 
     // LATE MOVE REDCUCTION
-    i32 reduction =
-        depth > 1 && moves_evaluated > 6
-            ? 1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving
-            : 1;
+    i32 reduction = depth > 1 && moves_evaluated > 6
+                        ? 1 + in_zero_window + moves_evaluated / 13 + !improving
+                        : 1;
 
     i32 score;
     while (true) {
@@ -1077,7 +1078,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // LATE MOVE PRUNING
-    if (!in_check && alpha == beta - 1 &&
+    if (!in_check && in_zero_window &&
         quiets_evaluated > 1 + depth * depth >> !improving) {
       break;
     }
