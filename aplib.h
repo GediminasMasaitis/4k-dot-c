@@ -84,7 +84,7 @@ static void decompress_aplib(unsigned char *restrict destination,
               destination++;
             }
           } else {
-            break;
+            return;
           }
 
           last_offset = offset;
