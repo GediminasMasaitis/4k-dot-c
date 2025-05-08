@@ -676,13 +676,13 @@ enum { max_moves = 218 };
   movelist = generate_pawn_moves(
       pos, movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
-  if (!only_captures && pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
-      !is_attacked(pos, 5, true)) {
+  if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
+      !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
-  if (!only_captures && pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
-      !is_attacked(pos, 3, true)) {
+  if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
+      !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
@@ -1017,7 +1017,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 13 : 1;
+        depth > 1 && moves_evaluated > 6
+            ? 1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving
+            : 1;
 
     i32 score;
     while (true) {

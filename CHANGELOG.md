@@ -5153,3 +5153,31 @@ Games | N: 1618 W: 527 L: 454 D: 637
 Penta | [45, 159, 343, 202, 60]
 https://gedas.pythonanywhere.com/test/754/
 ```
+
+### 3.16
+
+64 bit: 4000 bytes (+13)
+
+MD5: 789769c6b53f06cb74b7d6b15f69167c
+
+LMR adjustment based on:
+* Zero window
+* Improving
+
+```py
+Elo   | 11.74 +- 6.86 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 5210 W: 1691 L: 1515 D: 2004
+Penta | [170, 561, 1014, 643, 217]
+https://gedas.pythonanywhere.com/test/761/
+```
+
+```py
+Elo   | 11.79 +- 6.74 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4954 W: 1519 L: 1351 D: 2084
+Penta | [129, 560, 974, 642, 172]
+https://gedas.pythonanywhere.com/test/763/
+```
