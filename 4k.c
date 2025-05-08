@@ -947,7 +947,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 47 * depth >= beta) {
+    if (static_eval - 47 * (depth - improving) >= beta) {
       return static_eval;
     }
 
