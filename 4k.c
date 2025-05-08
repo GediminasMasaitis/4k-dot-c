@@ -676,13 +676,13 @@ enum { max_moves = 218 };
   movelist = generate_pawn_moves(
       pos, movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
-  if (!only_captures && pos->castling[0] && !(all & 0x60ull) && !is_attacked(pos, 4, true) &&
-      !is_attacked(pos, 5, true)) {
+  if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
+      !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
-  if (!only_captures && pos->castling[1] && !(all & 0xEull) && !is_attacked(pos, 4, true) &&
-      !is_attacked(pos, 3, true)) {
+  if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
+      !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
@@ -976,35 +976,45 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   i32 best_score = in_qsearch ? static_eval : -inf;
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
-    i32 move_score = ~0x1010101LL; // Ends up as large negative
 
-    // MOVE ORDERING
-    for (i32 order_index = move_index; order_index < stack[ply].num_moves;
-         order_index++) {
-      assert(stack[ply].moves[order_index].takes_piece ==
-             piece_on(pos, stack[ply].moves[order_index].to));
-      const i32 order_move_score =
-          ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
-          (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              915 // KILLER MOVE
-          +
-          move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
-                      [stack[ply].moves[order_index].from]
-                      [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
-      if (order_move_score > move_score) {
-        move_score = order_move_score;
-        swapmoves(&stack[ply].moves[move_index],
-                  &stack[ply].moves[order_index]);
+    Move *move;
+    if (move_index == 0 && !move_equal(&tt_move, &(Move){0})) {
+      move = &tt_move;
+    } else {
+      // MOVE ORDERING
+      i32 move_score = ~0x1010101LL; // Ends up as large negative
+      for (i32 order_index = move_index; order_index < stack[ply].num_moves;
+           order_index++) {
+        assert(stack[ply].moves[order_index].takes_piece ==
+               piece_on(pos, stack[ply].moves[order_index].to));
+        const i32 order_move_score =
+            +(i32)stack[ply].moves[order_index].takes_piece * 921 +
+            (i32)move_equal(&stack[ply].killer,
+                            &stack[ply].moves[order_index]) *
+                915 // KILLER MOVE
+            +
+            move_history[pos->flipped]
+                        [stack[ply].moves[order_index].takes_piece]
+                        [stack[ply].moves[order_index].from]
+                        [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
+        if (order_move_score > move_score) {
+          move_score = order_move_score;
+          swapmoves(&stack[ply].moves[move_index],
+                    &stack[ply].moves[order_index]);
+        }
       }
+      move = &stack[ply].moves[move_index];
+    }
+
+    if (move_index != 0 && move_equal(&tt_move, move)) {
+      continue;
     }
 
     Position npos = *pos;
 #ifdef FULL
     (*nodes)++;
 #endif
-    if (!makemove(&npos, &stack[ply].moves[move_index])) {
+    if (!makemove(&npos, move)) {
       continue;
     }
 
@@ -1037,7 +1047,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     if (score > alpha) {
-      stack[ply].best_move = stack[ply].moves[move_index];
+      stack[ply].best_move = *move;
       alpha = score;
       tt_flag = Exact;
       if (score >= beta) {
@@ -1061,7 +1071,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
     }
 
-    if (stack[ply].moves[move_index].takes_piece == None) {
+    if (move->takes_piece == None) {
       quiets_evaluated++;
     }
 
