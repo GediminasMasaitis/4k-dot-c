@@ -5129,10 +5129,27 @@ MD5: ee8717bdc2dafdbae5d059872b3a575e
 No castling in qsearch
 
 ```py
-Elo   | 2.94 +- 6.17 (95%)
+Elo   | 2.73 +- 5.40 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 0.41 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 6380 W: 1998 L: 1944 D: 2438
-Penta | [218, 751, 1218, 765, 238]
+LLR   | 0.44 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 8148 W: 2537 L: 2473 D: 3138
+Penta | [269, 953, 1589, 971, 292]
 https://gedas.pythonanywhere.com/test/742/
+```
+
+### 3.15
+
+64 bit: 3987 bytes (+43)
+
+MD5: 297c12ceb767149f7ef70182eddc9a83
+
+LMP adjustment based on improving
+
+```py
+Elo   | 15.69 +- 11.78 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 1.34 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1618 W: 527 L: 454 D: 637
+Penta | [45, 159, 343, 202, 60]
+https://gedas.pythonanywhere.com/test/754/
 ```

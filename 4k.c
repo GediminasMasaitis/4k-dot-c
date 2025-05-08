@@ -801,6 +801,7 @@ static size_t max_time;
 
 typedef struct [[nodiscard]] {
   i32 num_moves;
+  i32 static_eval;
   u64 position_hash;
   Move best_move;
   Move killer;
@@ -929,6 +930,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   i32 static_eval = eval(pos);
+  stack[ply].static_eval = static_eval;
+  const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (tt_entry->flag != static_eval > tt_entry->score &&
       tt_entry->partial_hash == tt_hash_partial) {
     static_eval = tt_entry->score;
@@ -1067,7 +1070,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE PRUNING
     if (!in_check && alpha == beta - 1 &&
-        quiets_evaluated > 1 + depth * depth) {
+        quiets_evaluated > 1 + depth * depth >> !improving) {
       break;
     }
   }
@@ -1204,7 +1207,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(18, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(19, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
