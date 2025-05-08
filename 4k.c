@@ -805,6 +805,7 @@ typedef struct [[nodiscard]] {
   Move best_move;
   Move killer;
   Move moves[max_moves];
+  i32 eval;
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -928,7 +929,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
-  i32 static_eval = eval(pos);
+  i32 static_eval = stack[ply].eval = eval(pos);
+  const bool improving = ply > 1 && static_eval > stack[ply - 2].eval;
   if (tt_entry->flag != static_eval > tt_entry->score &&
       tt_entry->partial_hash == tt_hash_partial) {
     static_eval = tt_entry->score;
@@ -944,7 +946,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 47 * depth >= beta) {
+    if (static_eval - 47 * (depth - improving) >= beta) {
       return static_eval;
     }
 
@@ -1014,7 +1016,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6 ? 2 + moves_evaluated / 13 : 1;
+        depth > 1 && moves_evaluated > 6 ? 1 + moves_evaluated / 13 + (alpha == beta - 1) + !improving : 1;
 
     i32 score;
     while (true) {
@@ -1067,7 +1069,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE PRUNING
     if (!in_check && alpha == beta - 1 &&
-        quiets_evaluated > 1 + depth * depth) {
+        quiets_evaluated > 1 + depth * depth >> !improving) {
       break;
     }
   }
@@ -1204,7 +1206,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(18, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(20, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
