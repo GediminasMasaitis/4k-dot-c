@@ -1019,21 +1019,27 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     i32 reduction =
         depth > 1 && moves_evaluated > 6 ? 1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving : 1;
 
+
+    moves_evaluated--;
     i32 score;
-    while (true) {
-      score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
+    while (moves_evaluated &&
+      (score = -search(&npos, ply + 1, depth - reduction, -alpha - 1, -alpha,
 #ifdef FULL
-                      nodes,
+        nodes,
 #endif
-                      stack, pos_history_count, true);
-
-      if (score <= alpha || (low == -beta && reduction == 1)) {
-        break;
-      }
-
-      low = -beta;
+        stack, pos_history_count, true)) > alpha &&
+      reduction > 1) {
       reduction = 1;
     }
+
+    if (!moves_evaluated || score > alpha && score < beta) {
+      score = -search(&npos, ply + 1, depth - reduction, -beta, -alpha,
+#ifdef FULL
+        nodes,
+#endif
+        stack, pos_history_count, true);
+    }
+    moves_evaluated++;
 
     if (score > best_score) {
       best_score = score;
