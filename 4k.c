@@ -268,6 +268,14 @@ static void putl(const char *const restrict string) {
 
 #pragma region base
 
+static i32 min(const i32 a, const i32 b) { return (a < b) ? a : b; }
+
+static i32 max(const i32 a, const i32 b) { return (a > b) ? a : b; }
+
+static i32 clamp(const i32 val, const i32 min_val, const i32 max_val) {
+  return max(min_val, min(val, max_val));
+}
+
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
@@ -1018,7 +1026,13 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     // LATE MOVE REDCUCTION
     i32 reduction =
         depth > 1 && moves_evaluated > 6
-            ? 1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving
+            ? max(1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving -
+                      move_history[pos->flipped]
+                                  [stack[ply].moves[move_index].takes_piece]
+                                  [stack[ply].moves[move_index].from]
+                                  [stack[ply].moves[move_index].to] /
+                          384,
+                  1)
             : 1;
 
     i32 score;
