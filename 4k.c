@@ -925,7 +925,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
   } else {
     // INTERNAL ITERATIVE REDUCTION
-    depth -= depth > 3;
+    depth -= (depth > 3) * 2;
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
