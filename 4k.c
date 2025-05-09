@@ -1035,7 +1035,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
           continue;
         }
 
-        if (low != -beta) {
+        if (low != -beta && score < beta) {
           low = -beta;
           continue;
         }
