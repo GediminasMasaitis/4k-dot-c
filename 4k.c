@@ -1094,7 +1094,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // MATE / STALEMATE DETECTION
   if (best_score == -inf) {
-    return (ply - mate) * in_check;
+    best_score = (ply - mate) * in_check;
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
