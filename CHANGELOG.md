@@ -5120,6 +5120,22 @@ MD5: a0af0e6ce401f402790ff424882b2d80
 
 Even smaller aPLib decompressor
 
+```py
+Score of 4k.c-3.13 vs 4ku-1.1: 487 - 311 - 202  [0.588] 1000
+...      4k.c-3.13 playing White: 294 - 110 - 97  [0.684] 501
+...      4k.c-3.13 playing Black: 193 - 201 - 105  [0.492] 499
+...      White vs Black: 495 - 303 - 202  [0.596] 1000
+Elo difference: 61.8 +/- 19.5, LOS: 100.0 %, DrawRatio: 20.2 %
+```
+
+```py
+Score of 4k.c-3.13 vs 4ku-1.1: 1122 - 455 - 423  [0.667] 2000
+...      4k.c-3.13 playing White: 676 - 132 - 193  [0.772] 1001
+...      4k.c-3.13 playing Black: 446 - 323 - 230  [0.562] 999
+...      White vs Black: 999 - 578 - 423  [0.605] 2000
+Elo difference: 120.5 +/- 14.1, LOS: 100.0 %, DrawRatio: 21.1 %
+```
+
 ### 3.14
 
 64 bit: 3944 bytes (+2)
@@ -5127,6 +5143,28 @@ Even smaller aPLib decompressor
 MD5: ee8717bdc2dafdbae5d059872b3a575e
 
 No castling in qsearch
+
+```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 94 pv b1c3
+info depth 3 score cp 24 time 0 nodes 217 pv b1c3
+info depth 4 score cp 16 time 1 nodes 460 nps 460000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 1160 nps 1160000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 2156 nps 1078000 pv b1c3
+info depth 7 score cp 16 time 5 nodes 5016 nps 1003200 pv b1c3
+info depth 8 score cp 16 time 11 nodes 11875 nps 1079545 pv b1c3
+info depth 9 score cp 4 time 33 nodes 46233 nps 1401000 pv b1c3
+info depth 10 score cp 16 time 50 nodes 77651 nps 1553020 pv b1c3
+info depth 11 score cp 17 time 80 nodes 148171 nps 1852137 pv b1c3
+info depth 12 score cp 26 time 142 nodes 305777 nps 2153359 pv b1c3
+info depth 13 score cp 13 time 262 nodes 615056 nps 2347541 pv b1c3
+info depth 14 score cp 14 time 503 nodes 1261022 nps 2507001 pv d2d4
+info depth 15 score cp 16 time 1377 nodes 3675472 nps 2669188 pv d2d4
+info depth 16 score cp 16 time 1936 nodes 5067242 nps 2617377 pv d2d4
+info depth 17 score cp 13 time 5061 nodes 12753237 nps 2519904 pv d2d4
+bestmove d2d4
+12753237 nodes 2519904 nps
+```
 
 ```py
 Elo   | 2.73 +- 5.40 (95%)
@@ -5165,6 +5203,29 @@ LMR adjustment based on:
 * Improving
 
 ```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 101 pv b1c3
+info depth 3 score cp 24 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 1 nodes 429 nps 429000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 974 nps 974000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1670 nps 835000 pv b1c3
+info depth 7 score cp 16 time 5 nodes 4190 nps 838000 pv b1c3
+info depth 8 score cp 16 time 10 nodes 9152 nps 915200 pv b1c3
+info depth 9 score cp 4 time 24 nodes 24511 nps 1021291 pv b1c3
+info depth 10 score cp 11 time 46 nodes 56507 nps 1228413 pv b1c3
+info depth 11 score cp 11 time 76 nodes 114481 nps 1506328 pv b1c3
+info depth 12 score cp 12 time 126 nodes 218461 nps 1733817 pv b1c3
+info depth 13 score cp 7 time 260 nodes 509759 nps 1960611 pv b1c3
+info depth 14 score cp 11 time 416 nodes 882068 nps 2120355 pv b1c3
+info depth 15 score cp 17 time 923 nodes 2222011 nps 2407379 pv e2e4
+info depth 16 score cp 16 time 1993 nodes 5210051 nps 2614175 pv e2e4
+info depth 17 score cp 16 time 3169 nodes 8224073 nps 2595163 pv e2e4
+info depth 18 score cp 15 time 5493 nodes 14360104 nps 2614255 pv e2e4
+bestmove e2e4
+14360104 nodes 2614255 nps
+```
+
+```py
 Elo   | 11.74 +- 6.86 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
@@ -5180,4 +5241,61 @@ LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
 Games | N: 4954 W: 1519 L: 1351 D: 2084
 Penta | [129, 560, 974, 642, 172]
 https://gedas.pythonanywhere.com/test/763/
+```
+
+### 3.17
+
+64 bit: 4002 bytes (+2)
+
+MD5: 3aae135a9593061ef2192c95e6f1d602
+
+3-step PVS
+
+```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 24 time 0 nodes 216 pv b1c3
+info depth 4 score cp 16 time 1 nodes 431 nps 431000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 930 nps 930000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1636 nps 818000 pv b1c3
+info depth 7 score cp 16 time 4 nodes 3569 nps 892250 pv b1c3
+info depth 8 score cp 16 time 7 nodes 6779 nps 968428 pv b1c3
+info depth 9 score cp 4 time 22 nodes 24254 nps 1102454 pv g1f3
+info depth 10 score cp 26 time 46 nodes 66107 nps 1437108 pv b1c3
+info depth 11 score cp 9 time 68 nodes 109194 nps 1605794 pv b1c3
+info depth 12 score cp 12 time 122 nodes 239982 nps 1967065 pv b1c3
+info depth 13 score cp 4 time 248 nodes 561681 nps 2264842 pv b1c3
+info depth 14 score cp 16 time 383 nodes 907865 nps 2370404 pv b1c3
+info depth 15 score cp 12 time 1216 nodes 3101789 nps 2550813 pv e2e4
+info depth 16 score cp 13 time 1963 nodes 5070835 nps 2583206 pv e2e4
+info depth 17 score cp 13 time 3168 nodes 8116396 nps 2561993 pv e2e4
+info depth 18 score cp 25 time 4180 nodes 10682318 nps 2555578 pv e2e4
+bestmove e2e4
+10682318 nodes 2555578 nps
+```
+
+```py
+Elo   | 18.08 +- 8.70 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3174 W: 1046 L: 881 D: 1247
+Penta | [94, 317, 648, 386, 142]
+https://gedas.pythonanywhere.com/test/767/
+```
+
+```py
+Elo   | 13.67 +- 16.59 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.58 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 814 W: 256 L: 224 D: 334
+Penta | [21, 89, 161, 109, 27]
+https://gedas.pythonanywhere.com/test/769/
+```
+
+```py
+Score of 4k.c-3.17 vs 4ku-1.1: 1046 - 524 - 430  [0.630] 2000
+...      4k.c-3.17 playing White: 620 - 177 - 204  [0.721] 1001
+...      4k.c-3.17 playing Black: 426 - 347 - 226  [0.540] 999
+...      White vs Black: 967 - 603 - 430  [0.591] 2000
+Elo difference: 92.8 +/- 13.8, LOS: 100.0 %, DrawRatio: 21.5 %
 ```
