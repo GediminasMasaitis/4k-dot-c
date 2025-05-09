@@ -273,8 +273,8 @@ enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 typedef struct [[nodiscard]] {
   u8 promo;
   u8 from;
-  u8 to;
   u8 takes_piece;
+  u8 to;
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -961,7 +961,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     Position npos = *pos;
     flip_pos(&npos);
     npos.ep = 0;
-    if (-search(&npos, ply + 1, depth - 4, -beta, -alpha,
+    if (-search(&npos, ply + 1, depth - 4 - depth * 6, -beta, -alpha,
 #ifdef FULL
                 nodes,
 #endif
