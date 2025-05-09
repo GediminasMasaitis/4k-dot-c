@@ -620,6 +620,7 @@ static Move *generate_pawn_moves(const Position *const pos,
 
 static Move *generate_piece_moves(Move *restrict movelist,
                                   const Position *restrict pos,
+                                  const u64 mob[64],
                                   const u64 to_mask) {
   for (i32 piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
@@ -631,8 +632,7 @@ static Move *generate_piece_moves(Move *restrict movelist,
       assert(from < 64);
       copy &= copy - 1;
 
-      u64 moves = get_mobility(from, piece, pos);
-      moves &= to_mask;
+      u64 moves = mob[from] & to_mask;
 
       while (moves) {
         const u8 to = lsb(moves);
@@ -654,6 +654,7 @@ enum { max_moves = 218 };
 
 [[nodiscard]] static i32 movegen(const Position *const restrict pos,
                                  Move *restrict movelist,
+                                 const u64 mob[64],
                                  const i32 only_captures) {
 
   const Move *start = movelist;
@@ -686,7 +687,7 @@ enum { max_moves = 218 };
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
-  movelist = generate_piece_moves(movelist, pos, to_mask);
+  movelist = generate_piece_moves(movelist, pos, mob, to_mask);
 
   const i32 num_moves = movelist - start;
   assert(num_moves < max_moves);
@@ -696,30 +697,6 @@ enum { max_moves = 218 };
 #pragma endregion
 
 #pragma region engine
-
-[[nodiscard]] static u64 perft(const Position *const restrict pos,
-                               const i32 depth) {
-  if (depth == 0) {
-    return 1;
-  }
-
-  u64 nodes = 0;
-  Move moves[max_moves];
-  const i32 num_moves = movegen(pos, moves, false);
-
-  for (i32 i = 0; i < num_moves; ++i) {
-    Position npos = *pos;
-
-    // Check move legality
-    if (!makemove(&npos, &moves[i])) {
-      continue;
-    }
-
-    nodes += perft(&npos, depth - 1);
-  }
-
-  return nodes;
-}
 
 __attribute__((aligned(8))) static const i16 material[] = {80,  309, 290,
                                                            471, 935, 0};
@@ -746,7 +723,7 @@ __attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
                                                             20, 2,   -6};
 const i8 bishop_pair = 38;
 
-static i32 eval(Position *const restrict pos) {
+static i32 eval(Position *const restrict pos, u64 mob[64]) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
 
@@ -757,6 +734,8 @@ static i32 eval(Position *const restrict pos) {
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
     const u64 opp_king_zone = king(lsb(pos->colour[1] & pos->pieces[King]));
+
+    const i32 c_xor = 56 * c;
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
@@ -780,6 +759,7 @@ static i32 eval(Position *const restrict pos) {
 
         // MOBILITY
         const u64 mobility = get_mobility(sq, p, pos);
+        mob[sq ^ c_xor] = mobility;
         score += mobilities[p - 1] * count(mobility & ~pos->colour[0]);
 
         // KING ATTACKS
@@ -791,6 +771,32 @@ static i32 eval(Position *const restrict pos) {
     score = -score;
   }
   return score;
+}
+
+[[nodiscard]] static u64 perft(Position* const restrict pos,
+  const i32 depth) {
+  if (depth == 0) {
+    return 1;
+  }
+
+  u64 nodes = 0;
+  Move moves[max_moves];
+  u64 mob[64];
+  eval(pos, mob);
+  const i32 num_moves = movegen(pos, moves, mob, false);
+
+  for (i32 i = 0; i < num_moves; ++i) {
+    Position npos = *pos;
+
+    // Check move legality
+    if (!makemove(&npos, &moves[i])) {
+      continue;
+    }
+
+    nodes += perft(&npos, depth - 1);
+  }
+
+  return nodes;
 }
 
 enum { max_ply = 96 };
@@ -929,7 +935,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
-  i32 static_eval = eval(pos);
+  u64 mob[64];
+  i32 static_eval = eval(pos, mob);
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (tt_entry->flag != static_eval > tt_entry->score &&
@@ -970,7 +977,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
   }
 
-  stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
+  stack[ply].num_moves = movegen(pos, stack[ply].moves, mob, in_qsearch);
   stack[ply].best_move = tt_move;
   stack[pos_history_count + ply + 2].position_hash = tt_hash;
   i32 moves_evaluated = 0;
@@ -1189,7 +1196,8 @@ static void display_pos(Position *const pos) {
   putl("\nTurn: ");
   putl(pos->flipped ? "Black" : "White");
   putl("\nEval: ");
-  i32 score = eval(pos);
+  u64 mob[64];
+  i32 score = eval(pos, mob);
   if (pos->flipped) {
     score = -score;
   }
@@ -1304,7 +1312,9 @@ static void run() {
       pos_history_count = 0;
       while (true) {
         const bool line_continue = getl(line);
-        const i32 num_moves = movegen(&pos, stack[0].moves, false);
+        u64 mob[64];
+        eval(&pos, mob);
+        const i32 num_moves = movegen(&pos, stack[0].moves, mob, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[8];
           move_str(move_name, &stack[0].moves[i], pos.flipped);
