@@ -947,12 +947,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 47 * depth >= beta) {
+    if (static_eval - 51 * depth >= beta) {
       return static_eval;
     }
 
     // RAZORING
-    in_qsearch = static_eval + 131 * depth <= alpha;
+    in_qsearch = static_eval + 126 * depth <= alpha;
   }
 
   // NULL MOVE PRUNING
@@ -989,9 +989,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
+          + (i32)stack[ply].moves[order_index].takes_piece * 905 +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              915 // KILLER MOVE
+              897 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
@@ -1005,7 +1005,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (depth < 8 && !in_check && moves_evaluated &&
-        static_eval + 128 * depth +
+        static_eval + 127 * depth +
                 material[stack[ply].moves[move_index].takes_piece] +
                 material[stack[ply].moves[move_index].promo] <
             alpha) {
@@ -1026,8 +1026,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6
-            ? 1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving
+        depth > 1 && moves_evaluated > 5
+            ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
             : 1;
 
     i32 score;
