@@ -661,6 +661,96 @@ static void generate_piece_moves(Move *const restrict movelist,
   return nodes;
 }
 
+static void get_fen(Position *restrict pos, char *restrict fen) {
+  __builtin_memset(pos, 0, sizeof(Position));
+  const char *p = fen;
+
+  // PIECES
+  i32 sq = 56;
+  while (*p && *p != ' ') {
+    const char c = *p;
+    if (c == '/') {
+      sq -= 16;
+    } else if (c >= '1' && c <= '8') {
+      sq += c - '0';
+    } else {
+      const bool side = c >= 'a' && c <= 'z';
+      const char lowercase = c | 32;
+      i32 piece;
+      switch (lowercase) {
+      case 'p':
+        piece = Pawn;
+        break;
+      case 'n':
+        piece = Knight;
+        break;
+      case 'b':
+        piece = Bishop;
+        break;
+      case 'r':
+        piece = Rook;
+        break;
+      case 'q':
+        piece = Queen;
+        break;
+      case 'k':
+        piece = King;
+        break;
+      default:
+        piece = None;
+        break;
+      }
+      pos->colour[side] |= 1ull << sq;
+      pos->pieces[piece] |= 1ull << sq;
+      sq++;
+    }
+    p++;
+  }
+
+  // SIDE TO MOVE
+  getl(fen);
+  p = fen;
+  const bool black_to_move = *p == 'b';
+
+  // CASTLING
+  getl(fen);
+  p = fen;
+  if (*p != '-') {
+    while (*p && *p != ' ') {
+      switch (*p) {
+      case 'K':
+        pos->castling[0] = true;
+        break;
+      case 'Q':
+        pos->castling[1] = true;
+        break;
+      case 'k':
+        pos->castling[2] = true;
+        break;
+      case 'q':
+        pos->castling[3] = true;
+        break;
+      default:
+        break;
+      }
+      p++;
+    }
+  }
+
+  // EN PASSANT
+  getl(fen);
+  p = fen;
+  if (*p != '-') {
+    const i32 file = p[0] - 'a';
+    const i32 rank = p[1] - '1';
+    pos->ep = 1ull << (rank * 8 + file);
+  }
+
+  if (black_to_move) {
+    flip_pos(pos);
+  }
+}
+
 __attribute__((aligned(8))) static const i16 material[] = {127, 373,  406,
                                                            633, 1220, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
@@ -924,6 +1014,74 @@ static void iteratively_deepen(
   putl("\n");
 }
 
+static void display_pos(Position *const pos) {
+  Position npos = *pos;
+  if (npos.flipped) {
+    flip_pos(&npos);
+  }
+  for (i32 rank = 7; rank >= 0; rank--) {
+    for (i32 file = 0; file < 8; file++) {
+      i32 sq = rank * 8 + file;
+      u64 bb = 1ULL << sq;
+      i32 piece = piece_on(&npos, sq);
+      if (bb & npos.colour[0]) {
+        if (piece == Pawn) {
+          putl("P");
+        } else if (piece == Knight) {
+          putl("N");
+        } else if (piece == Bishop) {
+          putl("B");
+        } else if (piece == Rook) {
+          putl("R");
+        } else if (piece == Queen) {
+          putl("Q");
+        } else if (piece == King) {
+          putl("K");
+        }
+      } else if (bb & npos.colour[1]) {
+        if (piece == Pawn) {
+          putl("p");
+        } else if (piece == Knight) {
+          putl("n");
+        } else if (piece == Bishop) {
+          putl("b");
+        } else if (piece == Rook) {
+          putl("r");
+        } else if (piece == Queen) {
+          putl("q");
+        } else if (piece == King) {
+          putl("k");
+        }
+      } else {
+        putl(".");
+      }
+    }
+    putl("\n");
+  }
+  putl("\nTurn: ");
+  putl(pos->flipped ? "Black" : "White");
+  putl("\nCastling:");
+  if (npos.castling[0]) {
+    putl("K");
+  }
+  if (npos.castling[1]) {
+    putl("Q");
+  }
+  if (npos.castling[2]) {
+    putl("k");
+  }
+  if (npos.castling[3]) {
+    putl("q");
+  }
+  printf("\nEn passant: %d", lsb(npos.ep));
+  putl("\nEval: ");
+  i32 score = eval(pos);
+  if (pos->flipped) {
+    score = -score;
+  }
+  printf("%i\n", score);
+}
+
 #ifdef FULL
 static void bench() {
   Position pos;
@@ -1019,6 +1177,14 @@ static void run() {
       pos_history_count = 0;
       while (true) {
         const bool line_continue = getl(line);
+
+#if FULL
+        if (!strcmp(line, "fen")) {
+          getl(line);
+          get_fen(&pos, line);
+        }
+#endif
+
         num_moves = movegen(&pos, moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[6];
