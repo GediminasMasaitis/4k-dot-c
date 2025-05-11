@@ -721,6 +721,96 @@ enum { max_moves = 218 };
   return nodes;
 }
 
+static void get_fen(Position *restrict pos, char *restrict fen) {
+  __builtin_memset(pos, 0, sizeof(Position));
+  const char *p = fen;
+
+  // PIECES
+  i32 sq = 56;
+  while (*p && *p != ' ') {
+    const char c = *p;
+    if (c == '/') {
+      sq -= 16;
+    } else if (c >= '1' && c <= '8') {
+      sq += c - '0';
+    } else {
+      const bool side = c >= 'a' && c <= 'z';
+      const char lowercase = c | 32;
+      i32 piece;
+      switch (lowercase) {
+      case 'p':
+        piece = Pawn;
+        break;
+      case 'n':
+        piece = Knight;
+        break;
+      case 'b':
+        piece = Bishop;
+        break;
+      case 'r':
+        piece = Rook;
+        break;
+      case 'q':
+        piece = Queen;
+        break;
+      case 'k':
+        piece = King;
+        break;
+      default:
+        piece = None;
+        break;
+      }
+      pos->colour[side] |= 1ull << sq;
+      pos->pieces[piece] |= 1ull << sq;
+      sq++;
+    }
+    p++;
+  }
+
+  // SIDE TO MOVE
+  getl(fen);
+  p = fen;
+  const bool black_to_move = *p == 'b';
+
+  // CASTLING
+  getl(fen);
+  p = fen;
+  if (*p != '-') {
+    while (*p && *p != ' ') {
+      switch (*p) {
+      case 'K':
+        pos->castling[0] = true;
+        break;
+      case 'Q':
+        pos->castling[1] = true;
+        break;
+      case 'k':
+        pos->castling[2] = true;
+        break;
+      case 'q':
+        pos->castling[3] = true;
+        break;
+      default:
+        break;
+      }
+      p++;
+    }
+  }
+
+  // EN PASSANT
+  getl(fen);
+  p = fen;
+  if (*p != '-') {
+    const i32 file = p[0] - 'a';
+    const i32 rank = p[1] - '1';
+    pos->ep = 1ull << (rank * 8 + file);
+  }
+
+  if (black_to_move) {
+    flip_pos(pos);
+  }
+}
+
 __attribute__((aligned(8))) static const i16 material[] = {0,   80,  309, 290,
                                                            471, 935, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
@@ -1197,6 +1287,20 @@ static void display_pos(Position *const pos) {
   }
   putl("\nTurn: ");
   putl(pos->flipped ? "Black" : "White");
+  putl("\nCastling:");
+  if (npos.castling[0]) {
+    putl("K");
+  }
+  if (npos.castling[1]) {
+    putl("Q");
+  }
+  if (npos.castling[2]) {
+    putl("k");
+  }
+  if (npos.castling[3]) {
+    putl("q");
+  }
+  printf("\nEn passant: %d", lsb(npos.ep));
   putl("\nEval: ");
   i32 score = eval(pos);
   if (pos->flipped) {
@@ -1313,6 +1417,14 @@ static void run() {
       pos_history_count = 0;
       while (true) {
         const bool line_continue = getl(line);
+
+#if FULL
+        if (!strcmp(line, "fen")) {
+          getl(line);
+          get_fen(&pos, line);
+        }
+#endif
+
         const i32 num_moves = movegen(&pos, stack[0].moves, false);
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[8];
