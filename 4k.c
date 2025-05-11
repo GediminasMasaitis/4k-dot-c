@@ -1116,7 +1116,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6
+        depth > 3 && moves_evaluated > 1
             ? 1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving
             : 1;
 
