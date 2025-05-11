@@ -1230,7 +1230,7 @@ static void iteratively_deepen(
     putl("\n");
 #endif
 
-    if (elapsed > max_time / 16) {
+    if (elapsed > max_time / 12) {
       break;
     }
   }
