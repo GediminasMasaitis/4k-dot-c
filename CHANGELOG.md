@@ -5096,11 +5096,11 @@ https://gedas.pythonanywhere.com/test/724/
 ```
 
 ```py
-Elo   | 38.54 +- 21.40 (95%)
+Elo   | 37.14 +- 12.62 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 1.12 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 534 W: 183 L: 124 D: 227
-Penta | [10, 56, 91, 85, 25]
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1418 W: 498 L: 347 D: 573
+Penta | [24, 137, 277, 206, 65]
 https://gedas.pythonanywhere.com/test/725/
 ```
 
@@ -5184,12 +5184,21 @@ MD5: 297c12ceb767149f7ef70182eddc9a83
 LMP adjustment based on improving
 
 ```py
-Elo   | 15.69 +- 11.78 (95%)
+Elo   | 22.49 +- 9.90 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 1.34 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 1618 W: 527 L: 454 D: 637
-Penta | [45, 159, 343, 202, 60]
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2522 W: 854 L: 691 D: 977
+Penta | [76, 245, 498, 324, 118]
 https://gedas.pythonanywhere.com/test/754/
+```
+
+```py
+Elo   | 23.24 +- 9.76 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2276 W: 731 L: 579 D: 966
+Penta | [50, 224, 472, 308, 84]
+https://gedas.pythonanywhere.com/test/755/
 ```
 
 ### 3.16
@@ -5318,11 +5327,11 @@ https://gedas.pythonanywhere.com/test/779/
 ```
 
 ```py
-Elo   | 27.58 +- 14.57 (95%)
+Elo   | 23.19 +- 9.72 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 1.59 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 1010 W: 335 L: 255 D: 420
-Penta | [19, 95, 220, 129, 42]
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2236 W: 721 L: 572 D: 943
+Penta | [39, 236, 464, 295, 84]
 https://gedas.pythonanywhere.com/test/781/
 ```
 

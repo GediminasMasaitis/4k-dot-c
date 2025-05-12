@@ -994,8 +994,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
-  for (i32 i = pos_history_count + ply; i > 0 && ply > 0;
-       i -= 2) {
+  for (i32 i = pos_history_count + ply; i > 0 && ply > 0; i -= 2) {
     if (tt_hash == stack[i].position_hash) {
       return 0;
     }
@@ -1310,6 +1309,14 @@ static void display_pos(Position *const pos) {
   printf("%d\n", score);
 }
 
+static const Position start_pos =
+    (Position){.ep = 0,
+               .colour = {0xFFFFull, 0xFFFF000000000000ull},
+               .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
+                          0x2400000000000024ull, 0x8100000000000081ull,
+                          0x800000000000008ull, 0x1000000000000010ull},
+               .castling = {true, true, true, true}};
+
 #ifdef FULL
 static void bench() {
   Position pos;
@@ -1320,12 +1327,7 @@ static void bench() {
   SearchStack stack[1024];
 #endif
   __builtin_memset(move_history, 0, sizeof(move_history));
-  pos = (Position){.ep = 0,
-                   .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                   .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
-                              0x2400000000000024ull, 0x8100000000000081ull,
-                              0x800000000000008ull, 0x1000000000000010ull},
-                   .castling = {true, true, true, true}};
+  pos = start_pos;
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
@@ -1354,12 +1356,7 @@ static void run() {
   init_diag_masks();
 
 #ifdef FULL
-  pos = (Position){.ep = 0,
-                   .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                   .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
-                              0x2400000000000024ull, 0x8100000000000081ull,
-                              0x800000000000008ull, 0x1000000000000010ull},
-                   .castling = {true, true, true, true}};
+  pos = start_pos;
   pos_history_count = 0;
 #endif
 
@@ -1409,12 +1406,7 @@ static void run() {
     } else if (line[0] == 'i') {
       putl("readyok\n");
     } else if (line[0] == 'p') {
-      pos = (Position){.ep = 0,
-                       .colour = {0xFFFFull, 0xFFFF000000000000ull},
-                       .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
-                                  0x2400000000000024ull, 0x8100000000000081ull,
-                                  0x800000000000008ull, 0x1000000000000010ull},
-                       .castling = {true, true, true, true}};
+      pos = start_pos;
       pos_history_count = 0;
       while (true) {
         const bool line_continue = getl(line);
