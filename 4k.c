@@ -283,6 +283,8 @@ typedef struct [[nodiscard]] {
   u64 ep;
   bool castling[4];
   bool flipped;
+  bool padding[11];
+  //u64 hash;
 } Position;
 
 [[nodiscard]] static bool move_string_equal(const char *restrict lhs,
@@ -922,7 +924,7 @@ get_hash(const Position *const pos) {
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; i++) {
+  for (i32 i = 0; i < 6; i++) {
     i128 key;
     __builtin_memcpy(&key, data + i * 16, 16);
     hash = __builtin_ia32_aesenc128(hash, key);
@@ -944,7 +946,7 @@ get_hash(const Position *const pos) {
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; ++i) {
+  for (i32 i = 0; i < 6; ++i) {
     uint8x16_t key;
     memcpy(&key, data + i * 16, 16);
 
@@ -1329,7 +1331,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(20, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(19, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
