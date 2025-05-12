@@ -5353,7 +5353,7 @@ Elo difference: -39.3 +/- 13.5, LOS: 0.0 %, DrawRatio: 22.4 %
 
 ### 3.19
 
-64 bit: 4087 bytes (+90)
+64 bit: 4087 bytes (-5)
 
 MD5: 86f52992aa7c5147e719e9c15a16812f
 
@@ -5366,4 +5366,39 @@ LLR   | 2.97 (-2.94, 2.94) [-5.00, 0.00]
 Games | N: 17330 W: 5359 L: 5299 D: 6672
 Penta | [655, 1999, 3312, 2029, 670]
 https://gedas.pythonanywhere.com/test/804/
+```
+
+```py
+Elo   | 3.79 +- 10.77 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.64 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 1924 W: 579 L: 558 D: 787
+Penta | [48, 236, 396, 211, 71]
+https://gedas.pythonanywhere.com/test/811/
+```
+
+### 3.20
+
+64 bit: 4085 bytes (-2)
+
+MD5: eefaa038313d5b228a0694c4e104558c
+
+No repetition detection after null move
+
+```py
+Elo   | 1.20 +- 3.80 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 17330 W: 5359 L: 5299 D: 6672
+Penta | [655, 1999, 3312, 2029, 670]
+https://gedas.pythonanywhere.com/test/804/
+```
+
+```py
+Elo   | 3.79 +- 10.77 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.64 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 1924 W: 579 L: 558 D: 787
+Penta | [48, 236, 396, 211, 71]
+https://gedas.pythonanywhere.com/test/811/
 ```
