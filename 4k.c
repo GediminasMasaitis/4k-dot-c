@@ -1003,7 +1003,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   // TT PROBING
   TTEntry *tt_entry = &tt[tt_hash % tt_length];
   const u16 tt_hash_partial = tt_hash / tt_length;
-  Move tt_move = {0};
+  Move tt_move = stack[ply].best_move;
   if (tt_entry->partial_hash == tt_hash_partial) {
     tt_move = tt_entry->move;
 
@@ -1331,7 +1331,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(20, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(19, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
