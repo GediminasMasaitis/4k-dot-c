@@ -1287,7 +1287,7 @@ static void display_pos(Position *const pos) {
   }
   putl("\nTurn: ");
   putl(pos->flipped ? "Black" : "White");
-  putl("\nCastling:");
+  putl("\nCastling: ");
   if (npos.castling[0]) {
     putl("K");
   }
@@ -1301,12 +1301,13 @@ static void display_pos(Position *const pos) {
     putl("q");
   }
   printf("\nEn passant: %d", lsb(npos.ep));
+  printf("\nHash: %llu", get_hash(&npos));
   putl("\nEval: ");
   i32 score = eval(pos);
   if (pos->flipped) {
     score = -score;
   }
-  printf("%i\n", score);
+  printf("%d\n", score);
 }
 
 #ifdef FULL
