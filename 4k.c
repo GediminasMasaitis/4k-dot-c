@@ -1143,10 +1143,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     if (score > best_score) {
       best_score = score;
+      stack[ply].best_move = stack[ply].moves[move_index];
     }
 
     if (score > alpha) {
-      stack[ply].best_move = stack[ply].moves[move_index];
       alpha = score;
       tt_flag = Exact;
       if (score >= beta) {
