@@ -5427,3 +5427,11 @@ Use assembly version of aPLib decompressor
 MD5: 7c277f404f964b56c422616eb9121a0d
 
 Don't compute final size in aPLib
+
+### 4.3
+
+64 bit: 3880 bytes (-7)
+
+MD5: 3fe3bf36db6ce87a3e007e5ec974bbc5
+
+Disable >32kb case in aPLib

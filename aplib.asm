@@ -70,8 +70,8 @@ normalcodepair:
     lodsb
     call   getgamma
 
-    cmp    eax, 32000
-    jae    short domatch_with_2inc
+    ; cmp    eax, 32000
+    ; jae    short domatch_with_2inc
     cmp    ah, 5
     jae    short domatch_with_inc
     cmp    eax, 7fh
