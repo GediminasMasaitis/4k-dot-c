@@ -5435,3 +5435,29 @@ Don't compute final size in aPLib
 MD5: 3fe3bf36db6ce87a3e007e5ec974bbc5
 
 Disable >32kb case in aPLib
+
+### 4.4
+
+64 bit: 4080 bytes (+200)
+
+MD5: e8962e83e380fd05b077f8b8997e9b67
+
+Tapered eval, remove forward futility pruning
+
+```py
+Elo   | 53.90 +- 16.51 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1176 W: 512 L: 331 D: 333
+Penta | [43, 85, 211, 146, 103]
+https://gedas.pythonanywhere.com/test/845/
+```
+
+```py
+Elo   | 71.25 +- 18.16 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 806 W: 348 L: 185 D: 273
+Penta | [12, 61, 143, 126, 61]
+https://gedas.pythonanywhere.com/test/846/
+```
