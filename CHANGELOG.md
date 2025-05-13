@@ -5419,3 +5419,11 @@ Last version with the C aPLib decompressor
 MD5: 4ecc8bd5946fb869a11748ded02af2db
 
 Use assembly version of aPLib decompressor
+
+### 4.2
+
+64 bit: 3887 bytes (-10)
+
+MD5: 7c277f404f964b56c422616eb9121a0d
+
+Don't compute final size in aPLib

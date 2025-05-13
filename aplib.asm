@@ -13,17 +13,14 @@
 ;;
 
 format ELF64
+
+; void aP_depack_asm(const void *source, void *destination)
 public aP_depack_asm
 
 section '.text'
 aP_depack_asm:
-    ; aP_depack_asm(const void *source, void *destination)
-
     push   rbx
-
-    mov    rdx, rsi
-    mov    rsi, rdi
-    mov    rdi, rdx
+    xchg   rdi, rsi
 
     cld
     mov    dl, 0x80
@@ -122,9 +119,6 @@ getgamma_no_ecx:
     ret
 
 donedepacking:
-    sub    rdi, rdx
-    xchg   eax, edi
-
     pop    rbx
     ret
 
