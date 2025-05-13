@@ -5660,3 +5660,30 @@ Score of 4k.c-4.13 vs 4ku-2.0: 413 - 340 - 247  [0.536] 1000
 ...      White vs Black: 503 - 250 - 247  [0.626] 1000
 Elo difference: 25.4 +/- 18.7, LOS: 99.6 %, DrawRatio: 24.7 %
 ```
+
+### 4.14
+
+64 bit: 4068 bytes (+235)
+
+MD5: 85561474479af3aa754537b17d837868
+
+* Tapered evaluation
+* No forward futility pruning
+
+```py
+Elo   | 63.48 +- 17.90 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 974 W: 434 L: 258 D: 282
+Penta | [29, 70, 170, 132, 86]
+https://gedas.pythonanywhere.com/test/907/
+```
+
+```py
+Elo   | 85.86 +- 20.03 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.94 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 706 W: 337 L: 166 D: 203
+Penta | [13, 35, 139, 100, 66]
+https://gedas.pythonanywhere.com/test/908/
+```
