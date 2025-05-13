@@ -811,33 +811,53 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   80,  309, 290,
-                                                           471, 935, 0};
-__attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -13, -14, -13, -1, 40, 117, 0,   // Pawn
-    -35, -19, 0,   15,  26, 28, 9,   -25, // Knight
-    -13, -4,  2,   3,   7,  10, 0,   -6,  // Bishop
-    -9,  -16, -17, -9,  5,  14, 19,  13,  // Rook
-    -4,  -2,  -2,  -2,  3,  8,  -1,  1,   // Queen
-    -25, -8,  -1,  10,  22, 29, 19,  -20, // King
+#define S(mg, eg) ((eg << 16) + mg)
+
+__attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
+__attribute__((aligned(8))) static const i16 max_material[] = {0,   88,  318,
+                                                               299, 541, 978};
+__attribute__((aligned(8))) static const i32 material[] = {
+    S(72, 88), S(318, 304), S(299, 283), S(401, 541), S(896, 978), 0};
+__attribute__((aligned(8))) static const i32 pst_rank[] = {
+    0,           S(-16, -10), S(-11, -15), S(-10, -15),
+    S(4, -4),    S(33, 45),   S(152, 105), 0, // Pawn
+    S(-35, -35), S(-21, -15), S(3, 0),     S(15, 20),
+    S(31, 24),   S(56, 9),    S(27, -1),   S(-76, -2), // Knight
+    S(-11, -7),  S(2, -6),    S(11, -1),   S(11, 0),
+    S(16, 4),    S(22, 1),    S(0, 1),     S(-51, 8), // Bishop
+    S(-2, -15),  S(-13, -17), S(-19, -13), S(-21, 2),
+    S(-2, 9),    S(19, 10),   S(18, 16),   S(19, 9), // Rook
+    S(13, -56),  S(15, -42),  S(8, -20),   S(-4, 9),
+    S(-8, 28),   S(-1, 29),   S(-19, 38),  S(-3, 15), // Queen
+    S(-16, -31), S(-8, -2),   S(-28, 11),  S(-25, 21),
+    S(11, 26),   S(71, 21),   S(86, 7),    S(100, -37), // King
 };
-__attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
-    -28, -7, 7,  17, 15, 13, 0,  -16, // Knight
-    -8,  1,  2,  2,  3,  -1, 4,  -4,  // Bishop
-    -2,  0,  4,  5,  4,  6,  -3, -14, // Rook
-    -14, -6, 2,  6,  5,  2,  3,  1,   // Queen
-    -19, 8,  7,  7,  4,  3,  9,  -15, // King
+__attribute__((aligned(8))) static const i32 pst_file[] = {
+    S(-23, 12),  S(-9, 13),  S(-8, 0),  S(3, -6),
+    S(9, -6),    S(22, -6),  S(21, -1), S(-14, -7), // Pawn
+    S(-31, -22), S(-9, -4),  S(6, 11),  S(17, 17),
+    S(14, 16),   S(14, 7),   S(3, -3),  S(-14, -22), // Knight
+    S(-11, -3),  S(3, 0),    S(6, -1),  S(1, 2),
+    S(5, 3),     S(-2, 2),   S(4, 2),   S(-6, -4), // Bishop
+    S(-6, 1),    S(-7, 4),   S(2, 5),   S(10, 0),
+    S(12, -5),   S(2, 0),    S(-4, -1), S(-9, -4), // Rook
+    S(-9, -18),  S(-6, -4),  S(-1, 3),  S(1, 9),
+    S(2, 12),    S(0, 10),   S(7, -4),  S(7, -9), // Queen
+    S(-22, -15), S(25, -2),  S(-2, 9),  S(-46, 20),
+    S(-17, 15),  S(-35, 18), S(19, 0),  S(-4, -23), // King
 };
-__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
-__attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  3,
-                                                              1, 14, 0};
-__attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
-                                                            20, 2,   -6};
-const i8 bishop_pair = 38;
+__attribute__((aligned(8))) static const i32 mobilities[] = {
+    0, 0, S(4, 5), S(2, 2), S(2, 1), S(-11, 0)};
+__attribute__((aligned(8))) static const i32 king_attacks[] = {
+    0, 0, S(14, -3), S(19, -6), S(15, 5), 0};
+__attribute__((aligned(8))) static const i32 open_files[] = {
+    S(23, 32), S(-14, -1), S(-10, 11), S(19, 15), S(-3, 28), S(-31, 10)};
+static const i32 bishop_pair = S(24, 53);
 
 static i32 eval(Position *const restrict pos) {
-  i32 score = 16;
+  i32 score = S(16, 16);
+  i32 phase = 0;
+
   for (i32 c = 0; c < 2; c++) {
 
     // BISHOP PAIR
@@ -851,6 +871,8 @@ static i32 eval(Position *const restrict pos) {
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
+        phase += phases[p];
+
         const i32 sq = lsb(copy);
         copy &= copy - 1;
 
@@ -862,7 +884,7 @@ static i32 eval(Position *const restrict pos) {
                  ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
-        score += material[p];
+        score += material[p - 1];
 
         // SPLIT PIECE-SQUARE TABLES
         score += pst_rank[(p - 1) * 8 + rank];
@@ -880,7 +902,8 @@ static i32 eval(Position *const restrict pos) {
     flip_pos(pos);
     score = -score;
   }
-  return score;
+
+  return ((short)score * phase + ((score + 0x8000) >> 16) * (24 - phase)) / 24;
 }
 
 enum { max_ply = 96 };
@@ -1095,8 +1118,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (depth < 8 && !in_check && moves_evaluated &&
         static_eval + 128 * depth +
-                material[stack[ply].moves[move_index].takes_piece] +
-                material[stack[ply].moves[move_index].promo] <
+                max_material[stack[ply].moves[move_index].takes_piece] +
+                max_material[stack[ply].moves[move_index].promo] <
             alpha) {
       break;
     }
