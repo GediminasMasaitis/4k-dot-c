@@ -5402,3 +5402,20 @@ Games | N: 1924 W: 579 L: 558 D: 787
 Penta | [48, 236, 396, 211, 71]
 https://gedas.pythonanywhere.com/test/811/
 ```
+
+### 4.0
+
+64 bit: 4085 bytes (=)
+
+MD5: eefaa038313d5b228a0694c4e104558c
+
+Functionally equivalent to version 3.20
+Last version with the C aPLib decompressor
+
+### 4.1
+
+64 bit: 3897 bytes (-188)
+
+MD5: 4ecc8bd5946fb869a11748ded02af2db
+
+Use assembly version of aPLib decompressor

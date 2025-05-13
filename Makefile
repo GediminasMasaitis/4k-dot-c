@@ -42,8 +42,9 @@ loader:
 	ls -la $(EXE)
 	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
 	apultra -stats -v $(EXE) $(EXE).ap
+	fasm aplib.asm aplib.o
 	$(CC) $(CFLAGS) -DPAYLOAD_START='"'$$(grep '_start' $(EXE).map | awk '{print $$1}')'"' -c loader.c
-	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) loader.o
+	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) loader.o aplib.o
 	ls -la $(EXE)
 	md5sum $(EXE)
 
@@ -63,6 +64,7 @@ pgo:
 	md5sum $(EXE)
 
 format:
+	dos2unix ./*.asm
 	dos2unix ./*.h
 	dos2unix ./*.c
 	dos2unix ./*.ld
