@@ -357,13 +357,6 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 static u64 diag_mask[64];
 
-static void init_diag_masks() {
-  for (i32 sq = 0; sq < 64; sq++) {
-    diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
-                    ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
-  }
-}
-
 [[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
   assert(sq >= 0);
   assert(sq < 64);
@@ -816,38 +809,120 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   80,  309, 290,
-                                                           471, 935, 0};
-__attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -13, -14, -13, -1, 40, 117, 0,   // Pawn
-    -35, -19, 0,   15,  26, 28, 9,   -25, // Knight
-    -13, -4,  2,   3,   7,  10, 0,   -6,  // Bishop
-    -9,  -16, -17, -9,  5,  14, 19,  13,  // Rook
-    -4,  -2,  -2,  -2,  3,  8,  -1,  1,   // Queen
-    -25, -8,  -1,  10,  22, 29, 19,  -20, // King
-};
-__attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
-    -28, -7, 7,  17, 15, 13, 0,  -16, // Knight
-    -8,  1,  2,  2,  3,  -1, 4,  -4,  // Bishop
-    -2,  0,  4,  5,  4,  6,  -3, -14, // Rook
-    -14, -6, 2,  6,  5,  2,  3,  1,   // Queen
-    -19, 8,  7,  7,  4,  3,  9,  -15, // King
-};
-__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
-__attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  3,
-                                                              1, 14, 0};
-__attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
-                                                            20, 2,   -6};
-const i8 bishop_pair = 38;
+typedef struct [[nodiscard]] __attribute__((packed)) {
+  i16 material[6];
+  i8 pst_rank[64];
+  i8 pst_file[64];
+  i8 mobilities[64];
+  i8 king_attacks[64];
+  i8 open_files[64];
+  i8 bishop_pair;
+  i8 tempo;
+} EvalParams;
+
+typedef struct [[nodiscard]] __attribute__((packed)) {
+  i32 material[6];
+  i32 pst_rank[64];
+  i32 pst_file[64];
+  i32 mobilities[64];
+  i32 king_attacks[64];
+  i32 open_files[64];
+  i32 bishop_pair;
+  i32 tempo;
+} EvalParamsMerged;
+
+static const EvalParams mg =
+    (EvalParams){.material = {72, 318, 299, 401, 896, 0},
+                 .pst_rank =
+                     {
+                         0,   -16, -11, -10, 4,  33, 127, 0,   // Pawn
+                         -35, -21, 3,   15,  31, 56, 27,  -76, // Knight
+                         -11, 2,   11,  11,  16, 22, 0,   -51, // Bishop
+                         -2,  -13, -19, -21, -2, 19, 18,  19,  // Rook
+                         13,  15,  8,   -4,  -8, -1, -19, -3,  // Queen
+                         -16, -8,  -28, -25, 11, 71, 86,  100  // King
+                     },
+                 .pst_file =
+                     {
+                         -23, -9, -8, 3,   9,   22,  21, -14, // Pawn
+                         -31, -9, 6,  17,  14,  14,  3,  -14, // Knight
+                         -11, 3,  6,  1,   5,   -2,  4,  -6,  // Bishop
+                         -6,  -7, 2,  10,  12,  2,   -4, -9,  // Rook
+                         -9,  -6, -1, 1,   2,   0,   7,  7,   // Queen
+                         -22, 25, -2, -46, -17, -35, 19, -4   // King
+                     },
+                 .mobilities = {0, 0, 4, 2, 2, -11},
+                 .king_attacks = {0, 0, 14, 19, 15, 0},
+                 .open_files = {23, -14, -10, 19, -3, -31},
+                 .bishop_pair = 24,
+                 .tempo = 16};
+
+static const EvalParams eg =
+    (EvalParams){.material = {88, 304, 283, 541, 978, 0},
+                 .pst_rank =
+                     {
+                         0,   -10, -15, -15, -4, 45, 115, 0,  // Pawn
+                         -35, -15, 0,   20,  24, 9,  -1,  -2, // Knight
+                         -7,  -6,  -1,  0,   4,  1,  1,   8,  // Bishop
+                         -15, -17, -13, 2,   9,  10, 16,  9,  // Rook
+                         -56, -42, -20, 9,   28, 29, 38,  15, // Queen
+                         -31, -2,  11,  21,  26, 21, 7,   -37 // King
+                     },
+                 .pst_file =
+                     {
+                         12,  13, 0,  -6, -6, -6, -1, -7,  // Pawn
+                         -22, -4, 11, 17, 16, 7,  -3, -22, // Knight
+                         -3,  0,  -1, 2,  3,  2,  2,  -4,  // Bishop
+                         1,   4,  5,  0,  -5, 0,  -1, -4,  // Rook
+                         -18, -4, 3,  9,  12, 10, -4, -9,  // Queen
+                         -15, -2, 9,  20, 15, 18, 0,  -23  // King
+                     },
+                 .mobilities = {0, 0, 5, 2, 1, 0},
+                 .king_attacks = {0, 0, -3, -6, 5, 0},
+                 .open_files = {32, -1, 11, 15, 28, 10},
+                 .bishop_pair = 53,
+                 .tempo = 8};
+
+static EvalParamsMerged eval_params;
+
+static i32 combine_eval_param(const i32 mg_val, const i32 eg_val) {
+  return (eg_val << 16) + mg_val;
+}
+
+static void init() {
+  // INIT DIAGONAL MASKS
+  for (i32 sq = 0; sq < 64; sq++) {
+    diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
+                    ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
+  }
+
+  // MERGE EVAL VALUES
+  for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
+    eval_params.material[i] =
+        combine_eval_param(mg.material[i], eg.material[i]);
+  }
+  for (i32 i = 0;
+       i < sizeof(mg.pst_rank) + sizeof(mg.pst_file) + sizeof(mg.mobilities) +
+               sizeof(mg.king_attacks) + sizeof(mg.open_files) +
+               sizeof(mg.bishop_pair) + sizeof(mg.tempo);
+       i++) {
+    // Technically writes past end of array but since the structs are packed it works
+    eval_params.pst_rank[i] =
+        combine_eval_param(mg.pst_rank[i], eg.pst_rank[i]);
+  }
+}
+
+__attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
 
 static i32 eval(Position *const restrict pos) {
-  i32 score = 16;
+  i32 score = eval_params.tempo;
+  i32 phase = 0;
+
   for (i32 c = 0; c < 2; c++) {
 
     // BISHOP PAIR
     if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
-      score += bishop_pair;
+      score += eval_params.bishop_pair;
     }
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
@@ -856,6 +931,8 @@ static i32 eval(Position *const restrict pos) {
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
       while (copy) {
+        phase += phases[p];
+
         const i32 sq = lsb(copy);
         copy &= copy - 1;
 
@@ -863,29 +940,33 @@ static i32 eval(Position *const restrict pos) {
         const int file = sq & 7;
 
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p - 1] *
-                 ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
+        if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
+          score += eval_params.open_files[p - 1];
+        }
 
         // MATERIAL
-        score += material[p];
+        score += eval_params.material[p - 1];
 
         // SPLIT PIECE-SQUARE TABLES
-        score += pst_rank[(p - 1) * 8 + rank];
-        score += pst_file[(p - 1) * 8 + file];
+        score += eval_params.pst_rank[(p - 1) * 8 + rank];
+        score += eval_params.pst_file[(p - 1) * 8 + file];
 
         // MOBILITY
         const u64 mobility = get_mobility(sq, p, pos);
-        score += mobilities[p - 1] * count(mobility & ~pos->colour[0]);
+        score +=
+            eval_params.mobilities[p - 1] * count(mobility & ~pos->colour[0]);
 
         // KING ATTACKS
-        score += king_attacks[p - 1] * count(mobility & opp_king_zone);
+        score +=
+            eval_params.king_attacks[p - 1] * count(mobility & opp_king_zone);
       }
     }
 
     flip_pos(pos);
     score = -score;
   }
-  return score;
+
+  return ((short)score * phase + ((score + 0x8000) >> 16) * (24 - phase)) / 24;
 }
 
 enum { max_ply = 96 };
@@ -1099,15 +1180,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         swapmoves(&stack[ply].moves[move_index],
                   &stack[ply].moves[order_index]);
       }
-    }
-
-    // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (depth < 8 && !in_check && moves_evaluated &&
-        static_eval + 128 * depth +
-                material[stack[ply].moves[move_index].takes_piece] +
-                material[stack[ply].moves[move_index].promo] <
-            alpha) {
-      break;
     }
 
     Position npos = *pos;
@@ -1365,7 +1437,7 @@ static void run() {
   SearchStack stack[1024];
 #endif
   __builtin_memset(move_history, 0, sizeof(move_history));
-  init_diag_masks();
+  init();
 
 #ifdef FULL
   pos = start_pos;
@@ -1492,7 +1564,7 @@ int main(int argc, char **argv) {
 #endif
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
-    init_diag_masks();
+    init();
     bench();
     exit_now();
   }
