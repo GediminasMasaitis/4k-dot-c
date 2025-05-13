@@ -811,30 +811,39 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   80,  309, 290,
-                                                           471, 935, 0};
-__attribute__((aligned(8))) static const i8 pst_rank[] = {
+typedef struct [[nodiscard]] {
+  i16 material[7];
+  i8 pst_rank[64];
+  i8 pst_file[64];
+  i8 mobilities[64];
+  i8 king_attacks[64];
+  i8 open_files[64];
+  i8 bishop_pair;
+} EvalParams;
+
+const EvalParams eval_params = (EvalParams){
+  .material = {0,   80,  309, 290, 471, 935, 0},
+  .pst_rank = {
     0,   -13, -14, -13, -1, 40, 117, 0,   // Pawn
     -35, -19, 0,   15,  26, 28, 9,   -25, // Knight
     -13, -4,  2,   3,   7,  10, 0,   -6,  // Bishop
     -9,  -16, -17, -9,  5,  14, 19,  13,  // Rook
     -4,  -2,  -2,  -2,  3,  8,  -1,  1,   // Queen
     -25, -8,  -1,  10,  22, 29, 19,  -20, // King
-};
-__attribute__((aligned(8))) static const i8 pst_file[] = {
+  },
+  .pst_file = {
     -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
     -28, -7, 7,  17, 15, 13, 0,  -16, // Knight
     -8,  1,  2,  2,  3,  -1, 4,  -4,  // Bishop
     -2,  0,  4,  5,  4,  6,  -3, -14, // Rook
     -14, -6, 2,  6,  5,  2,  3,  1,   // Queen
     -19, 8,  7,  7,  4,  3,  9,  -15, // King
+  },
+  .mobilities = {0, 0, 4, 2, 2, -4},
+  .king_attacks= { 0, 0,  3,  1, 14, 0 },
+  .open_files = {27, -10, -4, 20, 2, -6 },
+  .bishop_pair = 38
 };
-__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
-__attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  3,
-                                                              1, 14, 0};
-__attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
-                                                            20, 2,   -6};
-const i8 bishop_pair = 38;
 
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
@@ -842,7 +851,7 @@ static i32 eval(Position *const restrict pos) {
 
     // BISHOP PAIR
     if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
-      score += bishop_pair;
+      score += eval_params.bishop_pair;
     }
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
@@ -858,22 +867,22 @@ static i32 eval(Position *const restrict pos) {
         const int file = sq & 7;
 
         // OPEN FILES / DOUBLED PAWNS
-        score += open_files[p - 1] *
+        score += eval_params.open_files[p - 1] *
                  ((north(0x101010101010101ULL << sq) & own_pawns) == 0);
 
         // MATERIAL
-        score += material[p];
+        score += eval_params.material[p];
 
         // SPLIT PIECE-SQUARE TABLES
-        score += pst_rank[(p - 1) * 8 + rank];
-        score += pst_file[(p - 1) * 8 + file];
+        score += eval_params.pst_rank[(p - 1) * 8 + rank];
+        score += eval_params.pst_file[(p - 1) * 8 + file];
 
         // MOBILITY
         const u64 mobility = get_mobility(sq, p, pos);
-        score += mobilities[p - 1] * count(mobility & ~pos->colour[0]);
+        score += eval_params.mobilities[p - 1] * count(mobility & ~pos->colour[0]);
 
         // KING ATTACKS
-        score += king_attacks[p - 1] * count(mobility & opp_king_zone);
+        score += eval_params.king_attacks[p - 1] * count(mobility & opp_king_zone);
       }
     }
 
@@ -1095,8 +1104,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (depth < 8 && !in_check && moves_evaluated &&
         static_eval + 128 * depth +
-                material[stack[ply].moves[move_index].takes_piece] +
-                material[stack[ply].moves[move_index].promo] <
+                eval_params.material[stack[ply].moves[move_index].takes_piece] +
+                eval_params.material[stack[ply].moves[move_index].promo] <
             alpha) {
       break;
     }
