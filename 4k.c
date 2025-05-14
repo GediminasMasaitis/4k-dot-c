@@ -268,6 +268,18 @@ static void putl(const char *const restrict string) {
 
 #pragma region base
 
+static i32 min(const i32 a, const i32 b) {
+  return (a < b) ? a : b;
+}
+
+static i32 max(const i32 a, const i32 b) {
+  return (a > b) ? a : b;
+}
+
+static i32 clamp(const i32 val, const i32 min_val, const i32 max_val) {
+  return max(min_val, min(val, max_val));
+}
+
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
@@ -1036,21 +1048,21 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 47 * depth >= beta) {
+    if (static_eval - 55 * (depth - improving) >= beta) {
       return static_eval;
     }
 
     // RAZORING
-    in_qsearch = static_eval + 131 * depth <= alpha;
+    in_qsearch = static_eval + 192 * depth <= alpha;
   }
 
   // NULL MOVE PRUNING
   if (depth > 2 && do_null && static_eval >= beta && alpha == beta - 1 &&
-      !in_check) {
+      !in_check && static_eval >= stack[ply].static_eval && pos->colour[0] & ~pos->pieces[Pawn] & ~pos->pieces[King]) {
     Position npos = *pos;
     flip_pos(&npos);
     npos.ep = 0;
-    if (-search(&npos, ply + 1, depth - 4, -beta, -alpha,
+    if (-search(&npos, ply + 1, depth - 4 - depth / 5 - min((static_eval - beta) / 196, 3), -beta, -alpha,
 #ifdef FULL
                 nodes,
 #endif
@@ -1092,12 +1104,16 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
     }
 
-    // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (depth < 8 && !in_check && moves_evaluated &&
-        static_eval + 128 * depth +
-                material[stack[ply].moves[move_index].takes_piece] +
-                material[stack[ply].moves[move_index].promo] <
-            alpha) {
+    const i32 gain = material[stack[ply].moves[move_index].takes_piece] + material[stack[ply].moves[move_index].promo];
+
+    // DELTA PRUNING
+    if (in_qsearch && !in_check && static_eval + 40 + gain < alpha) {
+      break;
+    }
+
+    // FORWARD FUTILITY PRUNING
+    if (ply > 0 && depth < 8 && !in_qsearch && !in_check && moves_evaluated &&
+      static_eval + 88 * depth + gain < alpha) {
       break;
     }
 
@@ -1111,12 +1127,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
-    moves_evaluated++;
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6
-            ? 1 + (alpha == beta - 1) + moves_evaluated / 13 + !improving
+        depth > 3 && moves_evaluated > 1
+            ? 1 + max(moves_evaluated / 13 + depth / 14 + (alpha == beta - 1) + !improving - min(max(move_history[pos->flipped][stack[ply].moves[move_index].takes_piece][stack[ply].moves[move_index].from][stack[ply].moves[move_index].to] / 256, -2), 2),
+              0)
             : 1;
 
     i32 score;
@@ -1170,6 +1186,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
     }
 
+    moves_evaluated++;
     if (stack[ply].moves[move_index].takes_piece == None) {
       quiets_evaluated++;
     }
@@ -1331,7 +1348,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(20, &nodes, &pos, stack, pos_history_count);
+  iteratively_deepen(25, &nodes, &pos, stack, pos_history_count);
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
