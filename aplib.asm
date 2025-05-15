@@ -14,13 +14,12 @@
 
 format ELF64
 
-; void aP_depack_asm(const void *source, void *destination)
-public aP_depack_asm
+; void decompress_aplib(void *destination, const void *source)
+public decompress_aplib
 
 section '.text'
-aP_depack_asm:
-    push   rbx
-    xchg   rdi, rsi
+decompress_aplib:
+    ; push   rbx ; Uncomment to preserve System V calling convention
 
     cld
     mov    dl, 0x80
@@ -119,7 +118,5 @@ getgamma_no_ecx:
     ret
 
 donedepacking:
-    pop    rbx
+    ; pop    rbx ; Uncomment to preserve System V calling convention
     ret
-
-; =============================================================
