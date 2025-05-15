@@ -5435,3 +5435,11 @@ Don't compute final size in aPLib
 MD5: 3fe3bf36db6ce87a3e007e5ec974bbc5
 
 Disable >32kb case in aPLib
+
+### 4.4
+
+64 bit: 3875 bytes (-5)
+
+MD5: e9015773d544c846f89bc17b05ea6004
+
+Smaller aPLib decompression
