@@ -6,11 +6,10 @@ __attribute__((section(".payload"),
                used)) unsigned char payload_decompressed[4096 * 2];
 
 // #include "aplib.h"
-void aP_depack_asm(const void *source, void *destination);
+void decompress_aplib(void *destination, const void* source);
 
 void _start() {
-  // decompress_aplib(payload_decompressed, payload_compressed);
-  aP_depack_asm(payload_compressed, payload_decompressed);
+  decompress_aplib(payload_decompressed, payload_compressed);
 
   __asm__ volatile("jmp " PAYLOAD_START);
 
