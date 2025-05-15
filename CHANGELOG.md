@@ -5660,3 +5660,11 @@ Score of 4k.c-4.13 vs 4ku-2.0: 413 - 340 - 247  [0.536] 1000
 ...      White vs Black: 503 - 250 - 247  [0.626] 1000
 Elo difference: 25.4 +/- 18.7, LOS: 99.6 %, DrawRatio: 24.7 %
 ```
+
+### 4.5
+
+64 bit: 4075 bytes (-5)
+
+MD5: 2d3ec66fc2c2b9ffcef9bec752d18000
+
+Smaller aPLib decompression
