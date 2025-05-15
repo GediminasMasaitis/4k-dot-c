@@ -15,11 +15,23 @@
 format ELF64
 
 ; void decompress_aplib(void *destination, const void *source)
-public decompress_aplib
+; public decompress_aplib
+
+public _start
+
+section '.rodata'
+payload_compressed:
+file 'build/4kc.ap'
+payload_compressed_end:
+
+section '.payload'
+payload_decompressed rb 8192
 
 section '.text'
-decompress_aplib:
-    ; push   rbx ; Uncomment to preserve System V calling convention
+
+_start:
+    mov    rdi, payload_decompressed
+    mov    rsi, payload_compressed
 
     cld
     mov    dl, 0x80
@@ -119,4 +131,5 @@ getgamma_no_ecx:
 
 donedepacking:
     ; pop    rbx ; Uncomment to preserve System V calling convention
+    push 0x4010de
     ret
