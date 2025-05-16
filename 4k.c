@@ -1077,11 +1077,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const i32 order_move_score =
-          ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
-           << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
-          (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              915 // KILLER MOVE
+          (move_equal(&tt_move, &stack[ply].moves[order_index]) << 30) // PREVIOUS BEST MOVE FIRST
+          + (stack[ply].moves[order_index].takes_piece != None) * 4096 // CAPTURES FIRST
+          + stack[ply].moves[order_index].takes_piece * 921 // MOST VALUABLE VICTIM
+          + move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) * 915 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
