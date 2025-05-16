@@ -1206,7 +1206,7 @@ static void iteratively_deepen(
     Position *const restrict pos, SearchStack *restrict stack,
     const i32 pos_history_count, const size_t max_time) {
   start_time = get_time();
-  static i32 move_history[2][6][64][64] = {0};
+  i32 move_history[2][6][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1251,7 +1251,7 @@ static void iteratively_deepen(
   }
 }
 
-enum { thread_count = 1 };
+enum { thread_count = 2 };
 enum { thread_stack_size = 8 * 1024 * 1024 };
 
 __attribute__((aligned(4096))) u8 thread_stacks[thread_count+1][thread_stack_size];
@@ -1337,7 +1337,7 @@ static void iteratively_deepen_smp_old(
 #include <pthread.h>
 
 static void* test(void* ptr){
-  printf("Thread %d created\n", *(int*)ptr);
+  //printf("Thread %d created\n", *(int*)ptr);
 
   struct stack_head* params = ptr;
 
@@ -1361,25 +1361,34 @@ static void iteratively_deepen_smp(
   Position* const restrict pos, SearchStack* restrict stack,
   const i32 pos_history_count, const size_t max_time) {
 
+  stop = false;
+
   static struct stack_head args[thread_count];
-  for (i32 i = 0; i < thread_count; i++)
+  pthread_t real_ids[thread_count];
+  for (i32 i = 1; i < thread_count; i++)
   {
     args[i].entry = NULL;
     args[i].thread_id = i;
     args[i].pos = *pos;
     args[i].pos_history_count = pos_history_count;
-    args[i].max_time = max_time;
+    args[i].max_time = 1 << 30;
     __builtin_memcpy(args[i].stack, stack, sizeof(SearchStack) * 1024);
 
-    pthread_t thread_id;
-    pthread_create(&thread_id, NULL, test, &args[i]);
+    pthread_create(&real_ids[i], NULL, test, &args[i]);
   }
 
-//  iteratively_deepen(
-//#ifdef FULL
-//  0, maxdepth, nodes,
-//#endif
-//  pos, stack, pos_history_count, max_time);
+  iteratively_deepen(
+  0,
+#ifdef FULL
+  maxdepth, nodes,
+#endif
+  pos, stack, pos_history_count, max_time);
+
+  stop = true;
+  for (i32 i = 1; i < thread_count; i++)
+  {
+    pthread_join(real_ids[i], NULL);
+  }
 }
 
 static void display_pos(Position *const pos) {
