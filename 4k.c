@@ -1251,12 +1251,12 @@ static void iteratively_deepen(
   }
 }
 
-enum { thread_count = 2 };
+enum { thread_count = 1 };
 enum { thread_stack_size = 8 * 1024 * 1024 };
 
 __attribute__((aligned(4096))) u8 thread_stacks[thread_count+1][thread_stack_size];
 
-struct __attribute((aligned(16))) stack_head {
+struct __attribute__((aligned(16))) stack_head {
   void (*entry)(struct stack_head*);
   int thread_id;
   Position pos;
@@ -1265,7 +1265,7 @@ struct __attribute((aligned(16))) stack_head {
   SearchStack stack[1024];
 };
 
-__attribute((naked)) static long newthread(struct stack_head* stack)
+__attribute__((naked)) static long newthread(struct stack_head* stack)
 {
   __asm volatile (
   "mov  %%rdi, %%rsi\n"     // arg2 = stack
@@ -1334,6 +1334,26 @@ static void iteratively_deepen_smp_old(
 //  stop = true;
 }
 
+#include <pthread.h>
+
+static void* test(void* ptr){
+  printf("Thread %d created\n", *(int*)ptr);
+
+  struct stack_head* params = ptr;
+
+  i32 maxdepth = max_ply;
+  u64 nodes = 0;
+  iteratively_deepen(
+    params->thread_id,
+#ifdef FULL
+    maxdepth, &nodes,
+#endif
+    &params->pos, params->stack, params->pos_history_count, params->max_time);
+
+  syscall(SYS_exit, 0);
+  return NULL;
+}
+
 static void iteratively_deepen_smp(
 #ifdef FULL
   i32 maxdepth, u64* nodes,
@@ -1341,11 +1361,25 @@ static void iteratively_deepen_smp(
   Position* const restrict pos, SearchStack* restrict stack,
   const i32 pos_history_count, const size_t max_time) {
 
-  iteratively_deepen(
-#ifdef FULL
-  0, maxdepth, nodes,
-#endif
-  pos, stack, pos_history_count, max_time);
+  static struct stack_head args[thread_count];
+  for (i32 i = 0; i < thread_count; i++)
+  {
+    args[i].entry = NULL;
+    args[i].thread_id = i;
+    args[i].pos = *pos;
+    args[i].pos_history_count = pos_history_count;
+    args[i].max_time = max_time;
+    __builtin_memcpy(args[i].stack, stack, sizeof(SearchStack) * 1024);
+
+    pthread_t thread_id;
+    pthread_create(&thread_id, NULL, test, &args[i]);
+  }
+
+//  iteratively_deepen(
+//#ifdef FULL
+//  0, maxdepth, nodes,
+//#endif
+//  pos, stack, pos_history_count, max_time);
 }
 
 static void display_pos(Position *const pos) {
