@@ -5451,3 +5451,29 @@ Smaller aPLib decompression
 MD5: 6d3cc7a1a1036752b581c5bfe6270591
 
 Smaller IIR
+
+### 4.6
+
+64 bit: 3867 bytes (+8)
+
+MD5: fbb81a25bc9f065b3978ad15a658c81d
+
+NMP depth adjust by depth
+
+```py
+Elo   | 9.73 +- 6.10 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6750 W: 2196 L: 2007 D: 2547
+Penta | [235, 737, 1295, 820, 288]
+https://gedas.pythonanywhere.com/test/861/
+```
+
+```py
+Elo   | 8.07 +- 5.29 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 7794 W: 2392 L: 2211 D: 3191
+Penta | [208, 877, 1581, 988, 243]
+https://gedas.pythonanywhere.com/test/862/
+```
