@@ -977,6 +977,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   assert(alpha < beta);
   assert(ply >= 0);
 
+  if (depth < 0) {
+    depth = 0;
+  }
+
   const bool in_check =
       is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
 
