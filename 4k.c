@@ -890,7 +890,7 @@ enum { mate = 30000, inf = 32000 };
 
 static size_t start_time;
 //static size_t max_time;
-static bool stop;
+static volatile bool stop;
 
 typedef struct [[nodiscard]] {
   i32 num_moves;
@@ -969,7 +969,7 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
-static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
+static i16 search(i32 thread_id, Position *const restrict pos, const i32 ply, i32 depth,
                   i32 alpha, const i32 beta,
 #ifdef FULL
                   u64 *nodes,
@@ -1053,7 +1053,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     Position npos = *pos;
     flip_pos(&npos);
     npos.ep = 0;
-    if (-search(&npos, ply + 1, depth - 4, -beta, -alpha,
+    if (-search(thread_id , &npos, ply + 1, depth - 4, -beta, -alpha,
 #ifdef FULL
                 nodes,
 #endif
@@ -1124,7 +1124,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     i32 score;
     while (true) {
-      score = -search(&npos, ply + 1, depth - reduction, low, -alpha,
+      score = -search(thread_id, &npos, ply + 1, depth - reduction, low, -alpha,
 #ifdef FULL
                       nodes,
 #endif
@@ -1189,11 +1189,13 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     return (ply - mate) * in_check;
   }
 
-  *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                        .move = stack[ply].best_move,
-                        .score = best_score,
-                        .depth = depth,
-                        .flag = tt_flag};
+  if (thread_id == 0) {
+    *tt_entry = (TTEntry){ .partial_hash = tt_hash_partial,
+                          .move = stack[ply].best_move,
+                          .score = best_score,
+                          .depth = depth,
+                          .flag = tt_flag };
+  }
 
   return best_score;
 }
@@ -1212,7 +1214,7 @@ static void iteratively_deepen(
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    i32 score = search(pos, 0, depth, -inf, inf,
+    i32 score = search(thread_id, pos, 0, depth, -inf, inf,
 #ifdef FULL
       nodes,
 #endif
@@ -1343,6 +1345,7 @@ static void* test(void* ptr){
 
   i32 maxdepth = max_ply;
   u64 nodes = 0;
+  //while (!stop) {}
   iteratively_deepen(
     params->thread_id,
 #ifdef FULL
