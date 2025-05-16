@@ -1199,8 +1199,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 }
 
 static void iteratively_deepen(
+  i32 thread_id,
 #ifdef FULL
-    i32 thread_id, i32 maxdepth, u64 *nodes,
+    i32 maxdepth, u64 *nodes,
 #endif
     Position *const restrict pos, SearchStack *restrict stack,
     const i32 pos_history_count, const size_t max_time) {
@@ -1300,7 +1301,7 @@ static void threadentry(struct stack_head* head)
 #endif
 }
 
-static void iteratively_deepen_smp(
+static void iteratively_deepen_smp_old(
 #ifdef FULL
   i32 maxdepth, u64* nodes,
 #endif
@@ -1331,8 +1332,20 @@ static void iteratively_deepen_smp(
 //  pos, stack, pos_history_count, max_time);
 //
 //  stop = true;
+}
 
+static void iteratively_deepen_smp(
+#ifdef FULL
+  i32 maxdepth, u64* nodes,
+#endif
+  Position* const restrict pos, SearchStack* restrict stack,
+  const i32 pos_history_count, const size_t max_time) {
 
+  iteratively_deepen(
+#ifdef FULL
+  0, maxdepth, nodes,
+#endif
+  pos, stack, pos_history_count, max_time);
 }
 
 static void display_pos(Position *const pos) {
