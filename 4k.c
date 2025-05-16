@@ -1012,9 +1012,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         tt_entry->flag != tt_entry->score <= alpha) {
       return tt_entry->score;
     }
-  } else {
+  } else if (depth > 3) {
+
     // INTERNAL ITERATIVE REDUCTION
-    depth -= depth > 3;
+    depth--;
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT

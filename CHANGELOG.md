@@ -5443,3 +5443,11 @@ Disable >32kb case in aPLib
 MD5: e9015773d544c846f89bc17b05ea6004
 
 Smaller aPLib decompression
+
+### 4.5
+
+64 bit: 3859 bytes (-16)
+
+MD5: 6d3cc7a1a1036752b581c5bfe6270591
+
+Smaller IIR
