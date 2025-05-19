@@ -1079,9 +1079,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
+          + (i32)stack[ply].moves[order_index].takes_piece * 2048 +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              915 // KILLER MOVE
+              2048 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
@@ -1157,12 +1157,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         i32 *const this_hist =
             &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                          [stack[ply].best_move.from][stack[ply].best_move.to];
-        *this_hist += depth * depth - depth * depth * *this_hist / 1024;
+        *this_hist += depth * depth - depth * depth * *this_hist / 4096;
         for (i32 prev_index = 0; prev_index < move_index; prev_index++) {
           const Move prev = stack[ply].moves[prev_index];
           i32 *const prev_hist =
               &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
-          *prev_hist -= depth * depth + depth * depth * *prev_hist / 1024;
+          *prev_hist -= depth * depth + depth * depth * *prev_hist / 4096;
         }
         if (stack[ply].best_move.takes_piece == None) {
           stack[ply].killer = stack[ply].best_move;
