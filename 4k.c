@@ -811,15 +811,15 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   80,  309, 290,
+__attribute__((aligned(8))) static const i16 material[] = {0,   96,  309, 290,
                                                            471, 935, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -13, -14, -13, -1, 40, 117, 0,   // Pawn
-    -35, -19, 0,   15,  26, 28, 9,   -25, // Knight
-    -13, -4,  2,   3,   7,  10, 0,   -6,  // Bishop
-    -9,  -16, -17, -9,  5,  14, 19,  13,  // Rook
-    -4,  -2,  -2,  -2,  3,  8,  -1,  1,   // Queen
-    -25, -8,  -1,  10,  22, 29, 19,  -20, // King
+    0,   -29, -30, -29, -17, 24, 82, 0,   // Pawn
+    -35, -19, 0,   15,  26,  28, 9,  -25, // Knight
+    -13, -4,  2,   3,   7,   10, 0,  -6,  // Bishop
+    -9,  -16, -17, -9,  5,   14, 19, 13,  // Rook
+    -4,  -2,  -2,  -2,  3,   8,  -1, 1,   // Queen
+    -25, -8,  -1,  10,  22,  29, 19, -20, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
     -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
