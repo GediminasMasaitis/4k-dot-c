@@ -1079,7 +1079,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
+          + material[stack[ply].moves[order_index].takes_piece] +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
               915 // KILLER MOVE
           +
