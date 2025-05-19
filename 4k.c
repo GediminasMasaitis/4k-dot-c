@@ -814,12 +814,12 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 __attribute__((aligned(8))) static const i16 material[] = {0,   80,  309, 290,
                                                            471, 935, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -13, -14, -13, -1, 40, 112, 0,   // Pawn
+    0,   -13, -14, -13, -1, 40, 110, 0,   // Pawn
     -35, -19, 0,   15,  26, 28, 9,   -25, // Knight
     -13, -4,  2,   3,   7,  10, 0,   -6,  // Bishop
     -9,  -16, -17, -9,  5,  14, 19,  13,  // Rook
     -4,  -2,  -2,  -2,  3,  8,  -1,  1,   // Queen
-    -24, -8,  0,   11,  23, 29, 20,  -20, // King
+    -25, -8,  -1,  10,  22, 29, 19,  -20, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
     -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
@@ -827,7 +827,7 @@ __attribute__((aligned(8))) static const i8 pst_file[] = {
     -8,  1,  2,  2,  3,  -1, 4,  -4,  // Bishop
     -2,  0,  4,  5,  4,  6,  -3, -14, // Rook
     -14, -6, 2,  6,  5,  2,  3,  1,   // Queen
-    -19, 8,  7,  7,  4,  3,  9,  -15, // King
+    -18, 9,  8,  8,  6,  5,  10, -14, // King
 };
 __attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
 __attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  3,
