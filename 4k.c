@@ -1051,7 +1051,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     Position npos = *pos;
     flip_pos(&npos);
     npos.ep = 0;
-    if (-search(&npos, ply + 1, depth - 3 - depth / 4, -beta, -alpha,
+    if (-search(&npos, ply + 1, depth - 4 - depth / 4, -beta, -alpha,
 #ifdef FULL
                 nodes,
 #endif
