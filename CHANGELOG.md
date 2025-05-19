@@ -5551,3 +5551,11 @@ Games | N: 22066 W: 6576 L: 6321 D: 9169
 Penta | [672, 2539, 4409, 2688, 725]
 https://gedas.pythonanywhere.com/test/864/
 ```
+
+### 4.8
+
+64 bit: 3859 bytes (-8)
+
+MD5: 0af4fc7cf0aa92d88c49552c8ed9defe
+
+Precompute history bonus
