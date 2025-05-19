@@ -811,33 +811,33 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
-__attribute__((aligned(8))) static const i16 material[] = {0,   96,  309, 290,
-                                                           471, 935, 0};
+__attribute__((aligned(8))) static const i16 material[] = {0,   123,  396, 372,
+                                                           605, 1202, 0};
 __attribute__((aligned(8))) static const i8 pst_rank[] = {
-    0,   -29, -30, -29, -17, 24, 82, 0,   // Pawn
-    -35, -19, 0,   15,  26,  28, 9,  -25, // Knight
-    -13, -4,  2,   3,   7,   10, 0,  -6,  // Bishop
-    -9,  -16, -17, -9,  5,   14, 19, 13,  // Rook
-    -4,  -2,  -2,  -2,  3,   8,  -1, 1,   // Queen
-    -25, -8,  -1,  10,  22,  29, 19, -20, // King
+    0,   -37, -38, -38, -22, 31, 105, 0,   // Pawn
+    -45, -25, 0,   20,  34,  36, 11,  -32, // Knight
+    -17, -4,  3,   4,   9,   13, 0,   -7,  // Bishop
+    -11, -21, -21, -11, 7,   18, 24,  16,  // Rook
+    -5,  -2,  -3,  -2,  3,   10, -2,  1,   // Queen
+    -33, -11, -1,  13,  28,  36, 24,  -27, // King
 };
 __attribute__((aligned(8))) static const i8 pst_file[] = {
-    -2,  3,  -4, -2, 0,  4,  9,  -9,  // Pawn
-    -28, -7, 7,  17, 15, 13, 0,  -16, // Knight
-    -8,  1,  2,  2,  3,  -1, 4,  -4,  // Bishop
-    -2,  0,  4,  5,  4,  6,  -3, -14, // Rook
-    -14, -6, 2,  6,  5,  2,  3,  1,   // Queen
-    -19, 8,  7,  7,  4,  3,  9,  -15, // King
+    -2,  4,  -6, -2, 0,  6,  12, -12, // Pawn
+    -36, -9, 9,  21, 19, 17, 0,  -20, // Knight
+    -10, 2,  3,  2,  4,  -2, 5,  -5,  // Bishop
+    -3,  0,  5,  6,  5,  8,  -4, -17, // Rook
+    -18, -8, 3,  7,  7,  3,  4,  1,   // Queen
+    -24, 10, 9,  9,  6,  4,  12, -20, // King
 };
-__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 4, 2, 2, -4};
-__attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  3,
-                                                              1, 14, 0};
-__attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
-                                                            20, 2,   -6};
-const i8 bishop_pair = 38;
+__attribute__((aligned(8))) static const i8 mobilities[] = {0, 0, 6, 3, 2, -5};
+__attribute__((aligned(8))) static const i8 king_attacks[] = {0, 0,  4,
+                                                              2, 18, 0};
+__attribute__((aligned(8))) static const i8 open_files[] = {35, -13, -5,
+                                                            25, 3,   -7};
+const i8 bishop_pair = 49;
 
 static i32 eval(Position *const restrict pos) {
-  i32 score = 16;
+  i32 score = 20;
   for (i32 c = 0; c < 2; c++) {
 
     // BISHOP PAIR
@@ -1037,12 +1037,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
     // REVERSE FUTILITY PRUNING
-    if (static_eval - 47 * depth >= beta) {
+    if (static_eval - 61 * depth >= beta) {
       return static_eval;
     }
 
     // RAZORING
-    in_qsearch = static_eval + 131 * depth <= alpha;
+    in_qsearch = static_eval + 168 * depth <= alpha;
   }
 
   // NULL MOVE PRUNING
@@ -1095,7 +1095,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (depth < 8 && !in_check && moves_evaluated &&
-        static_eval + 128 * depth +
+        static_eval + 164 * depth +
                 material[stack[ply].moves[move_index].takes_piece] +
                 material[stack[ply].moves[move_index].promo] <
             alpha) {
