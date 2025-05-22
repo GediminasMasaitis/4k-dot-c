@@ -1041,8 +1041,16 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       return static_eval;
     }
 
-    // RAZORING
-    in_qsearch = static_eval + 131 * depth <= alpha;
+
+    if (static_eval + 131 * depth <= alpha)
+    {
+      // RAZORING
+      return search(pos, ply, 0, alpha, beta,
+#ifdef FULL
+        nodes,
+#endif
+        stack, pos_history_count, do_null);
+    }
   }
 
   // NULL MOVE PRUNING
