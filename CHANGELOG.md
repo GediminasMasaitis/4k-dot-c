@@ -5559,3 +5559,12 @@ https://gedas.pythonanywhere.com/test/864/
 MD5: 0af4fc7cf0aa92d88c49552c8ed9defe
 
 Precompute history bonus
+
+
+### 4.9
+
+64 bit: 3859 bytes (=)
+
+MD5: 8c6cd27785a29f5f1390685ec56780bc
+
+Dedicated puts function

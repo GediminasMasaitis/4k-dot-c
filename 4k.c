@@ -90,6 +90,11 @@ static void putl(const char *const restrict string) {
   }
 }
 
+static void puts(const char* const restrict string) {
+  putl(string);
+  putl("\n");
+}
+
 // Non-standard, gets but a word instead of a line
 static bool getl(char *restrict string) {
   while (true) {
@@ -210,7 +215,7 @@ typedef struct [[nodiscard]] {
 #define assert(condition)                                                      \
   if (!(condition)) {                                                          \
     printf("Assert failed on line %i: ", __LINE__);                            \
-    putl(#condition "\n");                                                     \
+    puts(#condition);                                                          \
     _sys(60, 1, 0, 0);                                                         \
   }
 #else
@@ -1227,8 +1232,7 @@ static void iteratively_deepen(
     putl(" pv ");
     char move_name[8];
     move_str(move_name, &stack[0].best_move, pos->flipped);
-    putl(move_name);
-    putl("\n");
+    puts(move_name);
 #endif
 
     if (elapsed > max_time / 16) {
@@ -1238,8 +1242,7 @@ static void iteratively_deepen(
   char move_name[8];
   move_str(move_name, &stack[0].best_move, pos->flipped);
   putl("bestmove ");
-  putl(move_name);
-  putl("\n");
+  puts(move_name);
 }
 
 static void display_pos(Position *const pos) {
@@ -1365,7 +1368,7 @@ static void run() {
 #ifndef FULL
   // Assume first input is "uci"
   getl(line);
-  putl("uciok\n");
+  puts("uciok");
 #endif
 
   // UCI loop
@@ -1374,12 +1377,12 @@ static void run() {
 #ifdef FULL
     u64 nodes = 0;
     if (!strcmp(line, "uci")) {
-      putl("id name 4k.c\n");
-      putl("id author Gediminas Masaitis\n");
-      putl("\n");
-      putl("option name Hash type spin default 1 min 1 max 1\n");
-      putl("option name Threads type spin default 1 min 1 max 1\n");
-      putl("uciok\n");
+      puts("id name 4k.c");
+      puts("id author Gediminas Masaitis");
+      puts("");
+      puts("option name Hash type spin default 1 min 1 max 1");
+      puts("option name Threads type spin default 1 min 1 max 1");
+      puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
       __builtin_memset(move_history, 0, sizeof(move_history));
@@ -1406,7 +1409,7 @@ static void run() {
     if (line[0] == 'q') {
       exit_now();
     } else if (line[0] == 'i') {
-      putl("readyok\n");
+      puts("readyok");
     } else if (line[0] == 'p') {
       pos = start_pos;
       pos_history_count = 0;
