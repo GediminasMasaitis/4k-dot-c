@@ -977,7 +977,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                   u64 *nodes,
 #endif
-                  SearchStack *restrict stack, const i32 pos_history_count,
+                  SearchStack *stack, const i32 pos_history_count,
                   const bool do_null) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -999,7 +999,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
-  for (i32 i = pos_history_count + ply; i > 0 && do_null; i -= 2) {
+  for (i32 i = pos_history_count; i > -ply && do_null; i -= 2) {
     if (tt_hash == stack[i].position_hash) {
       return 0;
     }
@@ -1025,8 +1025,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   i32 static_eval = eval(pos);
-  stack[ply].static_eval = static_eval;
-  const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
+  stack->static_eval = static_eval;
+  const bool improving = ply > 1 && static_eval > stack[-2].static_eval;
   if (tt_entry->flag != static_eval > tt_entry->score &&
       tt_entry->partial_hash == tt_hash_partial) {
     static_eval = tt_entry->score;
@@ -1061,51 +1061,49 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                   nodes,
 #endif
-                  stack, pos_history_count, false);
+                  stack + 1, pos_history_count, false);
       if (score >= beta) {
         return score;
       }
     }
   }
 
-  stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
-  stack[ply].best_move = tt_move;
-  stack[pos_history_count + ply + 2].position_hash = tt_hash;
+  stack->num_moves = movegen(pos, stack->moves, in_qsearch);
+  stack->best_move = tt_move;
+  stack[pos_history_count + 2].position_hash = tt_hash;
   i32 moves_evaluated = 0;
   i32 quiets_evaluated = 0;
   u8 tt_flag = Upper;
   i32 best_score = in_qsearch ? static_eval : -inf;
 
-  for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
+  for (i32 move_index = 0; move_index < stack->num_moves; move_index++) {
     i32 move_score = ~0x1010101LL; // Ends up as large negative
 
     // MOVE ORDERING
-    for (i32 order_index = move_index; order_index < stack[ply].num_moves;
+    for (i32 order_index = move_index; order_index < stack->num_moves;
          order_index++) {
-      assert(stack[ply].moves[order_index].takes_piece ==
-             piece_on(pos, stack[ply].moves[order_index].to));
+      assert(stack->moves[order_index].takes_piece ==
+             piece_on(pos, stack->moves[order_index].to));
       const i32 order_move_score =
-          ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
+          (move_equal(&tt_move, &stack->moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
-          (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              915 // KILLER MOVE
-          +
-          move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
-                      [stack[ply].moves[order_index].from]
-                      [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
+          + stack->moves[order_index].takes_piece * 921 // MOST VALUABLE VICTIM
+          + move_equal(&stack->killer, &stack->moves[order_index]) *
+                915 // KILLER MOVE
+          + move_history[pos->flipped][stack->moves[order_index].takes_piece]
+                        [stack->moves[order_index].from]
+                        [stack->moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
         move_score = order_move_score;
-        swapmoves(&stack[ply].moves[move_index],
-                  &stack[ply].moves[order_index]);
+        swapmoves(&stack->moves[move_index], &stack->moves[order_index]);
       }
     }
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (depth < 8 && !in_check && moves_evaluated &&
         static_eval + 128 * depth +
-                material[stack[ply].moves[move_index].takes_piece] +
-                material[stack[ply].moves[move_index].promo] <
+                material[stack->moves[move_index].takes_piece] +
+                material[stack->moves[move_index].promo] <
             alpha) {
       break;
     }
@@ -1114,7 +1112,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
     (*nodes)++;
 #endif
-    if (!makemove(&npos, &stack[ply].moves[move_index])) {
+    if (!makemove(&npos, &stack->moves[move_index])) {
       continue;
     }
 
@@ -1134,7 +1132,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #ifdef FULL
                       nodes,
 #endif
-                      stack, pos_history_count, true);
+                      stack + 1, pos_history_count, true);
 
       if (score > alpha) {
         if (reduction != 1) {
@@ -1155,32 +1153,32 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     if (score > alpha) {
-      stack[ply].best_move = stack[ply].moves[move_index];
+      stack->best_move = stack->moves[move_index];
       alpha = score;
       tt_flag = Exact;
       if (score >= beta) {
         tt_flag = Lower;
-        assert(stack[ply].best_move.takes_piece ==
-               piece_on(pos, stack[ply].best_move.to));
+        assert(stack->best_move.takes_piece ==
+               piece_on(pos, stack->best_move.to));
         i32 *const this_hist =
-            &move_history[pos->flipped][stack[ply].best_move.takes_piece]
-                         [stack[ply].best_move.from][stack[ply].best_move.to];
+            &move_history[pos->flipped][stack->best_move.takes_piece]
+                         [stack->best_move.from][stack->best_move.to];
         const i32 bonus = depth * depth;
         *this_hist += bonus - bonus * *this_hist / 1024;
         for (i32 prev_index = 0; prev_index < move_index; prev_index++) {
-          const Move prev = stack[ply].moves[prev_index];
+          const Move prev = stack->moves[prev_index];
           i32 *const prev_hist =
               &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
           *prev_hist -= bonus + bonus * *prev_hist / 1024;
         }
-        if (stack[ply].best_move.takes_piece == None) {
-          stack[ply].killer = stack[ply].best_move;
+        if (stack->best_move.takes_piece == None) {
+          stack->killer = stack->best_move;
         }
         break;
       }
     }
 
-    if (stack[ply].moves[move_index].takes_piece == None) {
+    if (stack->moves[move_index].takes_piece == None) {
       quiets_evaluated++;
     }
 
@@ -1197,7 +1195,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                        .move = stack[ply].best_move,
+                        .move = stack->best_move,
                         .score = best_score,
                         .depth = depth,
                         .flag = tt_flag};
