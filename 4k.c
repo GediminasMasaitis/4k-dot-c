@@ -851,6 +851,9 @@ static i32 eval(Position *const restrict pos) {
     }
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
+    const u64 opp_pawns = pos->colour[1] & pos->pieces[Pawn];
+    const u64 opp_pawn_attacked = sw(opp_pawns) | se(opp_pawns);
+
     const u64 opp_king_zone = king(lsb(pos->colour[1] & pos->pieces[King]));
 
     for (i32 p = Pawn; p <= King; p++) {
@@ -875,7 +878,7 @@ static i32 eval(Position *const restrict pos) {
 
         // MOBILITY
         const u64 mobility = get_mobility(sq, p, pos);
-        score += mobilities[p - 1] * count(mobility & ~pos->colour[0]);
+        score += mobilities[p - 1] * count(mobility & ~pos->colour[0] & ~opp_pawn_attacked);
 
         // KING ATTACKS
         score += king_attacks[p - 1] * count(mobility & opp_king_zone);
