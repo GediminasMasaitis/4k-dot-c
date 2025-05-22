@@ -5568,3 +5568,29 @@ Precompute history bonus
 MD5: 8c6cd27785a29f5f1390685ec56780bc
 
 Dedicated puts function
+
+### 4.10
+
+64 bit: 3851 bytes (-8)
+
+MD5: dd7b586f9eed482ae08f22fc43f059a7
+
+Null move pruning fail soft
+
+```py
+Elo   | 0.66 +- 3.43 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 20954 W: 6393 L: 6353 D: 8208
+Penta | [777, 2432, 4015, 2480, 773]
+https://gedas.pythonanywhere.com/test/888/
+```
+
+```py
+Elo   | 5.24 +- 5.66 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 7164 W: 2138 L: 2030 D: 2996
+Penta | [213, 838, 1402, 886, 243]
+https://gedas.pythonanywhere.com/test/890/
+```

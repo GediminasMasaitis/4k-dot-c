@@ -90,7 +90,7 @@ static void putl(const char *const restrict string) {
   }
 }
 
-static void puts(const char* const restrict string) {
+static void puts(const char *const restrict string) {
   putl(string);
   putl("\n");
 }
@@ -1056,12 +1056,14 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     Position npos = *pos;
     flip_pos(&npos);
     npos.ep = 0;
-    if (-search(&npos, ply + 1, depth - 3 - depth / 4, -beta, -alpha,
+    const i32 score =
+        -search(&npos, ply + 1, depth - 3 - depth / 4, -beta, -alpha,
 #ifdef FULL
                 nodes,
 #endif
-                stack, pos_history_count, false) >= beta) {
-      return beta;
+                stack, pos_history_count, false);
+    if (score >= beta) {
+      return score;
     }
   }
 
