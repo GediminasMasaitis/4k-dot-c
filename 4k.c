@@ -1052,7 +1052,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // NULL MOVE PRUNING
-    if (do_null && depth > 2 && static_eval >= beta) {
+    if (do_null && depth > 2 && static_eval >= beta && static_eval >= stack[ply].static_eval) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
