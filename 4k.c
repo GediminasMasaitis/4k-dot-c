@@ -1025,12 +1025,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   i32 static_eval = eval(pos);
-  stack[ply].static_eval = static_eval;
-  const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (tt_entry->flag != static_eval > tt_entry->score &&
       tt_entry->partial_hash == tt_hash_partial) {
     static_eval = tt_entry->score;
   }
+  stack[ply].static_eval = static_eval;
+  const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
 
   // QUIESCENCE
   if (in_qsearch && static_eval > alpha) {
