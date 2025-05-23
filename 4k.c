@@ -889,7 +889,7 @@ static i32 eval(Position *const restrict pos) {
 }
 
 enum { max_ply = 96 };
-enum { mate = 30000, inf = 32000 };
+enum { mateish = 28000, mate = 30000, inf = 32000 };
 
 static size_t start_time;
 static size_t max_time;
@@ -1063,7 +1063,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 #endif
                   stack, pos_history_count, false);
       if (score >= beta) {
-        return score;
+        return score < mateish ? score : beta;
       }
     }
   }
