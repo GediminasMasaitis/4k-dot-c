@@ -841,6 +841,8 @@ __attribute__((aligned(8))) static const i8 open_files[] = {27, -10, -4,
                                                             20, 2,   -6};
 const i8 bishop_pair = 38;
 
+#define G(a, b) b
+
 static i32 eval(Position *const restrict pos) {
   i32 score = 16;
   for (i32 c = 0; c < 2; c++) {
@@ -1040,15 +1042,17 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_check && alpha == beta - 1) {
+  if (G(1, !in_check) && G(1, alpha == beta - 1)) {
     if (!in_qsearch && depth < 8) {
-      // REVERSE FUTILITY PRUNING
-      if (static_eval - 47 * depth >= beta) {
-        return static_eval;
-      }
-
       // RAZORING
-      in_qsearch = static_eval + 131 * depth <= alpha;
+      G(2, {
+        if (static_eval - 47 * depth >= beta) {
+          return static_eval;
+        }
+      })
+
+      // REVERSE FUTILITY PRUNING
+      G(2, in_qsearch = static_eval + 131 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
