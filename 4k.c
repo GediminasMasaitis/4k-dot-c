@@ -1040,7 +1040,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_check && alpha == beta - 1) {
+  if (do_null && alpha == beta - 1 && !in_check) {
     if (!in_qsearch && depth < 8) {
       // REVERSE FUTILITY PRUNING
       if (static_eval - 47 * depth >= beta) {
@@ -1052,7 +1052,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // NULL MOVE PRUNING
-    if (do_null && depth > 2 && static_eval >= beta) {
+    if (depth > 2 && static_eval >= beta) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
