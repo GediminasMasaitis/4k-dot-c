@@ -5780,3 +5780,11 @@ Games | N: 2484 W: 856 L: 690 D: 938
 Penta | [77, 243, 485, 311, 126]
 https://gedas.pythonanywhere.com/test/936/
 ```
+
+### 4.21
+
+64 bit: 4090 bytes (-37)
+
+MD5: dcec0c6eba7b16e436e17c3bddf7b25f
+
+Automatic code reordering
