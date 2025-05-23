@@ -36,10 +36,10 @@ SECTIONS
 	data = . ;                      /* Current location (data start) */
 	.data (data + pos) : AT(data)   /* Data section at memory + file offset */
 	{
+		*(.text) *(.text.*)        /* Include .text sections */
 		*(.rodata) *(.rodata.*)    /* Include .rodata sections */
 		*(.data) *(.data.*)        /* Include .data sections */
 		*(.bss) *(.bss.*)          /* Include .bss sections */
-		*(.text) *(.text.*)        /* Include .text sections */
 	}
 
 	filesize = . - pos ;           /* Current location (end of file) */

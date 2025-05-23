@@ -5578,6 +5578,30 @@ MD5: dd7b586f9eed482ae08f22fc43f059a7
 Null move pruning fail soft
 
 ```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 24 time 1 nodes 214 nps 214000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 420 nps 420000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 902 nps 902000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1577 nps 788500 pv b1c3
+info depth 7 score cp 16 time 4 nodes 3386 nps 846500 pv b1c3
+info depth 8 score cp 16 time 7 nodes 6474 nps 924857 pv b1c3
+info depth 9 score cp 4 time 19 nodes 20075 nps 1056578 pv b1c3
+info depth 10 score cp 23 time 42 nodes 57329 nps 1364976 pv b1c3
+info depth 11 score cp 9 time 64 nodes 99862 nps 1560343 pv b1c3
+info depth 12 score cp 25 time 90 nodes 155228 nps 1724755 pv b1c3
+info depth 13 score cp 19 time 330 nodes 735077 nps 2227506 pv e2e4
+info depth 14 score cp 13 time 526 nodes 1223716 nps 2326456 pv e2e4
+info depth 15 score cp 17 time 694 nodes 1652678 nps 2381380 pv e2e4
+info depth 16 score cp 17 time 1054 nodes 2564397 nps 2433014 pv e2e4
+info depth 17 score cp 22 time 1572 nodes 3911765 nps 2488400 pv e2e4
+info depth 18 score cp 22 time 2350 nodes 5963640 nps 2537719 pv e2e4
+info depth 19 score cp 24 time 3459 nodes 8798707 nps 2543714 pv e2e4
+bestmove e2e4
+8798707 nodes 2543714 nps
+```
+
+```py
 Elo   | 0.66 +- 3.43 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
@@ -5610,3 +5634,11 @@ Smaller pruning code
 MD5: 3cfc03375747e48a50339d024de80928
 
 No padding for compressed payload
+
+### 4.13
+
+64 bit: 3833 bytes (-2)
+
+MD5: 214a90d70f5d2b8f8c2a1601c5da3cbe
+
+Remove padding fill for loader
