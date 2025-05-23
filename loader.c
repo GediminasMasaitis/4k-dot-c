@@ -1,4 +1,4 @@
-const unsigned char payload_compressed[] = {
+__attribute__((aligned(1))) const unsigned char payload_compressed[] = {
 #embed "./build/4kc.ap"
 };
 

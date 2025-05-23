@@ -5602,3 +5602,11 @@ https://gedas.pythonanywhere.com/test/890/
 MD5: 7b26ebe7dab289a4f9ddc0e9d4a04664
 
 Smaller pruning code
+
+### 4.12
+
+64 bit: 3835 bytes (-8)
+
+MD5: 3cfc03375747e48a50339d024de80928
+
+No padding for compressed payload
