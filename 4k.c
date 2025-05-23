@@ -908,6 +908,8 @@ __attribute__((aligned(8))) static const i16 max_material[] = {0,   88,  318,
                                                                299, 541, 978};
 __attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
 
+#define G(a, b) b
+
 static i32 eval(Position *const restrict pos) {
   i32 score = eval_params.tempo;
   i32 phase = 0;
@@ -1117,15 +1119,17 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_check && alpha == beta - 1) {
+  if (G(1, !in_check) && G(1, alpha == beta - 1)) {
     if (!in_qsearch && depth < 8) {
-      // REVERSE FUTILITY PRUNING
-      if (static_eval - 47 * depth >= beta) {
-        return static_eval;
-      }
-
       // RAZORING
-      in_qsearch = static_eval + 131 * depth <= alpha;
+      G(2, {
+        if (static_eval - 47 * depth >= beta) {
+          return static_eval;
+        }
+      })
+
+      // REVERSE FUTILITY PRUNING
+      G(2, in_qsearch = static_eval + 131 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
