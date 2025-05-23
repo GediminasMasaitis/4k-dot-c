@@ -1198,7 +1198,7 @@ static i16 search(i32 thread_id, Position *const restrict pos, const i32 ply, i3
     return (ply - mate) * in_check;
   }
 
-  if (thread_id == 0) {
+  /*if (thread_id == 0)*/ {
     *tt_entry = (TTEntry){ .partial_hash = tt_hash_partial,
                           .move = stack[ply].best_move,
                           .score = best_score,
@@ -1216,7 +1216,6 @@ static void iteratively_deepen(
 #endif
     Position *const restrict pos, SearchStack *restrict stack,
     const i32 pos_history_count, const size_t max_time) {
-  start_time = get_time();
   i32 move_history[2][6][64][64] = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -1371,6 +1370,7 @@ static void iteratively_deepen_smp(
   Position* const restrict pos, SearchStack* restrict stack,
   const i32 pos_history_count, const size_t max_time) {
 
+  start_time = get_time();
   stop = false;
 
   static struct stack_head args[thread_count];
