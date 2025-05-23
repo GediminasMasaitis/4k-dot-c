@@ -1439,7 +1439,7 @@ static void run() {
           if (move_string_equal(line, move_name)) {
             stack[pos_history_count].position_hash = get_hash(&pos);
             pos_history_count++;
-            if (stack[0].moves[i].takes_piece != None) {
+            if (piece_on(&pos, stack[0].moves[i].from) == Pawn || stack[0].moves[i].takes_piece != None) {
               pos_history_count = 0;
             }
             makemove(&pos, &stack[0].moves[i]);
