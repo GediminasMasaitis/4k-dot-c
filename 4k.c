@@ -1040,30 +1040,31 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_qsearch && depth < 8 && alpha == beta - 1 && !in_check) {
-    // REVERSE FUTILITY PRUNING
-    if (static_eval - 47 * depth >= beta) {
-      return static_eval;
+  if (!in_check && alpha == beta - 1) {
+    if (!in_qsearch && depth < 8) {
+      // REVERSE FUTILITY PRUNING
+      if (static_eval - 47 * depth >= beta) {
+        return static_eval;
+      }
+
+      // RAZORING
+      in_qsearch = static_eval + 131 * depth <= alpha;
     }
 
-    // RAZORING
-    in_qsearch = static_eval + 131 * depth <= alpha;
-  }
-
-  // NULL MOVE PRUNING
-  if (depth > 2 && do_null && static_eval >= beta && alpha == beta - 1 &&
-      !in_check) {
-    Position npos = *pos;
-    flip_pos(&npos);
-    npos.ep = 0;
-    const i32 score =
-        -search(&npos, ply + 1, depth - 3 - depth / 4, -beta, -alpha,
+    // NULL MOVE PRUNING
+    if (do_null && depth > 2 && static_eval >= beta) {
+      Position npos = *pos;
+      flip_pos(&npos);
+      npos.ep = 0;
+      const i32 score =
+          -search(&npos, ply + 1, depth - 3 - depth / 4, -beta, -alpha,
 #ifdef FULL
-                nodes,
+                  nodes,
 #endif
-                stack, pos_history_count, false);
-    if (score >= beta) {
-      return score;
+                  stack, pos_history_count, false);
+      if (score >= beta) {
+        return score;
+      }
     }
   }
 

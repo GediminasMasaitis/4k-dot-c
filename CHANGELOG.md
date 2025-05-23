@@ -5594,3 +5594,11 @@ Games | N: 7164 W: 2138 L: 2030 D: 2996
 Penta | [213, 838, 1402, 886, 243]
 https://gedas.pythonanywhere.com/test/890/
 ```
+
+### 4.11
+
+64 bit: 3843 bytes (-8)
+
+MD5: 7b26ebe7dab289a4f9ddc0e9d4a04664
+
+Smaller pruning code
