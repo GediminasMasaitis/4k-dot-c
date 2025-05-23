@@ -5610,3 +5610,11 @@ Smaller pruning code
 MD5: 3cfc03375747e48a50339d024de80928
 
 No padding for compressed payload
+
+### 4.13
+
+64 bit: 3833 bytes (-2)
+
+MD5: 214a90d70f5d2b8f8c2a1601c5da3cbe
+
+Remove padding fill for loader
