@@ -969,7 +969,13 @@ static i32 eval(Position *const restrict pos) {
     score = -score;
   }
 
-  return ((short)score * phase + ((score + 0x8000) >> 16) * (24 - phase)) / 24;
+  const i32 stronger_side_pawns_missing =
+      8 - count(pos->colour[score < 0] & pos->pieces[Pawn]);
+  return ((i16)score * phase + (score + 0x8000 >> 16) *
+                                   (128 - stronger_side_pawns_missing *
+                                              stronger_side_pawns_missing) /
+                                   128 * (24 - phase)) /
+         24;
 }
 
 enum { max_ply = 96 };
