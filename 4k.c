@@ -813,9 +813,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   i8 pst_rank[64];
   i8 pst_file[64];
-  i8 mobilities[64];
-  i8 king_attacks[64];
-  i8 open_files[64];
+  i8 mobilities[6];
+  i8 king_attacks[6];
+  i8 open_files[6];
   i8 bishop_pair;
   i8 tempo;
 } EvalParams;
@@ -824,9 +824,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   i32 pst_rank[64];
   i32 pst_file[64];
-  i32 mobilities[64];
-  i32 king_attacks[64];
-  i32 open_files[64];
+  i32 mobilities[6];
+  i32 king_attacks[6];
+  i32 open_files[6];
   i32 bishop_pair;
   i32 tempo;
 } EvalParamsMerged;

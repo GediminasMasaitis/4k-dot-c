@@ -5687,3 +5687,11 @@ Games | N: 706 W: 337 L: 166 D: 203
 Penta | [13, 35, 139, 100, 66]
 https://gedas.pythonanywhere.com/test/908/
 ```
+
+### 4.15
+
+64 bit: 4053 bytes (-15)
+
+MD5: 227ffa9ef8c6ab06ec17f4ad04f61d5b
+
+Smaller eval structs
