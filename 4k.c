@@ -813,8 +813,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   i8 pst_rank[64];
   i8 pst_file[64];
-  i8 mobilities[6];
-  i8 king_attacks[6];
+  i8 mobilities[4];
+  i8 king_attacks[4];
   i8 open_files[6];
   i8 bishop_pair;
   i8 tempo;
@@ -824,8 +824,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   i32 pst_rank[64];
   i32 pst_file[64];
-  i32 mobilities[6];
-  i32 king_attacks[6];
+  i32 mobilities[4];
+  i32 king_attacks[4];
   i32 open_files[6];
   i32 bishop_pair;
   i32 tempo;
@@ -851,8 +851,8 @@ static const EvalParams mg =
                          -9,  -6, -1, 1,   2,   0,   7,  7,   // Queen
                          -22, 25, -2, -46, -17, -35, 19, -4   // King
                      },
-                 .mobilities = {0, 0, 4, 2, 2, -11},
-                 .king_attacks = {0, 0, 14, 19, 15, 0},
+                 .mobilities = {4, 2, 2, -11},
+                 .king_attacks = {14, 19, 15, 0},
                  .open_files = {23, -14, -10, 19, -3, -31},
                  .bishop_pair = 24,
                  .tempo = 16};
@@ -877,8 +877,8 @@ static const EvalParams eg =
                          -18, -4, 3,  9,  12, 10, -4, -9,  // Queen
                          -15, -2, 9,  20, 15, 18, 0,  -23  // King
                      },
-                 .mobilities = {0, 0, 5, 2, 1, 0},
-                 .king_attacks = {0, 0, -3, -6, 5, 0},
+                 .mobilities = {5, 2, 1, 0},
+                 .king_attacks = {-3, -6, 5, 0},
                  .open_files = {32, -1, 11, 15, 28, 10},
                  .bishop_pair = 53,
                  .tempo = 8};
@@ -906,7 +906,8 @@ static void init() {
                sizeof(mg.king_attacks) + sizeof(mg.open_files) +
                sizeof(mg.bishop_pair) + sizeof(mg.tempo);
        i++) {
-    // Technically writes past end of array but since the structs are packed it works
+    // Technically writes past end of array but since the structs are packed it
+    // works
     eval_params.pst_rank[i] =
         combine_eval_param(mg.pst_rank[i], eg.pst_rank[i]);
   }
@@ -952,13 +953,15 @@ static i32 eval(Position *const restrict pos) {
         score += eval_params.pst_file[(p - 1) * 8 + file];
 
         // MOBILITY
-        const u64 mobility = get_mobility(sq, p, pos);
-        score +=
-            eval_params.mobilities[p - 1] * count(mobility & ~pos->colour[0]);
+        if (p > Knight) {
+          const u64 mobility = get_mobility(sq, p, pos);
+          score +=
+              eval_params.mobilities[p - 3] * count(mobility & ~pos->colour[0]);
 
-        // KING ATTACKS
-        score +=
-            eval_params.king_attacks[p - 1] * count(mobility & opp_king_zone);
+          // KING ATTACKS
+          score +=
+              eval_params.king_attacks[p - 3] * count(mobility & opp_king_zone);
+        }
       }
     }
 
