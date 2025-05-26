@@ -915,8 +915,37 @@ static void init() {
 
 __attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
 
+#define TUNE_PARAMETER(name, initial, min, max, step) \
+    int name = initial;     \
+    int name##_min = min;   \
+    int name##_max = max;   \
+    int name##_step = step;
+
+#define PRINT_TUNE_OPTION(name) printf("option name " #name " type spin default %i min -32768 max 32767\n", name)
+
+#define READ_TUNE_OPTION(name) \
+    else if (!strcmp(line, #name)) { \
+      getl(line); \
+      getl(line); \
+      name = atoi(line); \
+    }
+
+#define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %i, 0.002\n", name, name##_min, name##_max, name##_step)
+
+TUNE_PARAMETER(tempo_mg, 16, 8, 30, 1)
+TUNE_PARAMETER(tempo_eg, 8, 0, 20, 1)
+TUNE_PARAMETER(rfp_depth, 8, 5, 12, 1)
+TUNE_PARAMETER(rfp_margin, 47, 32, 96, 3)
+TUNE_PARAMETER(razor_margin, 131, 64, 256, 9)
+TUNE_PARAMETER(mvv_weight, 921, 640, 1280, 32)
+TUNE_PARAMETER(killer_weight, 915, 640, 1280, 32)
+TUNE_PARAMETER(lmr_depth, 1, 1, 3, 1)
+TUNE_PARAMETER(lmr_moves, 6, 2, 10, 1)
+TUNE_PARAMETER(lmr_move_div, 11, 6, 24, 1)
+TUNE_PARAMETER(lmp_moves, 1, 0, 3, 1)
+
 static i32 eval(Position *const restrict pos) {
-  i32 score = eval_params.tempo;
+  i32 score = combine_eval_param(tempo_mg, tempo_eg);
   i32 phase = 0;
 
   for (i32 c = 0; c < 2; c++) {
@@ -1125,14 +1154,14 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   if (!in_check && alpha == beta - 1) {
-    if (!in_qsearch && depth < 8) {
+    if (!in_qsearch && depth < rfp_depth) {
       // REVERSE FUTILITY PRUNING
-      if (static_eval - 47 * depth >= beta) {
+      if (static_eval - rfp_margin * depth >= beta) {
         return static_eval;
       }
 
       // RAZORING
-      in_qsearch = static_eval + 131 * depth <= alpha;
+      in_qsearch = static_eval + razor_margin * depth <= alpha;
     }
 
     // NULL MOVE PRUNING
@@ -1171,9 +1200,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       const i32 order_move_score =
           ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
+          + (i32)stack[ply].moves[order_index].takes_piece * mvv_weight +
           (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              915 // KILLER MOVE
+              killer_weight // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
@@ -1199,8 +1228,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        depth > 1 && moves_evaluated > 6
-            ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
+        depth > lmr_depth && moves_evaluated > lmr_moves
+            ? 1 + (alpha == beta - 1) + moves_evaluated / lmr_move_div + !improving
             : 1;
 
     i32 score;
@@ -1261,7 +1290,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE PRUNING
     if (!in_check && alpha == beta - 1 &&
-        quiets_evaluated > 1 + depth * depth >> !improving) {
+        quiets_evaluated > lmp_moves + depth * depth >> !improving) {
       break;
     }
   }
@@ -1464,6 +1493,17 @@ static void run() {
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
       puts("option name Threads type spin default 1 min 1 max 1");
+      PRINT_TUNE_OPTION(tempo_mg);
+      PRINT_TUNE_OPTION(tempo_eg);
+      PRINT_TUNE_OPTION(rfp_depth);
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(lmr_depth);
+      PRINT_TUNE_OPTION(lmr_moves);
+      PRINT_TUNE_OPTION(lmr_move_div);
+      PRINT_TUNE_OPTION(lmp_moves);
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
@@ -1486,6 +1526,33 @@ static void run() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed,
              nps);
+    } else if (!strcmp(line, "setoption")) {
+      getl(line);
+      getl(line);
+      if (false) {}
+      READ_TUNE_OPTION(tempo_mg)
+      READ_TUNE_OPTION(tempo_eg)
+      READ_TUNE_OPTION(rfp_depth)
+      READ_TUNE_OPTION(rfp_margin)
+      READ_TUNE_OPTION(razor_margin)
+      READ_TUNE_OPTION(mvv_weight)
+      READ_TUNE_OPTION(killer_weight)
+      READ_TUNE_OPTION(lmr_depth)
+      READ_TUNE_OPTION(lmr_moves)
+      READ_TUNE_OPTION(lmr_move_div)
+      READ_TUNE_OPTION(lmp_moves)
+    } else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(tempo_mg);
+      PRINT_TUNE_INPUT(tempo_eg);
+      PRINT_TUNE_INPUT(rfp_depth);
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(lmr_depth);
+      PRINT_TUNE_INPUT(lmr_moves);
+      PRINT_TUNE_INPUT(lmr_move_div);
+      PRINT_TUNE_INPUT(lmp_moves);
     }
 #endif
     if (line[0] == 'q') {
