@@ -832,10 +832,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParamsMerged;
 
 static const EvalParams mg =
-    (EvalParams){.material = {72, 318, 299, 401, 896, 0},
+    (EvalParams){.material = {97, 318, 299, 401, 896, 0},
                  .pst_rank =
                      {
-                         0,   -16, -11, -10, 4,  33, 127, 0,   // Pawn
+                         0,   -41, -36, -35, -21,  8, 127, 0,   // Pawn
                          -35, -21, 3,   15,  31, 56, 27,  -76, // Knight
                          -11, 2,   11,  11,  16, 22, 0,   -51, // Bishop
                          -2,  -13, -19, -21, -2, 19, 18,  19,  // Rook
@@ -861,7 +861,7 @@ static const EvalParams eg =
     (EvalParams){.material = {88, 304, 283, 541, 978, 0},
                  .pst_rank =
                      {
-                         0,   -10, -15, -15, -4, 45, 115, 0,  // Pawn
+                         0,   -10, -15, -15, -4, 45, 105, 0,  // Pawn
                          -35, -15, 0,   20,  24, 9,  -1,  -2, // Knight
                          -7,  -6,  -1,  0,   4,  1,  1,   8,  // Bishop
                          -15, -17, -13, 2,   9,  10, 16,  9,  // Rook
