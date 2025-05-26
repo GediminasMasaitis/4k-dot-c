@@ -5695,3 +5695,20 @@ https://gedas.pythonanywhere.com/test/908/
 MD5: 227ffa9ef8c6ab06ec17f4ad04f61d5b
 
 Smaller eval structs
+
+### 4.16
+
+64 bit: 4049 bytes (-4)
+
+MD5: cc2de288830538b295222527273f3159
+
+Smaller and faster mobility
+
+```py
+Elo   | 18.17 +- 9.58 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 2564 W: 846 L: 712 D: 1006
+Penta | [70, 265, 517, 321, 109]
+https://gedas.pythonanywhere.com/test/910/
+```
