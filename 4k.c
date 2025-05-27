@@ -982,6 +982,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   Move move;
   u16 partial_hash;
   i16 score;
+  i16 static_eval;
   i8 depth;
   u8 flag;
 } TTEntry;
@@ -1099,7 +1100,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
-  i32 static_eval = eval(pos);
+  i32 static_eval = tt_entry->partial_hash == tt_hash_partial ? tt_entry->static_eval : eval(pos);
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (tt_entry->flag != static_eval > tt_entry->score &&
@@ -1265,6 +1266,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
                         .score = best_score,
+                        .static_eval = stack[ply].static_eval,
                         .depth = depth,
                         .flag = tt_flag};
 
