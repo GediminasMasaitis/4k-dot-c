@@ -288,6 +288,7 @@ typedef struct [[nodiscard]] {
   u64 ep;
   bool castling[4];
   bool flipped;
+  bool in_check;
 } Position;
 
 [[nodiscard]] static bool move_string_equal(const char *restrict lhs,
@@ -570,6 +571,9 @@ i32 makemove(Position *const restrict pos, const Move *const restrict move) {
   assert(!(pos->pieces[Rook] & pos->pieces[Queen]));
   assert(!(pos->pieces[Rook] & pos->pieces[King]));
   assert(!(pos->pieces[Queen] & pos->pieces[King]));
+
+  // Are we in check
+  pos->in_check = is_attacked(pos, pos->colour[0] & pos->pieces[King], true);
 
   // Return move legality
   return !is_attacked(pos, pos->colour[1] & pos->pieces[King], false);
@@ -1057,11 +1061,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   assert(alpha < beta);
   assert(ply >= 0);
 
-  const bool in_check =
-      is_attacked(pos, pos->colour[0] & pos->pieces[King], true);
-
   // IN-CHECK EXTENSION
-  if (in_check) {
+  if (pos->in_check) {
     depth++;
   }
 
@@ -1115,7 +1116,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (!in_check && alpha == beta - 1) {
+  if (!pos->in_check && alpha == beta - 1) {
     if (!in_qsearch && depth < 8) {
       // REVERSE FUTILITY PRUNING
       if (static_eval - 47 * depth >= beta) {
@@ -1251,7 +1252,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // LATE MOVE PRUNING
-    if (!in_check && alpha == beta - 1 &&
+    if (!pos->in_check && alpha == beta - 1 &&
         quiets_evaluated > 1 + depth * depth >> !improving) {
       break;
     }
@@ -1259,7 +1260,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
   // MATE / STALEMATE DETECTION
   if (best_score == -inf) {
-    return (ply - mate) * in_check;
+    return (ply - mate) * pos->in_check;
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
@@ -1389,7 +1390,9 @@ static const Position start_pos =
                .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
                           0x2400000000000024ull, 0x8100000000000081ull,
                           0x800000000000008ull, 0x1000000000000010ull},
-               .castling = {true, true, true, true}};
+               .castling = {true, true, true, true},
+               .flipped = false,
+               .in_check = false};
 
 #ifdef FULL
 static void bench() {
