@@ -337,18 +337,15 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 [[nodiscard]] static u64 se(const u64 bb) { return east(south(bb)); }
 
-[[nodiscard]] u64 xattack(const i32 sq, const u64 blockers,
+[[nodiscard]] u64 xattack(const u64 bb, const u64 blockers,
                           const u64 dir_mask) {
-  return dir_mask &
-         ((blockers & dir_mask) - (1ULL << sq) ^
-          flip_bb(flip_bb(blockers & dir_mask) - flip_bb(1ULL << sq)));
+  return dir_mask & ((blockers & dir_mask) - bb ^
+                     flip_bb(flip_bb(blockers & dir_mask) - flip_bb(bb)));
 }
 
-[[nodiscard]] static u64 ray(const i32 sq, const u64 blockers,
+[[nodiscard]] static u64 ray(const u64 bb, const u64 blockers,
                              const i32 shift_by, const u64 mask) {
-  assert(sq >= 0);
-  assert(sq < 64);
-  u64 result = shift(1ull << sq, shift_by, mask);
+  u64 result = shift(bb, shift_by, mask);
   for (i32 i = 0; i < 6; i++) {
     result |= shift(result & ~blockers, shift_by, mask);
   }
@@ -357,36 +354,28 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 static u64 diag_mask[64];
 
-[[nodiscard]] static u64 bishop(const i32 sq, const u64 blockers) {
-  assert(sq >= 0);
-  assert(sq < 64);
-
-  return xattack(sq, blockers, diag_mask[sq]) |
-         xattack(sq, blockers, flip_bb(diag_mask[sq ^ 56]));
+[[nodiscard]] static u64 bishop(const u64 bb, const u64 blockers) {
+  assert(count(bb) == 1);
+  const i32 sq = lsb(bb);
+  return xattack(bb, blockers, diag_mask[sq]) |
+         xattack(bb, blockers, flip_bb(diag_mask[sq ^ 56]));
 }
 
-[[nodiscard]] static u64 rook(const i32 sq, const u64 blockers) {
-  assert(sq >= 0);
-  assert(sq < 64);
-  return xattack(sq, blockers, 1ULL << sq ^ 0x101010101010101ULL << sq % 8) |
-         ray(sq, blockers, 1, ~0x101010101010101ull)      // East
-         | ray(sq, blockers, -1, ~0x8080808080808080ull); // West
+[[nodiscard]] static u64 rook(const u64 bb, const u64 blockers) {
+  assert(count(bb) == 1);
+  return xattack(bb, blockers, bb ^ 0x101010101010101ULL << lsb(bb) % 8) |
+         ray(bb, blockers, 1, ~0x101010101010101ull)      // East
+         | ray(bb, blockers, -1, ~0x8080808080808080ull); // West
 }
 
-[[nodiscard]] static u64 knight(const i32 sq) {
-  assert(sq >= 0);
-  assert(sq < 64);
-  const u64 bb = 1ull << sq;
+[[nodiscard]] static u64 knight(const u64 bb) {
   return (bb << 15 | bb >> 17) & ~0x8080808080808080ull |
          (bb << 17 | bb >> 15) & ~0x101010101010101ull |
          (bb << 10 | bb >> 6) & 0xFCFCFCFCFCFCFCFCull |
          (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full;
 }
 
-[[nodiscard]] static u64 king(const i32 sq) {
-  assert(sq >= 0);
-  assert(sq < 64);
-  const u64 bb = 1ull << sq;
+[[nodiscard]] static u64 king(const u64 bb) {
   return bb << 8 | bb >> 8 |
          (bb >> 1 | bb >> 9 | bb << 7) & ~0x8080808080808080ull |
          (bb << 1 | bb << 9 | bb >> 7) & ~0x101010101010101ull;
@@ -468,17 +457,18 @@ static void flip_pos(Position *const restrict pos) {
 [[nodiscard]] static u64 get_mobility(const i32 sq, const i32 piece,
                                       const Position *pos) {
   u64 moves = 0;
+  const u64 bb = 1ULL << sq;
   if (piece == Knight) {
-    moves = knight(sq);
+    moves = knight(bb);
   } else if (piece == King) {
-    moves = king(sq);
+    moves = king(bb);
   } else {
     const u64 blockers = pos->colour[0] | pos->colour[1];
     if (piece == Rook || piece == Queen) {
-      moves |= rook(sq, blockers);
+      moves |= rook(bb, blockers);
     }
     if (piece == Bishop || piece == Queen) {
-      moves |= bishop(sq, blockers);
+      moves |= bishop(bb, blockers);
     }
   }
   return moves;
@@ -486,19 +476,19 @@ static void flip_pos(Position *const restrict pos) {
 
 [[nodiscard]] static i32 is_attacked(const Position *const restrict pos,
                                      const u64 bb, const i32 them) {
+  assert(count(bb) == 1);
   const u64 theirs = pos->colour[them];
   const u64 pawns = theirs & pos->pieces[Pawn];
   if ((them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns)) & bb) {
     return true;
   }
   const u64 blockers = pos->colour[0] | pos->colour[1];
-  const i32 sq = lsb(bb);
-  return knight(sq) & theirs & pos->pieces[Knight] ||
-         bishop(sq, blockers) & theirs &
+  return knight(bb) & theirs & pos->pieces[Knight] ||
+         bishop(bb, blockers) & theirs &
              (pos->pieces[Bishop] | pos->pieces[Queen]) ||
-         rook(sq, blockers) & theirs &
+         rook(bb, blockers) & theirs &
              (pos->pieces[Rook] | pos->pieces[Queen]) ||
-         king(sq) & theirs & pos->pieces[King];
+         king(bb) & theirs & pos->pieces[King];
 }
 
 i32 makemove(Position *const restrict pos, const Move *const restrict move) {
@@ -673,12 +663,14 @@ enum { max_moves = 218 };
       pos, movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
-      !is_attacked(pos, 1ULL << 4, true) && !is_attacked(pos, 1ULL << 5, true)) {
+      !is_attacked(pos, 1ULL << 4, true) &&
+      !is_attacked(pos, 1ULL << 5, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
   if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
-      !is_attacked(pos, 1ULL << 4, true) && !is_attacked(pos, 1ULL << 3, true)) {
+      !is_attacked(pos, 1ULL << 4, true) &&
+      !is_attacked(pos, 1ULL << 3, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
@@ -890,8 +882,9 @@ static i32 combine_eval_param(const i32 mg_val, const i32 eg_val) {
 static void init() {
   // INIT DIAGONAL MASKS
   for (i32 sq = 0; sq < 64; sq++) {
-    diag_mask[sq] = ray(sq, 0, 9, ~0x101010101010101ull) |  // Northeast
-                    ray(sq, 0, -9, ~0x8080808080808080ull); // Southwest
+    const u64 bb = 1ULL << sq;
+    diag_mask[sq] = ray(bb, 0, 9, ~0x101010101010101ull) |  // Northeast
+                    ray(bb, 0, -9, ~0x8080808080808080ull); // Southwest
   }
 
   // MERGE EVAL VALUES
@@ -925,7 +918,7 @@ static i32 eval(Position *const restrict pos) {
     }
 
     const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];
-    const u64 opp_king_zone = king(lsb(pos->colour[1] & pos->pieces[King]));
+    const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = pos->colour[0] & pos->pieces[p];
@@ -1064,7 +1057,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   assert(alpha < beta);
   assert(ply >= 0);
 
-  const bool in_check = is_attacked(pos, pos->colour[0] & pos->pieces[King], true);
+  const bool in_check =
+      is_attacked(pos, pos->colour[0] & pos->pieces[King], true);
 
   // IN-CHECK EXTENSION
   if (in_check) {
