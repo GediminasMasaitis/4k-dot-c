@@ -1095,6 +1095,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   Move tt_move = {0};
   if (tt_entry->partial_hash == tt_hash_partial) {
     tt_move = tt_entry->move;
+    stack[ply].best_move = tt_move;
 
     // TT PRUNING
     if (alpha == beta - 1 && tt_entry->depth >= depth &&
@@ -1153,7 +1154,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
-  stack[ply].best_move = tt_move;
   stack[pos_history_count + ply + 2].position_hash = tt_hash;
   i32 moves_evaluated = 0;
   i32 quiets_evaluated = 0;
