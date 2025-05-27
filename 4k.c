@@ -904,6 +904,8 @@ static void init() {
   }
 }
 
+__attribute__((aligned(8))) static const i16 max_material[] = {0,   88,  318,
+                                                               299, 541, 978};
 __attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
 
 static i32 eval(Position *const restrict pos) {
@@ -1174,6 +1176,15 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         swapmoves(&stack[ply].moves[move_index],
                   &stack[ply].moves[order_index]);
       }
+    }
+
+    // FORWARD FUTILITY PRUNING / DELTA PRUNING
+    if (depth < 8 && !in_check && moves_evaluated &&
+        static_eval + 128 * depth +
+                max_material[stack[ply].moves[move_index].takes_piece] +
+                max_material[stack[ply].moves[move_index].promo] <
+            alpha) {
+      break;
     }
 
     Position npos = *pos;

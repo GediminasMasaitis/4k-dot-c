@@ -5763,3 +5763,20 @@ Games | N: 1848 W: 554 L: 555 D: 739
 Penta | [67, 201, 385, 208, 63]
 https://gedas.pythonanywhere.com/test/932/
 ```
+
+### 4.20
+
+64 bit: 4090 bytes (+78)
+
+MD5: 03d73379f4135535d2b88a694ea7b7ae
+
+Forward futility pruning
+
+```py
+Elo   | 23.25 +- 10.13 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2484 W: 856 L: 690 D: 938
+Penta | [77, 243, 485, 311, 126]
+https://gedas.pythonanywhere.com/test/936/
+```
