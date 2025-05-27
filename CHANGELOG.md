@@ -5729,3 +5729,15 @@ Games | N: 4840 W: 1550 L: 1430 D: 1860
 Penta | [141, 537, 992, 561, 189]
 https://gedas.pythonanywhere.com/test/926/
 ```
+
+### 4.18
+
+64 bit: 4030 bytes (-11)
+
+MD5: 3206877b9e2672074671abc7703938e6
+
+Smaller is_attacked
+
+```py
+https://gedas.pythonanywhere.com/test/929/
+```
