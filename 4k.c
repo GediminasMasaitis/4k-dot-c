@@ -1252,7 +1252,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // LATE MOVE PRUNING
-    if (!pos->in_check && alpha == beta - 1 &&
+    if (!pos->in_check && !npos.in_check && alpha == beta - 1 &&
         quiets_evaluated > 1 + depth * depth >> !improving) {
       break;
     }
