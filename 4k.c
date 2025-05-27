@@ -485,16 +485,14 @@ static void flip_pos(Position *const restrict pos) {
 }
 
 [[nodiscard]] static i32 is_attacked(const Position *const restrict pos,
-                                     const i32 sq, const i32 them) {
-  assert(sq >= 0);
-  assert(sq < 64);
-  const u64 bb = 1ull << sq;
+                                     const u64 bb, const i32 them) {
   const u64 theirs = pos->colour[them];
   const u64 pawns = theirs & pos->pieces[Pawn];
   if ((them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns)) & bb) {
     return true;
   }
   const u64 blockers = pos->colour[0] | pos->colour[1];
+  const i32 sq = lsb(bb);
   return knight(sq) & theirs & pos->pieces[Knight] ||
          bishop(sq, blockers) & theirs &
              (pos->pieces[Bishop] | pos->pieces[Queen]) ||
@@ -584,7 +582,7 @@ i32 makemove(Position *const restrict pos, const Move *const restrict move) {
   assert(!(pos->pieces[Queen] & pos->pieces[King]));
 
   // Return move legality
-  return !is_attacked(pos, lsb(pos->colour[1] & pos->pieces[King]), false);
+  return !is_attacked(pos, pos->colour[1] & pos->pieces[King], false);
 }
 
 static Move *generate_pawn_moves(const Position *const pos,
@@ -675,12 +673,12 @@ enum { max_moves = 218 };
       pos, movelist,
       ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
-      !is_attacked(pos, 4, true) && !is_attacked(pos, 5, true)) {
+      !is_attacked(pos, 1ULL << 4, true) && !is_attacked(pos, 1ULL << 5, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
   if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
-      !is_attacked(pos, 4, true) && !is_attacked(pos, 3, true)) {
+      !is_attacked(pos, 1ULL << 4, true) && !is_attacked(pos, 1ULL << 3, true)) {
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
@@ -1066,8 +1064,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   assert(alpha < beta);
   assert(ply >= 0);
 
-  const bool in_check =
-      is_attacked(pos, lsb(pos->colour[0] & pos->pieces[King]), true);
+  const bool in_check = is_attacked(pos, pos->colour[0] & pos->pieces[King], true);
 
   // IN-CHECK EXTENSION
   if (in_check) {
