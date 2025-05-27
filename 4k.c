@@ -1092,7 +1092,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   // TT PROBING
   TTEntry *tt_entry = &tt[tt_hash % tt_length];
   const u16 tt_hash_partial = tt_hash / tt_length;
-  stack[ply].best_move = (Move){0};
   if (tt_entry->partial_hash == tt_hash_partial) {
     stack[ply].best_move = tt_entry->move;
 
