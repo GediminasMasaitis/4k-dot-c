@@ -5739,5 +5739,27 @@ MD5: 3206877b9e2672074671abc7703938e6
 Smaller is_attacked
 
 ```py
+Elo   | 6.81 +- 11.99 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.85 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 1734 W: 555 L: 521 D: 658
+Penta | [65, 182, 344, 206, 70]
 https://gedas.pythonanywhere.com/test/929/
+```
+
+### 4.19
+
+64 bit: 4012 bytes (-18)
+
+MD5: 9c4f65eb5478045303a35d287d1fd2b9
+
+Smaller attack functions
+
+```py
+Elo   | -0.19 +- 11.25 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.17 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 1848 W: 554 L: 555 D: 739
+Penta | [67, 201, 385, 208, 63]
+https://gedas.pythonanywhere.com/test/932/
 ```
