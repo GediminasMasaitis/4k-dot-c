@@ -1092,9 +1092,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   // TT PROBING
   TTEntry *tt_entry = &tt[tt_hash % tt_length];
   const u16 tt_hash_partial = tt_hash / tt_length;
-  Move tt_move = {0};
+  stack[ply].best_move = (Move){0};
   if (tt_entry->partial_hash == tt_hash_partial) {
-    tt_move = tt_entry->move;
+    stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
     if (alpha == beta - 1 && tt_entry->depth >= depth &&
@@ -1153,7 +1153,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);
-  stack[ply].best_move = tt_move;
   stack[pos_history_count + ply + 2].position_hash = tt_hash;
   i32 moves_evaluated = 0;
   i32 quiets_evaluated = 0;
@@ -1169,11 +1168,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const i32 order_move_score =
-          ((i32)move_equal(&tt_move, &stack[ply].moves[order_index])
+          (move_equal(&stack[ply].best_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + (i32)stack[ply].moves[order_index].takes_piece * 921 +
-          (i32)move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-              915 // KILLER MOVE
+          + stack[ply].moves[order_index].takes_piece *
+                921 // MOST VALUABLE VICTIM
+          + move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
+                915 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
