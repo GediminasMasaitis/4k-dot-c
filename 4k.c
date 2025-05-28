@@ -1160,17 +1160,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
          order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
-      const i32 order_move_score =
-          (move_equal(&stack[ply].best_move, &stack[ply].moves[order_index])
-           << 30) // PREVIOUS BEST MOVE FIRST
-          + stack[ply].moves[order_index].takes_piece *
-                921 // MOST VALUABLE VICTIM
-          + move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-                915 // KILLER MOVE
-          +
-          move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
-                      [stack[ply].moves[order_index].from]
-                      [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
+      const i32 order_move_score = ((i32)move_equal(&stack[ply].best_move, &stack[ply].moves[order_index]) << 30) // TT MOVE FIRST
+        + (stack[ply].moves[order_index].takes_piece || move_equal(&stack[ply].killer, &stack[ply].moves[order_index])) * 4096 // CAPTURES AND KILLER BEFORE QUIETS
+        + max_material[stack[ply].moves[order_index].takes_piece]*2 // MVV
+        + move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
+        [stack[ply].moves[order_index].from]
+        [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
         move_score = order_move_score;
         swapmoves(&stack[ply].moves[move_index],
