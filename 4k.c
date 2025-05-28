@@ -976,7 +976,6 @@ typedef struct [[nodiscard]] {
   i32 static_eval;
   u64 position_hash;
   Move best_move;
-  Move killer;
   Move moves[max_moves];
 } SearchStack;
 
@@ -1165,8 +1164,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
            << 30) // PREVIOUS BEST MOVE FIRST
           + stack[ply].moves[order_index].takes_piece *
                 921 // MOST VALUABLE VICTIM
-          + move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-                915 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
@@ -1249,9 +1246,6 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
           i32 *const prev_hist =
               &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
           *prev_hist -= bonus + bonus * *prev_hist / 1024;
-        }
-        if (stack[ply].best_move.takes_piece == None) {
-          stack[ply].killer = stack[ply].best_move;
         }
         break;
       }
