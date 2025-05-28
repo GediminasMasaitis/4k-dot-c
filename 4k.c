@@ -1160,17 +1160,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
          order_index++) {
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
-      const i32 order_move_score =
-          (move_equal(&stack[ply].best_move, &stack[ply].moves[order_index])
-           << 30) // PREVIOUS BEST MOVE FIRST
-          + stack[ply].moves[order_index].takes_piece *
-                921 // MOST VALUABLE VICTIM
-          + move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-                915 // KILLER MOVE
-          +
-          move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
-                      [stack[ply].moves[order_index].from]
-                      [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
+      const i32 order_move_score = ((i32)move_equal(&stack[ply].best_move, &stack[ply].moves[order_index]) << 30) // TT MOVE FIRST
+        + (stack[ply].moves[order_index].takes_piece || move_equal(&stack[ply].killer, &stack[ply].moves[order_index])) * 4096 // CAPTURES AND KILLER BEFORE QUIETS
+        + max_material[stack[ply].moves[order_index].takes_piece] // MVV
+        + move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
+        [stack[ply].moves[order_index].from]
+        [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
         move_score = order_move_score;
         swapmoves(&stack[ply].moves[move_index],
@@ -1243,12 +1238,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
             &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                          [stack[ply].best_move.from][stack[ply].best_move.to];
         const i32 bonus = depth * depth;
-        *this_hist += bonus - bonus * *this_hist / 1024;
+        *this_hist += bonus - bonus * *this_hist / 512;
         for (i32 prev_index = 0; prev_index < move_index; prev_index++) {
           const Move prev = stack[ply].moves[prev_index];
           i32 *const prev_hist =
               &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
-          *prev_hist -= bonus + bonus * *prev_hist / 1024;
+          *prev_hist -= bonus + bonus * *prev_hist / 512;
         }
         if (stack[ply].best_move.takes_piece == None) {
           stack[ply].killer = stack[ply].best_move;
