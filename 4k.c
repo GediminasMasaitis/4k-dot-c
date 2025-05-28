@@ -1163,11 +1163,11 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       const i32 order_move_score =
           (move_equal(&stack[ply].best_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
-          + stack[ply].moves[order_index].takes_piece *
-                921 // MOST VALUABLE VICTIM
-          + move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-                915 // KILLER MOVE
           +
+          (stack[ply].moves[order_index].takes_piece * 2 // MOST VALUABLE VICTIM
+           + move_equal(&stack[ply].killer,
+                        &stack[ply].moves[order_index]) // KILLER MOVE
+           ) * 1024 +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
                       [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
