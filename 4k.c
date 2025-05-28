@@ -1120,12 +1120,12 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   if (!in_check && alpha == beta - 1) {
     if (!in_qsearch && depth < 8) {
       // REVERSE FUTILITY PRUNING
-      if (static_eval - 47 * depth >= beta) {
+      if (static_eval - 48 * depth >= beta) {
         return static_eval;
       }
 
       // RAZORING
-      in_qsearch = static_eval + 131 * depth <= alpha;
+      in_qsearch = static_eval + 130 * depth <= alpha;
     }
 
     // NULL MOVE PRUNING
@@ -1164,9 +1164,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
           (move_equal(&stack[ply].best_move, &stack[ply].moves[order_index])
            << 30) // PREVIOUS BEST MOVE FIRST
           + stack[ply].moves[order_index].takes_piece *
-                921 // MOST VALUABLE VICTIM
+                922 // MOST VALUABLE VICTIM
           + move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
-                915 // KILLER MOVE
+                913 // KILLER MOVE
           +
           move_history[pos->flipped][stack[ply].moves[order_index].takes_piece]
                       [stack[ply].moves[order_index].from]
