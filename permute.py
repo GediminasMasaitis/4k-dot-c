@@ -2,6 +2,8 @@ import re
 import sys
 import itertools
 import math
+import subprocess
+import os
 
 def read_file(path):
     with open(path, encoding='utf-8') as f:
@@ -26,7 +28,7 @@ def extract_groups(text):
             if depth < 0:
                 # Found closing beyond opening: end of this group text
                 groups.setdefault(key, []).append(seg[:j])
-                parts[i] = seg[j:]
+                parts[i] = seg[j+1:]
                 break
     return parts, groups
 
@@ -46,7 +48,7 @@ def show_all(parts, groups):
     def recurse(idx):
         nonlocal count
         if idx >= len(keys):
-            #show(parts, groups, count)
+            show(parts, groups, count)
             count += 1
             return
         key = keys[idx]
@@ -58,7 +60,7 @@ def show_all(parts, groups):
 
     recurse(0)
 
-def build:
+def build():
     try:
         subprocess.run(
             ["make", "NOSTDLIB=true", "MINI=true", "loader"],
@@ -83,8 +85,11 @@ def show(parts, groups, num):
             out.append(f"G({k}, {seg})")
         else:
             out.append(part)
-    with open(f"4k-test.c", "w") as f:
+    with open(f"4k.c", "w") as f:
         f.write("".join(out))
+    build();
+    size = os.path.getsize("./build/4kc");
+    print(size);
 
     print()
 
