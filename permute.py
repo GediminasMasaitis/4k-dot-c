@@ -4,6 +4,7 @@ import itertools
 import math
 import subprocess
 import os
+import shutil
 from tqdm import tqdm
 
 
@@ -13,13 +14,11 @@ def read_file(path):
 
 
 def extract_groups(text):
-    # Split on G( group ,
     pattern = re.compile(r"\bG\(\s*([^, ]+)\s*,\s*")
     parts = pattern.split(text)
     groups = {}
-    # parts: [pre, group, seg, group, seg, ...]
     for i in range(2, len(parts), 2):
-        key = parts[i-1][0]  # first char of group
+        key = parts[i-1][0]
         seg = parts[i]
         depth = 0
         for j, ch in enumerate(seg):
@@ -54,7 +53,6 @@ def build():
 
 
 def write_and_build(parts, groups):
-    # assemble content and compile
     out = []
     indices = {k: -1 for k in groups}
     for i, part in enumerate(parts):
@@ -72,11 +70,13 @@ def write_and_build(parts, groups):
     return size, content
 
 
-def stage_one(parts, groups):
+def stage_one(parts, groups, src_path):
     global best
-    # For each group, permute only that group
+    any_improved = False
+    # iterate each group, carrying improvements forward
     for key in groups:
         original = groups[key]
+        best_perm = None
         total = math.factorial(len(original))
         pbar = tqdm(total=total, desc=f"Stage1 G({key})", unit="it")
         for perm in permute_list(original):
@@ -85,17 +85,26 @@ def stage_one(parts, groups):
             pbar.write(f"G({key}) perm size: {size}")
             if size < best:
                 best = size
+                best_perm = perm
                 with open("best.c", "w") as f:
                     f.write(content)
                 pbar.write(f"New best {size}")
+                any_improved = True
             pbar.update(1)
         pbar.close()
-        groups[key] = original
+        # apply best permutation for this group, if any; else restore original
+        if best_perm is not None:
+            groups[key] = list(best_perm)
+        else:
+            groups[key] = original
+        # if improved, copy best.c into source for next group
+        if best_perm is not None:
+            shutil.copy('best.c', src_path)
+    return any_improved
 
 
 def stage_two(parts, groups):
     global best
-    # Full permutations of all groups
     keys = list(groups.keys())
     total = 1
     for k in keys:
@@ -106,7 +115,6 @@ def stage_two(parts, groups):
         if idx >= len(keys):
             size, content = write_and_build(parts, groups)
             pbar.write(f"Full perm size: {size}")
-            global best
             if size < best:
                 best = size
                 with open("best.c", "w") as f:
@@ -127,20 +135,26 @@ def stage_two(parts, groups):
 
 def main():
     global best
-    # initial build
+    src_path = sys.argv[1] if len(sys.argv) > 1 else "4k.c"
     build()
     best = os.path.getsize("./build/4kc")
     print(f"Initial size: {best}")
 
-    path = sys.argv[1] if len(sys.argv) > 1 else "4k.c"
-    text = read_file(path)
+    text = read_file(src_path)
     parts, groups = extract_groups(text)
     for k, v in groups.items():
         print(f"Group {k}: {len(v)} segments")
 
-    # Stage 1: individual group permutations
-    stage_one(parts, groups)
-    # Stage 2: full permutations
+    # Repeat stage one until no improvement
+    while True:
+        improved = stage_one(parts, groups, src_path)
+        if not improved:
+            break
+        # reload after copying best to source
+        text = read_file(src_path)
+        parts, groups = extract_groups(text)
+
+    # Then full permutations
     stage_two(parts, groups)
 
 
