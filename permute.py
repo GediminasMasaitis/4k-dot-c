@@ -109,6 +109,7 @@ def stage_two(parts, groups):
     pbar = tqdm(total=total, desc="Stage2 full", unit="it")
 
     def recurse(idx):
+        global best
         if idx >= len(keys):
             size, content = write_and_build(parts, groups)
             pbar.write(f"Full perm size: {size}")
@@ -151,6 +152,7 @@ def main():
         parts, groups = extract_groups(text)
         iteration += 1
 
+    # Final full permutation pass
     stage_two(parts, groups)
 
 
