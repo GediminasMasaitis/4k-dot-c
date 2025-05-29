@@ -1,9 +1,7 @@
 import fs from "node:fs/promises"
 import process from "node:process"
-import subprocess from "node:child_process"
 
-let fileName = process.argv[2] ?? "4k.c"
-let text = await fs.readFile(fileName, "utf-8")
+let text = await fs.readFile(process.argv[2] ?? "4k.c", "utf-8")
 
 let opening = "([{".split("")
 let closing = ")]}".split("")
@@ -29,13 +27,12 @@ for (let i = 2 ; i < source.length ; i += 2) {
 }
 
 let n = 1
-await showAll([...groups])
-await fs.writeFile(fileName, text)
+showAll([...groups])
 
-async function showAll(array)
+function showAll(array)
 {
 	if (array.length === 0) {
-		await show()
+		show()
 		return
 	}
 	
@@ -43,21 +40,22 @@ async function showAll(array)
 	permute(permutations, array[0][1])
 	for (let permutation of permutations) {
 		groups.set(array[0][0], permutation)
-		await showAll(array.slice(1))
+		showAll(array.slice(1))
 	}
 }
 
-async function show()
+function show()
 {
-	console.log(`possibility ${n++}`)
+	console.log(`/ / / / / POSSIBILITY ${n++} / / / / /`)
+	console.log("")
 	let other = source.slice()
 	let indices = new Map()
 	for (let i = 1 ; i < other.length ; i += 2) {
 		indices.set(other[i], (indices.get(other[i]) ?? -1) + 1)
-		other[i] = `G(${other[i]}, ${groups.get(other[i])[indices.get(other[i])]}`
+		other[i] = `G(${other[i]}, ${groups.get(other[i])[indices.get(other[i])]})`
 	}
-	await fs.writeFile(fileName, other.join(""))
-	subprocess.execFileSync("sh", [], {stdio: "inherit"})
+	console.log(other.join(""))
+	console.log("")
 }
 
 // snagged from <https://stackoverflow.com/a/20871714>
@@ -70,4 +68,3 @@ function permute(results, array, memo = [])
 		array.splice(i, 0, current[0])
 	}
 }
-
