@@ -932,8 +932,8 @@ static i32 eval(Position *const restrict pos) {
         const i32 sq = lsb(copy);
         copy &= copy - 1;
 
-        const int rank = sq >> 3;
-        const int file = sq & 7;
+        G(4, const int rank = sq >> 3;)
+        G(4, const int file = sq & 7;)
 
         // OPEN FILES / DOUBLED PAWNS
         if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
