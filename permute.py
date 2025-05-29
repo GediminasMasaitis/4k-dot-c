@@ -36,13 +36,15 @@ def extract_groups(text):
 def permute_list(lst):
     return list(itertools.permutations(lst))
 
+best = 9999999
+perms = 0
 
 def show_all(parts, groups):
     keys = list(groups.keys())
-    total = 1
+    perms = 1
     for k in keys:
-        total *= math.factorial(len(groups[k]))
-    print(f"Toal permuations: {total}")
+        perms *= math.factorial(len(groups[k]))
+    print(f"Toal permuations: {perms}")
     count = 1
 
     def recurse(idx):
@@ -72,6 +74,7 @@ def build():
         raise RuntimeError("Make command failed")
 
 def show(parts, groups, num):
+    global best
     print(f"Permutation {num}")
     other = parts.copy()
     indices = {k: -1 for k in groups}
@@ -85,16 +88,23 @@ def show(parts, groups, num):
             out.append(f"G({k}, {seg})")
         else:
             out.append(part)
+    content = "".join(out)
     with open(f"4k.c", "w") as f:
-        f.write("".join(out))
+        f.write(content)
     build();
     size = os.path.getsize("./build/4kc");
-    print(size);
-
-    print()
+    if size < best:
+        print(f"Found better size {size} over {best}")
+        best = size
+        with open(f"best.c", "w") as f:
+            f.write(content)
 
 
 def main():
+    global best
+    build()
+    best = os.path.getsize("./build/4kc");
+    print(f"Initial size: {best}")
     path = sys.argv[1] if len(sys.argv) > 1 else "4k.c"
     text = read_file(path)
     parts, groups = extract_groups(text)
