@@ -1092,8 +1092,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (alpha == beta - 1 && tt_entry->depth >= depth &&
-        tt_entry->flag != tt_entry->score <= alpha) {
+    if (G(2,alpha == beta - 1) && G(2,tt_entry->depth >= depth) &&
+        G(2,tt_entry->flag != tt_entry->score <= alpha)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1106,34 +1106,34 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   i32 static_eval = eval(pos);
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (tt_entry->flag != static_eval > tt_entry->score &&
-      tt_entry->partial_hash == tt_hash_partial) {
+  if (G(3,tt_entry->flag != static_eval > tt_entry->score) &&
+      G(3,tt_entry->partial_hash == tt_hash_partial)) {
     static_eval = tt_entry->score;
   }
 
   // QUIESCENCE
-  if (G(2,in_qsearch) && G(2,static_eval > alpha)) {
+  if (G(4,in_qsearch) && G(4,static_eval > alpha)) {
     if (static_eval >= beta) {
       return static_eval;
     }
     alpha = static_eval;
   }
 
-  if (G(3, !in_check) && G(3, alpha == beta - 1)) {
-    if (G(4,!in_qsearch) && G(4,depth < 8)) {
+  if (G(5, !in_check) && G(5, alpha == beta - 1)) {
+    if (G(6,!in_qsearch) && G(6,depth < 8)) {
       // RAZORING
-      G(5, {
+      G(7, {
         if (static_eval - 47 * depth >= beta) {
           return static_eval;
         }
       })
 
       // REVERSE FUTILITY PRUNING
-      G(5, in_qsearch = static_eval + 131 * depth <= alpha;)
+      G(7, in_qsearch = static_eval + 131 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
-    if (G(6,do_null) && G(6, depth > 2) && G(6, static_eval >= beta)) {
+    if (G(8,do_null) && G(8, depth > 2) && G(8, static_eval >= beta)) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
@@ -1176,15 +1176,15 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
                       [stack[ply].moves[order_index].from]
                       [stack[ply].moves[order_index].to]; // HISTORY HEURISTIC
       if (order_move_score > move_score) {
-        G(7,move_score = order_move_score;)
-        G(7,swapmoves(&stack[ply].moves[move_index],
+        G(9,move_score = order_move_score;)
+        G(9,swapmoves(&stack[ply].moves[move_index],
                   &stack[ply].moves[order_index]);)
       }
     }
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(8,depth < 8) && G(8,!in_check) && G(8,moves_evaluated) &&
-        G(8,static_eval + 128 * depth +
+    if (G(10,depth < 8) && G(10,!in_check) && G(10,moves_evaluated) &&
+        G(10,static_eval + 128 * depth +
                 max_material[stack[ply].moves[move_index].takes_piece] +
                 max_material[stack[ply].moves[move_index].promo] <
             alpha)) {
@@ -1205,7 +1205,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        G(9,depth > 1) && G(9,moves_evaluated > 6)
+        G(11,depth > 1) && G(11,moves_evaluated > 6)
             ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
             : 1;
 
@@ -1243,7 +1243,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
-        G(10, 
+        G(12, 
         i32 *const this_hist =
             &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                          [stack[ply].best_move.from][stack[ply].best_move.to];
@@ -1255,7 +1255,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
               &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
           *prev_hist -= bonus + bonus * *prev_hist / 1024;
         })
-        G(10,if (stack[ply].best_move.takes_piece == None) {
+        G(12,if (stack[ply].best_move.takes_piece == None) {
           stack[ply].killer = stack[ply].best_move;
         })
         break;
@@ -1267,8 +1267,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // LATE MOVE PRUNING
-    if (G(11,!in_check) && G(11,alpha == beta - 1) &&
-        G(11,quiets_evaluated > 1 + depth * depth >> !improving)) {
+    if (G(13,!in_check) && G(13,alpha == beta - 1) &&
+        G(13,quiets_evaluated > 1 + depth * depth >> !improving)) {
       break;
     }
   }
