@@ -90,6 +90,8 @@ def stage_one(parts, groups, src_path, iteration):
             shutil.copyfile("best.c", src_path)
         else:
             groups[key] = original
+    if os.path.exists("best.c"):
+        shutil.copyfile("best.c", src_path)
     return any_improved
 
 def stage_two(parts, groups, src_path):
@@ -127,6 +129,7 @@ def main():
     src_path = sys.argv[1] if len(sys.argv) > 1 else "4k.c"
     build()
     best = os.path.getsize("./build/4kc")
+    shutil.copyfile(src_path, "best.c")
     print(f"Initial size: {best}")
 
     text = read_file(src_path)
