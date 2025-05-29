@@ -1183,11 +1183,11 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (depth < 8 && !in_check && moves_evaluated &&
-        static_eval + 128 * depth +
+    if (G(9,depth < 8) && G(9,!in_check) && G(9,moves_evaluated) &&
+        G(9,static_eval + 128 * depth +
                 max_material[stack[ply].moves[move_index].takes_piece] +
                 max_material[stack[ply].moves[move_index].promo] <
-            alpha) {
+            alpha)) {
       break;
     }
 
