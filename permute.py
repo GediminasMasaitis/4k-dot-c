@@ -46,7 +46,7 @@ def show_all(parts, groups):
     def recurse(idx):
         nonlocal count
         if idx >= len(keys):
-            show(parts, groups, count)
+            #show(parts, groups, count)
             count += 1
             return
         key = keys[idx]
@@ -58,6 +58,16 @@ def show_all(parts, groups):
 
     recurse(0)
 
+def build:
+    try:
+        subprocess.run(
+            ["make", "NOSTDLIB=true", "MINI=true", "loader"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True  # raises CalledProcessError if make fails
+        )
+    except subprocess.CalledProcessError:
+        raise RuntimeError("Make command failed")
 
 def show(parts, groups, num):
     print(f"Permutation {num}")
@@ -73,8 +83,9 @@ def show(parts, groups, num):
             out.append(f"G({k}, {seg})")
         else:
             out.append(part)
-    with open(f"4k-{num}.c", "w") as f:
+    with open(f"4k-test.c", "w") as f:
         f.write("".join(out))
+
     print()
 
 
@@ -85,7 +96,7 @@ def main():
     #print(len(parts))
     for k, v in groups.items():
         print(f"{k}: {len(v)} segments")
-    #show_all(parts, groups)
+    show_all(parts, groups)
 
 
 if __name__ == "__main__":
