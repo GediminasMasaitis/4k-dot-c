@@ -70,36 +70,33 @@ def write_and_build(parts, groups):
     return size, content
 
 
-def stage_one(parts, groups, src_path):
+def stage_one(parts, groups, src_path, iteration):
     global best
+    print(f"\n--- Stage 1 pass {iteration} start ---")
     any_improved = False
-    # iterate each group, carrying improvements forward
     for key in groups:
         original = groups[key]
         best_perm = None
         total = math.factorial(len(original))
-        pbar = tqdm(total=total, desc=f"Stage1 G({key})", unit="it")
+        pbar = tqdm(total=total, desc=f"Pass {iteration} G({key})", unit="it")
         for perm in permute_list(original):
             groups[key] = list(perm)
             size, content = write_and_build(parts, groups)
-            pbar.write(f"G({key}) perm size: {size}")
+            pbar.write(f"[Pass {iteration}] G({key}) perm size: {size}")
             if size < best:
                 best = size
                 best_perm = perm
                 with open("best.c", "w") as f:
                     f.write(content)
-                pbar.write(f"New best {size}")
+                pbar.write(f"[Pass {iteration}] New best {size}")
                 any_improved = True
             pbar.update(1)
         pbar.close()
-        # apply best permutation for this group, if any; else restore original
         if best_perm is not None:
             groups[key] = list(best_perm)
+            shutil.copy('best.c', src_path)
         else:
             groups[key] = original
-        # if improved, copy best.c into source for next group
-        if best_perm is not None:
-            shutil.copy('best.c', src_path)
     return any_improved
 
 
@@ -145,16 +142,15 @@ def main():
     for k, v in groups.items():
         print(f"Group {k}: {len(v)} segments")
 
-    # Repeat stage one until no improvement
+    iteration = 1
     while True:
-        improved = stage_one(parts, groups, src_path)
+        improved = stage_one(parts, groups, src_path, iteration)
         if not improved:
             break
-        # reload after copying best to source
         text = read_file(src_path)
         parts, groups = extract_groups(text)
+        iteration += 1
 
-    # Then full permutations
     stage_two(parts, groups)
 
 
