@@ -78,7 +78,6 @@ def build():
 
 def show(parts, groups, num):
     global best
-    #print(f"Permutation {num}")
     other = parts.copy()
     indices = {k: -1 for k in groups}
     out = []
@@ -96,6 +95,7 @@ def show(parts, groups, num):
         f.write(content)
     build();
     size = os.path.getsize("./build/4kc");
+    pbar.write(f"Permutation {num} size: {size}")
     if size < best:
         print(f"Found better size {size} over {best}")
         best = size
