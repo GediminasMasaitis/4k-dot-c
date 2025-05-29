@@ -1183,8 +1183,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(9,depth < 8) && G(9,!in_check) && G(9,moves_evaluated) &&
-        G(9,static_eval + 128 * depth +
+    if (G(5,depth < 8) && G(5,!in_check) && G(5,moves_evaluated) &&
+        G(5,static_eval + 128 * depth +
                 max_material[stack[ply].moves[move_index].takes_piece] +
                 max_material[stack[ply].moves[move_index].promo] <
             alpha)) {
@@ -1205,7 +1205,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        G(5,depth > 1) && G(5,moves_evaluated > 6)
+        G(6,depth > 1) && G(6,moves_evaluated > 6)
             ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
             : 1;
 
@@ -1243,7 +1243,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
-        G(6, 
+        G(7, 
         i32 *const this_hist =
             &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                          [stack[ply].best_move.from][stack[ply].best_move.to];
@@ -1255,7 +1255,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
               &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
           *prev_hist -= bonus + bonus * *prev_hist / 1024;
         })
-        G(6,if (stack[ply].best_move.takes_piece == None) {
+        G(7,if (stack[ply].best_move.takes_piece == None) {
           stack[ply].killer = stack[ply].best_move;
         })
         break;
@@ -1267,8 +1267,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // LATE MOVE PRUNING
-    if (G(7,!in_check) && G(7,alpha == beta - 1) &&
-        G(7,quiets_evaluated > 1 + depth * depth >> !improving)) {
+    if (G(8,!in_check) && G(8,alpha == beta - 1) &&
+        G(8,quiets_evaluated > 1 + depth * depth >> !improving)) {
       break;
     }
   }
