@@ -1243,6 +1243,7 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
+        G(5, 
         i32 *const this_hist =
             &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                          [stack[ply].best_move.from][stack[ply].best_move.to];
@@ -1253,10 +1254,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
           i32 *const prev_hist =
               &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
           *prev_hist -= bonus + bonus * *prev_hist / 1024;
-        }
-        if (stack[ply].best_move.takes_piece == None) {
+        })
+        G(5,if (stack[ply].best_move.takes_piece == None) {
           stack[ply].killer = stack[ply].best_move;
-        }
+        })
         break;
       }
     }
@@ -1266,8 +1267,8 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     }
 
     // LATE MOVE PRUNING
-    if (G(99,!in_check) && G(99,alpha == beta - 1) &&
-        G(99,quiets_evaluated > 1 + depth * depth >> !improving)) {
+    if (G(6,!in_check) && G(6,alpha == beta - 1) &&
+        G(6,quiets_evaluated > 1 + depth * depth >> !improving)) {
       break;
     }
   }
