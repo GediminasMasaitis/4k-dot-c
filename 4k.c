@@ -932,23 +932,23 @@ static i32 eval(Position *const restrict pos) {
         const i32 sq = lsb(copy);
         copy &= copy - 1;
 
-        G(4, const int rank = sq >> 3;)
-        G(4, const int file = sq & 7;)
+        const int rank = sq >> 3;
+        const int file = sq & 7;
 
         // OPEN FILES / DOUBLED PAWNS
-        if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
+        G(1, if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
           score += eval_params.open_files[p - 1];
-        }
+        })
 
         // MATERIAL
-        score += eval_params.material[p - 1];
+        G(1, score += eval_params.material[p - 1];)
 
         // SPLIT PIECE-SQUARE TABLES
-        score += eval_params.pst_rank[(p - 1) * 8 + rank];
-        score += eval_params.pst_file[(p - 1) * 8 + file];
+        G(1, score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+        G(1, score += eval_params.pst_file[(p - 1) * 8 + file];)
 
         // MOBILITY
-        if (p > Knight) {
+        G(1, if (p > Knight) {
           const u64 mobility = get_mobility(sq, p, pos);
           score +=
               eval_params.mobilities[p - 3] * count(mobility & ~pos->colour[0]);
@@ -956,7 +956,7 @@ static i32 eval(Position *const restrict pos) {
           // KING ATTACKS
           score +=
               eval_params.king_attacks[p - 3] * count(mobility & opp_king_zone);
-        }
+        })
       }
     }
 
@@ -1119,21 +1119,21 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
     alpha = static_eval;
   }
 
-  if (G(1, !in_check) && G(1, alpha == beta - 1)) {
+  if (G(2, !in_check) && G(2, alpha == beta - 1)) {
     if (!in_qsearch && depth < 8) {
       // RAZORING
-      G(2, {
+      G(3, {
         if (static_eval - 47 * depth >= beta) {
           return static_eval;
         }
       })
 
       // REVERSE FUTILITY PRUNING
-      G(2, in_qsearch = static_eval + 131 * depth <= alpha;)
+      G(3, in_qsearch = static_eval + 131 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
-    if (G(3,do_null) && G(3, depth > 2) && G(3, static_eval >= beta)) {
+    if (G(4,do_null) && G(4, depth > 2) && G(4, static_eval >= beta)) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
