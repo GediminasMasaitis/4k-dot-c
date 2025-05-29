@@ -6,13 +6,14 @@ import subprocess
 import os
 from tqdm import tqdm
 
+
 def read_file(path):
     with open(path, encoding='utf-8') as f:
         return f.read()
 
 
 def extract_groups(text):
-    # Split on G\( group ,
+    # Split on G( group ,
     pattern = re.compile(r"\bG\(\s*([^, ]+)\s*,\s*")
     parts = pattern.split(text)
     groups = {}
@@ -27,7 +28,6 @@ def extract_groups(text):
             elif ch in ")]}":
                 depth -= 1
             if depth < 0:
-                # Found closing beyond opening: end of this group text
                 groups.setdefault(key, []).append(seg[:j])
                 parts[i] = seg[j+1:]
                 break
@@ -35,26 +35,84 @@ def extract_groups(text):
 
 
 def permute_list(lst):
-    return list(itertools.permutations(lst))
+    return itertools.permutations(lst)
 
-best = 9999999
-perms = 0
 
-def show_all(parts, groups):
+best = float('inf')
+
+
+def build():
+    try:
+        subprocess.run(
+            ["make", "NOSTDLIB=true", "MINI=true", "loader"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+    except subprocess.CalledProcessError:
+        raise RuntimeError("Make command failed")
+
+
+def write_and_build(parts, groups):
+    # assemble content and compile
+    out = []
+    indices = {k: -1 for k in groups}
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            k = part
+            indices[k] += 1
+            out.append(f"G({k}, {groups[k][indices[k]]})")
+        else:
+            out.append(part)
+    content = "".join(out)
+    with open("4k.c", "w") as f:
+        f.write(content)
+    build()
+    size = os.path.getsize("./build/4kc")
+    return size, content
+
+
+def stage_one(parts, groups):
+    global best
+    # For each group, permute only that group
+    for key in groups:
+        original = groups[key]
+        total = math.factorial(len(original))
+        pbar = tqdm(total=total, desc=f"Stage1 G({key})", unit="it")
+        for perm in permute_list(original):
+            groups[key] = list(perm)
+            size, content = write_and_build(parts, groups)
+            pbar.write(f"G({key}) perm size: {size}")
+            if size < best:
+                best = size
+                with open("best.c", "w") as f:
+                    f.write(content)
+                pbar.write(f"New best {size}")
+            pbar.update(1)
+        pbar.close()
+        groups[key] = original
+
+
+def stage_two(parts, groups):
+    global best
+    # Full permutations of all groups
     keys = list(groups.keys())
-    perms = 1
+    total = 1
     for k in keys:
-        perms *= math.factorial(len(groups[k]))
-    print(f"Toal permuations: {perms}")
-    global pbar
-    pbar = tqdm(total=perms, desc="Processing", unit="it")
-    count = 1
+        total *= math.factorial(len(groups[k]))
+    pbar = tqdm(total=total, desc="Stage2 full", unit="it")
 
     def recurse(idx):
-        nonlocal count
         if idx >= len(keys):
-            show(parts, groups, count)
-            count += 1
+            size, content = write_and_build(parts, groups)
+            pbar.write(f"Full perm size: {size}")
+            global best
+            if size < best:
+                best = size
+                with open("best.c", "w") as f:
+                    f.write(content)
+                pbar.write(f"New best {size}")
+            pbar.update(1)
             return
         key = keys[idx]
         original = groups[key]
@@ -64,58 +122,26 @@ def show_all(parts, groups):
         groups[key] = original
 
     recurse(0)
-
-def build():
-    try:
-        subprocess.run(
-            ["make", "NOSTDLIB=true", "MINI=true", "loader"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True  # raises CalledProcessError if make fails
-        )
-    except subprocess.CalledProcessError:
-        raise RuntimeError("Make command failed")
-
-def show(parts, groups, num):
-    global best
-    other = parts.copy()
-    indices = {k: -1 for k in groups}
-    out = []
-    for i, part in enumerate(other):
-        if i % 2 == 1:
-            # placeholder: group name
-            k = part
-            indices[k] += 1
-            seg = groups[k][indices[k]]
-            out.append(f"G({k}, {seg})")
-        else:
-            out.append(part)
-    content = "".join(out)
-    with open(f"4k.c", "w") as f:
-        f.write(content)
-    build();
-    size = os.path.getsize("./build/4kc");
-    pbar.write(f"Permutation {num} size: {size}")
-    if size < best:
-        print(f"Found better size {size} over {best}")
-        best = size
-        with open(f"best.c", "w") as f:
-            f.write(content)
-    pbar.update(1)
+    pbar.close()
 
 
 def main():
     global best
+    # initial build
     build()
-    best = os.path.getsize("./build/4kc");
+    best = os.path.getsize("./build/4kc")
     print(f"Initial size: {best}")
+
     path = sys.argv[1] if len(sys.argv) > 1 else "4k.c"
     text = read_file(path)
     parts, groups = extract_groups(text)
-    #print(len(parts))
     for k, v in groups.items():
-        print(f"{k}: {len(v)} segments")
-    show_all(parts, groups)
+        print(f"Group {k}: {len(v)} segments")
+
+    # Stage 1: individual group permutations
+    stage_one(parts, groups)
+    # Stage 2: full permutations
+    stage_two(parts, groups)
 
 
 if __name__ == "__main__":
