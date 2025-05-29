@@ -4,6 +4,7 @@ import itertools
 import math
 import subprocess
 import os
+from tqdm import tqdm
 
 def read_file(path):
     with open(path, encoding='utf-8') as f:
@@ -45,6 +46,8 @@ def show_all(parts, groups):
     for k in keys:
         perms *= math.factorial(len(groups[k]))
     print(f"Toal permuations: {perms}")
+    global pbar
+    pbar = tqdm(total=perms, desc="Processing", unit="it")
     count = 1
 
     def recurse(idx):
@@ -75,7 +78,7 @@ def build():
 
 def show(parts, groups, num):
     global best
-    print(f"Permutation {num}")
+    #print(f"Permutation {num}")
     other = parts.copy()
     indices = {k: -1 for k in groups}
     out = []
@@ -98,6 +101,7 @@ def show(parts, groups, num):
         best = size
         with open(f"best.c", "w") as f:
             f.write(content)
+    pbar.update(1)
 
 
 def main():
