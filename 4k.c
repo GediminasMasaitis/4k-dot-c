@@ -1125,7 +1125,10 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
       }
 
       // RAZORING
-      in_qsearch = static_eval + 131 * depth <= alpha;
+      if (static_eval + 131 * depth <= alpha) {
+        in_qsearch = true;
+        depth = 0;
+      }
     }
 
     // NULL MOVE PRUNING
