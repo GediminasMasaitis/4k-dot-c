@@ -1118,14 +1118,9 @@ static i16 search(Position *const restrict pos, const i32 ply, i32 depth,
   }
 
   if (!in_check && alpha == beta - 1) {
-    if (!in_qsearch && depth < 8) {
-      // REVERSE FUTILITY PRUNING
-      if (static_eval - 47 * depth >= beta) {
-        return static_eval;
-      }
-
-      // RAZORING
-      in_qsearch = static_eval + 131 * depth <= alpha;
+    // REVERSE FUTILITY PRUNING
+    if (!in_qsearch && depth < 8 && static_eval - 47 * depth >= beta) {
+      return static_eval;
     }
 
     // NULL MOVE PRUNING
