@@ -12,3 +12,6 @@ old
 *.c.temp*
 *.bak
 *.exe
+
+best.c
+worker_*
