@@ -432,7 +432,7 @@ static void swapmoves(Move* const lhs, Move* const rhs) {
   swapu32((u32*)lhs, (u32*)rhs);
 }
 
-static void swapbool(bool* const restrict lhs, bool* const restrict rhs) {
+static void swapbool(G(99, bool* const restrict lhs), G(99,bool* const restrict rhs)) {
   const bool temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
@@ -452,7 +452,7 @@ static void flip_pos(Position* const restrict pos) {
 
   pos->flipped ^= 1;
   for (i32 i = 0; i < 2; i++) {
-    swapbool(&pos->castling[i], &pos->castling[i + 2]);
+    swapbool(G(100, & pos->castling[i]), G(100,& pos->castling[i + 2]));
   }
   swapu64(&pos->colour[0], &pos->colour[1]);
 }
