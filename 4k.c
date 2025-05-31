@@ -576,7 +576,7 @@ i32 makemove(Position* const restrict pos, const Move* const restrict move) {
   assert(!(pos->pieces[Queen] & pos->pieces[King]));
 
   // Return move legality
-  return !is_attacked(H(8, 1, pos), H(8, 1, pos->colour[1] & pos->pieces[King]), H(8, 1, false));
+  return !is_attacked(H(8, 2, pos), H(8, 2, pos->colour[1] & pos->pieces[King]), H(8, 2, false));
 }
 
 static Move* generate_pawn_moves(const Position* const pos,
@@ -668,14 +668,14 @@ enum { max_moves = 218 };
     pos, movelist,
     ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
-    !is_attacked(H(8, 1, pos), H(8, 1, 1ULL << 4), H(8, 1, true)) &&
-    !is_attacked(H(8, 1, pos), H(8, 1, 1ULL << 5), H(8, 1, true))) {
+    !is_attacked(H(8, 3, pos), H(8, 3, 1ULL << 4), H(8, 3, true)) &&
+    !is_attacked(H(8, 4, pos), H(8, 4, 1ULL << 5), H(8, 4, true))) {
     *movelist++ =
       (Move){ .from = 4, .to = 6, .promo = None, .takes_piece = None };
   }
   if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
-    !is_attacked(H(8, 1, pos), H(8, 1, 1ULL << 4), H(8, 1, true)) &&
-    !is_attacked(H(8, 1, pos), H(8, 1, 1ULL << 3), H(8, 1, true))) {
+    !is_attacked(H(8, 5, pos), H(8, 5, 1ULL << 4), H(8, 5, true)) &&
+    !is_attacked(H(8, 6, pos), H(8, 6, 1ULL << 3), H(8, 6, true))) {
     *movelist++ =
       (Move){ .from = 4, .to = 2, .promo = None, .takes_piece = None };
   }
@@ -1068,7 +1068,7 @@ get_hash(const Position* const pos) {
   assert(ply >= 0);
 
   const bool in_check =
-    is_attacked(H(8, 1, pos), H(8, 1, pos->colour[0]) & H(8, 1, pos->pieces[King]), H(8, 1, true));
+    is_attacked(H(8, 7, pos), H(8, 7, pos->colour[0]) & H(8, 7, pos->pieces[King]), H(8, 7, true));
 
   // IN-CHECK EXTENSION
   if (in_check) {
