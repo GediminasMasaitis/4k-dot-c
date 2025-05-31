@@ -543,9 +543,9 @@ i32 makemove(Position* const restrict pos, const Move* const restrict move) {
   G(10, // Pawn double move
     if (piece == Pawn && move->to - move->from == 16) { pos->ep = to >> 8; })
 
-    G(
-      // Promotions
-      5, if (move->promo != None) {
+    G(5, 
+    // Promotions
+    if (move->promo != None) {
     pos->pieces[Pawn] ^= to;
     pos->pieces[move->promo] ^= to;
   })
