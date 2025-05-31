@@ -666,7 +666,7 @@ enum { max_moves = 218 };
     H(16, 4, nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)), H(16, 4, -7));
   movelist = generate_pawn_moves(
     H(16, 5, pos), H(16, 5, movelist),
-    H(16, 5, ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)), H(16, 1, -9));
+    H(16, 5, ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)), H(16, 5, -9));
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
     !is_attacked(H(10, 3, pos), H(10, 3, 1ULL << 4), H(10, 3, true)) &&
     !is_attacked(H(10, 4, pos), H(10, 4, 1ULL << 5), H(10, 4, true))) {
