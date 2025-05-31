@@ -1,5 +1,6 @@
 // Minify thing thang
 #define G(a, b) b
+#define H(a, b, c) c
 
 #pragma region libc shims
 
@@ -804,25 +805,25 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 }
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i16 material[6];
-  i8 pst_rank[64];
-  i8 pst_file[64];
-  i8 mobilities[4];
-  i8 king_attacks[4];
-  i8 open_files[6];
-  i8 bishop_pair;
-  i8 tempo;
+  H(99, 1, i16 material[6];)
+    H(99, 1, i8 pst_rank[64];)
+    H(99, 1, i8 pst_file[64];)
+    H(99, 1, i8 mobilities[4];)
+    H(99, 1, i8 king_attacks[4];)
+    H(99, 1, i8 open_files[6];)
+    H(99, 1, i8 bishop_pair;)
+    H(99, 1, i8 tempo;)
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i32 material[6];
-  i32 pst_rank[64];
-  i32 pst_file[64];
-  i32 mobilities[4];
-  i32 king_attacks[4];
-  i32 open_files[6];
-  i32 bishop_pair;
-  i32 tempo;
+  H(99, 2, i32 material[6];)
+    H(99, 2, i32 pst_rank[64];)
+    H(99, 2, i32 pst_file[64];)
+    H(99, 2, i32 mobilities[4];)
+    H(99, 2, i32 king_attacks[4];)
+    H(99, 2, i32 open_files[6];)
+    H(99, 2, i32 bishop_pair;)
+    H(99, 2, i32 tempo;)
 } EvalParamsMerged;
 
 G(11, static const EvalParams mg = ((EvalParams){
