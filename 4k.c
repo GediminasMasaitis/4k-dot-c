@@ -384,8 +384,8 @@ static u64 diag_mask[64];
     (bb << 1 | bb << 9 | bb >> 7) & ~0x101010101010101ull;
 }
 
-static void move_str(char* restrict str, const Move* restrict move,
-  const i32 flip) {
+static void move_str(H(99, 4, char* restrict str), H(99, 4, const Move* restrict move),
+  H(99, 4, const i32 flip)) {
   assert(move->from >= 0);
   assert(move->from < 64);
   assert(move->to >= 0);
@@ -1331,7 +1331,7 @@ static void iteratively_deepen(
 
     putl(" pv ");
     char move_name[8];
-    move_str(move_name, &stack[0].best_move, pos->flipped);
+    move_str(H(99, 3, move_name), H(99, 3, &stack[0].best_move), H(99, 3, pos->flipped));
     puts(move_name);
 #endif
 
@@ -1340,7 +1340,7 @@ static void iteratively_deepen(
     }
   }
   char move_name[8];
-  move_str(move_name, &stack[0].best_move, pos->flipped);
+  move_str(H(99, 1, move_name), H(99, 1, &stack[0].best_move), H(99, 1, pos->flipped));
   putl("bestmove ");
   puts(move_name);
   }
@@ -1550,7 +1550,7 @@ static void run() {
           const i32 num_moves = movegen(&pos, stack[0].moves, false);
           for (i32 i = 0; i < num_moves; i++) {
             char move_name[8];
-            move_str(move_name, &stack[0].moves[i], pos.flipped);
+            move_str(H(99, 2, move_name), H(99, 2, &stack[0].moves[i]), H(99, 2, pos.flipped));
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(line, move_name)) {
