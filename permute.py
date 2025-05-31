@@ -253,7 +253,8 @@ def stage_one(parts, groups, src_path, iteration):
         desc=('Pass ' + str(iteration) + ' total'),
         unit='it',
         position=2,
-        leave=False
+        leave=False,
+        smoothing=0
     )
 
     # Process G-groups
@@ -269,7 +270,8 @@ def stage_one(parts, groups, src_path, iteration):
             desc=('Pass ' + str(iteration) + ' ' + identifier),
             unit='it',
             position=1,
-            leave=False
+            leave=False,
+            smoothing=0
         )
 
         with ThreadPoolExecutor(max_workers=max_parallelism) as execr:

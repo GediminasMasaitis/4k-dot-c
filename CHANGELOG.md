@@ -5840,3 +5840,11 @@ Games | N: 5518 W: 1684 L: 1633 D: 2201
 Penta | [186, 617, 1094, 684, 178]
 https://gedas.pythonanywhere.com/test/970/
 ```
+
+### 4.24
+
+64 bit: 4008 bytes (-4)
+
+MD5: e6e9340b9579831cb3dd96de9c6144ae
+
+Material combining size decrease

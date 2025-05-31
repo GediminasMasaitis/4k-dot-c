@@ -388,8 +388,8 @@ static void move_str(H(8, 1, char *restrict str),
     G(9, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
   }
 
-  G(10, str[4] = "\0\0nbrq"[move->promo];)
-  G(10, str[5] = '\0';)
+  G(7, str[4] = "\0\0nbrq"[move->promo];)
+  G(7, str[5] = '\0';)
 }
 
 [[nodiscard]] static i32 piece_on(const Position *const restrict pos,
@@ -420,8 +420,8 @@ static void swapmoves(Move *const lhs, Move *const rhs) {
   swapu32((u32 *)lhs, (u32 *)rhs);
 }
 
-static void swapbool(G(11, bool *const restrict rhs),
-                     G(11, bool *const restrict lhs)) {
+static void swapbool(G(8, bool *const restrict rhs),
+                     G(8, bool *const restrict lhs)) {
   const bool temp = *lhs;
   *lhs = *rhs;
   *rhs = temp;
@@ -441,7 +441,7 @@ static void flip_pos(Position *const restrict pos) {
 
   pos->flipped ^= 1;
   for (i32 i = 0; i < 2; i++) {
-    swapbool(G(12, &pos->castling[i]), G(12, &pos->castling[i + 2]));
+    swapbool(G(10, &pos->castling[i]), G(10, &pos->castling[i + 2]));
   }
   swapu64(&pos->colour[0], &pos->colour[1]);
 }
@@ -467,8 +467,8 @@ static void flip_pos(Position *const restrict pos) {
 }
 
 [[nodiscard]] static i32
-is_attacked(H(13, 1, const Position *const restrict pos),
-            H(13, 1, const i32 them), H(13, 1, const u64 bb)) {
+is_attacked(H(11, 1, const Position *const restrict pos),
+            H(11, 1, const i32 them), H(11, 1, const u64 bb)) {
   assert(count(bb) == 1);
   const u64 theirs = pos->colour[them];
   const u64 pawns = theirs & pos->pieces[Pawn];
@@ -476,16 +476,16 @@ is_attacked(H(13, 1, const Position *const restrict pos),
     return true;
   }
   const u64 blockers = pos->colour[0] | pos->colour[1];
-  return G(14, rook(bb, blockers) & theirs &
+  return G(12, rook(bb, blockers) & theirs &
                    (pos->pieces[Rook] | pos->pieces[Queen])) ||
-         G(14, knight(bb) & theirs & pos->pieces[Knight]) ||
-         G(14, king(bb) & theirs & pos->pieces[King]) ||
-         G(14, bishop(bb, blockers) & theirs &
+         G(12, knight(bb) & theirs & pos->pieces[Knight]) ||
+         G(12, king(bb) & theirs & pos->pieces[King]) ||
+         G(12, bishop(bb, blockers) & theirs &
                    (pos->pieces[Bishop] | pos->pieces[Queen]));
 }
 
-i32 makemove(H(15, 1, Position *const restrict pos),
-             H(15, 1, const Move *const restrict move)) {
+i32 makemove(H(13, 1, Position *const restrict pos),
+             H(13, 1, const Move *const restrict move)) {
   assert(move->from >= 0);
   assert(move->from < 64);
   assert(move->to >= 0);
@@ -504,7 +504,7 @@ i32 makemove(H(15, 1, Position *const restrict pos),
   assert(piece != None);
 
   G(
-      16, // Castling
+      14, // Castling
       if (piece == King) {
         const u64 bb = move->to - move->from == 2   ? 0xa0
                        : move->from - move->to == 2 ? 0x9
@@ -513,12 +513,12 @@ i32 makemove(H(15, 1, Position *const restrict pos),
         pos->pieces[Rook] ^= bb;
       })
 
-  G(16, pos->colour[0] ^= mask;)
+  G(14, pos->colour[0] ^= mask;)
 
   // Move the piece
-  G(16, pos->pieces[piece] ^= mask;)
+  G(14, pos->pieces[piece] ^= mask;)
   G(
-      16, // Captures
+      14, // Captures
       if (move->takes_piece != None) {
         pos->colour[1] ^= to;
         pos->pieces[move->takes_piece] ^= to;
@@ -532,17 +532,17 @@ i32 makemove(H(15, 1, Position *const restrict pos),
   pos->ep = 0;
 
   G(
-      17, // Pawn double move
+      15, // Pawn double move
       if (piece == Pawn && move->to - move->from == 16) { pos->ep = to >> 8; })
 
   G(
-      18, // Promotions
+      11, // Promotions
       if (move->promo != None) {
         pos->pieces[Pawn] ^= to;
         pos->pieces[move->promo] ^= to;
       })
 
-  G(17, // Update castling permissions
+  G(15, // Update castling permissions
     pos->castling[2] &= !(mask & 0x9000000000000000ull);
     pos->castling[3] &= !(mask & 0x1100000000000000ull);
     pos->castling[0] &= !(mask & 0x90ull);
@@ -568,14 +568,14 @@ i32 makemove(H(15, 1, Position *const restrict pos),
   assert(!(pos->pieces[Queen] & pos->pieces[King]));
 
   // Return move legality
-  return !is_attacked(H(13, 2, pos), H(13, 2, false),
-                      H(13, 2, pos->colour[1] & pos->pieces[King]));
+  return !is_attacked(H(11, 2, pos), H(11, 2, false),
+                      H(11, 2, pos->colour[1] & pos->pieces[King]));
 }
 
-static Move *generate_pawn_moves(H(19, 1, const Position *const pos),
-                                 H(19, 1, Move *restrict movelist),
-                                 H(19, 1, u64 to_mask),
-                                 H(19, 1, const i32 offset)
+static Move *generate_pawn_moves(H(16, 1, const Position *const pos),
+                                 H(16, 1, Move *restrict movelist),
+                                 H(16, 1, u64 to_mask),
+                                 H(16, 1, const i32 offset)
 
 ) {
   while (to_mask) {
@@ -602,9 +602,9 @@ static Move *generate_pawn_moves(H(19, 1, const Position *const pos),
   return movelist;
 }
 
-static Move *generate_piece_moves(H(20, 1, Move *restrict movelist),
-                                  H(20, 1, const Position *restrict pos),
-                                  H(20, 1, const u64 to_mask)) {
+static Move *generate_piece_moves(H(17, 1, Move *restrict movelist),
+                                  H(17, 1, const Position *restrict pos),
+                                  H(17, 1, const u64 to_mask)) {
   for (i32 piece = Knight; piece <= King; piece++) {
     assert(piece == Knight || piece == Bishop || piece == Rook ||
            piece == Queen || piece == King);
@@ -645,42 +645,42 @@ enum { max_moves = 218 };
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   if (!only_captures) {
     movelist = generate_pawn_moves(
-        H(19, 2, pos), H(19, 2, movelist),
-        H(19, 2,
+        H(16, 2, pos), H(16, 2, movelist),
+        H(16, 2,
           north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) &
               ~all),
-        H(19, 2, -16));
+        H(16, 2, -16));
   }
   movelist = generate_pawn_moves(
-      H(19, 3, pos), H(19, 3, movelist),
-      H(19, 3,
+      H(16, 3, pos), H(16, 3, movelist),
+      H(16, 3,
         north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
             (only_captures ? 0xFF00000000000000ull : ~0ull)),
-      H(19, 3, -8));
+      H(16, 3, -8));
   movelist = generate_pawn_moves(
-      H(19, 4, pos), H(19, 4, movelist),
-      H(19, 4,
+      H(16, 4, pos), H(16, 4, movelist),
+      H(16, 4,
         nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-      H(19, 4, -7));
+      H(16, 4, -7));
   movelist = generate_pawn_moves(
-      H(19, 5, pos), H(19, 5, movelist),
-      H(19, 5,
+      H(16, 5, pos), H(16, 5, movelist),
+      H(16, 5,
         ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-      H(19, 5, -9));
+      H(16, 5, -9));
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
-      !is_attacked(H(13, 3, pos), H(13, 3, true), H(13, 3, 1ULL << 4)) &&
-      !is_attacked(H(13, 4, pos), H(13, 4, true), H(13, 4, 1ULL << 5))) {
+      !is_attacked(H(11, 3, pos), H(11, 3, true), H(11, 3, 1ULL << 4)) &&
+      !is_attacked(H(11, 4, pos), H(11, 4, true), H(11, 4, 1ULL << 5))) {
     *movelist++ =
         (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
   if (!only_captures && pos->castling[1] && !(all & 0xEull) &&
-      !is_attacked(H(13, 5, pos), H(13, 5, true), H(13, 5, 1ULL << 4)) &&
-      !is_attacked(H(13, 6, pos), H(13, 6, true), H(13, 6, 1ULL << 3))) {
+      !is_attacked(H(11, 5, pos), H(11, 5, true), H(11, 5, 1ULL << 4)) &&
+      !is_attacked(H(11, 6, pos), H(11, 6, true), H(11, 6, 1ULL << 3))) {
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
-  movelist = generate_piece_moves(H(20, 2, movelist), H(20, 2, pos),
-                                  H(20, 2, to_mask));
+  movelist = generate_piece_moves(H(17, 2, movelist), H(17, 2, pos),
+                                  H(17, 2, to_mask));
 
   const i32 num_moves = movelist - start;
   assert(num_moves < max_moves);
@@ -705,7 +705,7 @@ enum { max_moves = 218 };
     Position npos = *pos;
 
     // Check move legality
-    if (!makemove(H(15, 2, &npos), H(15, 2, &moves[i]))) {
+    if (!makemove(H(13, 2, &npos), H(13, 2, &moves[i]))) {
       continue;
     }
 
@@ -804,30 +804,29 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
     flip_pos(pos);
   }
 }
-// TODO use offset from struct start so that pst_rank can be included
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
-  i8 pst_rank[64];
-  H(21, 1, i8 pst_file[64];)
-  H(21, 1, i8 mobilities[4];)
-  H(22, 1, i8 king_attacks[4];)
-  H(22, 1, i8 open_files[6];)
-  H(22, 1, i8 bishop_pair;)
-  H(22, 1, i8 tempo;)
+  i8 king_attacks[4]; // TODO: add this to the group
+  H(18, 1, i8 bishop_pair;)
+  H(18, 1, i8 mobilities[4];)
+  H(18, 1, i8 tempo;)
+  H(18, 1, i8 open_files[6];)
+  H(18, 1, i8 pst_file[64];)
+  H(18, 1, i8 pst_rank[64];)
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
-  i32 pst_rank[64];
-  H(21, 2, i32 pst_file[64];)
-  H(21, 2, i32 mobilities[4];)
-  H(22, 2, i32 king_attacks[4];)
-  H(22, 2, i32 open_files[6];)
-  H(22, 2, i32 bishop_pair;)
-  H(22, 2, i32 tempo;)
+  i32 king_attacks[4];
+  H(18, 2, i32 bishop_pair;)
+  H(18, 2, i32 mobilities[4];)
+  H(18, 2, i32 tempo;)
+  H(18, 2, i32 open_files[6];)
+  H(18, 2, i32 pst_file[64];)
+  H(18, 2, i32 pst_rank[64];)
 } EvalParamsMerged;
 
-G(23, static const EvalParams mg = ((EvalParams){
+G(19, static const EvalParams mg = ((EvalParams){
           .material = {72, 318, 299, 401, 896, 0},
           .pst_rank =
               {
@@ -853,7 +852,7 @@ G(23, static const EvalParams mg = ((EvalParams){
           .bishop_pair = 24,
           .tempo = 16});)
 
-G(23, static const EvalParams eg = ((EvalParams){
+G(19, static const EvalParams eg = ((EvalParams){
           .material = {88, 304, 283, 541, 978, 0},
           .pst_rank =
               {
@@ -888,29 +887,27 @@ static i32 combine_eval_param(const i32 mg_val, const i32 eg_val) {
 static void init() {
   // INIT DIAGONAL MASKS
   G(
-      24, for (i32 sq = 0; sq < 64; sq++) {
+      13, for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] = ray(bb, 0, 9, ~0x101010101010101ull) |  // Northeast
                         ray(bb, 0, -9, ~0x8080808080808080ull); // Southwest
       })
 
   G(
-      24, // MERGE MATERIAL VALUES
+      13, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
         eval_params.material[i] =
             combine_eval_param(mg.material[i], eg.material[i]);
       })
   G(
-      24, // MERGE NON-MATERIAL VALUES
-      for (i32 i = 0; i < sizeof(mg.pst_rank) + sizeof(mg.pst_file) +
-                              sizeof(mg.mobilities) + sizeof(mg.king_attacks) +
-                              sizeof(mg.open_files) + sizeof(mg.bishop_pair) +
-                              sizeof(mg.tempo);
-           i++) {
-        // Technically writes past end of array but since the structs are packed
-        // it works
-        eval_params.pst_rank[i] =
-            combine_eval_param(mg.pst_rank[i], eg.pst_rank[i]);
+      13, // MERGE NON-MATERIAL VALUES
+      for (i32 i = 0; i < sizeof(mg) - sizeof(mg.material); i++) {
+        // Technically writes past end of array
+        // But since the structs are packed, it works
+        const i32 offset = sizeof(mg.material);
+        ((i32 *)&eval_params)[offset / sizeof(*mg.material) + i] =
+            combine_eval_param(((i8 *)&mg)[offset + i],
+                               ((i8 *)&eg)[offset + i]);
       })
 }
 
@@ -919,16 +916,16 @@ __attribute__((aligned(8))) static const i16 max_material[] = {0,   88,  318,
 __attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
 
 static i32 eval(Position *const restrict pos) {
-  G(25, i32 score = eval_params.tempo;)
-  G(25, i32 phase = 0;)
+  G(20, i32 score = eval_params.tempo;)
+  G(20, i32 phase = 0;)
 
   for (i32 c = 0; c < 2; c++) {
 
-    G(26, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
+    G(21, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
 
-    G(26, const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];)
+    G(21, const u64 own_pawns = pos->colour[0] & pos->pieces[Pawn];)
     G(
-        26, // BISHOP PAIR
+        21, // BISHOP PAIR
         if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
           score += eval_params.bishop_pair;
         })
@@ -941,24 +938,25 @@ static i32 eval(Position *const restrict pos) {
         const i32 sq = lsb(copy);
         copy &= copy - 1;
 
-        G(27, const int rank = sq >> 3;)
-        G(27, const int file = sq & 7;)
+        G(22, const int rank = sq >> 3;)
+        G(22, const int file = sq & 7;)
 
-        // OPEN FILES / DOUBLED PAWNS
-        G(28, // MATERIAL
-          score += eval_params.material[p - 1];)
-
-        // SPLIT PIECE-SQUARE TABLES
-        G(28, score += eval_params.pst_rank[(p - 1) * 8 + rank];)
-        G(28, score += eval_params.pst_file[(p - 1) * 8 + file];)
+        G(16,
+          // SPLIT PIECE-SQUARE TABLES FOR RANK
+          score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+        G(16,
+          // SPLIT PIECE-SQUARE TABLES FOR FILE
+          score += eval_params.pst_file[(p - 1) * 8 + file];)
 
         G(
-            28, if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
+            16,
+            // OPEN FILES / DOUBLED PAWNS
+            if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
               score += eval_params.open_files[p - 1];
             })
 
         G(
-            28, if (p > Knight) {
+            16, if (p > Knight) {
               // MOBILITY
               const u64 mobility = get_mobility(sq, p, pos);
               score += eval_params.mobilities[p - 3] *
@@ -968,31 +966,34 @@ static i32 eval(Position *const restrict pos) {
               score += eval_params.king_attacks[p - 3] *
                        count(mobility & opp_king_zone);
             })
+
+        G(16, // MATERIAL
+          score += eval_params.material[p - 1];)
       }
     }
 
-    G(29, score = -score;)
-    G(29, flip_pos(pos);)
+    G(17, score = -score;)
+    G(17, flip_pos(pos);)
   }
 
   return ((short)score * phase + ((score + 0x8000) >> 16) * (24 - phase)) / 24;
 }
 
 typedef struct [[nodiscard]] {
-  G(30, Move killer;)
-  G(30, i32 num_moves;)
-  G(30, u64 position_hash;)
-  G(30, Move best_move;)
-  G(30, i32 static_eval;)
-  G(30, Move moves[max_moves];)
+  G(18, Move killer;)
+  G(18, i32 num_moves;)
+  G(18, u64 position_hash;)
+  G(18, Move best_move;)
+  G(18, i32 static_eval;)
+  G(18, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(31, Move move;)
-  G(31, u16 partial_hash;)
-  G(31, i8 depth;)
-  G(31, i16 score;)
-  G(31, u8 flag;)
+  G(23, Move move;)
+  G(23, u16 partial_hash;)
+  G(23, i8 depth;)
+  G(23, i16 score;)
+  G(23, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1001,10 +1002,10 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 30000, inf = 32000 };
 
-G(32, static i32 move_history[2][6][64][64];)
-G(32, static TTEntry tt[tt_length];)
-G(32, static size_t start_time;)
-G(32, static size_t max_time;)
+G(24, static i32 move_history[2][6][64][64];)
+G(24, static TTEntry tt[tt_length];)
+G(24, static size_t start_time;)
+G(24, static size_t max_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1060,21 +1061,21 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
-static i16 search(H(33, 1, Position *const restrict pos),
-                  H(33, 1, const i32 ply), H(33, 1, i32 depth),
-                  H(33, 1, i32 alpha), H(34, 1, const bool do_null),
+static i16 search(H(25, 1, Position *const restrict pos),
+                  H(25, 1, const i32 ply), H(25, 1, i32 depth),
+                  H(25, 1, i32 alpha), H(26, 1, const bool do_null),
 #ifdef FULL
                   u64 *nodes,
 #endif
-                  H(34, 1, const i32 beta),
-                  H(34, 1, SearchStack *restrict stack),
-                  H(34, 1, const i32 pos_history_count)) {
+                  H(26, 1, const i32 beta),
+                  H(26, 1, SearchStack *restrict stack),
+                  H(26, 1, const i32 pos_history_count)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
   const bool in_check =
-      is_attacked(H(13, 7, pos), H(13, 7, true),
-                  H(13, 7, pos->colour[0] & pos->pieces[King]));
+      is_attacked(H(11, 7, pos), H(11, 7, true),
+                  H(11, 7, pos->colour[0] & pos->pieces[King]));
 
   // IN-CHECK EXTENSION
   if (in_check) {
@@ -1097,16 +1098,16 @@ static i16 search(H(33, 1, Position *const restrict pos),
   }
 
   // TT PROBING
-  G(35, const u16 tt_hash_partial = tt_hash / tt_length;)
-  G(35, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
-  G(35, stack[ply].best_move = (Move){0};)
+  G(27, const u16 tt_hash_partial = tt_hash / tt_length;)
+  G(27, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
+  G(27, stack[ply].best_move = (Move){0};)
   if (tt_entry->partial_hash == tt_hash_partial) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(36, alpha == beta - 1) &&
-        G(36, tt_entry->flag != tt_entry->score <= alpha) &&
-        G(36, tt_entry->depth >= depth)) {
+    if (G(28, alpha == beta - 1) &&
+        G(28, tt_entry->flag != tt_entry->score <= alpha) &&
+        G(28, tt_entry->depth >= depth)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1119,57 +1120,57 @@ static i16 search(H(33, 1, Position *const restrict pos),
   i32 static_eval = eval(pos);
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(37, tt_entry->partial_hash == tt_hash_partial) &&
-      G(37, tt_entry->flag != static_eval > tt_entry->score)) {
+  if (G(29, tt_entry->partial_hash == tt_hash_partial) &&
+      G(29, tt_entry->flag != static_eval > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
 
   // QUIESCENCE
-  if (G(38, in_qsearch) && G(38, static_eval > alpha)) {
+  if (G(30, in_qsearch) && G(30, static_eval > alpha)) {
     if (static_eval >= beta) {
       return static_eval;
     }
     alpha = static_eval;
   }
 
-  if (G(39, !in_check) && G(39, alpha == beta - 1)) {
-    if (G(40, depth < 8) && G(40, !in_qsearch)) {
+  if (G(31, !in_check) && G(31, alpha == beta - 1)) {
+    if (G(32, depth < 8) && G(32, !in_qsearch)) {
 
-      G(41, {
+      G(33, {
         // REVERSE FUTILITY PRUNING
         if (static_eval - 47 * depth >= beta) {
           return static_eval;
         }
       })
 
-      G(41, // RAZORING
+      G(33, // RAZORING
         in_qsearch = static_eval + 131 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
-    if (G(42, do_null) && G(42, depth > 2) && G(42, static_eval >= beta)) {
+    if (G(34, do_null) && G(34, depth > 2) && G(34, static_eval >= beta)) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
       const i32 score = -search(
-          H(33, 2, &npos), H(33, 2, ply + 1), H(33, 2, depth - 3 - depth / 4),
-          H(33, 2, -beta), H(34, 2, false),
+          H(25, 2, &npos), H(25, 2, ply + 1), H(25, 2, depth - 3 - depth / 4),
+          H(25, 2, -beta), H(26, 2, false),
 #ifdef FULL
           nodes,
 #endif
-          H(34, 2, -alpha), H(34, 2, stack), H(34, 2, pos_history_count));
+          H(26, 2, -alpha), H(26, 2, stack), H(26, 2, pos_history_count));
       if (score >= beta) {
         return score;
       }
     }
   }
 
-  G(43, i32 moves_evaluated = 0;)
-  G(43, i32 quiets_evaluated = 0;)
-  G(43, u8 tt_flag = Upper;)
-  G(43, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
-  G(43, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(43, stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);)
+  G(25, i32 moves_evaluated = 0;)
+  G(25, i32 quiets_evaluated = 0;)
+  G(25, u8 tt_flag = Upper;)
+  G(25, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
+  G(25, i32 best_score = in_qsearch ? static_eval : -inf;)
+  G(25, stack[ply].num_moves = movegen(pos, stack[ply].moves, in_qsearch);)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     i32 move_score = ~0x1010101LL; // Ends up as large negative
@@ -1180,33 +1181,33 @@ static i16 search(H(33, 1, Position *const restrict pos),
       assert(stack[ply].moves[order_index].takes_piece ==
              piece_on(pos, stack[ply].moves[order_index].to));
       const i32 order_move_score =
-          G(44, // KILLER MOVE
+          G(26, // KILLER MOVE
             move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
                 915) +
-          G(44, // PREVIOUS BEST MOVE FIRST
+          G(26, // PREVIOUS BEST MOVE FIRST
             (move_equal(&stack[ply].best_move, &stack[ply].moves[order_index])
              << 30)) +
-          G(44, // MOST VALUABLE VICTIM
+          G(26, // MOST VALUABLE VICTIM
             stack[ply].moves[order_index].takes_piece * 921) +
-          G(44, // HISTORY HEURISTIC
+          G(26, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
                         [stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]);
       if (order_move_score > move_score) {
-        G(45, move_score = order_move_score;)
-        G(45, swapmoves(&stack[ply].moves[move_index],
+        G(35, move_score = order_move_score;)
+        G(35, swapmoves(&stack[ply].moves[move_index],
                         &stack[ply].moves[order_index]);)
       }
     }
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(46, depth < 8) &&
-        G(46, static_eval + 128 * depth +
+    if (G(36, depth < 8) &&
+        G(36, static_eval + 128 * depth +
                       max_material[stack[ply].moves[move_index].takes_piece] +
                       max_material[stack[ply].moves[move_index].promo] <
                   alpha) &&
-        G(46, moves_evaluated) && G(46, !in_check)) {
+        G(36, moves_evaluated) && G(36, !in_check)) {
       break;
     }
 
@@ -1214,7 +1215,7 @@ static i16 search(H(33, 1, Position *const restrict pos),
 #ifdef FULL
     (*nodes)++;
 #endif
-    if (!makemove(H(15, 3, &npos), H(15, 3, &stack[ply].moves[move_index]))) {
+    if (!makemove(H(13, 3, &npos), H(13, 3, &stack[ply].moves[move_index]))) {
       continue;
     }
 
@@ -1224,19 +1225,19 @@ static i16 search(H(33, 1, Position *const restrict pos),
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        G(47, depth > 1) && G(47, moves_evaluated > 6)
+        G(37, depth > 1) && G(37, moves_evaluated > 6)
             ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
             : 1;
 
     i32 score;
     while (true) {
       score = -search(
-          H(33, 3, &npos), H(33, 3, ply + 1), H(33, 3, depth - reduction),
-          H(33, 3, low), H(34, 3, true),
+          H(25, 3, &npos), H(25, 3, ply + 1), H(25, 3, depth - reduction),
+          H(25, 3, low), H(26, 3, true),
 #ifdef FULL
           nodes,
 #endif
-          H(34, 3, -alpha), H(34, 3, stack), H(34, 3, pos_history_count));
+          H(26, 3, -alpha), H(26, 3, stack), H(26, 3, pos_history_count));
 
       if (score > alpha) {
         if (reduction != 1) {
@@ -1265,11 +1266,11 @@ static i16 search(H(33, 1, Position *const restrict pos),
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
         G(
-            48, if (stack[ply].best_move.takes_piece == None) {
+            38, if (stack[ply].best_move.takes_piece == None) {
               stack[ply].killer = stack[ply].best_move;
             })
         G(
-            48,
+            38,
             i32 *const this_hist =
                 &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                              [stack[ply].best_move.from]
@@ -1292,8 +1293,8 @@ static i16 search(H(33, 1, Position *const restrict pos),
     }
 
     // LATE MOVE PRUNING
-    if (G(49, !in_check) && G(49, alpha == beta - 1) &&
-        G(49, quiets_evaluated > 1 + depth * depth >> !improving)) {
+    if (G(39, !in_check) && G(39, alpha == beta - 1) &&
+        G(39, quiets_evaluated > 1 + depth * depth >> !improving)) {
       break;
     }
   }
@@ -1316,9 +1317,9 @@ static void iteratively_deepen(
 #ifdef FULL
     i32 maxdepth, u64 *nodes,
 #endif
-    H(50, 1, Position *const restrict pos),
-    H(50, 1, SearchStack *restrict stack),
-    H(50, 1, const i32 pos_history_count)) {
+    H(40, 1, Position *const restrict pos),
+    H(40, 1, SearchStack *restrict stack),
+    H(40, 1, const i32 pos_history_count)) {
   start_time = get_time();
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -1326,12 +1327,12 @@ static void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     i32 score =
-        search(H(33, 4, pos), H(33, 4, 0), H(33, 4, depth), H(33, 4, -inf),
-               H(34, 4, false),
+        search(H(25, 4, pos), H(25, 4, 0), H(25, 4, depth), H(25, 4, -inf),
+               H(26, 4, false),
 #ifdef FULL
                nodes,
 #endif
-               H(34, 4, inf), H(34, 4, stack), H(34, 4, pos_history_count));
+               H(26, 4, inf), H(26, 4, stack), H(26, 4, pos_history_count));
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
@@ -1451,8 +1452,8 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(20, &nodes, H(50, 2, &pos), H(50, 2, stack),
-                     H(50, 2, pos_history_count));
+  iteratively_deepen(20, &nodes, H(40, 2, &pos), H(40, 2, stack),
+                     H(40, 2, pos_history_count));
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -1469,17 +1470,17 @@ static void run() {
   setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 
-  G(51, char line[4096];)
-  G(51, Position pos;)
-  G(51, i32 pos_history_count;)
-  G(51, // #ifdef LOWSTACK
+  G(41, char line[4096];)
+  G(41, Position pos;)
+  G(41, i32 pos_history_count;)
+  G(41, // #ifdef LOWSTACK
         //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
         // #else
     SearchStack stack[1024];
     // #endif
   )
-  G(51, __builtin_memset(move_history, 0, sizeof(move_history));)
-  G(51, init();)
+  G(41, __builtin_memset(move_history, 0, sizeof(move_history));)
+  G(41, init();)
 
 #ifdef FULL
   pos = start_pos;
@@ -1511,8 +1512,8 @@ static void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       max_time = 99999999999;
-      iteratively_deepen(max_ply, &nodes, H(50, 3, &pos), H(50, 3, stack),
-                         H(50, 3, pos_history_count));
+      iteratively_deepen(max_ply, &nodes, H(40, 3, &pos), H(40, 3, stack),
+                         H(40, 3, pos_history_count));
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
@@ -1533,8 +1534,8 @@ static void run() {
     } else if (line[0] == 'i') {
       puts("readyok");
     } else if (line[0] == 'p') {
-      G(52, pos = start_pos;)
-      G(52, pos_history_count = 0;)
+      G(42, pos = start_pos;)
+      G(42, pos_history_count = 0;)
       while (true) {
         const bool line_continue = getl(line);
 
@@ -1558,7 +1559,7 @@ static void run() {
             if (stack[0].moves[i].takes_piece != None) {
               pos_history_count = 0;
             }
-            makemove(H(15, 4, &pos), H(15, 4, &stack[0].moves[i]));
+            makemove(H(13, 4, &pos), H(13, 4, &stack[0].moves[i]));
             break;
           }
         }
@@ -1583,15 +1584,15 @@ static void run() {
           break;
         }
       }
-      iteratively_deepen(max_ply, &nodes, H(50, 4, &pos), H(50, 4, stack),
-                         H(50, 4, pos_history_count));
+      iteratively_deepen(max_ply, &nodes, H(40, 4, &pos), H(40, 4, stack),
+                         H(40, 4, pos_history_count));
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         max_time = atoi(line) / 2;
       }
-      iteratively_deepen(H(50, 5, &pos), H(50, 5, stack),
-                         H(50, 5, pos_history_count));
+      iteratively_deepen(H(40, 5, &pos), H(40, 5, stack),
+                         H(40, 5, pos_history_count));
 #endif
     }
   }
