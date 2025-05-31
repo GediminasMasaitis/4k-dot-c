@@ -1068,7 +1068,7 @@ get_hash(const Position* const pos) {
   assert(ply >= 0);
 
   const bool in_check =
-    is_attacked(H(8, 7, pos), H(8, 7, pos->colour[0]) & H(8, 7, pos->pieces[King]), H(8, 7, true));
+    is_attacked(H(8, 7, pos), H(8, 7, pos->colour[0] & pos->pieces[King]), H(8, 7, true));
 
   // IN-CHECK EXTENSION
   if (in_check) {
