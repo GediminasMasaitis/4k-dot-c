@@ -1057,13 +1057,13 @@ get_hash(const Position* const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
-  static i16 search(H(23, 3, Position* const restrict pos), H(23, 3, const i32 ply), H(23, 3, i32 depth),
-    H(23, 3, i32 alpha), H(23, 3, const i32 beta),
+  static i16 search(H(23, 1, Position* const restrict pos), H(23, 1, const i32 ply), H(23, 1, i32 depth),
+    H(23, 1, i32 alpha), H(23, 1, const i32 beta),
 #ifdef FULL
     u64* nodes,
 #endif
-    H(23, 3, SearchStack* restrict stack), H(23, 3, const i32 pos_history_count),
-    H(23, 3, const bool do_null)) {
+    H(23, 1, SearchStack* restrict stack), H(23, 1, const i32 pos_history_count),
+    H(23, 1, const bool do_null)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1147,11 +1147,11 @@ get_hash(const Position* const pos) {
       flip_pos(&npos);
       npos.ep = 0;
       const i32 score =
-        -search(H(23, 1, &npos), H(23, 1, ply + 1), H(23, 1, depth - 3 - depth / 4), H(23, 1, -beta), H(23, 1, -alpha),
+        -search(H(23, 2, &npos), H(23, 2, ply + 1), H(23, 2, depth - 3 - depth / 4), H(23, 2, -beta), H(23, 2, -alpha),
 #ifdef FULL
           nodes,
 #endif
-          H(23, 1, stack), H(23, 1, pos_history_count), H(23, 1, false));
+          H(23, 2, stack), H(23, 2, pos_history_count), H(23, 2, false));
       if (score >= beta) {
         return score;
       }
@@ -1224,11 +1224,11 @@ get_hash(const Position* const pos) {
 
       i32 score;
       while (true) {
-        score = -search(H(23, 2, &npos), H(23, 2, ply + 1), H(23, 2, depth - reduction), H(23, 2, low), H(23, 2, -alpha),
+        score = -search(H(23, 3, &npos), H(23, 3, ply + 1), H(23, 3, depth - reduction), H(23, 3, low), H(23, 3, -alpha),
 #ifdef FULL
           nodes,
 #endif
-          H(23, 2, stack), H(23, 2, pos_history_count), H(23, 2, true));
+          H(23, 3, stack), H(23, 3, pos_history_count), H(23, 3, true));
 
         if (score > alpha) {
           if (reduction != 1) {
