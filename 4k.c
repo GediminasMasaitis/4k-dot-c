@@ -496,7 +496,7 @@ static void flip_pos(Position* const restrict pos) {
       (pos->pieces[Bishop] | pos->pieces[Queen]));
 }
 
-i32 makemove(Position* const restrict pos, const Move* const restrict move) {
+i32 makemove(H(99, 4, Position* const restrict pos), H(99, 4, const Move* const restrict move)) {
   assert(move->from >= 0);
   assert(move->from < 64);
   assert(move->to >= 0);
@@ -704,7 +704,7 @@ enum { max_moves = 218 };
     Position npos = *pos;
 
     // Check move legality
-    if (!makemove(&npos, &moves[i])) {
+    if (!makemove(H(99, 1, &npos), H(99, 1, &moves[i]))) {
       continue;
     }
 
@@ -1208,7 +1208,7 @@ get_hash(const Position* const pos) {
 #ifdef FULL
       (*nodes)++;
 #endif
-      if (!makemove(&npos, &stack[ply].moves[move_index])) {
+      if (!makemove(H(99, 2, &npos), H(99, 2, &stack[ply].moves[move_index]))) {
         continue;
       }
 
@@ -1559,7 +1559,7 @@ static void run() {
               if (stack[0].moves[i].takes_piece != None) {
                 pos_history_count = 0;
               }
-              makemove(&pos, &stack[0].moves[i]);
+              makemove(H(99, 3, &pos), H(99, 3, &stack[0].moves[i]));
               break;
             }
           }
