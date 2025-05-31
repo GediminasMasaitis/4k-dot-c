@@ -805,10 +805,10 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 }
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  H(99, 1, i16 material[6];)
-    H(99, 1, i8 pst_rank[64];)
-    H(99, 1, i8 pst_file[64];)
-    H(99, 1, i8 mobilities[4];)
+  i16 material[6];
+    i8 pst_rank[64];
+    i8 pst_file[64];
+    i8 mobilities[4];
     H(99, 1, i8 king_attacks[4];)
     H(99, 1, i8 open_files[6];)
     H(99, 1, i8 bishop_pair;)
@@ -816,10 +816,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  H(99, 2, i32 material[6];)
-    H(99, 2, i32 pst_rank[64];)
-    H(99, 2, i32 pst_file[64];)
-    H(99, 2, i32 mobilities[4];)
+  i32 material[6];
+    i32 pst_rank[64];
+    i32 pst_file[64];
+    i32 mobilities[4];
     H(99, 2, i32 king_attacks[4];)
     H(99, 2, i32 open_files[6];)
     H(99, 2, i32 bishop_pair;)
