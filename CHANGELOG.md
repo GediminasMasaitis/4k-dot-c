@@ -5823,3 +5823,20 @@ Games | N: 1836 W: 536 L: 556 D: 744
 Penta | [62, 224, 356, 224, 52]
 https://gedas.pythonanywhere.com/test/968/
 ```
+
+### 4.23
+
+64 bit: 4012 bytes (-11)
+
+MD5: 64fa16aef1b2009a90946bef553c9896
+
+Correlated reordering
+
+```py
+Elo   | 3.21 +- 6.48 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 1.61 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 5518 W: 1684 L: 1633 D: 2201
+Penta | [186, 617, 1094, 684, 178]
+https://gedas.pythonanywhere.com/test/970/
+```
