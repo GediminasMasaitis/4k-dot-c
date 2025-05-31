@@ -579,9 +579,9 @@ i32 makemove(H(12, 1, Position* const restrict pos), H(12, 1, const Move* const 
   return !is_attacked(H(10, 2, pos), H(10, 2, pos->colour[1] & pos->pieces[King]), H(10, 2, false));
 }
 
-static Move* generate_pawn_moves(const Position* const pos,
-  Move* restrict movelist, u64 to_mask,
-  const i32 offset
+static Move* generate_pawn_moves(H(99, 1, const Position* const pos),
+  H(99, 1, Move* restrict movelist), H(99, 1, u64 to_mask),
+  H(99, 1, const i32 offset)
 
 ) {
   while (to_mask) {
@@ -652,21 +652,21 @@ enum { max_moves = 218 };
   const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];
   if (!only_captures) {
     movelist = generate_pawn_moves(
-      pos, movelist,
-      north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all,
-      -16);
+      H(99, 2, pos), H(99, 2, movelist),
+      H(99, 2, north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) & ~all),
+      H(99, 2, -16));
   }
   movelist =
-    generate_pawn_moves(pos, movelist,
-      north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
-      (only_captures ? 0xFF00000000000000ull : ~0ull),
-      -8);
+    generate_pawn_moves(H(99, 3, pos), H(99, 3, movelist),
+      H(99, 3, north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
+      (only_captures ? 0xFF00000000000000ull : ~0ull)),
+      H(99, 3, -8));
   movelist = generate_pawn_moves(
-    pos, movelist,
-    nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -7);
+    H(99, 4, pos), H(99, 4, movelist),
+    H(99, 4, nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)), H(99, 4, -7));
   movelist = generate_pawn_moves(
-    pos, movelist,
-    ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep), -9);
+    H(99, 5, pos), H(99, 5, movelist),
+    H(99, 5, ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)), H(99, 1, -9));
   if (!only_captures && pos->castling[0] && !(all & 0x60ull) &&
     !is_attacked(H(10, 3, pos), H(10, 3, 1ULL << 4), H(10, 3, true)) &&
     !is_attacked(H(10, 4, pos), H(10, 4, 1ULL << 5), H(10, 4, true))) {
