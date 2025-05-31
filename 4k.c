@@ -1306,8 +1306,8 @@ static void iteratively_deepen(
 #ifdef FULL
   i32 maxdepth, u64* nodes,
 #endif
-  H(99, 5, Position* const restrict pos), H(99, 5, SearchStack* restrict stack),
-  (H(99, 5, const i32 pos_history_count)) {
+  H(43, 1, Position* const restrict pos), H(43, 1, SearchStack* restrict stack),
+  H(43, 1, const i32 pos_history_count)) {
   start_time = get_time();
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -1448,7 +1448,7 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(20, &nodes, H(99, 2, &pos), H(99, 2, stack), H(99, 2, pos_history_count));
+  iteratively_deepen(20, &nodes, H(43, 2, &pos), H(43, 2, stack), H(43, 2, pos_history_count));
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -1465,17 +1465,17 @@ static void run() {
   setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 
-  G(43, char line[4096];)
-    G(43, Position pos;)
-    G(43, i32 pos_history_count;)
-    G(43, // #ifdef LOWSTACK
+  G(44, char line[4096];)
+    G(44, Position pos;)
+    G(44, i32 pos_history_count;)
+    G(44, // #ifdef LOWSTACK
       //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
       // #else
       SearchStack stack[1024];
   // #endif
     )
-    G(43, __builtin_memset(move_history, 0, sizeof(move_history));)
-    G(43, init();)
+    G(44, __builtin_memset(move_history, 0, sizeof(move_history));)
+    G(44, init();)
 
 #ifdef FULL
     pos = start_pos;
@@ -1510,7 +1510,7 @@ static void run() {
     }
     else if (!strcmp(line, "gi")) {
       max_time = 99999999999;
-      iteratively_deepen(max_ply, &nodes, H(99, 3, &pos), H(99, 3, stack), H(99, 3, pos_history_count));
+      iteratively_deepen(max_ply, &nodes, H(43, 3, &pos), H(43, 3, stack), H(43, 3, pos_history_count));
     }
     else if (!strcmp(line, "d")) {
       display_pos(&pos);
@@ -1535,8 +1535,8 @@ static void run() {
       puts("readyok");
     }
     else if (line[0] == 'p') {
-      G(44, pos = start_pos;)
-        G(44, pos_history_count = 0;)
+      G(45, pos = start_pos;)
+        G(45, pos_history_count = 0;)
         while (true) {
           const bool line_continue = getl(line);
 
@@ -1587,13 +1587,13 @@ static void run() {
           break;
         }
       }
-      iteratively_deepen(max_ply, &nodes, H(99, 4, &pos), H(99, 4, stack), H(99, 4, pos_history_count));
+      iteratively_deepen(max_ply, &nodes, H(43, 4, &pos), H(43, 4, stack), H(43, 4, pos_history_count));
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         max_time = atoi(line) / 2;
       }
-      iteratively_deepen(H(99, 1, &pos), H(99, 1, stack), H(99, 1, pos_history_count));
+      iteratively_deepen(H(43, 5, &pos), H(43, 5, stack), H(43, 5, pos_history_count));
 #endif
     }
   }
