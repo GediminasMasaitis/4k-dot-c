@@ -48,7 +48,7 @@ enum [[nodiscard]] {
     stderr = 2,
   };
 
-static ssize_t _sys(ssize_t call, ssize_t arg1, ssize_t arg2, ssize_t arg3) {
+static ssize_t _sys(H(99, 1, ssize_t call), H(99, 1, ssize_t arg1), H(99, 1, ssize_t arg2), H(99, 1, ssize_t arg3)) {
   ssize_t ret;
 #ifdef ARCH64
   asm volatile("syscall"
@@ -85,11 +85,7 @@ static void exit_now() {
 static void putl(const char* const restrict string) {
   i32 length = 0;
   while (string[length]) {
-#ifdef ARCH64
-    _sys(1, stdout, (ssize_t)(&string[length]), 1);
-#else
-    _sys(4, stdout, (ssize_t)(&string[length]), 1);
-#endif
+    _sys(H(99, 2, 1), H(99, 2, stdout), H(99, 2, (ssize_t)(&string[length])), H(99, 2, 1));
     length++;
   }
 }
@@ -102,11 +98,7 @@ static void puts(const char* const restrict string) {
 // Non-standard, gets but a word instead of a line
 static bool getl(char* restrict string) {
   while (true) {
-#ifdef ARCH64
-    const int result = _sys(0, stdin, (ssize_t)string, 1);
-#else
-    const int result = _sys(3, stdin, (ssize_t)string, 1);
-#endif
+    const int result = _sys(H(99, 6, 0), H(99, 6, stdin), H(99, 6, (ssize_t)string), H(99, 6, 1));
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -163,11 +155,7 @@ static void _printf(const char* format, const size_t* args) {
       break;
     }
     if (*format != '%') {
-#ifdef ARCH64
-      _sys(1, stdout, (ssize_t)format, 1);
-#else
-      _sys(4, stdout, (ssize_t)format, 1);
-#endif
+      _sys(H(99, 3, 1), H(99, 3, stdout), H(99, 3, (ssize_t)format), H(99, 3, 1));
       format++;
       continue;
     }
@@ -207,11 +195,7 @@ typedef struct [[nodiscard]] {
 
 [[nodiscard]] static size_t get_time() {
   timespec ts;
-#ifdef ARCH64
-  _sys(228, 1, (ssize_t)&ts, 0);
-#else
-  _sys(265, 1, (ssize_t)&ts, 0);
-#endif
+  _sys(H(99, 4, 228), H(99, 4, 1), H(99, 4, (ssize_t)&ts), H(99, 4, 0));
   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
@@ -220,7 +204,7 @@ typedef struct [[nodiscard]] {
   if (!(condition)) {                                                          \
     printf("Assert failed on line %i: ", __LINE__);                            \
     puts(#condition);                                                          \
-    _sys(60, 1, 0, 0);                                                         \
+    _sys(H(99,5,60), H(99,5,1), H(99,5,0), H(99,5,0));                                                         \
   }
 #else
 #define assert(condition)
