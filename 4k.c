@@ -805,10 +805,10 @@ static void get_fen(Position* restrict pos, char* restrict fen) {
     flip_pos(pos);
   }
 }
-
+// TODO use offset from struct start so that pst_rank can be included
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  H(16, 1, i16 material[6];)
-  H(16, 1, i8 pst_rank[64];)
+  i16 material[6];
+  i8 pst_rank[64];
   H(16, 1, i8 pst_file[64];)
     H(16, 1, i8 mobilities[4];)
     H(17, 1, i8 king_attacks[4];)
@@ -818,8 +818,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  H(16, 2, i32 material[6];)
-  H(16, 2, i32 pst_rank[64];)
+  i32 material[6];
+  i32 pst_rank[64];
   H(16, 2, i32 pst_file[64];)
     H(16, 2, i32 mobilities[4];)
     H(17, 2, i32 king_attacks[4];)
