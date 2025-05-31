@@ -51,7 +51,7 @@ def extract_groups(text):
     last_pos = 0
 
     while i < n:
-        if text.startswith('H(', i):
+        if text.startswith('G(', i) or text.startswith('H(', i):
             macro_type = text[i]  # 'G' or 'H'
             start_macro = i
             i += 2  # move past 'G(' or 'H('
