@@ -911,7 +911,7 @@ static void init() {
       })
 }
 
-__attribute__((aligned(8))) static const i16 max_material[] = {0,   88,  318,
+__attribute__((aligned(8))) static const i16 max_material[] = {0,   120,  318,
                                                                299, 541, 978};
 __attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
 
