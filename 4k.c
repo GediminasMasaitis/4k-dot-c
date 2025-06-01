@@ -810,7 +810,6 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(18, 1, i8 bishop_pair;)
   H(18, 1, i8 mobilities[4];)
   H(18, 1, i8 tempo;)
-  H(18, 1, i8 open_files[6];)
   H(18, 1, i8 pst_file[64];)
   H(18, 1, i8 pst_rank[64];)
 } EvalParams;
@@ -821,7 +820,6 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(18, 2, i32 bishop_pair;)
   H(18, 2, i32 mobilities[4];)
   H(18, 2, i32 tempo;)
-  H(18, 2, i32 open_files[6];)
   H(18, 2, i32 pst_file[64];)
   H(18, 2, i32 pst_rank[64];)
 } EvalParamsMerged;
@@ -848,7 +846,6 @@ G(19, static const EvalParams mg = ((EvalParams){
               },
           .mobilities = {4, 2, 2, -11},
           .king_attacks = {14, 19, 15, 0},
-          .open_files = {23, -14, -10, 19, -3, -31},
           .bishop_pair = 24,
           .tempo = 16});)
 
@@ -874,7 +871,6 @@ G(19, static const EvalParams eg = ((EvalParams){
               },
           .mobilities = {5, 2, 1, 0},
           .king_attacks = {-3, -6, 5, 0},
-          .open_files = {32, -1, 11, 15, 28, 10},
           .bishop_pair = 53,
           .tempo = 8});)
 
@@ -947,13 +943,6 @@ static i32 eval(Position *const restrict pos) {
         G(16,
           // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
-
-        G(
-            16,
-            // OPEN FILES / DOUBLED PAWNS
-            if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
-              score += eval_params.open_files[p - 1];
-            })
 
         G(
             16, if (p > Knight) {
