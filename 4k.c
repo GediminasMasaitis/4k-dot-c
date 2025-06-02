@@ -264,8 +264,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 ep;)
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
-  G(6, bool castling[4];)
   G(6, bool flipped;)
+  G(6, bool castling[4];)
 } Position;
 
 [[nodiscard]] static bool move_string_equal(H(7, 1, const char *restrict lhs),
@@ -492,13 +492,6 @@ i32 makemove(H(13, 1, Position *const restrict pos),
   assert(piece != None);
 
   G(
-      14, // Captures
-      if (move->takes_piece != None) {
-        pos->colour[1] ^= to;
-        pos->pieces[move->takes_piece] ^= to;
-      })
-
-  G(
       14, // Castling
       if (piece == King) {
         const u64 bb = move->to - move->from == 2   ? 0xa0
@@ -508,9 +501,16 @@ i32 makemove(H(13, 1, Position *const restrict pos),
         pos->pieces[Rook] ^= bb;
       })
 
-  // Move the piece
   G(14, pos->colour[0] ^= mask;)
+
+  // Move the piece
   G(14, pos->pieces[piece] ^= mask;)
+  G(
+      14, // Captures
+      if (move->takes_piece != None) {
+        pos->colour[1] ^= to;
+        pos->pieces[move->takes_piece] ^= to;
+      })
 
   // En passant
   if (piece == Pawn && to == pos->ep) {
