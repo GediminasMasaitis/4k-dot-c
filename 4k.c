@@ -51,28 +51,16 @@ enum [[nodiscard]] {
 static ssize_t _sys(H(1, 1, ssize_t call), H(1, 1, ssize_t arg3),
                     H(1, 1, ssize_t arg1), H(1, 1, ssize_t arg2)) {
   ssize_t ret;
-#ifdef ARCH64
   asm volatile("syscall"
                : "=a"(ret)
                : "a"(call), "D"(arg1), "S"(arg2), "d"(arg3)
                : "rcx", "r11", "memory");
-#else
-  asm volatile("int $0x80"
-               : "=a"(ret)
-               : "a"(call), "b"(arg1), "c"(arg2), "d"(arg3)
-               : "memory");
-#endif
   return ret;
 }
 
 static void exit_now() {
-#ifdef ARCH32
-  asm volatile("movl $1, %eax\n\t"
-               "int $0x80");
-#else
   asm volatile("movl $60, %eax\n\t"
                "syscall");
-#endif
 }
 
 [[nodiscard]] static i32 strlen(const char *const restrict string) {
