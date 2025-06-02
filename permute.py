@@ -8,11 +8,27 @@ import shutil
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import random
 
-# Maximum number of parallel builds
-max_parallelism = 12
+# ---------------------------------------------
+# Configuration (you can tweak these)
+# ---------------------------------------------
 
-# List of files needed for build (adjust manually)
+# Maximum number of parallel builds in each pass
+max_parallelism = 6
+
+# When True, each pass begins with a random shuffle of all groups.
+# (After that, inside stage_one we do exhaustive permutations.)
+enable_random_shuffle = True
+
+# Random seed for reproducibility. Set to an integer or None.
+random_seed = None
+
+# How many independent "passes" (with fresh shuffles) to perform.
+# Increase if you want more attempts to escape local minima.
+num_runs = 999
+
+# List of files needed for each worker's directory
 files_to_copy = [
     'Makefile',
     'loader.c',
@@ -23,17 +39,22 @@ files_to_copy = [
     '64bit-noheader.ld',
 ]
 
-# Global best and initial sizes, and lock for thread-safe updates
-best = float('inf')
-initial_size = None
-best_lock = threading.Lock()
+# ---------------------------------------------
+# Globals for tracking the absolute best across all runs
+# ---------------------------------------------
 
-# Read file helper
+global_best_size = float('inf')
+global_best_src = None
+global_best_lock = threading.Lock()
+
+# ---------------------------------------------
+# Helper functions (unchanged from your original)
+# ---------------------------------------------
+
 def read_file(path):
     with open(path) as f:
         return f.read()
 
-# Extract G and H groups
 def extract_groups(text):
     """
     Scans the text and extracts both G(key, segment) and H(key, corr, segment) macros.
@@ -114,11 +135,9 @@ def extract_groups(text):
 
     return parts, groups
 
-# Generate permutations list for a list of elements
 def permute_list(lst):
     return list(itertools.permutations(lst))
 
-# Prepare worker directories
 def setup_workers():
     for wid in range(max_parallelism):
         workdir = 'worker_' + str(wid)
@@ -128,7 +147,6 @@ def setup_workers():
         for fname in files_to_copy:
             shutil.copy(fname, os.path.join(workdir, fname))
 
-# Reconstruct and build for a worker
 def build_worker(parts, base_groups, group_id, perm, src_path, worker_id, correlated_ids=None):
     """
     Reconstructs the source by using a specific permutation for one group.
@@ -182,7 +200,6 @@ def build_worker(parts, base_groups, group_id, perm, src_path, worker_id, correl
     size = os.path.getsize(built_path)
     return size, content, perm
 
-# Serial build (no parallelism)
 def write_and_build(parts, groups, src_path):
     """
     Reconstructs the source using the current ordering in groups,
@@ -203,10 +220,11 @@ def write_and_build(parts, groups, src_path):
                 corr = parts_split[2]
                 out.append('H(' + key + ', ' + corr + ', ' + seg + ')')
             else:
-                out.append(seg)
+                out.append(part)
         else:
             out.append(part)
     content = ''.join(out)
+    print(src_path)
     with open(src_path, 'w') as f:
         f.write(content)
     subprocess.run([
@@ -215,21 +233,88 @@ def write_and_build(parts, groups, src_path):
     size = os.path.getsize('./build/4kc')
     return size, content
 
-# Stage 1 with parallelism and live stats
-def stage_one(parts, groups, src_path, iteration):
-    global best
-    saved = initial_size - best
+def shuffle_groups(groups):
+    """
+    Randomly shuffles the members of each group (if enable_random_shuffle is True).
+    For H groups, ensures correlated groups are shuffled together.
+    """
+    if not enable_random_shuffle:
+        return groups
+    
+    shuffled_groups = {}
+    
+    # Track which H groups have been processed
+    processed_h = set()
+    
+    # Identify correlated H groups
+    h_base_to_ids = {}
+    for identifier in groups:
+        if identifier.startswith('H_'):
+            parts_split = identifier.split('_', 2)
+            key = parts_split[1]
+            base = 'H_' + key
+            h_base_to_ids.setdefault(base, []).append(identifier)
+    
+    # Shuffle each group
+    for identifier, segments in groups.items():
+        if identifier.startswith('G_'):
+            shuffled = segments[:]
+            random.shuffle(shuffled)
+            shuffled_groups[identifier] = shuffled
+        elif identifier.startswith('H_') and identifier not in processed_h:
+            parts_split = identifier.split('_', 2)
+            key = parts_split[1]
+            base = 'H_' + key
+            correlated_ids = h_base_to_ids[base]
+            
+            length = len(segments)
+            indices = list(range(length))
+            random.shuffle(indices)
+            
+            # Apply the same permutation to all correlated H groups
+            for hid in correlated_ids:
+                original = groups[hid]
+                shuffled = [original[i] for i in indices]
+                shuffled_groups[hid] = shuffled
+                processed_h.add(hid)
+    
+    return shuffled_groups
+
+# ---------------------------------------------
+# stage_one: updated to show run best and global best
+# ---------------------------------------------
+
+def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
+    """
+    Performs a single "stage 1" exhaustive reordering over all G- and H-groups.
+    - parts & groups come from extract_groups
+    - src_path is the filename to overwrite with new attempts
+    - iteration is the current pass number for display
+    - pass_best is a dict used to track this pass's best size and content
+    - stats_prefix is a string to show in the tqdm bar (e.g. "Run 2, Initial size: ...")
+    
+    Returns True if any improvement occurred in this stage.
+    """
+    global global_best_size
+    
+    any_improved = False
+    saved_run = pass_best['initial'] - pass_best['best']
+    
+    # Initial status bar shows both run-best and current global-best
     stats_bar = tqdm(
         total=1,
-        desc=('Initial size: ' + str(initial_size) + 'B   Best size: ' +
-              str(best) + 'B   Saved: ' + str(saved) + 'B'),
+        desc=(
+            stats_prefix
+            + '   Run best: ' + str(pass_best['best']) + 'B'
+            + '   Global best: ' + (str(global_best_size) if global_best_size < float('inf') else 'N/A') + 'B'
+            + '   Saved this run: ' + str(saved_run) + 'B'
+        ),
         bar_format='{desc}',
         position=0,
         leave=True
     )
-    print('\n--- Stage 1 pass ' + str(iteration) + ' start ---')
-    any_improved = False
-
+    print(f'\n--- {stats_prefix} Stage 1 pass {iteration} start ---')
+    
     # Identify correlated H keys
     h_base_to_ids = {}
     for identifier in groups:
@@ -239,7 +324,7 @@ def stage_one(parts, groups, src_path, iteration):
             base = 'H_' + key
             h_base_to_ids.setdefault(base, []).append(identifier)
 
-    # Compute total iterations
+    # Compute total iterations (for the overall progress bar)
     total_iters = 0
     for identifier in groups:
         if identifier.startswith('G_'):
@@ -250,7 +335,7 @@ def stage_one(parts, groups, src_path, iteration):
 
     total_bar = tqdm(
         total=total_iters,
-        desc=('Pass ' + str(iteration) + ' total'),
+        desc=(stats_prefix + ' Pass ' + str(iteration) + ' total'),
         unit='it',
         position=2,
         leave=False,
@@ -267,7 +352,7 @@ def stage_one(parts, groups, src_path, iteration):
 
         group_bar = tqdm(
             total=len(perms),
-            desc=('Pass ' + str(iteration) + ' ' + identifier),
+            desc=(stats_prefix + ' Pass ' + str(iteration) + ' ' + identifier),
             unit='it',
             position=1,
             leave=False,
@@ -283,36 +368,50 @@ def stage_one(parts, groups, src_path, iteration):
 
             for future in as_completed(futures):
                 size, content, perm = future.result()
-                with best_lock:
-                    if size < best:
-                        best = size
-                        with open('best.c', 'w') as bf:
-                            bf.write(content)
+                with global_best_lock:
+                    # If this run's best is improved, update pass_best
+                    if size < pass_best['best']:
+                        pass_best['best'] = size
+                        pass_best['best_content'] = content
                         any_improved = True
-                        saved = initial_size - best
+                        saved_run = pass_best['initial'] - pass_best['best']
+                        # Update status bar to include new run and global best
                         stats_bar.set_description(
-                            'Initial size: ' + str(initial_size) +
-                            'B   Best size: ' + str(best) +
-                            'B   Saved: ' + str(saved) + 'B'
+                            stats_prefix
+                            + '   Run best: ' + str(pass_best['best']) + 'B'
+                            + '   Global best: ' + (str(global_best_size) if global_best_size < float('inf') else 'N/A') + 'B'
+                            + '   Saved this run: ' + str(saved_run) + 'B'
                         )
-                        is_new_best = True
+                        is_new_run_best = True
                     else:
-                        is_new_best = False
+                        is_new_run_best = False
 
-                if is_new_best:
-                    group_bar.write(('[Pass ' + str(iteration) + '] ' +
-                                     identifier + ' perm size: ' +
-                                     str(size) + ' NEW BEST!'))
+                    # If this is also a new global best, update global
+                    if size < global_best_size:
+                        global_best_size = size
+                        global_best_src = content
+                        # Write out the absolute best source so far
+                        with open('global_best.c', 'w') as gf:
+                            gf.write(global_best_src)
+                        print(f'*** New GLOBAL best: {global_best_size}B. Saved to global_best.c ***')
+                        is_new_global_best = True
+                    else:
+                        is_new_global_best = False
+
+                if is_new_global_best:
+                    group_bar.write(f'[{stats_prefix} Pass {iteration}] {identifier} perm size: {size} NEW GLOBAL BEST!')
+                elif is_new_run_best:
+                    group_bar.write(f'[{stats_prefix} Pass {iteration}] {identifier} perm size: {size} NEW RUN BEST!')
                 else:
-                    group_bar.write(('[Pass ' + str(iteration) + '] ' +
-                                     identifier + ' perm size: ' +
-                                     str(size)))
+                    group_bar.write(f'[{stats_prefix} Pass {iteration}] {identifier} perm size: {size}')
 
                 group_bar.update(1)
                 total_bar.update(1)
 
-        if os.path.exists('best.c'):
-            shutil.copyfile('best.c', src_path)
+        # After exhausting G-perms, if we found a new run-best, write it out to the working source
+        if pass_best.get('best_content') is not None:
+            with open(src_path, 'w') as bf:
+                bf.write(pass_best['best_content'])
             parts, new_groups = extract_groups(read_file(src_path))
             groups[identifier] = new_groups[identifier]
         else:
@@ -329,7 +428,7 @@ def stage_one(parts, groups, src_path, iteration):
 
         group_bar = tqdm(
             total=len(index_perms),
-            desc=('Pass ' + str(iteration) + ' ' + base),
+            desc=(stats_prefix + ' Pass ' + str(iteration) + ' ' + base),
             unit='it',
             position=1,
             leave=False
@@ -344,36 +443,47 @@ def stage_one(parts, groups, src_path, iteration):
 
             for future in as_completed(futures):
                 size, content, perm = future.result()
-                with best_lock:
-                    if size < best:
-                        best = size
-                        with open('best.c', 'w') as bf:
-                            bf.write(content)
+                with global_best_lock:
+                    # Check run-best
+                    if size < pass_best['best']:
+                        pass_best['best'] = size
+                        pass_best['best_content'] = content
                         any_improved = True
-                        saved = initial_size - best
+                        saved_run = pass_best['initial'] - pass_best['best']
                         stats_bar.set_description(
-                            'Initial size: ' + str(initial_size) +
-                            'B   Best size: ' + str(best) +
-                            'B   Saved: ' + str(saved) + 'B'
+                            stats_prefix
+                            + '   Run best: ' + str(pass_best['best']) + 'B'
+                            + '   Global best: ' + (str(global_best_size) if global_best_size < float('inf') else 'N/A') + 'B'
+                            + '   Saved this run: ' + str(saved_run) + 'B'
                         )
-                        is_new_best = True
+                        is_new_run_best = True
                     else:
-                        is_new_best = False
+                        is_new_run_best = False
 
-                if is_new_best:
-                    group_bar.write(('[Pass ' + str(iteration) + '] ' +
-                                     base + ' perm size: ' +
-                                     str(size) + ' NEW BEST!'))
+                    # Check global-best
+                    if size < global_best_size:
+                        global_best_size = size
+                        global_best_src = content
+                        with open('global_best.c', 'w') as gf:
+                            gf.write(global_best_src)
+                        print(f'*** New GLOBAL best: {global_best_size}B. Saved to global_best.c ***')
+                        is_new_global_best = True
+                    else:
+                        is_new_global_best = False
+
+                if is_new_global_best:
+                    group_bar.write(f'[{stats_prefix} Pass {iteration}] {base} perm size: {size} NEW GLOBAL BEST!')
+                elif is_new_run_best:
+                    group_bar.write(f'[{stats_prefix} Pass {iteration}] {base} perm size: {size} NEW RUN BEST!')
                 else:
-                    group_bar.write(('[Pass ' + str(iteration) + '] ' +
-                                     base + ' perm size: ' +
-                                     str(size)))
+                    group_bar.write(f'[{stats_prefix} Pass {iteration}] {base} perm size: {size}')
 
                 group_bar.update(1)
                 total_bar.update(1)
 
-        if os.path.exists('best.c'):
-            shutil.copyfile('best.c', src_path)
+        if pass_best.get('best_content') is not None:
+            with open(src_path, 'w') as bf:
+                bf.write(pass_best['best_content'])
             parts, new_groups = extract_groups(read_file(src_path))
             for hid in ids:
                 groups[hid] = new_groups[hid]
@@ -387,92 +497,75 @@ def stage_one(parts, groups, src_path, iteration):
     stats_bar.close()
     return any_improved
 
-# Stage 2: full serial pass
-def stage_two(parts, groups, src_path):
-    global best
-    g_ids = [identifier for identifier in groups if identifier.startswith('G_')]
-    h_base_to_ids = {}
-    for identifier in groups:
-        if identifier.startswith('H_'):
-            parts_split = identifier.split('_', 2)
-            key = parts_split[1]
-            base = 'H_' + key
-            h_base_to_ids.setdefault(base, []).append(identifier)
+# ---------------------------------------------
+# Main logic with multiple runs
+# ---------------------------------------------
 
-    total = 1
-    for gid in g_ids:
-        total *= math.factorial(len(groups[gid]))
-    for base, ids in h_base_to_ids.items():
-        length = len(groups[ids[0]])
-        total *= math.factorial(length)
-
-    pbar = tqdm(total=total, desc='Stage2 full', unit='it')
-
-    tasks = []
-    for gid in g_ids:
-        tasks.append(('G', gid))
-    for base in h_base_to_ids:
-        tasks.append(('H', base))
-
-    def recurse(idx):
-        global best
-        if idx >= len(tasks):
-            size, content = write_and_build(parts, groups, src_path)
-            pbar.write('Full perm size: ' + str(size))
-            with best_lock:
-                if size < best:
-                    best = size
-                    with open('best.c', 'w') as bf:
-                        bf.write(content)
-                    pbar.write('New best ' + str(size))
-            pbar.update(1)
-            return
-
-        typ, identifier = tasks[idx]
-        if typ == 'G':
-            original = groups[identifier][:]
-            for perm in permute_list(original):
-                groups[identifier] = list(perm)
-                recurse(idx + 1)
-            groups[identifier] = original
-        else:
-            ids = h_base_to_ids[identifier]
-            original_lists = [groups[hid][:] for hid in ids]
-            length = len(original_lists[0])
-            for idx_perm in itertools.permutations(range(length)):
-                for hid_index, hid in enumerate(ids):
-                    orig = original_lists[hid_index]
-                    groups[hid] = [orig[i] for i in idx_perm]
-                recurse(idx + 1)
-            for hid_index, hid in enumerate(ids):
-                groups[hid] = original_lists[hid_index]
-
-    recurse(0)
-    pbar.close()
-
-# Main
 def main():
-    global best, initial_size
-    src_path = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
+    global global_best_size, global_best_src
+
+    # Initialize random seed if specified
+    if random_seed is not None:
+        random.seed(random_seed)
+        print(f'Random seed: {random_seed}')
+    else:
+        print('Random shuffling enabled with no fixed seed')
+
+    if len(sys.argv) > 1:
+        src_filename = sys.argv[1]
+    else:
+        src_filename = '4k.c'
+
+    # Prepare worker directories once
     setup_workers()
-    text = read_file(src_path)
-    parts, groups = extract_groups(text)
-    size, _ = write_and_build(parts, groups, src_path)
-    initial_size = size
-    best = size
-    shutil.copyfile(src_path, 'best.c')
-    print('Initial size: ' + str(initial_size))
-    for identifier, segs in groups.items():
-        print('Group ' + identifier + ': ' + str(len(segs)) + ' segments')
-    iteration = 1
-    while True:
-        parts, groups = extract_groups(read_file(src_path))
-        improved = stage_one(parts, groups, src_path, iteration)
-        if not improved:
-            break
-        iteration += 1
-    parts, groups = extract_groups(read_file(src_path))
-    stage_two(parts, groups, src_path)
+
+    for run in range(1, num_runs + 1):
+        # Read original source into memory
+        text = read_file(src_filename)
+
+        # Extract parts & groups from the file
+        parts, groups = extract_groups(text)
+
+        # If shuffling is enabled, randomly shuffle all groups at start of this run
+        if enable_random_shuffle:
+            groups = shuffle_groups(groups)
+
+        # Write this shuffled version out to disk and build once to get an initial size
+        size, content = write_and_build(parts, groups, src_filename)
+        pass_best = {
+            'initial': size,
+            'best': size,
+            'best_content': content
+        }
+
+        print(f'\n=== Starting run {run}/{num_runs} ===')
+        print(f'Run {run} initial size: {pass_best["initial"]}B')
+        print(f'Global best so far: {(str(global_best_size) if global_best_size < float("inf") else "N/A")}B')
+
+        # Inner "stage one" loop: keep permuting until no further improvement
+        iteration = 1
+        while True:
+            parts, groups = extract_groups(read_file(src_filename))
+            improved = stage_one(
+                parts,
+                groups,
+                src_filename,
+                iteration,
+                pass_best,
+                stats_prefix=f'Run {run}'
+            )
+            if not improved:
+                break
+            iteration += 1
+
+        print(f'=== Run {run} completed. Run-best size: {pass_best["best"]}B ===')
+        print(f'Global best after run {run}: {global_best_size if global_best_size < float("inf") else "N/A"}B\n')
+
+    print(f'\nAll runs completed. Global best size: {global_best_size if global_best_size < float("inf") else "N/A"}B')
+    if global_best_src is not None:
+        print('Final best source is in "global_best.c".')
+    else:
+        print('No improvements found; the original source remains the best.')
 
 if __name__ == '__main__':
     main()
