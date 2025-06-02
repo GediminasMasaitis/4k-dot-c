@@ -531,11 +531,9 @@ i32 makemove(H(13, 1, Position *const restrict pos),
   }
   pos->ep = 0;
 
-  G(15, // Update castling permissions
-    pos->castling[2] &= !(mask & 0x9000000000000000ull);
-    pos->castling[3] &= !(mask & 0x1100000000000000ull);
-    pos->castling[0] &= !(mask & 0x90ull);
-    pos->castling[1] &= !(mask & 0x11ull);)
+  G(
+      15, // Pawn double move
+      if (piece == Pawn && move->to - move->from == 16) { pos->ep = to >> 8; })
 
   G(
       11, // Promotions
@@ -544,9 +542,11 @@ i32 makemove(H(13, 1, Position *const restrict pos),
         pos->pieces[move->promo] ^= to;
       })
 
-  G(
-      15, // Pawn double move
-      if (piece == Pawn && move->to - move->from == 16) { pos->ep = to >> 8; })
+  G(15, // Update castling permissions
+    pos->castling[2] &= !(mask & 0x9000000000000000ull);
+    pos->castling[3] &= !(mask & 0x1100000000000000ull);
+    pos->castling[0] &= !(mask & 0x90ull);
+    pos->castling[1] &= !(mask & 0x11ull);)
 
   flip_pos(pos);
 
@@ -808,8 +808,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   i8 king_attacks[4]; // TODO: add this to the group
   H(18, 1, i8 tempo;)
-  H(18, 1, i8 bishop_pair;)
   H(18, 1, i8 mobilities[4];)
+  H(18, 1, i8 bishop_pair;)
   H(18, 1, i8 open_files[6];)
   H(18, 1, i8 pst_file[64];)
   H(18, 1, i8 pst_rank[64];)
@@ -819,8 +819,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   i32 king_attacks[4];
   H(18, 2, i32 tempo;)
-  H(18, 2, i32 bishop_pair;)
   H(18, 2, i32 mobilities[4];)
+  H(18, 2, i32 bishop_pair;)
   H(18, 2, i32 open_files[6];)
   H(18, 2, i32 pst_file[64];)
   H(18, 2, i32 pst_rank[64];)
@@ -1102,8 +1102,9 @@ static i16 search(H(25, 1, const i32 ply),
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(28, tt_entry->depth >= depth) && G(28, alpha == beta - 1) &&
-        G(28, tt_entry->flag != tt_entry->score <= alpha)) {
+    if (G(28, alpha == beta - 1) &&
+        G(28, tt_entry->flag != tt_entry->score <= alpha) &&
+        G(28, tt_entry->depth >= depth)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1180,11 +1181,11 @@ static i16 search(H(25, 1, const i32 ply),
           G(26, // KILLER MOVE
             move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
                 915) +
+          G(26, // MOST VALUABLE VICTIM
+            stack[ply].moves[order_index].takes_piece * 921) +
           G(26, // PREVIOUS BEST MOVE FIRST
             (move_equal(&stack[ply].best_move, &stack[ply].moves[order_index])
              << 30)) +
-          G(26, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 921) +
           G(26, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
