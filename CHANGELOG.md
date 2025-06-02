@@ -5739,11 +5739,11 @@ MD5: 3206877b9e2672074671abc7703938e6
 Smaller is_attacked
 
 ```py
-Elo   | 6.81 +- 11.99 (95%)
+Elo   | 0.49 +- 3.24 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 0.85 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 1734 W: 555 L: 521 D: 658
-Penta | [65, 182, 344, 206, 70]
+LLR   | 2.98 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 22562 W: 6883 L: 6851 D: 8828
+Penta | [769, 2624, 4502, 2578, 808]
 https://gedas.pythonanywhere.com/test/929/
 ```
 
@@ -5756,11 +5756,11 @@ MD5: 9c4f65eb5478045303a35d287d1fd2b9
 Smaller attack functions
 
 ```py
-Elo   | -0.19 +- 11.25 (95%)
+Elo   | 2.14 +- 4.26 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 0.17 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 1848 W: 554 L: 555 D: 739
-Penta | [67, 201, 385, 208, 63]
+LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 12982 W: 4002 L: 3922 D: 5058
+Penta | [438, 1470, 2634, 1472, 477]
 https://gedas.pythonanywhere.com/test/932/
 ```
 
@@ -5799,11 +5799,11 @@ https://gedas.pythonanywhere.com/test/966/
 ```
 
 ```py
-Elo   | 3.68 +- 6.23 (95%)
+Elo   | 2.62 +- 4.33 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 1.72 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 5096 W: 1508 L: 1454 D: 2134
-Penta | [124, 552, 1153, 584, 135]
+LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 11120 W: 3299 L: 3215 D: 4606
+Penta | [292, 1255, 2414, 1275, 324]
 https://gedas.pythonanywhere.com/test/967/
 ```
 
@@ -5833,11 +5833,11 @@ MD5: 64fa16aef1b2009a90946bef553c9896
 Correlated reordering
 
 ```py
-Elo   | 3.21 +- 6.48 (95%)
+Elo   | 1.23 +- 3.68 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 1.61 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 5518 W: 1684 L: 1633 D: 2201
-Penta | [186, 617, 1094, 684, 178]
+LLR   | 2.98 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 16908 W: 5118 L: 5058 D: 6732
+Penta | [545, 1947, 3420, 1987, 555]
 https://gedas.pythonanywhere.com/test/970/
 ```
 
@@ -5848,3 +5848,20 @@ https://gedas.pythonanywhere.com/test/970/
 MD5: e6e9340b9579831cb3dd96de9c6144ae
 
 Material combining size decrease
+
+### 4.25
+
+64 bit: 3993 bytes (-15)
+
+MD5: 1d382ba32f591ccfb4409c833ae8016d
+
+Multi-runs with group shuffling
+
+```py
+Elo   | -0.37 +- 2.55 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 36060 W: 10917 L: 10955 D: 14188
+Penta | [1235, 4178, 7223, 4178, 1216]
+https://gedas.pythonanywhere.com/test/978/
+```
