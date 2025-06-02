@@ -10,14 +10,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import random
 
-# ---------------------------------------------
-# Configuration (you can tweak these)
-# ---------------------------------------------
-
 # Maximum number of parallel builds in each pass
 max_parallelism = 6
 
-# When True, each pass begins with a random shuffle of all groups.
+# When True, each pass begins with a random shuffle of all groups
 # (After that, inside stage_one we do exhaustive permutations.)
 enable_random_shuffle = True
 
@@ -42,7 +38,6 @@ files_to_copy = [
 # ---------------------------------------------
 # Globals for tracking the absolute best across all runs
 # ---------------------------------------------
-
 global_best_size = float('inf')
 global_best_src = None
 global_best_lock = threading.Lock()
@@ -50,7 +45,6 @@ global_best_lock = threading.Lock()
 # ---------------------------------------------
 # Helper functions (unchanged from your original)
 # ---------------------------------------------
-
 def read_file(path):
     with open(path) as f:
         return f.read()
@@ -240,12 +234,12 @@ def shuffle_groups(groups):
     """
     if not enable_random_shuffle:
         return groups
-    
+
     shuffled_groups = {}
-    
+
     # Track which H groups have been processed
     processed_h = set()
-    
+
     # Identify correlated H groups
     h_base_to_ids = {}
     for identifier in groups:
@@ -254,7 +248,7 @@ def shuffle_groups(groups):
             key = parts_split[1]
             base = 'H_' + key
             h_base_to_ids.setdefault(base, []).append(identifier)
-    
+
     # Shuffle each group
     for identifier, segments in groups.items():
         if identifier.startswith('G_'):
@@ -266,24 +260,23 @@ def shuffle_groups(groups):
             key = parts_split[1]
             base = 'H_' + key
             correlated_ids = h_base_to_ids[base]
-            
+
             length = len(segments)
             indices = list(range(length))
             random.shuffle(indices)
-            
+
             # Apply the same permutation to all correlated H groups
             for hid in correlated_ids:
                 original = groups[hid]
                 shuffled = [original[i] for i in indices]
                 shuffled_groups[hid] = shuffled
                 processed_h.add(hid)
-    
+
     return shuffled_groups
 
 # ---------------------------------------------
-# stage_one: updated to show run best and global best
+# stage_one: updated to shuffle group-processing order when enabled
 # ---------------------------------------------
-
 def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
     """
     Performs a single "stage 1" exhaustive reordering over all G- and H-groups.
@@ -292,14 +285,14 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
     - iteration is the current pass number for display
     - pass_best is a dict used to track this pass's best size and content
     - stats_prefix is a string to show in the tqdm bar (e.g. "Run 2, Initial size: ...")
-    
+
     Returns True if any improvement occurred in this stage.
     """
     global global_best_size
-    
+
     any_improved = False
     saved_run = pass_best['initial'] - pass_best['best']
-    
+
     # Initial status bar shows both run-best and current global-best
     stats_bar = tqdm(
         total=1,
@@ -314,7 +307,7 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
         leave=True
     )
     print(f'\n--- {stats_prefix} Stage 1 pass {iteration} start ---')
-    
+
     # Identify correlated H keys
     h_base_to_ids = {}
     for identifier in groups:
@@ -342,10 +335,13 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
         smoothing=0
     )
 
+    # Prepare list of G-group identifiers
+    g_identifiers = [identifier for identifier in groups if identifier.startswith('G_')]
+    if enable_random_shuffle:
+        random.shuffle(g_identifiers)
+
     # Process G-groups
-    for identifier in list(groups.keys()):
-        if not identifier.startswith('G_'):
-            continue
+    for identifier in g_identifiers:
         base_groups = {k: groups[k][:] for k in groups}
         original = base_groups[identifier][:]
         perms = permute_list(original)
@@ -419,8 +415,14 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
 
         group_bar.close()
 
+    # Prepare list of H-group bases
+    h_bases = list(h_base_to_ids.keys())
+    if enable_random_shuffle:
+        random.shuffle(h_bases)
+
     # Process correlated H-groups
-    for base, ids in h_base_to_ids.items():
+    for base in h_bases:
+        ids = h_base_to_ids[base]
         base_groups = {k: groups[k][:] for k in groups}
         original_lists = [base_groups[hid][:] for hid in ids]
         length = len(original_lists[0])
@@ -500,7 +502,6 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
 # ---------------------------------------------
 # Main logic with multiple runs
 # ---------------------------------------------
-
 def main():
     global global_best_size, global_best_src
 
