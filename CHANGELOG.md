@@ -5855,7 +5855,7 @@ Material combining size decrease
 
 MD5: 1d382ba32f591ccfb4409c833ae8016d
 
-Multi-runs with group shuffling
+Multi runs with group shuffling
 
 ```py
 Elo   | -0.37 +- 2.55 (95%)
@@ -5864,4 +5864,21 @@ LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
 Games | N: 36060 W: 10917 L: 10955 D: 14188
 Penta | [1235, 4178, 7223, 4178, 1216]
 https://gedas.pythonanywhere.com/test/978/
+```
+
+### 4.26
+
+64 bit: 3970 bytes (-23)
+
+MD5: a43a4dbfd659c2bc2cd0d65e85941ce1
+
+Nested groups
+
+```py
+Elo   | 2.06 +- 19.48 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.15 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 674 W: 215 L: 211 D: 248
+Penta | [27, 75, 128, 81, 26]
+https://gedas.pythonanywhere.com/test/982/
 ```
