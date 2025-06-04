@@ -5875,10 +5875,18 @@ MD5: a43a4dbfd659c2bc2cd0d65e85941ce1
 Nested groups
 
 ```py
-Elo   | 2.06 +- 19.48 (95%)
+Elo   | 4.58 +- 7.81 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 0.15 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 674 W: 215 L: 211 D: 248
-Penta | [27, 75, 128, 81, 26]
+LLR   | 1.43 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 3872 W: 1197 L: 1146 D: 1529
+Penta | [138, 413, 776, 478, 131]
 https://gedas.pythonanywhere.com/test/982/
 ```
+
+### 4.27
+
+64 bit: 3968 bytes (-2)
+
+MD5: d89805fc0ae95ed5b197bc81cb0c76a2
+
+More nested groups
