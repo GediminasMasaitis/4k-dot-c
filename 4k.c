@@ -48,7 +48,8 @@ enum [[nodiscard]] {
   stderr = 2,
 };
 
-G(1, static ssize_t _sys(H(2, 1, ssize_t call), H(2, 1, ssize_t arg3),
+G(
+    1, static ssize_t _sys(H(2, 1, ssize_t call), H(2, 1, ssize_t arg3),
                            H(2, 1, ssize_t arg1), H(2, 1, ssize_t arg2)) {
       ssize_t ret;
       asm volatile("syscall"
@@ -58,12 +59,14 @@ G(1, static ssize_t _sys(H(2, 1, ssize_t call), H(2, 1, ssize_t arg3),
       return ret;
     })
 
-G(1, static void exit_now() {
+G(
+    1, static void exit_now() {
       asm volatile("movl $60, %eax\n\t"
                    "syscall");
     })
 
-G(1, [[nodiscard]] static i32 strlen(const char *const restrict string) {
+G(
+    1, [[nodiscard]] static i32 strlen(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
         length++;
@@ -71,7 +74,8 @@ G(1, [[nodiscard]] static i32 strlen(const char *const restrict string) {
       return length;
     })
 
-G(3,
+G(
+    3,
     static void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
@@ -86,7 +90,8 @@ G(3,
       putl("\n");
     })
 
-G(3,
+G(
+    3,
     // Non-standard, gets but a word instead of a line
     static bool getl(char *restrict string) {
       while (true) {
@@ -122,7 +127,8 @@ G(3,
   return false;
 }
 
-G(3, [[nodiscard]] static u32 atoi(const char *restrict string) {
+G(
+    3, [[nodiscard]] static u32 atoi(const char *restrict string) {
       // Will break if reads a value over 4294967295
       // This works out to be just over 49 days
 
@@ -503,7 +509,8 @@ i32 makemove(H(26, 1, Position *const restrict pos),
   G(28, const i32 piece = piece_on(H(18, 3, pos), H(18, 3, move->from));
     assert(piece != None);)
 
-  G(29, // Castling
+  G(
+      29, // Castling
       if (piece == King) {
         const u64 bb = move->to - move->from == 2   ? 0xa0
                        : move->from - move->to == 2 ? 0x9
@@ -516,7 +523,8 @@ i32 makemove(H(26, 1, Position *const restrict pos),
 
   // Move the piece
   G(29, pos->pieces[piece] ^= mask;)
-  G(29, // Captures
+  G(
+      29, // Captures
       if (move->takes_piece != None) {
         G(31, pos->colour[1] ^= to;)
         G(31, pos->pieces[move->takes_piece] ^= to;)
@@ -529,12 +537,14 @@ i32 makemove(H(26, 1, Position *const restrict pos),
   }
   pos->ep = 0;
 
-  G(34, // Pawn double move
+  G(
+      34, // Pawn double move
       if (G(35, move->to - move->from == 16) && G(35, piece == Pawn)) {
         pos->ep = to >> 8;
       })
 
-  G(24, // Promotions
+  G(
+      24, // Promotions
       if (move->promo != None) {
         G(36, pos->pieces[Pawn] ^= to;)
         G(36, pos->pieces[move->promo] ^= to;)
@@ -636,8 +646,8 @@ static Move *generate_piece_moves(H(39, 1, const Position *restrict pos),
 enum { max_moves = 218 };
 
 [[nodiscard]] static i32 movegen(H(40, 1, const Position *const restrict pos),
-  H(40, 1, Move *restrict movelist),
-  H(40, 1, const i32 only_captures)) {
+                                 H(40, 1, Move *restrict movelist),
+                                 H(40, 1, const i32 only_captures)) {
 
   const Move *start = movelist;
   const u64 all = pos->colour[0] | pos->colour[1];
@@ -698,7 +708,8 @@ enum { max_moves = 218 };
 
   u64 nodes = 0;
   Move moves[max_moves];
-  const i32 num_moves = movegen(H(40, 2, pos), H(40, 2, moves), H(40, 2, false));
+  const i32 num_moves =
+      movegen(H(40, 2, pos), H(40, 2, moves), H(40, 2, false));
 
   for (i32 i = 0; i < num_moves; ++i) {
     Position npos = *pos;
@@ -885,7 +896,8 @@ static i32 combine_eval_param(const i32 mg_val, const i32 eg_val) {
 
 static void init() {
   // INIT DIAGONAL MASKS
-  G(26, for (i32 sq = 0; sq < 64; sq++) {
+  G(
+      26, for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] = ray(H(11, 4, bb), H(11, 4, 0), H(11, 4, 9),
                             H(11, 4, ~0x101010101010101ull)) | // Northeast
@@ -893,12 +905,14 @@ static void init() {
                             H(11, 5, ~0x8080808080808080ull)); // Southwest
       })
 
-  G(26, // MERGE MATERIAL VALUES
+  G(
+      26, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
         eval_params.material[i] =
             combine_eval_param(mg.material[i], eg.material[i]);
       })
-  G(26, // MERGE NON-MATERIAL VALUES
+  G(
+      26, // MERGE NON-MATERIAL VALUES
       for (i32 i = 0; i < sizeof(mg) - sizeof(mg.material); i++) {
         // Technically writes past end of array
         // But since the structs are packed, it works
@@ -921,7 +935,8 @@ static i32 eval(Position *const restrict pos) {
 
     G(44, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
 
-    G(44, // BISHOP PAIR
+    G(
+        44, // BISHOP PAIR
         if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
           score += eval_params.bishop_pair;
         })
@@ -943,12 +958,14 @@ static i32 eval(Position *const restrict pos) {
         G(38, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
 
-        G(38, // OPEN FILES / DOUBLED PAWNS
+        G(
+            38, // OPEN FILES / DOUBLED PAWNS
             if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
               score += eval_params.open_files[p - 1];
             })
 
-        G(38, if (p > Knight) {
+        G(
+            38, if (p > Knight) {
               // MOBILITY
               const u64 mobility =
                   get_mobility(H(23, 3, sq), H(23, 3, p), H(23, 3, pos));
@@ -1160,7 +1177,8 @@ static i16 search(H(48, 1, const i32 ply),
 
   G(48, i32 moves_evaluated = 0;)
   G(48, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
-  G(48, stack[ply].num_moves = movegen(H(40, 3, pos), H(40, 3, stack[ply].moves), H(40, 3, in_qsearch));)
+  G(48, stack[ply].num_moves = movegen(
+            H(40, 3, pos), H(40, 3, stack[ply].moves), H(40, 3, in_qsearch));)
   G(48, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(48, i32 quiets_evaluated = 0;)
   G(48, u8 tt_flag = Upper;)
@@ -1261,10 +1279,12 @@ static i16 search(H(48, 1, const i32 ply),
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(H(18, 8, pos), H(18, 8, stack[ply].best_move.to)));
-        G(62, if (stack[ply].best_move.takes_piece == None) {
+        G(
+            62, if (stack[ply].best_move.takes_piece == None) {
               stack[ply].killer = stack[ply].best_move;
             })
-        G(62,
+        G(
+            62,
             i32 *const this_hist =
                 &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                              [stack[ply].best_move.from]
@@ -1541,7 +1561,8 @@ static void run() {
         }
 #endif
 
-        const i32 num_moves = movegen(H(40, 4, &pos), H(40, 4, stack[0].moves), H(40, 4, false));
+        const i32 num_moves =
+            movegen(H(40, 4, &pos), H(40, 4, stack[0].moves), H(40, 4, false));
         for (i32 i = 0; i < num_moves; i++) {
           char move_name[8];
           move_str(H(16, 4, move_name), H(16, 4, &stack[0].moves[i]),
