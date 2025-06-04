@@ -828,7 +828,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 }
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
-  i8 king_attacks[4];
+  H(50, 1, i8 king_attacks[4];)
   H(50, 1, i8 tempo;)
   H(50, 1, i8 mobilities[4];)
   H(50, 1, i8 bishop_pair;)
@@ -839,7 +839,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
-  i32 king_attacks[4];
+  H(50, 2, i32 king_attacks[4];)
   H(50, 2, i32 tempo;)
   H(50, 2, i32 mobilities[4];)
   H(50, 2, i32 bishop_pair;)
@@ -1557,8 +1557,7 @@ static void run() {
              nps);
     }
 #endif
-    G(
-        77, if (line[0] == 'q') { exit_now(); })
+    G(77, if (line[0] == 'q') { exit_now(); })
     else G(
         77, if (line[0] == 'i') { puts("readyok"); }) else if (line[0] == 'p') {
       G(78, pos = start_pos;)
