@@ -48,7 +48,8 @@ enum [[nodiscard]] {
   stderr = 2,
 };
 
-G(1, static ssize_t _sys(H(2, 1, ssize_t call), H(2, 1, ssize_t arg3),
+G(
+    1, static ssize_t _sys(H(2, 1, ssize_t call), H(2, 1, ssize_t arg3),
                            H(2, 1, ssize_t arg1), H(2, 1, ssize_t arg2)) {
       ssize_t ret;
       asm volatile("syscall"
@@ -58,12 +59,14 @@ G(1, static ssize_t _sys(H(2, 1, ssize_t call), H(2, 1, ssize_t arg3),
       return ret;
     })
 
-G(1, static void exit_now() {
+G(
+    1, static void exit_now() {
       asm volatile("movl $60, %eax\n\t"
                    "syscall");
     })
 
-G(1, [[nodiscard]] static i32 strlen(const char *const restrict string) {
+G(
+    1, [[nodiscard]] static i32 strlen(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
         length++;
@@ -71,7 +74,8 @@ G(1, [[nodiscard]] static i32 strlen(const char *const restrict string) {
       return length;
     })
 
-G(3,
+G(
+    3,
     static void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
@@ -86,7 +90,8 @@ G(3,
       putl("\n");
     })
 
-G(3,
+G(
+    3,
     // Non-standard, gets but a word instead of a line
     static bool getl(char *restrict string) {
       while (true) {
@@ -122,7 +127,8 @@ G(3,
   return false;
 }
 
-G(3, [[nodiscard]] static u32 atoi(const char *restrict string) {
+G(
+    3, [[nodiscard]] static u32 atoi(const char *restrict string) {
       // Will break if reads a value over 4294967295
       // This works out to be just over 49 days
 
@@ -290,7 +296,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
   return __builtin_popcountll(bb);
 }
 
-[[nodiscard]] static u64 shift(H(9, 1, const u64 bb), H(9, 1, const i32 shift), H(9, 1, const u64 mask)) {
+[[nodiscard]] static u64 shift(H(9, 1, const u64 bb), H(9, 1, const i32 shift),
+                               H(9, 1, const u64 mask)) {
   return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
 }
 
@@ -318,7 +325,7 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 [[nodiscard]] static u64 se(const u64 bb) { return east(south(bb)); }
 
 [[nodiscard]] u64 xattack(H(10, 1, const u64 bb), H(10, 1, const u64 blockers),
-  H(10, 1, const u64 dir_mask)) {
+                          H(10, 1, const u64 dir_mask)) {
   return dir_mask & ((blockers & dir_mask) - bb ^
                      flip_bb(flip_bb(blockers & dir_mask) - flip_bb(bb)));
 }
@@ -327,7 +334,8 @@ static i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
                              const i32 shift_by, const u64 mask) {
   u64 result = shift(H(9, 3, bb), H(9, 3, shift_by), H(9, 3, mask));
   for (i32 i = 0; i < 6; i++) {
-    result |= shift(H(9, 4, result & ~blockers), H(9, 4, shift_by), H(9, 4, mask));
+    result |=
+        shift(H(9, 4, result & ~blockers), H(9, 4, shift_by), H(9, 4, mask));
   }
   return result;
 }
@@ -338,12 +346,14 @@ static u64 diag_mask[64];
   assert(count(bb) == 1);
   const i32 sq = lsb(bb);
   return xattack(H(10, 2, bb), H(10, 2, blockers), H(10, 2, diag_mask[sq])) |
-         xattack(H(10, 3, bb), H(10, 3, blockers), H(10, 3, flip_bb(diag_mask[sq ^ 56])));
+         xattack(H(10, 3, bb), H(10, 3, blockers),
+                 H(10, 3, flip_bb(diag_mask[sq ^ 56])));
 }
 
 [[nodiscard]] static u64 rook(const u64 bb, const u64 blockers) {
   assert(count(bb) == 1);
-  return xattack(H(10, 4, bb), H(10, 4, blockers), H(10, 4, bb ^ 0x101010101010101ULL << lsb(bb) % 8)) |
+  return xattack(H(10, 4, bb), H(10, 4, blockers),
+                 H(10, 4, bb ^ 0x101010101010101ULL << lsb(bb) % 8)) |
          ray(bb, blockers, 1, ~0x101010101010101ull)      // East
          | ray(bb, blockers, -1, ~0x8080808080808080ull); // West
 }
@@ -491,7 +501,8 @@ i32 makemove(H(16, 1, Position *const restrict pos),
   G(18, const u64 mask = from | to;)
   G(18, const i32 piece = piece_on(pos, move->from); assert(piece != None);)
 
-  G(19, // Castling
+  G(
+      19, // Castling
       if (piece == King) {
         const u64 bb = move->to - move->from == 2   ? 0xa0
                        : move->from - move->to == 2 ? 0x9
@@ -504,7 +515,8 @@ i32 makemove(H(16, 1, Position *const restrict pos),
 
   // Move the piece
   G(19, pos->pieces[piece] ^= mask;)
-  G(19, // Captures
+  G(
+      19, // Captures
       if (move->takes_piece != None) {
         G(21, pos->colour[1] ^= to;)
         G(21, pos->pieces[move->takes_piece] ^= to;)
@@ -517,12 +529,14 @@ i32 makemove(H(16, 1, Position *const restrict pos),
   }
   pos->ep = 0;
 
-  G(24, // Pawn double move
+  G(
+      24, // Pawn double move
       if (G(25, move->to - move->from == 16) && G(25, piece == Pawn)) {
         pos->ep = to >> 8;
       })
 
-  G(14, // Promotions
+  G(
+      14, // Promotions
       if (move->promo != None) {
         G(26, pos->pieces[Pawn] ^= to;)
         G(26, pos->pieces[move->promo] ^= to;)
@@ -872,18 +886,21 @@ static i32 combine_eval_param(const i32 mg_val, const i32 eg_val) {
 
 static void init() {
   // INIT DIAGONAL MASKS
-  G(16, for (i32 sq = 0; sq < 64; sq++) {
+  G(
+      16, for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] = ray(bb, 0, 9, ~0x101010101010101ull) |  // Northeast
                         ray(bb, 0, -9, ~0x8080808080808080ull); // Southwest
       })
 
-  G(16, // MERGE MATERIAL VALUES
+  G(
+      16, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
         eval_params.material[i] =
             combine_eval_param(mg.material[i], eg.material[i]);
       })
-  G(16, // MERGE NON-MATERIAL VALUES
+  G(
+      16, // MERGE NON-MATERIAL VALUES
       for (i32 i = 0; i < sizeof(mg) - sizeof(mg.material); i++) {
         // Technically writes past end of array
         // But since the structs are packed, it works
@@ -906,7 +923,8 @@ static i32 eval(Position *const restrict pos) {
 
     G(33, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
 
-    G(33, // BISHOP PAIR
+    G(
+        33, // BISHOP PAIR
         if (count(pos->colour[0] & pos->pieces[Bishop]) > 1) {
           score += eval_params.bishop_pair;
         })
@@ -928,12 +946,14 @@ static i32 eval(Position *const restrict pos) {
         G(28, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
 
-        G(28, // OPEN FILES / DOUBLED PAWNS
+        G(
+            28, // OPEN FILES / DOUBLED PAWNS
             if ((north(0x101010101010101ULL << sq) & own_pawns) == 0) {
               score += eval_params.open_files[p - 1];
             })
 
-        G(28, if (p > Knight) {
+        G(
+            28, if (p > Knight) {
               // MOBILITY
               const u64 mobility = get_mobility(sq, p, pos);
               score += eval_params.mobilities[p - 3] *
@@ -1244,10 +1264,12 @@ static i16 search(H(37, 1, const i32 ply),
         tt_flag = Lower;
         assert(stack[ply].best_move.takes_piece ==
                piece_on(pos, stack[ply].best_move.to));
-        G(51, if (stack[ply].best_move.takes_piece == None) {
+        G(
+            51, if (stack[ply].best_move.takes_piece == None) {
               stack[ply].killer = stack[ply].best_move;
             })
-        G(51,
+        G(
+            51,
             i32 *const this_hist =
                 &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                              [stack[ply].best_move.from]
