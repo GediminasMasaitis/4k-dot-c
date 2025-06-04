@@ -803,7 +803,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
-  H(20, 2, i32 king_attacks[4]);
+  H(20, 2, i32 king_attacks[4];)
   H(20, 2, i32 tempo;)
   H(20, 2, i32 mobilities[4];)
   H(20, 2, i32 bishop_pair;)

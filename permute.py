@@ -11,7 +11,7 @@ import threading
 import random
 
 # Maximum number of parallel builds in each pass
-max_parallelism = 6
+max_parallelism = 12
 
 # When True, each pass begins with a random shuffle of all groups
 # (After that, inside stage_one we do exhaustive permutations.)
