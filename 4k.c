@@ -963,7 +963,7 @@ static void init() {
 }
 
 G(67, __attribute__((aligned(8))) static const i16 max_material[] = {
-          0, 88, 318, 299, 541, 978};)
+          0, 71, 318, 300, 541, 974 };)
 G(67,
   __attribute__((aligned(8))) static const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 
