@@ -519,7 +519,7 @@ i32 makemove(H(13, 1, Position *const restrict pos),
 
   G(
       21, // Pawn double move
-      if (G(22, piece == Pawn) && G(22, move->to - move->from == 16)) {
+      if (G(22, move->to - move->from == 16) && G(22, piece == Pawn)) {
         pos->ep = to >> 8;
       })
 
@@ -531,8 +531,8 @@ i32 makemove(H(13, 1, Position *const restrict pos),
       })
 
   G(21, // Update castling permissions
-    G(24, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
-        G(24, pos->castling[3] &= !(mask & 0x1100000000000000ull);)
+    G(24, pos->castling[3] &= !(mask & 0x1100000000000000ull);)
+        G(24, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
             G(24, pos->castling[0] &= !(mask & 0x90ull);)
                 G(24, pos->castling[1] &= !(mask & 0x11ull);))
 

@@ -11,16 +11,16 @@ import threading
 import random
 
 # Maximum number of parallel builds in each pass
-max_parallelism = 12
+max_parallelism = 6
 
 # When True, each pass begins with a random shuffle of all groups
-# After that we do exhaustive permutations.
-enable_random_shuffle = True
+# (After that, inside stage_one we do exhaustive permutations.)
+enable_random_shuffle = False
 
 # Random seed for reproducibility. Set to an integer or None.
 random_seed = None
 
-# How many independent "runs" (with fresh shuffles) to perform.
+# How many independent "passes" (with fresh shuffles) to perform.
 # Increase if you want more attempts to escape local minima.
 num_runs = 999
 
@@ -42,92 +42,253 @@ global_best_size = float('inf')
 global_best_src = None
 global_best_lock = threading.Lock()
 
-def read_file(path):
-    with open(path) as f:
-        return f.read()
+# ---------------------------------------------
+# Node classes and parsing for nested groups
+# ---------------------------------------------
 
-def extract_groups(text):
+class TextNode:
+    """Represents a sequence of literal text."""
+    __slots__ = ('text',)
+    def __init__(self, text):
+        self.text = text
+
+class MacroNode:
     """
-    Scans the text and extracts both G(key, segment) and H(key, corr, segment) macros.
-    Returns:
-        parts: list alternating between literal text and placeholder identifiers
-        groups: dict mapping placeholder identifiers to lists of segment strings
-    Placeholder identifiers are:
-        - For G: 'G_<key>'
-        - For H: 'H_<key>_<corr>'
+    Represents a G or H macro.
+    - macro_type: 'G' or 'H'
+    - key: string key argument
+    - corr: string correction argument (for H only; None for G)
+    - children: list of nodes (TextNode or MacroNode) forming the segment
+    - uid: unique integer identifier for this occurrence
     """
-    parts = []
-    groups = {}
-    i = 0
+    __slots__ = ('macro_type', 'key', 'corr', 'children', 'uid')
+    def __init__(self, macro_type, key, corr, children, uid):
+        self.macro_type = macro_type
+        self.key = key
+        self.corr = corr
+        self.children = children
+        self.uid = uid
+
+# Counter for assigning unique uids to MacroNode occurrences
+_uid_counter = 0
+def _next_uid():
+    global _uid_counter
+    val = _uid_counter
+    _uid_counter += 1
+    return val
+
+def parse_nodes(text, i=0):
+    """
+    Parses text starting at index i into a list of nodes (TextNode or MacroNode),
+    scanning until end of text. Returns (nodes_list, position).
+    Does not stop on any specific character.
+    """
+    nodes = []
+    last = i
     n = len(text)
-    last_pos = 0
-
     while i < n:
         if text.startswith('G(', i) or text.startswith('H(', i):
-            macro_type = text[i]  # 'G' or 'H'
-            start_macro = i
-            i += 2  # move past 'G(' or 'H('
-            # Skip whitespace
-            while i < n and text[i].isspace():
-                i += 1
-            # Read first argument (key)
-            key_start = i
-            while i < n and text[i] not in ',)':
-                i += 1
-            key = text[key_start:i].strip()
-            # If macro_type is H, read second argument (corr)
-            if macro_type == 'H':
-                if i < n and text[i] == ',':
-                    i += 1
-                while i < n and text[i].isspace():
-                    i += 1
-                corr_start = i
-                while i < n and text[i] not in ',)':
-                    i += 1
-                corr = text[corr_start:i].strip()
-            else:
-                corr = None
-            # Expect a comma before the segment
-            if i < n and text[i] == ',':
-                i += 1
-            while i < n and text[i].isspace():
-                i += 1
-            # Parse the segment until the matching closing parenthesis
-            seg_start = i
-            depth = 0
-            while i < n:
-                ch = text[i]
-                if ch in '([{':
-                    depth += 1
-                elif ch in ')]}':
-                    if depth == 0:
-                        break
-                    else:
-                        depth -= 1
-                i += 1
-            seg_end = i
-            segment = text[seg_start:seg_end]
-            i += 1  # move past ')'
-            if macro_type == 'G':
-                identifier = 'G_' + key
-            else:
-                identifier = 'H_' + key + '_' + corr
-            parts.append(text[last_pos:start_macro])
-            parts.append(identifier)
-            if identifier not in groups:
-                groups[identifier] = []
-            groups[identifier].append(segment)
-            last_pos = i
+            # Append preceding literal text
+            if i > last:
+                nodes.append(TextNode(text[last:i]))
+            macro, new_i = parse_macro(text, i)
+            nodes.append(macro)
+            i = new_i
+            last = i
         else:
             i += 1
+    if last < n:
+        nodes.append(TextNode(text[last:n]))
+    return nodes, i
 
-    if last_pos < n:
-        parts.append(text[last_pos:])
+def parse_macro(text, i):
+    """
+    Parses a macro at text[i:], assuming it starts with 'G(' or 'H('.
+    Returns (MacroNode, new_index) where new_index is position after closing ')'.
+    """
+    # Determine macro type
+    macro_type = text[i]  # 'G' or 'H'
+    i += 2  # skip past 'G(' or 'H('
+    n = len(text)
 
-    return parts, groups
+    # Skip whitespace
+    while i < n and text[i].isspace():
+        i += 1
 
-def permute_list(lst):
-    return list(itertools.permutations(lst))
+    # Parse key (up to ',' or ')')
+    key_start = i
+    while i < n and text[i] not in ',)':
+        i += 1
+    key = text[key_start:i].strip()
+
+    # Parse corr if H
+    if macro_type == 'H':
+        # Expect a comma before corr
+        if i < n and text[i] == ',':
+            i += 1
+        while i < n and text[i].isspace():
+            i += 1
+        corr_start = i
+        while i < n and text[i] not in ',)':
+            i += 1
+        corr = text[corr_start:i].strip()
+    else:
+        corr = None
+
+    # Expect comma before segment
+    if i < n and text[i] == ',':
+        i += 1
+    # Skip whitespace before segment
+    while i < n and text[i].isspace():
+        i += 1
+
+    # Parse segment children until matching closing ')'
+    children, new_i = parse_segment_nodes(text, i)
+    # new_i is at position of closing ')' of this macro
+    uid = _next_uid()
+    node = MacroNode(macro_type, key, corr, children, uid)
+    return node, new_i + 1  # skip past closing ')'
+
+def parse_segment_nodes(text, i):
+    """
+    Parses the segment content of a macro, starting at index i, until the matching ')'.
+    Returns (children_nodes, index_of_closing_parenthesis).
+    """
+    nodes = []
+    last = i
+    n = len(text)
+    depth = 0
+    while i < n:
+        if text.startswith('G(', i) or text.startswith('H(', i):
+            # Append literal up to this nested macro
+            if i > last:
+                nodes.append(TextNode(text[last:i]))
+            macro, new_i = parse_macro(text, i)
+            nodes.append(macro)
+            i = new_i
+            last = i
+        else:
+            ch = text[i]
+            if ch == '(':
+                depth += 1
+                i += 1
+            elif ch == ')':
+                if depth == 0:
+                    # This ')' closes the current macro
+                    break
+                else:
+                    depth -= 1
+                    i += 1
+            else:
+                i += 1
+    # Append any trailing literal before closing ')'
+    if last < i:
+        nodes.append(TextNode(text[last:i]))
+    return nodes, i  # do not skip past ')'; caller will add one
+
+def collect_groups(nodes, groups):
+    """
+    Traverses a list of nodes (could be root children) and populates groups:
+    - groups is a dict mapping identifier -> list of MacroNode occurrences, in traversal order.
+    Identifier for G: 'G_' + key
+    Identifier for H: 'H_' + key + '_' + corr
+    """
+    for node in nodes:
+        if isinstance(node, MacroNode):
+            if node.macro_type == 'G':
+                identifier = 'G_' + node.key
+            else:
+                identifier = 'H_' + node.key + '_' + node.corr
+            groups.setdefault(identifier, []).append(node)
+            # Recurse into children
+            collect_groups(node.children, groups)
+        else:
+            # TextNode; nothing to do
+            continue
+
+def render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters):
+    """
+    Recursively renders a node to source code, applying permutation for group_id.
+    - node: TextNode or MacroNode to render
+    - group_id: identifier being permuted (e.g. 'G_38' or 'H_99'); or None for full render
+    - correlated_ids: list of identifiers (for H base permutation), or None
+    - perm: tuple of indices representing the permutation for the current group
+    - original_groups: dict mapping identifier to list of MacroNode from the original tree
+    - occurrence_counters: dict mapping identifiers in scope to current occurrence count
+    """
+    if isinstance(node, TextNode):
+        return node.text
+
+    # node is MacroNode
+    if node.macro_type == 'G':
+        identifier = 'G_' + node.key
+    else:
+        identifier = 'H_' + node.key + '_' + node.corr
+
+    # If no group is being permuted, or this node is not in the group, render normally
+    if group_id is None or (correlated_ids is None and identifier != group_id) or \
+       (correlated_ids is not None and identifier not in correlated_ids):
+        # Render children normally
+        rendered_children = ''.join(
+            render_node(child, group_id, correlated_ids, perm, original_groups, occurrence_counters)
+            for child in node.children
+        )
+        if node.macro_type == 'G':
+            return f'G({node.key}, {rendered_children})'
+        else:
+            return f'H({node.key}, {node.corr}, {rendered_children})'
+
+    # Otherwise, this node is part of the group being permuted
+    # Determine which list of original nodes to use
+    if correlated_ids is None:
+        # Simple G group (or uncorrelated H, though H should use correlated)
+        idx = occurrence_counters[identifier]
+        occurrence_counters[identifier] += 1
+        src_idx = perm[idx]
+        source_node = original_groups[identifier][src_idx]
+        # Render children of source_node
+        rendered_children = ''.join(
+            render_node(child, group_id, correlated_ids, perm, original_groups, occurrence_counters)
+            for child in source_node.children
+        )
+        return f'{node.macro_type}({node.key}, {rendered_children})'
+    else:
+        # Correlated H group: identifier is one of correlated_ids
+        idx = occurrence_counters[identifier]
+        occurrence_counters[identifier] += 1
+        src_idx = perm[idx]
+        source_node = original_groups[identifier][src_idx]
+        rendered_children = ''.join(
+            render_node(child, group_id, correlated_ids, perm, original_groups, occurrence_counters)
+            for child in source_node.children
+        )
+        return f'H({node.key}, {node.corr}, {rendered_children})'
+
+def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_groups=None):
+    """
+    Renders the entire list of nodes (root) to a source string.
+    - If group_id is None, simply renders all macros as-is.
+    - Otherwise, applies permutation for group_id using perm and original_groups.
+    """
+    occurrence_counters = {}
+    if group_id is not None:
+        if correlated_ids is None:
+            occurrence_counters[group_id] = 0
+        else:
+            for hid in correlated_ids:
+                occurrence_counters[hid] = 0
+
+    rendered = []
+    for node in nodes:
+        rendered.append(render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters))
+    return ''.join(rendered)
+
+# ---------------------------------------------
+# Helper functions for file operations and builds
+# ---------------------------------------------
+def read_file(path):
+    with open(path, 'r') as f:
+        return f.read()
 
 def setup_workers():
     for wid in range(max_parallelism):
@@ -138,51 +299,44 @@ def setup_workers():
         for fname in files_to_copy:
             shutil.copy(fname, os.path.join(workdir, fname))
 
-def build_worker(parts, base_groups, group_id, perm, src_path, worker_id, correlated_ids=None):
+def write_and_build_tree(nodes, src_path):
     """
-    Reconstructs the source by using a specific permutation for one group.
-    If correlated_ids is None, group_id is a single identifier (e.g. 'G_25' or 'H_99_1'),
-    and perm is a tuple of segments for that identifier.
-    If correlated_ids is not None, group_id is a base H key (e.g. 'H_99'),
-    correlated_ids is a list of actual H identifiers (e.g. ['H_99_1','H_99_2']),
-    and perm is a tuple of indices to permute all of those identifiers together.
+    Renders the full tree (no permutation), writes to src_path, invokes make,
+    and returns the size and content.
     """
-    groups = {k: base_groups[k][:] for k in base_groups}
+    content = render_tree(nodes)
+    with open(src_path, 'w') as f:
+        f.write(content)
 
-    if correlated_ids is None:
-        groups[group_id] = list(perm)
-    else:
-        length = len(perm)
-        for hid in correlated_ids:
-            original_list = base_groups[hid]
-            new_list = [original_list[i] for i in perm]
-            groups[hid] = new_list
+    # Run make in current directory
+    subprocess.run([
+        'make', 'NOSTDLIB=true', 'MINI=true', 'loader'
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    size = os.path.getsize('./build/4kc')
+    return size, content
 
-    out = []
-    indices = {k: -1 for k in groups}
-    for part in parts:
-        if part in groups:
-            indices[part] += 1
-            seg = groups[part][indices[part]]
-            if part.startswith('G_'):
-                key = part.split('_', 1)[1]
-                out.append('G(' + key + ', ' + seg + ')')
-            elif part.startswith('H_'):
-                parts_split = part.split('_', 2)
-                key = parts_split[1]
-                corr = parts_split[2]
-                out.append('H(' + key + ', ' + corr + ', ' + seg + ')')
-            else:
-                out.append(seg)
-        else:
-            out.append(part)
-    content = ''.join(out)
+def build_worker_tree(root_nodes, group_id, perm, src_path, worker_id, correlated_ids, original_groups):
+    """
+    Renders the tree applying a permutation for one group, writes to a worker directory,
+    invokes make, and returns (size, content, perm).
+    - root_nodes: list of nodes from the current tree
+    - group_id: identifier being permuted (e.g. 'G_38' or base 'H_99')
+    - perm: tuple of indices to permute segments
+    - src_path: path to write the source (e.g. '4k.c')
+    - worker_id: integer for selecting worker directory
+    - correlated_ids: list of identifiers if H base; otherwise None
+    - original_groups: dict mapping each identifier to list of MacroNode from the current tree
+    """
+    # Render content with this permutation
+    content = render_tree(root_nodes, group_id, correlated_ids, perm, original_groups)
 
+    # Write to worker directory
     workdir = 'worker_' + str(worker_id)
     src_dest = os.path.join(workdir, src_path)
     with open(src_dest, 'w') as f:
         f.write(content)
 
+    # Run make in that worker directory
     subprocess.run([
         'make', 'NOSTDLIB=true', 'MINI=true', 'loader'
     ], cwd=workdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
@@ -191,101 +345,20 @@ def build_worker(parts, base_groups, group_id, perm, src_path, worker_id, correl
     size = os.path.getsize(built_path)
     return size, content, perm
 
-def write_and_build(parts, groups, src_path):
-    """
-    Reconstructs the source using the current ordering in groups,
-    writes to src_path, invokes make, and returns the size and content.
-    """
-    out = []
-    indices = {k: -1 for k in groups}
-    for part in parts:
-        if part in groups:
-            indices[part] += 1
-            seg = groups[part][indices[part]]
-            if part.startswith('G_'):
-                key = part.split('_', 1)[1]
-                out.append('G(' + key + ', ' + seg + ')')
-            elif part.startswith('H_'):
-                parts_split = part.split('_', 2)
-                key = parts_split[1]
-                corr = parts_split[2]
-                out.append('H(' + key + ', ' + corr + ', ' + seg + ')')
-            else:
-                out.append(part)
-        else:
-            out.append(part)
-    content = ''.join(out)
-    print(src_path)
-    with open(src_path, 'w') as f:
-        f.write(content)
-    subprocess.run([
-        'make', 'NOSTDLIB=true', 'MINI=true', 'loader'
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-    size = os.path.getsize('./build/4kc')
-    return size, content
-
-def shuffle_groups(groups):
-    """
-    Randomly shuffles the members of each group (if enable_random_shuffle is True).
-    For H groups, ensures correlated groups are shuffled together.
-    """
-    if not enable_random_shuffle:
-        return groups
-
-    shuffled_groups = {}
-
-    # Track which H groups have been processed
-    processed_h = set()
-
-    # Identify correlated H groups
-    h_base_to_ids = {}
-    for identifier in groups:
-        if identifier.startswith('H_'):
-            parts_split = identifier.split('_', 2)
-            key = parts_split[1]
-            base = 'H_' + key
-            h_base_to_ids.setdefault(base, []).append(identifier)
-
-    # Shuffle each group
-    for identifier, segments in groups.items():
-        if identifier.startswith('G_'):
-            shuffled = segments[:]
-            random.shuffle(shuffled)
-            shuffled_groups[identifier] = shuffled
-        elif identifier.startswith('H_') and identifier not in processed_h:
-            parts_split = identifier.split('_', 2)
-            key = parts_split[1]
-            base = 'H_' + key
-            correlated_ids = h_base_to_ids[base]
-
-            length = len(segments)
-            indices = list(range(length))
-            random.shuffle(indices)
-
-            # Apply the same permutation to all correlated H groups
-            for hid in correlated_ids:
-                original = groups[hid]
-                shuffled = [original[i] for i in indices]
-                shuffled_groups[hid] = shuffled
-                processed_h.add(hid)
-
-    return shuffled_groups
-
 # ---------------------------------------------
-# stage_one: updated to shuffle group-processing order when enabled
+# stage_one: updated to use parse tree and nested support
 # ---------------------------------------------
-def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
+def stage_one(src_path, iteration, pass_best, stats_prefix):
     """
-    Performs a single "stage 1" exhaustive reordering over all G- and H-groups.
-    - parts & groups come from extract_groups
-    - src_path is the filename to overwrite with new attempts
+    Performs a single "stage 1" exhaustive reordering over all G- and H-groups,
+    supporting nested macros.
+    - src_path is the filename to read/write
     - iteration is the current pass number for display
-    - pass_best is a dict used to track this pass's best size and content
-    - stats_prefix is a string to show in the tqdm bar (e.g. "Run 2, Initial size: ...")
-
+    - pass_best tracks this pass's best size and content
+    - stats_prefix is a string to show in the tqdm bar
     Returns True if any improvement occurred in this stage.
     """
-    global global_best_size
+    global global_best_size, global_best_src
 
     any_improved = False
     saved_run = pass_best['initial'] - pass_best['best']
@@ -305,7 +378,17 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
     )
     print(f'\n--- {stats_prefix} Stage 1 pass {iteration} start ---')
 
-    # Identify correlated H keys
+    # Read current source and parse into tree
+    text = read_file(src_path)
+    global _uid_counter
+    _uid_counter = 0  # reset UID counter for consistent ordering
+    root_nodes, _ = parse_nodes(text)
+
+    # Collect groups mapping identifier -> list of MacroNode (in traversal order)
+    groups = {}
+    collect_groups(root_nodes, groups)
+
+    # Identify correlated H keys: base identifier -> list of actual H identifiers
     h_base_to_ids = {}
     for identifier in groups:
         if identifier.startswith('H_'):
@@ -314,7 +397,7 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
             base = 'H_' + key
             h_base_to_ids.setdefault(base, []).append(identifier)
 
-    # Compute total iterations (for the overall progress bar)
+    # Compute total iterations for progress bar
     total_iters = 0
     for identifier in groups:
         if identifier.startswith('G_'):
@@ -339,9 +422,25 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
 
     # Process G-groups
     for identifier in g_identifiers:
-        base_groups = {k: groups[k][:] for k in groups}
-        original = base_groups[identifier][:]
-        perms = permute_list(original)
+        # Refresh parse tree for each group if there was an improvement previously
+        if pass_best.get('best_content') is not None:
+            # Write the best content so far to src_path and re-parse
+            with open(src_path, 'w') as bf:
+                bf.write(pass_best['best_content'])
+            text = pass_best['best_content']
+            _uid_counter = 0
+            root_nodes, _ = parse_nodes(text)
+            groups = {}
+            collect_groups(root_nodes, groups)
+
+        # Prepare permutation indices for this group
+        group_nodes = groups.get(identifier, [])
+        n = len(group_nodes)
+        if n <= 1:
+            continue  # nothing to permute
+
+        index_list = list(range(n))
+        perms = list(itertools.permutations(index_list))
 
         group_bar = tqdm(
             total=len(perms),
@@ -352,23 +451,31 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
             smoothing=0
         )
 
+        # Build permutations in parallel
         with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
             futures = {}
             for idx, perm in enumerate(perms):
-                fut = execr.submit(build_worker, parts, base_groups, identifier,
-                                   perm, src_path, idx % max_parallelism, None)
+                fut = execr.submit(
+                    build_worker_tree,
+                    root_nodes,         # current parse tree
+                    identifier,         # group_id being permuted
+                    perm,               # tuple of indices
+                    src_path,
+                    idx % max_parallelism,
+                    None,               # no correlated_ids for G
+                    groups              # original_groups mapping
+                )
                 futures[fut] = perm
 
             for future in as_completed(futures):
                 size, content, perm = future.result()
                 with global_best_lock:
-                    # If this run's best is improved, update pass_best
+                    # Check run-best
                     if size < pass_best['best']:
                         pass_best['best'] = size
                         pass_best['best_content'] = content
                         any_improved = True
                         saved_run = pass_best['initial'] - pass_best['best']
-                        # Update status bar to include new run and global best
                         stats_bar.set_description(
                             stats_prefix
                             + '   Run best: ' + str(pass_best['best']) + 'B'
@@ -379,11 +486,10 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
                     else:
                         is_new_run_best = False
 
-                    # If this is also a new global best, update global
+                    # Check global-best
                     if size < global_best_size:
                         global_best_size = size
                         global_best_src = content
-                        # Write out the absolute best source so far
                         with open('global_best.c', 'w') as gf:
                             gf.write(global_best_src)
                         print(f'*** New GLOBAL best: {global_best_size}B. Saved to global_best.c ***')
@@ -405,11 +511,6 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
         if pass_best.get('best_content') is not None:
             with open(src_path, 'w') as bf:
                 bf.write(pass_best['best_content'])
-            parts, new_groups = extract_groups(read_file(src_path))
-            groups[identifier] = new_groups[identifier]
-        else:
-            groups[identifier] = original
-
         group_bar.close()
 
     # Prepare list of H-group bases
@@ -419,11 +520,32 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
 
     # Process correlated H-groups
     for base in h_bases:
+        # Refresh parse tree if improvement was found
+        if pass_best.get('best_content') is not None:
+            with open(src_path, 'w') as bf:
+                bf.write(pass_best['best_content'])
+            text = pass_best['best_content']
+            _uid_counter = 0
+            root_nodes, _ = parse_nodes(text)
+            groups = {}
+            collect_groups(root_nodes, groups)
+            # Recompute correlated mapping
+            h_base_to_ids = {}
+            for identifier in groups:
+                if identifier.startswith('H_'):
+                    parts_split = identifier.split('_', 2)
+                    key = parts_split[1]
+                    base2 = 'H_' + key
+                    h_base_to_ids.setdefault(base2, []).append(identifier)
+
         ids = h_base_to_ids[base]
-        base_groups = {k: groups[k][:] for k in groups}
-        original_lists = [base_groups[hid][:] for hid in ids]
-        length = len(original_lists[0])
-        index_perms = list(itertools.permutations(range(length)))
+        # Ensure all ids have same length
+        length = len(groups[ids[0]])
+        if length <= 1:
+            continue  # nothing to permute
+
+        index_list = list(range(length))
+        index_perms = list(itertools.permutations(index_list))
 
         group_bar = tqdm(
             total=len(index_perms),
@@ -436,8 +558,16 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
         with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
             futures = {}
             for idx, perm in enumerate(index_perms):
-                fut = execr.submit(build_worker, parts, base_groups, base,
-                                   perm, src_path, idx % max_parallelism, ids)
+                fut = execr.submit(
+                    build_worker_tree,
+                    root_nodes,
+                    base,
+                    perm,
+                    src_path,
+                    idx % max_parallelism,
+                    ids,            # correlated_ids for H base
+                    groups
+                )
                 futures[fut] = perm
 
             for future in as_completed(futures):
@@ -480,16 +610,10 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
                 group_bar.update(1)
                 total_bar.update(1)
 
+        # After exhausting H-base perms, if we found a new run-best, write it out
         if pass_best.get('best_content') is not None:
             with open(src_path, 'w') as bf:
                 bf.write(pass_best['best_content'])
-            parts, new_groups = extract_groups(read_file(src_path))
-            for hid in ids:
-                groups[hid] = new_groups[hid]
-        else:
-            for idx_h, hid in enumerate(ids):
-                groups[hid] = original_lists[idx_h]
-
         group_bar.close()
 
     total_bar.close()
@@ -500,7 +624,7 @@ def stage_one(parts, groups, src_path, iteration, pass_best, stats_prefix):
 # Main logic with multiple runs
 # ---------------------------------------------
 def main():
-    global global_best_size, global_best_src
+    global global_best_size, global_best_src, _uid_counter
 
     # Initialize random seed if specified
     if random_seed is not None:
@@ -521,15 +645,12 @@ def main():
         # Read original source into memory
         text = read_file(src_filename)
 
-        # Extract parts & groups from the file
-        parts, groups = extract_groups(text)
+        # Parse into tree
+        _uid_counter = 0
+        root_nodes, _ = parse_nodes(text)
 
-        # If shuffling is enabled, randomly shuffle all groups at start of this run
-        if enable_random_shuffle:
-            groups = shuffle_groups(groups)
-
-        # Write this shuffled version out to disk and build once to get an initial size
-        size, content = write_and_build(parts, groups, src_filename)
+        # Write this version out and build once to get an initial size
+        size, content = write_and_build_tree(root_nodes, src_filename)
         pass_best = {
             'initial': size,
             'best': size,
@@ -543,10 +664,7 @@ def main():
         # Inner "stage one" loop: keep permuting until no further improvement
         iteration = 1
         while True:
-            parts, groups = extract_groups(read_file(src_filename))
             improved = stage_one(
-                parts,
-                groups,
                 src_filename,
                 iteration,
                 pass_best,
