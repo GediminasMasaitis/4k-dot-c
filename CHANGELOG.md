@@ -5961,9 +5961,35 @@ Elo difference: -57.9 +/- 17.8, LOS: 0.0 %, DrawRatio: 32.7 %
 
 60+0.6:
 ```py
-Score of 4k.c-4.28 vs 4ku-3.0: 548 - 704 - 748  [0.461] 2000
-...      4k.c-4.28 playing White: 411 - 215 - 374  [0.598] 1000
-...      4k.c-4.28 playing Black: 137 - 489 - 374  [0.324] 1000
-...      White vs Black: 900 - 352 - 748  [0.637] 2000
-Elo difference: -27.2 +/- 12.0, LOS: 0.0 %, DrawRatio: 37.4 %
+Score of 4k.c-4.28 vs 4ku-3.0: 1629 - 2136 - 2235  [0.458] 6000
+...      4k.c-4.28 playing White: 1194 - 677 - 1129  [0.586] 3000
+...      4k.c-4.28 playing Black: 435 - 1459 - 1106  [0.329] 3000
+...      White vs Black: 2653 - 1112 - 2235  [0.628] 6000
+Elo difference: -29.4 +/- 7.0, LOS: 0.0 %, DrawRatio: 37.3 %
+```
+
+### 4.29
+
+64 bit: 4047 bytes (-7)
+
+MD5: 4990d7cdc921c9e4333aaca6abe3338d
+
+Adjust max material
+
+```py
+Elo   | 3.39 +- 4.92 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 9828 W: 3005 L: 2909 D: 3914
+Penta | [330, 1122, 1939, 1168, 355]
+https://gedas.pythonanywhere.com/test/995/
+```
+
+```py
+Elo   | 5.76 +- 12.72 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.62 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 1388 W: 420 L: 397 D: 571
+Penta | [34, 179, 253, 186, 42]
+https://gedas.pythonanywhere.com/test/997/
 ```
