@@ -961,8 +961,7 @@ static i32 eval(Position *const restrict pos) {
         phase += phases[p];
 
         const i32 sq = lsb(copy);
-        copy &= copy - 1;
-
+        G(55, copy &= copy - 1;)
         G(55, const int rank = sq >> 3;)
         G(55, const int file = sq & 7;)
 
@@ -1558,13 +1557,12 @@ static void run() {
              nps);
     }
 #endif
-    if (line[0] == 'q') {
-      exit_now();
-    } else if (line[0] == 'i') {
-      puts("readyok");
-    } else if (line[0] == 'p') {
-      G(77, pos = start_pos;)
-      G(77, pos_history_count = 0;)
+    G(
+        77, if (line[0] == 'q') { exit_now(); })
+    else G(
+        77, if (line[0] == 'i') { puts("readyok"); }) else if (line[0] == 'p') {
+      G(78, pos = start_pos;)
+      G(78, pos_history_count = 0;)
       while (true) {
         const bool line_continue = getl(line);
 
@@ -1597,7 +1595,8 @@ static void run() {
           break;
         }
       }
-    } else if (line[0] == 'g') {
+    }
+    else if (line[0] == 'g') {
 #ifdef FULL
       while (true) {
         getl(line);
