@@ -5890,3 +5890,80 @@ https://gedas.pythonanywhere.com/test/982/
 MD5: d89805fc0ae95ed5b197bc81cb0c76a2
 
 More nested groups
+
+### 4.28
+
+64 bit: 4054 bytes (+86)
+
+MD5: f570539145749c0d047c3484f0784e20
+
+Passed pawn evaluation
+
+```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 23 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 1 nodes 419 nps 419000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 1044 nps 1044000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1807 nps 903500 pv b1c3
+info depth 7 score cp 13 time 4 nodes 4079 nps 1019750 pv b1c3
+info depth 8 score cp 16 time 10 nodes 9238 nps 923800 pv b1c3
+info depth 9 score cp 18 time 18 nodes 18636 nps 1035333 pv b1c3
+info depth 10 score cp 21 time 29 nodes 34650 nps 1194827 pv b1c3
+info depth 11 score cp 3 time 50 nodes 70758 nps 1415160 pv b1c3
+info depth 12 score cp 16 time 84 nodes 142368 nps 1694857 pv b1c3
+info depth 13 score cp 12 time 232 nodes 497260 nps 2143362 pv d2d4
+info depth 14 score cp 12 time 471 nodes 1096641 nps 2328324 pv d2d4
+info depth 15 score cp 18 time 774 nodes 1838933 nps 2375882 pv d2d4
+info depth 16 score cp 15 time 1333 nodes 3203492 nps 2403219 pv d2d4
+info depth 17 score cp 15 time 1996 nodes 4835957 nps 2422824 pv d2d4
+info depth 18 score cp 17 time 3513 nodes 8599469 nps 2447898 pv d2d4
+info depth 19 score cp 14 time 5571 nodes 13730115 nps 2464569 pv d2d4
+bestmove d2d4
+13730115 nodes 2464569 nps
+```
+
+```py
+Elo   | 36.11 +- 12.68 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1516 W: 552 L: 395 D: 569
+Penta | [35, 136, 306, 199, 82]
+https://gedas.pythonanywhere.com/test/992/
+```
+
+```
+Elo   | 22.13 +- 9.72 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2562 W: 885 L: 722 D: 955
+Penta | [74, 251, 509, 332, 115]
+https://gedas.pythonanywhere.com/test/993/
+```
+
+10+0.1:
+```py
+Score of 4k.c-4.28 vs 4ku-2.0: 460 - 265 - 275  [0.598] 1000
+...      4k.c-4.28 playing White: 286 - 88 - 126  [0.698] 500
+...      4k.c-4.28 playing Black: 174 - 177 - 149  [0.497] 500
+...      White vs Black: 463 - 262 - 275  [0.601] 1000
+Elo difference: 68.6 +/- 18.5, LOS: 100.0 %, DrawRatio: 27.5 %
+```
+
+10+0.1:
+```py
+Score of 4k.c-4.28 vs 4ku-3.0: 254 - 419 - 327  [0.417] 1000
+...      4k.c-4.28 playing White: 179 - 140 - 181  [0.539] 500
+...      4k.c-4.28 playing Black: 75 - 279 - 146  [0.296] 500
+...      White vs Black: 458 - 215 - 327  [0.622] 1000
+Elo difference: -57.9 +/- 17.8, LOS: 0.0 %, DrawRatio: 32.7 %
+```
+
+60+0.6:
+```py
+Score of 4k.c-4.28 vs 4ku-3.0: 548 - 704 - 748  [0.461] 2000
+...      4k.c-4.28 playing White: 411 - 215 - 374  [0.598] 1000
+...      4k.c-4.28 playing Black: 137 - 489 - 374  [0.324] 1000
+...      White vs Black: 900 - 352 - 748  [0.637] 2000
+Elo difference: -27.2 +/- 12.0, LOS: 0.0 %, DrawRatio: 37.4 %
+```
