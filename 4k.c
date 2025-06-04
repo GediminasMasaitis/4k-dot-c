@@ -1114,23 +1114,24 @@ static i16 search(H(59, 1, const i32 ply),
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
-  for (i32 i = pos_history_count + ply; i > 0 && do_null; i -= 2) {
+  for (i32 i = G(61, pos_history_count) + G(61, ply);
+       G(62, i > 0) && G(62, do_null); i -= 2) {
     if (tt_hash == stack[i].position_hash) {
       return 0;
     }
   }
 
   // TT PROBING
-  G(61, stack[ply].best_move = (Move){0};)
-  G(61, const u16 tt_hash_partial = tt_hash / tt_length;)
-  G(61, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
+  G(63, stack[ply].best_move = (Move){0};)
+  G(63, const u16 tt_hash_partial = tt_hash / tt_length;)
+  G(63, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   if (tt_entry->partial_hash == tt_hash_partial) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(62, alpha == beta - 1) &&
-        G(62, tt_entry->flag != tt_entry->score <= alpha) &&
-        G(62, tt_entry->depth >= depth)) {
+    if (G(64, alpha == beta - 1) &&
+        G(64, tt_entry->flag != tt_entry->score <= alpha) &&
+        G(64, tt_entry->depth >= depth)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1143,35 +1144,35 @@ static i16 search(H(59, 1, const i32 ply),
   i32 static_eval = eval(pos);
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(63, tt_entry->partial_hash == tt_hash_partial) &&
-      G(63, tt_entry->flag != static_eval > tt_entry->score)) {
+  if (G(65, tt_entry->partial_hash == tt_hash_partial) &&
+      G(65, tt_entry->flag != static_eval > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
 
   // QUIESCENCE
-  if (G(64, static_eval > alpha) && G(64, in_qsearch)) {
+  if (G(66, static_eval > alpha) && G(66, in_qsearch)) {
     if (static_eval >= beta) {
       return static_eval;
     }
     alpha = static_eval;
   }
 
-  if (G(65, !in_check) && G(65, alpha == beta - 1)) {
-    if (G(66, depth < 8) && G(66, !in_qsearch)) {
+  if (G(67, !in_check) && G(67, alpha == beta - 1)) {
+    if (G(68, depth < 8) && G(68, !in_qsearch)) {
 
-      G(67, {
+      G(69, {
         // REVERSE FUTILITY PRUNING
         if (static_eval - 47 * depth >= beta) {
           return static_eval;
         }
       })
 
-      G(67, // RAZORING
+      G(69, // RAZORING
         in_qsearch = static_eval + 131 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
-    if (G(68, do_null) && G(68, depth > 2) && G(68, static_eval >= beta)) {
+    if (G(70, do_null) && G(70, depth > 2) && G(70, static_eval >= beta)) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
@@ -1220,21 +1221,21 @@ static i16 search(H(59, 1, const i32 ply),
             move_equal(&stack[ply].killer, &stack[ply].moves[order_index]) *
                 915);
       if (order_move_score > move_score) {
-        G(69, move_score = order_move_score;)
-        G(69, swapmoves(H(23, 2, &stack[ply].moves[move_index]),
+        G(71, move_score = order_move_score;)
+        G(71, swapmoves(H(23, 2, &stack[ply].moves[move_index]),
                         H(23, 2, &stack[ply].moves[order_index]));)
       }
     }
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(70, depth < 8) &&
-        G(70,
-          G(71, static_eval + 128 * depth) +
-                  G(71,
+    if (G(72, depth < 8) &&
+        G(72,
+          G(73, static_eval + 128 * depth) +
+                  G(73,
                     max_material[stack[ply].moves[move_index].takes_piece]) +
-                  G(71, max_material[stack[ply].moves[move_index].promo]) <
+                  G(73, max_material[stack[ply].moves[move_index].promo]) <
               alpha) &&
-        G(70, !in_check) && G(70, moves_evaluated)) {
+        G(72, !in_check) && G(72, moves_evaluated)) {
       break;
     }
 
@@ -1252,7 +1253,7 @@ static i16 search(H(59, 1, const i32 ply),
 
     // LATE MOVE REDCUCTION
     i32 reduction =
-        G(72, depth > 1) && G(72, moves_evaluated > 6)
+        G(74, depth > 1) && G(74, moves_evaluated > 6)
             ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
             : 1;
 
@@ -1293,24 +1294,26 @@ static i16 search(H(59, 1, const i32 ply),
         assert(stack[ply].best_move.takes_piece ==
                piece_on(H(20, 8, pos), H(20, 8, stack[ply].best_move.to)));
         G(
-            73, if (stack[ply].best_move.takes_piece == None) {
+            75, if (stack[ply].best_move.takes_piece == None) {
               stack[ply].killer = stack[ply].best_move;
             })
-        G(
-            73,
+        G(75, const i32 bonus = depth * depth;
+          G(76,
             i32 *const this_hist =
                 &move_history[pos->flipped][stack[ply].best_move.takes_piece]
                              [stack[ply].best_move.from]
                              [stack[ply].best_move.to];
-            const i32 bonus = depth * depth;
-            *this_hist += bonus - bonus * *this_hist / 1024;
-            for (i32 prev_index = 0; prev_index < move_index; prev_index++) {
-              const Move prev = stack[ply].moves[prev_index];
-              i32 *const prev_hist =
-                  &move_history[pos->flipped][prev.takes_piece][prev.from]
-                               [prev.to];
-              *prev_hist -= bonus + bonus * *prev_hist / 1024;
-            })
+
+            *this_hist += bonus - bonus * *this_hist / 1024;)
+              G(
+                  76, for (i32 prev_index = 0; prev_index < move_index;
+                           prev_index++) {
+                    const Move prev = stack[ply].moves[prev_index];
+                    i32 *const prev_hist =
+                        &move_history[pos->flipped][prev.takes_piece][prev.from]
+                                     [prev.to];
+                    *prev_hist -= bonus + bonus * *prev_hist / 1024;
+                  }))
         break;
       }
     }
@@ -1320,9 +1323,9 @@ static i16 search(H(59, 1, const i32 ply),
     }
 
     // LATE MOVE PRUNING
-    if (G(74, alpha == beta - 1) &&
-        G(74, quiets_evaluated > 1 + depth * depth >> !improving) &&
-        G(74, !in_check)) {
+    if (G(77, alpha == beta - 1) &&
+        G(77, quiets_evaluated > 1 + depth * depth >> !improving) &&
+        G(77, !in_check)) {
       break;
     }
   }
@@ -1345,9 +1348,9 @@ static void iteratively_deepen(
 #ifdef FULL
     i32 maxdepth, u64 *nodes,
 #endif
-    H(75, 1, const i32 pos_history_count),
-    H(75, 1, SearchStack *restrict stack),
-    H(75, 1, Position *const restrict pos)) {
+    H(78, 1, const i32 pos_history_count),
+    H(78, 1, SearchStack *restrict stack),
+    H(78, 1, Position *const restrict pos)) {
   start_time = get_time();
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -1480,8 +1483,8 @@ static void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(20, &nodes, H(75, 2, pos_history_count), H(75, 2, stack),
-                     H(75, 2, &pos));
+  iteratively_deepen(20, &nodes, H(78, 2, pos_history_count), H(78, 2, stack),
+                     H(78, 2, &pos));
   const u64 end = get_time();
   const i32 elapsed = end - start;
   const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
@@ -1498,17 +1501,17 @@ static void run() {
   setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 
-  G(76, char line[4096];)
-  G(76, __builtin_memset(move_history, 0, sizeof(move_history));)
-  G(76, init();)
-  G(76, Position pos;)
-  G(76, // #ifdef LOWSTACK
+  G(79, char line[4096];)
+  G(79, __builtin_memset(move_history, 0, sizeof(move_history));)
+  G(79, init();)
+  G(79, Position pos;)
+  G(79, // #ifdef LOWSTACK
         //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
         // #else
     SearchStack stack[1024];
     // #endif
   )
-  G(76, i32 pos_history_count;)
+  G(79, i32 pos_history_count;)
 
 #ifdef FULL
   pos = start_pos;
@@ -1540,8 +1543,8 @@ static void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       max_time = 99999999999;
-      iteratively_deepen(max_ply, &nodes, H(75, 3, pos_history_count),
-                         H(75, 3, stack), H(75, 3, &pos));
+      iteratively_deepen(max_ply, &nodes, H(78, 3, pos_history_count),
+                         H(78, 3, stack), H(78, 3, &pos));
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
@@ -1557,11 +1560,11 @@ static void run() {
              nps);
     }
 #endif
-    G(77, if (line[0] == 'q') { exit_now(); })
+    G(80, if (line[0] == 'q') { exit_now(); })
     else G(
-        77, if (line[0] == 'i') { puts("readyok"); }) else if (line[0] == 'p') {
-      G(78, pos = start_pos;)
-      G(78, pos_history_count = 0;)
+        80, if (line[0] == 'i') { puts("readyok"); }) else if (line[0] == 'p') {
+      G(81, pos = start_pos;)
+      G(81, pos_history_count = 0;)
       while (true) {
         const bool line_continue = getl(line);
 
@@ -1612,15 +1615,15 @@ static void run() {
           break;
         }
       }
-      iteratively_deepen(max_ply, &nodes, H(75, 4, pos_history_count),
-                         H(75, 4, stack), H(75, 4, &pos));
+      iteratively_deepen(max_ply, &nodes, H(78, 4, pos_history_count),
+                         H(78, 4, stack), H(78, 4, &pos));
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         max_time = atoi(line) / 2;
       }
-      iteratively_deepen(H(75, 5, pos_history_count), H(75, 5, stack),
-                         H(75, 5, &pos));
+      iteratively_deepen(H(78, 5, pos_history_count), H(78, 5, stack),
+                         H(78, 5, &pos));
 #endif
     }
   }
