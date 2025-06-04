@@ -27,11 +27,7 @@ num_runs = 999
 # List of files needed for each worker's directory
 files_to_copy = [
     'Makefile',
-    'loader.c',
     '4k.c',
-    'aplib.h',
-    'aplib.asm',
-    '64bit-loader.ld',
     '64bit-noheader.ld',
 ]
 
@@ -274,9 +270,9 @@ def write_and_build_tree(nodes, src_path):
         f.write(content)
 
     subprocess.run([
-        'make', 'NOSTDLIB=true', 'MINI=true', 'loader'
+        'make', 'NOSTDLIB=true', 'MINI=true', 'compress'
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-    size = os.path.getsize('./build/4kc')
+    size = os.path.getsize('./build/4kc.ap')
     return size, content
 
 def build_worker_tree(root_nodes, group_id, perm, src_path, worker_id, correlated_ids, original_groups):
@@ -291,10 +287,10 @@ def build_worker_tree(root_nodes, group_id, perm, src_path, worker_id, correlate
         f.write(content)
 
     subprocess.run([
-        'make', 'NOSTDLIB=true', 'MINI=true', 'loader'
+        'make', 'NOSTDLIB=true', 'MINI=true', 'compress'
     ], cwd=workdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    built_path = os.path.join(workdir, 'build', '4kc')
+    built_path = os.path.join(workdir, 'build', '4kc.ap')
     size = os.path.getsize(built_path)
     return size, content, perm
 

@@ -35,13 +35,15 @@ all:
 	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
 	md5sum $(EXE)
 
-loader:
+compress:
 	mkdir -p build
 	$(CC) $(CFLAGS) -c 4k.c
 	$(CC) $(LDFLAGS) -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	ls -la $(EXE)
 	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
 	apultra -stats -v $(EXE) $(EXE).ap
+
+loader: compress
 	fasm aplib.asm aplib.o
 	$(CC) $(CFLAGS) -DPAYLOAD_START='"'$$(grep '_start' $(EXE).map | awk '{print $$1}')'"' -c loader.c
 	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) aplib.o loader.o
