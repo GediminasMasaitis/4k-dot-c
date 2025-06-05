@@ -1292,8 +1292,12 @@ static i16 search(H(76, 1, const i32 ply),
     // LATE MOVE REDCUCTION
     i32 reduction =
         G(94, depth > 1) && G(94, moves_evaluated > 6)
-            ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
+            ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving - move_history[pos->flipped][stack[ply].moves[move_index].takes_piece]
+      [stack[ply].moves[move_index].from][stack[ply].moves[move_index].to] / 512
             : 1;
+    if (reduction < 1) {
+      reduction = 1;
+    }
 
     i32 score;
     while (true) {
