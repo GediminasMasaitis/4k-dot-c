@@ -857,16 +857,18 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(61, 1,
     H(63, 1, i8 passed_pawns[4];) H(63, 1, i8 mobilities[4];)
         H(63, 1, i8 tempo;) H(63, 1, i8 king_attacks[4];))
+      u8 pawn_attacked_penalty[2];
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(61, 2,
-    H(62, 2, i32 pst_rank[64];) H(62, 2, i32 pst_file[64];)
-        H(62, 2, i32 open_files[6];) H(62, 2, i32 bishop_pair;))
-  H(61, 2,
-    H(63, 2, i32 passed_pawns[4];) H(63, 2, i32 mobilities[4];)
-        H(63, 2, i32 tempo;) H(63, 2, i32 king_attacks[4];))
+      H(62, 2, i32 pst_rank[64];) H(62, 2, i32 pst_file[64];)
+      H(62, 2, i32 open_files[6];) H(62, 2, i32 bishop_pair;))
+      H(61, 2,
+          H(63, 2, i32 passed_pawns[4];) H(63, 2, i32 mobilities[4];)
+          H(63, 2, i32 tempo;) H(63, 2, i32 king_attacks[4];))
+      i32 pawn_attacked_penalty[2];
 } EvalParamsMerged;
 
 G(64, static const EvalParams mg = ((EvalParams){
@@ -894,6 +896,7 @@ G(64, static const EvalParams mg = ((EvalParams){
           .open_files = {24, -13, -10, 19, -3, -31},
           .passed_pawns = {-9, 13, 37, 77},
           .bishop_pair = 24,
+          .pawn_attacked_penalty = {20, 127},
           .tempo = 16});)
 
 G(64, static const EvalParams eg = ((EvalParams){
@@ -921,6 +924,7 @@ G(64, static const EvalParams eg = ((EvalParams){
           .open_files = {28, -1, 11, 15, 29, 11},
           .passed_pawns = {21, 36, 62, 63},
           .bishop_pair = 52,
+          .pawn_attacked_penalty = { 16, 127 },
           .tempo = 8});)
 
 G(64, static EvalParamsMerged eval_params;)
@@ -1000,6 +1004,11 @@ static i32 eval(Position *const restrict pos) {
                 G(72, rank > 2)) {
               score += eval_params.passed_pawns[rank - 3];
             })
+
+          if (p != Pawn && 1ULL << sq & no_passers) {
+              score -= eval_params.pawn_attacked_penalty[c];
+          }
+
         G(50, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
 
