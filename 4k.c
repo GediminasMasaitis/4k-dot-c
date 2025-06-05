@@ -1292,7 +1292,7 @@ static i16 search(H(76, 1, const i32 ply),
     // LATE MOVE REDCUCTION
     i32 reduction =
         G(94, depth > 1) && G(94, moves_evaluated > 6)
-            ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving
+            ? 1 + (alpha == beta - 1) + moves_evaluated / 11 + !improving + (stack[ply].best_move.takes_piece != None)
             : 1;
 
     i32 score;
