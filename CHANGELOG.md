@@ -5993,3 +5993,20 @@ Games | N: 1388 W: 420 L: 397 D: 571
 Penta | [34, 179, 253, 186, 42]
 https://gedas.pythonanywhere.com/test/997/
 ```
+
+### 4.30
+
+64 bit: 4078 bytes (+31)
+
+MD5: 8c3b3d58f20be7355096bd25897f1ea0
+
+Mobility without opponent pawn attack
+
+```py
+Elo   | 13.39 +- 7.44 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4646 W: 1540 L: 1361 D: 1745
+Penta | [167, 487, 879, 580, 210]
+https://gedas.pythonanywhere.com/test/1012/
+```
