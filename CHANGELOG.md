@@ -4665,6 +4665,28 @@ MD5: 58ee831c562065d98fbaff7c2cdb0ac8
 Late move pruning
 
 ```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 85 pv b1c3
+info depth 3 score cp 22 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 1 nodes 434 nps 434000 pv b1c3
+info depth 5 score cp -1 time 1 nodes 1345 nps 1345000 pv b1c3
+info depth 6 score cp 11 time 3 nodes 3744 nps 1248000 pv f2f4
+info depth 7 score cp 5 time 5 nodes 7828 nps 1565600 pv g1f3
+info depth 8 score cp 15 time 8 nodes 11531 nps 1441375 pv g1f3
+info depth 9 score cp 15 time 13 nodes 18418 nps 1416769 pv g1f3
+info depth 10 score cp 14 time 27 nodes 45602 nps 1688962 pv g1f3
+info depth 11 score cp 10 time 62 nodes 125723 nps 2027790 pv g1f3
+info depth 12 score cp 15 time 126 nodes 307816 nps 2442984 pv g1f3
+info depth 13 score cp 10 time 405 nodes 1109697 nps 2739992 pv e2e4
+info depth 14 score cp 16 time 709 nodes 2023543 nps 2854080 pv e2e4
+info depth 15 score cp 16 time 1230 nodes 3644634 nps 2963117 pv e2e4
+info depth 16 score cp 12 time 2188 nodes 6630121 nps 3030219 pv e2e4
+info depth 17 score cp 12 time 3912 nodes 12035438 nps 3076543 pv e2e4
+bestmove e2e4
+12035438 nodes 3076543 nps
+```
+
+```py
 Elo   | 52.67 +- 15.80 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 3.01 (-2.94, 2.94) [0.00, 5.00]
@@ -5184,6 +5206,29 @@ MD5: 297c12ceb767149f7ef70182eddc9a83
 LMP adjustment based on improving
 
 ```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 101 pv b1c3
+info depth 3 score cp 24 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 1 nodes 429 nps 429000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 974 nps 974000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1670 nps 835000 pv b1c3
+info depth 7 score cp 16 time 5 nodes 4190 nps 838000 pv b1c3
+info depth 8 score cp 16 time 9 nodes 9152 nps 1016888 pv b1c3
+info depth 9 score cp 4 time 22 nodes 24511 nps 1114136 pv b1c3
+info depth 10 score cp 11 time 42 nodes 56507 nps 1345404 pv b1c3
+info depth 11 score cp 11 time 69 nodes 114481 nps 1659144 pv b1c3
+info depth 12 score cp 12 time 115 nodes 218461 nps 1899660 pv b1c3
+info depth 13 score cp 7 time 236 nodes 509759 nps 2159995 pv b1c3
+info depth 14 score cp 11 time 390 nodes 882068 nps 2261712 pv b1c3
+info depth 15 score cp 17 time 924 nodes 2222011 nps 2404773 pv e2e4
+info depth 16 score cp 16 time 2049 nodes 5210051 nps 2542728 pv e2e4
+info depth 17 score cp 16 time 3248 nodes 8224073 nps 2532042 pv e2e4
+info depth 18 score cp 15 time 5723 nodes 14360104 nps 2509191 pv e2e4
+bestmove e2e4
+14360104 nodes 2509191 nps
+```
+
+```py
 Elo   | 22.49 +- 9.90 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
@@ -5318,6 +5363,30 @@ MD5: 935f3951086e2b2e2c7040727ec060e4
 Forward futility pruning
 
 ```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 24 time 0 nodes 216 pv b1c3
+info depth 4 score cp 16 time 0 nodes 431 pv b1c3
+info depth 5 score cp 4 time 1 nodes 924 nps 924000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1626 nps 813000 pv b1c3
+info depth 7 score cp 16 time 4 nodes 3446 nps 861500 pv b1c3
+info depth 8 score cp 16 time 10 nodes 9442 nps 944200 pv b1c3
+info depth 9 score cp -4 time 19 nodes 19715 nps 1037631 pv b1c3
+info depth 10 score cp 15 time 35 nodes 41231 nps 1178028 pv b1c3
+info depth 11 score cp 9 time 61 nodes 92394 nps 1514655 pv b1c3
+info depth 12 score cp 23 time 97 nodes 166750 nps 1719072 pv b1c3
+info depth 13 score cp 18 time 245 nodes 496852 nps 2027967 pv e2e4
+info depth 14 score cp 13 time 399 nodes 842345 nps 2111140 pv e2e4
+info depth 15 score cp 27 time 716 nodes 1580226 nps 2207019 pv e2e4
+info depth 16 score cp 20 time 1212 nodes 2751995 nps 2270622 pv e2e4
+info depth 17 score cp 28 time 2271 nodes 5278317 nps 2324225 pv e2e4
+info depth 18 score cp 28 time 3565 nodes 8255214 nps 2315628 pv e2e4
+info depth 19 score cp 28 time 5871 nodes 13799158 nps 2350393 pv e2e4
+bestmove e2e4
+13799158 nodes 2350393 nps
+```
+
+```py
 Elo   | 21.12 +- 9.65 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
@@ -5360,6 +5429,30 @@ MD5: 86f52992aa7c5147e719e9c15a16812f
 Allow repetition detection in qsearch
 
 ```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 24 time 0 nodes 216 pv b1c3
+info depth 4 score cp 16 time 1 nodes 431 nps 431000 pv b1c3
+info depth 5 score cp 4 time 1 nodes 924 nps 924000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1626 nps 813000 pv b1c3
+info depth 7 score cp 16 time 4 nodes 3446 nps 861500 pv b1c3
+info depth 8 score cp 16 time 10 nodes 9442 nps 944200 pv b1c3
+info depth 9 score cp -4 time 20 nodes 19734 nps 986700 pv b1c3
+info depth 10 score cp 15 time 37 nodes 41250 nps 1114864 pv b1c3
+info depth 11 score cp 9 time 63 nodes 92413 nps 1466873 pv b1c3
+info depth 12 score cp 23 time 99 nodes 166768 nps 1684525 pv b1c3
+info depth 13 score cp 18 time 246 nodes 496907 nps 2019947 pv e2e4
+info depth 14 score cp 13 time 384 nodes 795868 nps 2072572 pv e2e4
+info depth 15 score cp 21 time 691 nodes 1526867 nps 2209648 pv e2e4
+info depth 16 score cp 25 time 1237 nodes 2851118 nps 2304864 pv e2e4
+info depth 17 score cp 16 time 2367 nodes 5502728 nps 2324768 pv e2e4
+info depth 18 score cp 15 time 4368 nodes 10000816 nps 2289564 pv e2e4
+info depth 19 score cp 22 time 11013 nodes 27231627 nps 2472680 pv e2e4
+bestmove e2e4
+27231627 nodes 2472680 nps
+```
+
+```py
 Elo   | 1.20 +- 3.80 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.97 (-2.94, 2.94) [-5.00, 0.00]
@@ -5384,6 +5477,30 @@ https://gedas.pythonanywhere.com/test/811/
 MD5: eefaa038313d5b228a0694c4e104558c
 
 No repetition detection after null move
+
+```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 24 time 0 nodes 216 pv b1c3
+info depth 4 score cp 16 time 0 nodes 431 pv b1c3
+info depth 5 score cp 4 time 1 nodes 924 nps 924000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1626 nps 813000 pv b1c3
+info depth 7 score cp 16 time 4 nodes 3446 nps 861500 pv b1c3
+info depth 8 score cp 16 time 10 nodes 9442 nps 944200 pv b1c3
+info depth 9 score cp -4 time 21 nodes 19734 nps 939714 pv b1c3
+info depth 10 score cp 15 time 37 nodes 41250 nps 1114864 pv b1c3
+info depth 11 score cp 9 time 64 nodes 92413 nps 1443953 pv b1c3
+info depth 12 score cp 23 time 100 nodes 166768 nps 1667680 pv b1c3
+info depth 13 score cp 10 time 250 nodes 491133 nps 1964532 pv e2e4
+info depth 14 score cp 12 time 401 nodes 824459 nps 2056007 pv e2e4
+info depth 15 score cp 18 time 672 nodes 1451131 nps 2159421 pv e2e4
+info depth 16 score cp 17 time 1411 nodes 3164119 nps 2242465 pv e2e4
+info depth 17 score cp 21 time 2505 nodes 5756583 nps 2298037 pv e2e4
+info depth 18 score cp 21 time 3899 nodes 9083136 nps 2329606 pv e2e4
+info depth 19 score cp 18 time 6395 nodes 15170468 nps 2372238 pv e2e4
+bestmove e2e4
+15170468 nodes 2372238 nps
+```
 
 ```py
 Elo   | 1.20 +- 3.80 (95%)
@@ -5671,6 +5788,30 @@ MD5: 85561474479af3aa754537b17d837868
 * No forward futility pruning
 
 ```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 23 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 1 nodes 416 nps 416000 pv b1c3
+info depth 5 score cp 3 time 1 nodes 1060 nps 1060000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1899 nps 949500 pv b1c3
+info depth 7 score cp 13 time 4 nodes 4228 nps 1057000 pv b1c3
+info depth 8 score cp 16 time 8 nodes 8625 nps 1078125 pv b1c3
+info depth 9 score cp 5 time 22 nodes 23910 nps 1086818 pv c2c4
+info depth 10 score cp 13 time 49 nodes 68143 nps 1390673 pv b1c3
+info depth 11 score cp 12 time 105 nodes 186273 nps 1774028 pv g1f3
+info depth 12 score cp 17 time 169 nodes 327322 nps 1936816 pv g1f3
+info depth 13 score cp 10 time 345 nodes 730494 nps 2117373 pv g1f3
+info depth 14 score cp 16 time 645 nodes 1424194 nps 2208052 pv g1f3
+info depth 15 score cp 16 time 1435 nodes 3248293 nps 2263618 pv c2c4
+info depth 16 score cp 27 time 3461 nodes 7892076 nps 2280287 pv e2e4
+info depth 17 score cp 20 time 4253 nodes 9679540 nps 2275932 pv e2e4
+info depth 18 score cp 24 time 5285 nodes 12098004 nps 2289120 pv e2e4
+info depth 19 score cp 32 time 7600 nodes 17509443 nps 2303874 pv e2e4
+bestmove e2e4
+17509443 nodes 2303874 nps
+```
+
+```py
 Elo   | 63.48 +- 17.90 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
@@ -5771,6 +5912,30 @@ https://gedas.pythonanywhere.com/test/932/
 MD5: 03d73379f4135535d2b88a694ea7b7ae
 
 Forward futility pruning
+
+```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 23 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 0 nodes 416 pv b1c3
+info depth 5 score cp 3 time 1 nodes 1008 nps 1008000 pv b1c3
+info depth 6 score cp 16 time 1 nodes 1735 nps 1735000 pv b1c3
+info depth 7 score cp 13 time 3 nodes 3771 nps 1257000 pv b1c3
+info depth 8 score cp 15 time 9 nodes 9468 nps 1052000 pv b1c3
+info depth 9 score cp 0 time 24 nodes 25906 nps 1079416 pv b1c3
+info depth 10 score cp 18 time 33 nodes 37206 nps 1127454 pv b1c3
+info depth 11 score cp 9 time 78 nodes 115980 nps 1486923 pv g1f3
+info depth 12 score cp 16 time 122 nodes 207439 nps 1700319 pv g1f3
+info depth 13 score cp 11 time 350 nodes 733637 nps 2096105 pv g1f3
+info depth 14 score cp 11 time 636 nodes 1401493 nps 2203605 pv g1f3
+info depth 15 score cp 11 time 1094 nodes 2445639 nps 2235501 pv c2c4
+info depth 16 score cp 23 time 2477 nodes 5705761 nps 2303496 pv e2e4
+info depth 17 score cp 25 time 3220 nodes 7476145 nps 2321784 pv e2e4
+info depth 18 score cp 22 time 5381 nodes 12624558 nps 2346136 pv e2e4
+info depth 19 score cp 31 time 7129 nodes 16711487 nps 2344155 pv e2e4
+bestmove e2e4
+16711487 nodes 2344155 nps
+```
 
 ```py
 Elo   | 23.25 +- 10.13 (95%)
@@ -5977,6 +6142,30 @@ MD5: 4990d7cdc921c9e4333aaca6abe3338d
 Adjust max material
 
 ```py
+info depth 1 score cp 25 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 23 time 0 nodes 214 pv b1c3
+info depth 4 score cp 16 time 0 nodes 419 pv b1c3
+info depth 5 score cp 4 time 1 nodes 1044 nps 1044000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 1807 nps 903500 pv b1c3
+info depth 7 score cp 13 time 4 nodes 4078 nps 1019500 pv b1c3
+info depth 8 score cp 16 time 9 nodes 9237 nps 1026333 pv b1c3
+info depth 9 score cp 18 time 17 nodes 18631 nps 1095941 pv b1c3
+info depth 10 score cp 21 time 28 nodes 34628 nps 1236714 pv b1c3
+info depth 11 score cp 3 time 51 nodes 70615 nps 1384607 pv b1c3
+info depth 12 score cp 16 time 82 nodes 135256 nps 1649463 pv b1c3
+info depth 13 score cp 9 time 196 nodes 391622 nps 1998071 pv b1c3
+info depth 14 score cp 16 time 466 nodes 1018157 nps 2184886 pv d2d4
+info depth 15 score cp 12 time 1298 nodes 2922164 nps 2251281 pv b1c3
+info depth 16 score cp 16 time 2012 nodes 4621241 nps 2296839 pv g1f3
+info depth 17 score cp 16 time 2764 nodes 6389421 nps 2311657 pv g1f3
+info depth 18 score cp 14 time 4259 nodes 9907003 nps 2326133 pv g1f3
+info depth 19 score cp 14 time 6234 nodes 14593619 nps 2340971 pv g1f3
+bestmove g1f3
+14593619 nodes 2340971 nps
+```
+
+```py
 Elo   | 3.39 +- 4.92 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
 LLR   | 2.95 (-2.94, 2.94) [-5.00, 0.00]
@@ -6001,6 +6190,30 @@ https://gedas.pythonanywhere.com/test/997/
 MD5: 8c3b3d58f20be7355096bd25897f1ea0
 
 Mobility without opponent pawn attack
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 23 time 0 nodes 226 pv b1c3
+info depth 4 score cp 16 time 0 nodes 493 pv b1c3
+info depth 5 score cp 8 time 1 nodes 1290 nps 1290000 pv b1c3
+info depth 6 score cp 16 time 2 nodes 2513 nps 1256500 pv b1c3
+info depth 7 score cp 14 time 4 nodes 4485 nps 1121250 pv b1c3
+info depth 8 score cp 16 time 10 nodes 9646 nps 964600 pv b1c3
+info depth 9 score cp 20 time 21 nodes 23404 nps 1114476 pv b1c3
+info depth 10 score cp 23 time 37 nodes 47406 nps 1281243 pv b1c3
+info depth 11 score cp 7 time 73 nodes 117269 nps 1606424 pv b1c3
+info depth 12 score cp 19 time 103 nodes 180183 nps 1749349 pv b1c3
+info depth 13 score cp 6 time 436 nodes 957514 nps 2196133 pv c2c4
+info depth 14 score cp 22 time 685 nodes 1536627 nps 2243251 pv g1f3
+info depth 15 score cp 7 time 1261 nodes 2920142 nps 2315735 pv b1c3
+info depth 16 score cp 15 time 2354 nodes 5566147 nps 2364548 pv e2e4
+info depth 17 score cp 24 time 3265 nodes 7728628 nps 2367114 pv e2e4
+info depth 18 score cp 24 time 4235 nodes 10044715 nps 2371833 pv e2e4
+info depth 19 score cp 28 time 7899 nodes 19003972 nps 2405870 pv e2e4
+bestmove e2e4
+19003972 nodes 2405870 nps
+```
 
 ```py
 Elo   | 13.39 +- 7.44 (95%)
@@ -6034,3 +6247,53 @@ More ordering groups
 MD5: d157443895a44ab47d119a10c04ade38
 
 4 hours reordering
+
+### 4.34
+
+64 bit: 4093 bytes (+45)
+
+MD5: ab2fd8ea8e224e91df2446b12841794b
+
+Blocked passed pawns evaluation
+
+```py
+info depth 1 score cp 23 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 103 pv b1c3
+info depth 3 score cp 23 time 0 nodes 226 pv b1c3
+info depth 4 score cp 16 time 0 nodes 493 pv b1c3
+info depth 5 score cp 8 time 1 nodes 1290 nps 1290000 pv b1c3
+info depth 6 score cp 17 time 2 nodes 2080 nps 1040000 pv b1c3
+info depth 7 score cp 10 time 4 nodes 4964 nps 1241000 pv b1c3
+info depth 8 score cp 17 time 11 nodes 11218 nps 1019818 pv b1c3
+info depth 9 score cp 5 time 33 nodes 41679 nps 1263000 pv d2d4
+info depth 10 score cp 28 time 46 nodes 65296 nps 1419478 pv d2d4
+info depth 11 score cp 12 time 73 nodes 119948 nps 1643123 pv d2d4
+info depth 12 score cp 19 time 101 nodes 182899 nps 1810881 pv d2d4
+info depth 13 score cp 16 time 198 nodes 416936 nps 2105737 pv d2d4
+info depth 14 score cp 15 time 349 nodes 772940 nps 2214727 pv d2d4
+info depth 15 score cp 18 time 1246 nodes 2967140 nps 2381332 pv c2c4
+info depth 16 score cp 18 time 1622 nodes 3847734 nps 2372215 pv c2c4
+info depth 17 score cp 12 time 3200 nodes 7635156 nps 2385986 pv b1c3
+info depth 18 score cp 19 time 6579 nodes 15910871 nps 2418433 pv e2e4
+info depth 19 score cp 28 time 9377 nodes 22955422 nps 2448056 pv e2e4
+bestmove e2e4
+22955422 nodes 2448056 nps
+```
+
+```py
+Elo   | 23.06 +- 9.89 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.03 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2520 W: 871 L: 704 D: 945
+Penta | [72, 255, 483, 334, 116]
+https://gedas.pythonanywhere.com/test/1018/
+```
+
+```py
+Elo   | 18.60 +- 8.82 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3010 W: 944 L: 783 D: 1283
+Penta | [80, 319, 588, 396, 122]
+https://gedas.pythonanywhere.com/test/1019/
+```
