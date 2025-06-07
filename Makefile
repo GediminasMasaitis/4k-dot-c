@@ -21,6 +21,10 @@ ifneq ($(MINI), true)
 	CFLAGS += -DFULL
 endif
 
+ifeq ($(LOWSTACK), true)
+	CFLAGS += -DLOWSTACK
+endif
+
 ifeq ($(ASSERTS), true)
 	CFLAGS += -DASSERTS
 else
@@ -34,6 +38,10 @@ all:
 	rm *.o
 	ls -la $(EXE)
 	md5sum $(EXE)
+
+win:
+	if not exist build mkdir build
+	$(CC) $(CFLAGS) -o $(EXE) 4k.c
 
 mini:
 	mkdir -p build

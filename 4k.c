@@ -1087,7 +1087,12 @@ static void bench() {
   Position pos;
   Move moves[256];
   i32 num_moves;
-  SearchStack stack[128];
+  i32 pos_history_count;
+#ifdef LOWSTACK
+  SearchStack* stack = malloc(sizeof(SearchStack) * 1024);
+#else
+  SearchStack stack[1024];
+#endif
   pos = (Position){.castling = {true, true, true, true},
                    .colour = {0xFFFFull, 0xFFFF000000000000ull},
                    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
@@ -1115,7 +1120,11 @@ static void run() {
   Move moves[256];
   i32 num_moves;
   i32 pos_history_count;
+#ifdef LOWSTACK
+  SearchStack* stack = malloc(sizeof(SearchStack) * 1024);
+#else
   SearchStack stack[1024];
+#endif
 
 #ifdef FULL
   pos = (Position){.castling = {true, true, true, true},
