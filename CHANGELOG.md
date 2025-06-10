@@ -6305,3 +6305,52 @@ https://gedas.pythonanywhere.com/test/1019/
 MD5: d5eca42c25e60d64ca023ad8da443925
 
 Reduce size by reordering
+
+
+### 4.36
+
+64 bit: 4084 bytes (-1)
+
+MD5: 0310504f3fe9d9831395c39145554342
+
+Knight mobility
+
+```py
+info depth 1 score cp 31 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 104 nps 104000 pv b1c3
+info depth 3 score cp 31 time 1 nodes 220 nps 220000 pv b1c3
+info depth 4 score cp 16 time 1 nodes 396 nps 396000 pv b1c3
+info depth 5 score cp 15 time 1 nodes 808 nps 808000 pv b1c3
+info depth 6 score cp 12 time 3 nodes 2009 nps 669666 pv b1c3
+info depth 7 score cp 14 time 9 nodes 7612 nps 845777 pv d2d4
+info depth 8 score cp 20 time 15 nodes 14277 nps 951800 pv d2d4
+info depth 9 score cp 9 time 29 nodes 31736 nps 1094344 pv d2d4
+info depth 10 score cp 26 time 63 nodes 83108 nps 1319174 pv b1c3
+info depth 11 score cp 20 time 103 nodes 164073 nps 1592941 pv d2d4
+info depth 12 score cp 22 time 158 nodes 289796 nps 1834151 pv d2d4
+info depth 13 score cp 9 time 324 nodes 659711 nps 2036145 pv d2d4
+info depth 14 score cp 19 time 583 nodes 1243836 nps 2133509 pv e2e4
+info depth 15 score cp 19 time 855 nodes 1884270 nps 2203824 pv e2e4
+info depth 16 score cp 19 time 1212 nodes 2732615 nps 2254632 pv e2e4
+info depth 17 score cp 19 time 1793 nodes 4137942 nps 2307831 pv e2e4
+info depth 18 score cp 29 time 3226 nodes 7735204 nps 2397769 pv e2e4
+info depth 19 score cp 27 time 4437 nodes 10685597 nps 2408293 pv e2e4
+bestmove e2e4
+```
+
+```py
+Elo   | 9.09 +- 5.81 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6918 W: 2189 L: 2008 D: 2721
+Penta | [199, 792, 1357, 851, 260]
+https://gedas.pythonanywhere.com/test/1046/
+```
+
+```py
+Score of 4k.c-4.36 vs 4ku-3.0: 537 - 819 - 644  [0.429] 2000
+...      4k.c-4.36 playing White: 377 - 292 - 331  [0.542] 1000
+...      4k.c-4.36 playing Black: 160 - 527 - 313  [0.317] 1000
+...      White vs Black: 904 - 452 - 644  [0.613] 2000
+Elo difference: -49.3 +/- 12.6, LOS: 0.0 %, DrawRatio: 32.2 %
+```
