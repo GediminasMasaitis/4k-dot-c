@@ -1280,14 +1280,11 @@ static i16 search(H(91, 1, Position *const restrict pos),
       }
     }
 
+    const i32 gain = max_material[stack[ply].moves[move_index].promo] + max_material[stack[ply].moves[move_index].takes_piece];
+
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(107, depth < 8) &&
-        G(107,
-          G(108, static_eval + 128 * depth) +
-                  G(108, max_material[stack[ply].moves[move_index].promo]) +
-                  G(108,
-                    max_material[stack[ply].moves[move_index].takes_piece]) <
-              alpha) &&
+        G(107, static_eval + gain + 128 * depth < alpha) &&
         G(107, moves_evaluated) && G(107, !in_check)) {
       break;
     }
@@ -1371,7 +1368,7 @@ static i16 search(H(91, 1, Position *const restrict pos),
       }
     }
 
-    if (stack[ply].moves[move_index].takes_piece == None) {
+    if (!gain) {
       quiets_evaluated++;
     }
 
