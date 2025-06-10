@@ -1258,8 +1258,8 @@ static i16 search(H(91, 1, Position *const restrict pos),
           stack[ply].moves[order_index].takes_piece ==
           piece_on(H(27, 7, pos), H(27, 7, stack[ply].moves[order_index].to)));
       const i32 order_move_score =
-          G(92, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 921) +
+          G(92, // MOST VALUABLE VICTIM AND PROMOTION
+            (stack[ply].moves[order_index].takes_piece + stack[ply].moves[order_index].promo) * 921) +
           G(92, // KILLER MOVE
             move_equal(G(103, &stack[ply].moves[order_index]),
                        G(103, &stack[ply].killer)) *
