@@ -981,12 +981,15 @@ static i32 eval(Position *const restrict pos) {
     G(72,
       const u64 own_pawns = G(73, pos->pieces[Pawn]) & G(73, pos->colour[0]);)
 
-    G(
+      G(
         72, // BISHOP PAIR
         if (count(G(74, pos->pieces[Bishop]) & G(74, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-    G(72, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
+      G(72,
+        u64 opp_king_zone = pos->colour[1] & pos->pieces[King];
+        opp_king_zone |= king(opp_king_zone);
+      )
     G(72,
       const u64 opp_pawns = G(75, pos->pieces[Pawn]) & G(75, pos->colour[1]);
       const u64 attacked_by_pawns = G(76, se(opp_pawns)) | G(76, sw(opp_pawns));
