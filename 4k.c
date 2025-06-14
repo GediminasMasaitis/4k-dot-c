@@ -1260,13 +1260,13 @@ static i16 search(H(95, 1, Position *const restrict pos),
           G(96, // KILLER MOVE
             move_equal(G(107, &stack[ply].killer),
                        G(107, &stack[ply].moves[order_index])) *
-                915) +
+                1536) +
           G(96, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(108, &stack[ply].best_move),
                         G(108, &stack[ply].moves[order_index]))
              << 30)) +
           G(96, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 921) +
+            stack[ply].moves[order_index].takes_piece * 1664) +
           G(96, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1356,7 +1356,7 @@ static i16 search(H(95, 1, Position *const restrict pos),
                              [stack[ply].best_move.from]
                              [stack[ply].best_move.to];
 
-            *this_hist += bonus - bonus * *this_hist / 1024;)
+            *this_hist += bonus - bonus * *this_hist / 2048;)
               G(
                   117, for (i32 prev_index = 0; prev_index < move_index;
                             prev_index++) {
@@ -1364,7 +1364,7 @@ static i16 search(H(95, 1, Position *const restrict pos),
                     i32 *const prev_hist =
                         &move_history[pos->flipped][prev.takes_piece][prev.from]
                                      [prev.to];
-                    *prev_hist -= bonus + bonus * *prev_hist / 1024;
+                    *prev_hist -= bonus + bonus * *prev_hist / 2048;
                   }))
         break;
       }
