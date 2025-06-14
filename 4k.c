@@ -1134,6 +1134,36 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
+#define TUNE_PARAMETER(name, initial, min, max, step) \
+    int name = initial;     \
+    int name##_min = min;   \
+    int name##_max = max;   \
+    int name##_step = step;
+
+#define PRINT_TUNE_OPTION(name) printf("option name " #name " type spin default %i min -32768 max 32767\n", name)
+
+#define READ_TUNE_OPTION(name) \
+    else if (!strcmp(line, #name)) { \
+      getl(line); \
+      getl(line); \
+      name = atoi(line); \
+    }
+
+#define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %i, 0.002\n", name, name##_min, name##_max, name##_step)
+
+  TUNE_PARAMETER(rfp_depth, 8, 5, 12, 1)
+  TUNE_PARAMETER(rfp_margin, 47, 32, 96, 3)
+  TUNE_PARAMETER(razor_margin, 131, 64, 256, 9)
+  TUNE_PARAMETER(mvv_weight, 921, 640, 1280, 32)
+  TUNE_PARAMETER(killer_weight, 915, 640, 1280, 32)
+  TUNE_PARAMETER(lmr_depth, 1, 1, 3, 1)
+  TUNE_PARAMETER(lmr_moves, 6, 2, 10, 1)
+  TUNE_PARAMETER(lmr_move_div, 11, 8, 24, 1)
+  TUNE_PARAMETER(lmp_moves, 1, 0, 3, 1)
+  TUNE_PARAMETER(ffp_depth, 8, 5, 15, 1)
+  TUNE_PARAMETER(ffp_margin, 128, 72, 256, 9)
+
+
 static i16 search(H(95, 1, Position *const restrict pos),
                   H(95, 1, const i32 ply), H(95, 1, i32 alpha),
                   H(95, 1, i32 depth), H(96, 1, const bool do_null),
@@ -1208,14 +1238,14 @@ static i16 search(H(95, 1, Position *const restrict pos),
   }
 
   if (G(103, !in_check) && G(103, alpha == beta - 1)) {
-    if (G(104, !in_qsearch) && G(104, depth < 8)) {
+    if (G(104, !in_qsearch) && G(104, depth < rfp_depth)) {
 
       G(105, // RAZORING
-        in_qsearch = static_eval + 131 * depth <= alpha;)
+        in_qsearch = static_eval + razor_margin * depth <= alpha;)
 
       G(105, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 47 * depth >= beta) {
+        if (static_eval - rfp_margin * depth >= beta) {
           return static_eval;
         }
       })
@@ -1260,13 +1290,13 @@ static i16 search(H(95, 1, Position *const restrict pos),
           G(96, // KILLER MOVE
             move_equal(G(107, &stack[ply].killer),
                        G(107, &stack[ply].moves[order_index])) *
-                915) +
+                killer_weight) +
           G(96, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(108, &stack[ply].best_move),
                         G(108, &stack[ply].moves[order_index]))
              << 30)) +
           G(96, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 921) +
+            stack[ply].moves[order_index].takes_piece * mvv_weight) +
           G(96, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1283,11 +1313,11 @@ static i16 search(H(95, 1, Position *const restrict pos),
     if (G(111, !in_check) &&
         G(111,
           G(112, max_material[stack[ply].moves[move_index].promo]) +
-                  G(112, static_eval + 128 * depth) +
+                  G(112, static_eval + ffp_margin * depth) +
                   G(112,
                     max_material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
-        G(111, moves_evaluated) && G(111, depth < 8)) {
+        G(111, moves_evaluated) && G(111, depth < ffp_depth)) {
       break;
     }
 
@@ -1304,9 +1334,9 @@ static i16 search(H(95, 1, Position *const restrict pos),
     moves_evaluated++;
 
     // LATE MOVE REDCUCTION
-    i32 reduction = G(113, depth > 1) && G(113, moves_evaluated > 6)
+    i32 reduction = G(113, depth > lmr_depth) && G(113, moves_evaluated > lmr_moves)
                         ? G(114, 1) + G(114, (alpha == beta - 1)) +
-                              G(114, !improving) + G(114, moves_evaluated / 11)
+                              G(114, !improving) + G(114, moves_evaluated / lmr_move_div)
                         : 1;
 
     i32 score;
@@ -1376,7 +1406,7 @@ static i16 search(H(95, 1, Position *const restrict pos),
 
     // LATE MOVE PRUNING
     if (G(118, !in_check) && G(118, alpha == beta - 1) &&
-        G(118, quiets_evaluated > 1 + depth * depth >> !improving)) {
+        G(118, quiets_evaluated > lmp_moves + depth * depth >> !improving)) {
       break;
     }
   }
@@ -1586,6 +1616,17 @@ static void run() {
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
       puts("option name Threads type spin default 1 min 1 max 1");
+      PRINT_TUNE_OPTION(rfp_depth);
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(lmr_depth);
+      PRINT_TUNE_OPTION(lmr_moves);
+      PRINT_TUNE_OPTION(lmr_move_div);
+      PRINT_TUNE_OPTION(lmp_moves);
+      PRINT_TUNE_OPTION(ffp_depth);
+      PRINT_TUNE_OPTION(ffp_margin);
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
@@ -1609,6 +1650,35 @@ static void run() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed,
              nps);
+    }
+    else if (!strcmp(line, "setoption")) {
+      getl(line);
+      getl(line);
+      if (false) {}
+      READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_margin)
+        READ_TUNE_OPTION(razor_margin)
+        READ_TUNE_OPTION(mvv_weight)
+        READ_TUNE_OPTION(killer_weight)
+        READ_TUNE_OPTION(lmr_depth)
+        READ_TUNE_OPTION(lmr_moves)
+        READ_TUNE_OPTION(lmr_move_div)
+        READ_TUNE_OPTION(lmp_moves)
+        READ_TUNE_OPTION(ffp_depth)
+        READ_TUNE_OPTION(ffp_margin)
+    }
+    else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(rfp_depth);
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(lmr_depth);
+      PRINT_TUNE_INPUT(lmr_moves);
+      PRINT_TUNE_INPUT(lmr_move_div);
+      PRINT_TUNE_INPUT(lmp_moves);
+      PRINT_TUNE_INPUT(ffp_depth);
+      PRINT_TUNE_INPUT(ffp_margin);
     }
 #endif
     G(121, if (line[0] == 'i') { puts("readyok"); })
