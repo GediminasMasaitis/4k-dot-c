@@ -6347,10 +6347,20 @@ Penta | [199, 792, 1357, 851, 260]
 https://gedas.pythonanywhere.com/test/1046/
 ```
 
+10+0.1:
 ```py
 Score of 4k.c-4.36 vs 4ku-3.0: 537 - 819 - 644  [0.429] 2000
 ...      4k.c-4.36 playing White: 377 - 292 - 331  [0.542] 1000
 ...      4k.c-4.36 playing Black: 160 - 527 - 313  [0.317] 1000
 ...      White vs Black: 904 - 452 - 644  [0.613] 2000
 Elo difference: -49.3 +/- 12.6, LOS: 0.0 %, DrawRatio: 32.2 %
+```
+
+60+0.6:
+```py
+Score of 4k.c-4.36 vs 4ku-3.0: 3662 - 3925 - 4413  [0.489] 12000
+...      4k.c-4.36 playing White: 2641 - 1128 - 2232  [0.626] 6001
+...      4k.c-4.36 playing Black: 1021 - 2797 - 2181  [0.352] 5999
+...      White vs Black: 5438 - 2149 - 4413  [0.637] 12000
+Elo difference: -7.6 +/- 4.9, LOS: 0.1 %, DrawRatio: 36.8 %
 ```
