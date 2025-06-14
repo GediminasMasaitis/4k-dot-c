@@ -519,9 +519,9 @@ G(
 
 G(
     43, static Move *generate_pawn_moves(H(44, 1, const Position *const pos),
-                                         H(44, 1, const i32 offset),
+                                         H(44, 1, Move *restrict movelist),
                                          H(44, 1, u64 to_mask),
-                                         H(44, 1, Move *restrict movelist)) {
+                                         H(44, 1, const i32 offset)) {
       while (to_mask) {
         const u8 to = lsb(to_mask);
         to_mask &= to_mask - 1;
@@ -686,28 +686,28 @@ enum { max_moves = 218 };
   G(62, const u64 all = pos->colour[0] | pos->colour[1];)
   if (!only_captures) {
     movelist = generate_pawn_moves(
-        H(44, 2, pos), H(44, 2, -16),
+        H(44, 2, pos), H(44, 2, movelist),
         H(44, 2,
           north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) &
               ~all),
-        H(44, 2, movelist));
+        H(44, 2, -16));
   }
   movelist = generate_pawn_moves(
-      H(44, 3, pos), H(44, 3, -8),
+      H(44, 3, pos), H(44, 3, movelist),
       H(44, 3,
         north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
             (only_captures ? 0xFF00000000000000ull : ~0ull)),
-      H(44, 3, movelist));
+      H(44, 3, -8));
   movelist = generate_pawn_moves(
-      H(44, 4, pos), H(44, 4, -7),
+      H(44, 4, pos), H(44, 4, movelist),
       H(44, 4,
         nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-      H(44, 4, movelist));
+      H(44, 4, -7));
   movelist = generate_pawn_moves(
-      H(44, 5, pos), H(44, 5, -9),
+      H(44, 5, pos), H(44, 5, movelist),
       H(44, 5,
         ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-      H(44, 5, movelist));
+      H(44, 5, -9));
   if (G(63, !only_captures) && G(63, pos->castling[0]) &&
       G(63, !(all & 0x60ull)) &&
       G(64, !is_attacked(H(41, 3, pos), H(41, 3, 1ULL << 4), H(41, 3, true))) &&
@@ -852,8 +852,8 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(67, 1,
-    H(68, 1, i8 passed_blocked_pawns[4];) H(68, 1, i8 mobilities[5];)
-        H(68, 1, i8 passed_pawns[4];) H(68, 1, i8 king_attacks[5];)
+    H(68, 1, i8 king_attacks[5];) H(68, 1, i8 mobilities[5];)
+        H(68, 1, i8 passed_pawns[4];) H(68, 1, i8 passed_blocked_pawns[4];)
             H(68, 1, i8 tempo;))
   H(67, 1,
     H(69, 1, i8 bishop_pair;) H(69, 1, i8 open_files[6];)
@@ -863,8 +863,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(67, 2,
-    H(68, 2, i32 passed_blocked_pawns[4];) H(68, 2, i32 mobilities[5];)
-        H(68, 2, i32 passed_pawns[4];) H(68, 2, i32 king_attacks[5];)
+    H(68, 2, i32 king_attacks[5];) H(68, 2, i32 mobilities[5];)
+        H(68, 2, i32 passed_pawns[4];) H(68, 2, i32 passed_blocked_pawns[4];)
             H(68, 2, i32 tempo;))
   H(67, 2,
     H(69, 2, i32 bishop_pair;) H(69, 2, i32 open_files[6];)
@@ -977,15 +977,15 @@ static i32 eval(Position *const restrict pos) {
 
   for (i32 c = 0; c < 2; c++) {
 
+    G(76, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
+
     G(76,
       const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);)
-
     G(
         76, // BISHOP PAIR
         if (count(G(78, pos->pieces[Bishop]) & G(78, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-    G(76, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
     G(76,
       const u64 opp_pawns = G(79, pos->pieces[Pawn]) & G(79, pos->colour[1]);
       const u64 attacked_by_pawns = G(80, se(opp_pawns)) | G(80, sw(opp_pawns));
@@ -1053,19 +1053,19 @@ static i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(68, i32 static_eval;)
-  G(68, Move best_move;)
   G(68, i32 num_moves;)
-  G(68, u64 position_hash;)
+  G(68, i32 static_eval;)
   G(68, Move killer;)
+  G(68, Move best_move;)
+  G(68, u64 position_hash;)
   G(68, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(93, Move move;)
   G(93, i16 score;)
   G(93, u16 partial_hash;)
   G(93, u8 flag;)
+  G(93, Move move;)
   G(93, i8 depth;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1179,9 +1179,9 @@ static i16 search(H(95, 1, Position *const restrict pos),
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(100, alpha == beta - 1) &&
+    if (G(100, tt_entry->depth >= depth) &&
         G(100, tt_entry->flag != tt_entry->score <= alpha) &&
-        G(100, tt_entry->depth >= depth)) {
+        G(100, alpha == beta - 1)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
