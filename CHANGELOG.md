@@ -6317,25 +6317,26 @@ Knight mobility
 
 ```py
 info depth 1 score cp 31 time 0 nodes 20 pv b1c3
-info depth 2 score cp 16 time 1 nodes 104 nps 104000 pv b1c3
-info depth 3 score cp 31 time 1 nodes 220 nps 220000 pv b1c3
-info depth 4 score cp 16 time 1 nodes 396 nps 396000 pv b1c3
+info depth 2 score cp 16 time 0 nodes 104 pv b1c3
+info depth 3 score cp 31 time 0 nodes 220 pv b1c3
+info depth 4 score cp 16 time 0 nodes 396 pv b1c3
 info depth 5 score cp 15 time 1 nodes 808 nps 808000 pv b1c3
-info depth 6 score cp 12 time 3 nodes 2009 nps 669666 pv b1c3
-info depth 7 score cp 14 time 9 nodes 7612 nps 845777 pv d2d4
-info depth 8 score cp 20 time 15 nodes 14277 nps 951800 pv d2d4
-info depth 9 score cp 9 time 29 nodes 31736 nps 1094344 pv d2d4
-info depth 10 score cp 26 time 63 nodes 83108 nps 1319174 pv b1c3
-info depth 11 score cp 20 time 103 nodes 164073 nps 1592941 pv d2d4
-info depth 12 score cp 22 time 158 nodes 289796 nps 1834151 pv d2d4
-info depth 13 score cp 9 time 324 nodes 659711 nps 2036145 pv d2d4
-info depth 14 score cp 19 time 583 nodes 1243836 nps 2133509 pv e2e4
-info depth 15 score cp 19 time 855 nodes 1884270 nps 2203824 pv e2e4
-info depth 16 score cp 19 time 1212 nodes 2732615 nps 2254632 pv e2e4
-info depth 17 score cp 19 time 1793 nodes 4137942 nps 2307831 pv e2e4
-info depth 18 score cp 29 time 3226 nodes 7735204 nps 2397769 pv e2e4
-info depth 19 score cp 27 time 4437 nodes 10685597 nps 2408293 pv e2e4
+info depth 6 score cp 12 time 2 nodes 2009 nps 1004500 pv b1c3
+info depth 7 score cp 14 time 7 nodes 7612 nps 1087428 pv d2d4
+info depth 8 score cp 20 time 13 nodes 14277 nps 1098230 pv d2d4
+info depth 9 score cp 9 time 27 nodes 31736 nps 1175407 pv d2d4
+info depth 10 score cp 26 time 56 nodes 83108 nps 1484071 pv b1c3
+info depth 11 score cp 20 time 92 nodes 164073 nps 1783402 pv d2d4
+info depth 12 score cp 22 time 145 nodes 289796 nps 1998593 pv d2d4
+info depth 13 score cp 9 time 299 nodes 659711 nps 2206391 pv d2d4
+info depth 14 score cp 19 time 543 nodes 1243836 nps 2290674 pv e2e4
+info depth 15 score cp 19 time 811 nodes 1884270 nps 2323390 pv e2e4
+info depth 16 score cp 19 time 1172 nodes 2732615 nps 2331582 pv e2e4
+info depth 17 score cp 19 time 1760 nodes 4137942 nps 2351103 pv e2e4
+info depth 18 score cp 29 time 3217 nodes 7735204 nps 2404477 pv e2e4
+info depth 19 score cp 27 time 4413 nodes 10685597 nps 2421390 pv e2e4
 bestmove e2e4
+10685597 nodes 2421390 nps
 ```
 
 ```py
@@ -6372,3 +6373,44 @@ Elo difference: -7.6 +/- 4.9, LOS: 0.1 %, DrawRatio: 36.8 %
 MD5: 87a87f858fe641e1ebe026452772dd5a
 
 Static toggling
+
+### 4.38
+
+64 bit: 4068 bytes (-1)
+
+MD5: c138f6e71d8404b6b7f0a9d2b35eeddf
+
+More passers
+
+```py
+info depth 1 score cp 30 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 104 pv b1c3
+info depth 3 score cp 30 time 0 nodes 240 pv b1c3
+info depth 4 score cp 17 time 0 nodes 417 pv b1c3
+info depth 5 score cp 14 time 1 nodes 1282 nps 1282000 pv d2d4
+info depth 6 score cp 13 time 2 nodes 2122 nps 1061000 pv d2d4
+info depth 7 score cp 13 time 4 nodes 4538 nps 1134500 pv d2d4
+info depth 8 score cp 16 time 13 nodes 15254 nps 1173384 pv d2d4
+info depth 9 score cp 12 time 28 nodes 37174 nps 1327642 pv d2d4
+info depth 10 score cp 28 time 43 nodes 63411 nps 1474674 pv d2d4
+info depth 11 score cp 15 time 68 nodes 111340 nps 1637352 pv d2d4
+info depth 12 score cp 13 time 117 nodes 221492 nps 1893094 pv d2d4
+info depth 13 score cp 11 time 210 nodes 444028 nps 2114419 pv d2d4
+info depth 14 score cp 16 time 356 nodes 798352 nps 2242561 pv d2d4
+info depth 15 score cp 33 time 1068 nodes 2545838 nps 2383743 pv e2e4
+info depth 16 score cp 36 time 1597 nodes 3854557 nps 2413623 pv e2e4
+info depth 17 score cp 29 time 2363 nodes 5713620 nps 2417951 pv e2e4
+info depth 18 score cp 33 time 3239 nodes 7918294 nps 2444672 pv e2e4
+info depth 19 score cp 33 time 4750 nodes 11777690 nps 2479513 pv e2e4
+bestmove e2e4
+11777690 nodes 2479513 nps
+```
+
+```py
+Elo   | 1.94 +- 1.80 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.71 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 72170 W: 21884 L: 21480 D: 28806
+Penta | [2355, 8478, 14146, 8620, 2486]
+https://gedas.pythonanywhere.com/test/1069/
+```
