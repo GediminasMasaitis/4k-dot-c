@@ -1220,7 +1220,7 @@ i16 search(H(95, 1, Position *const restrict pos), H(95, 1, const i32 ply),
     }
 
     // NULL MOVE PRUNING
-    if (G(106, do_null) && G(106, static_eval >= beta) && G(106, depth > 2)) {
+    if (G(106, do_null) && G(106, static_eval >= beta) && G(106, depth > 2) && G(106, pos->colour[0] & ~pos->pieces[Pawn] & ~pos->pieces[King])) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
