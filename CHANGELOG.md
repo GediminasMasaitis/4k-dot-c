@@ -6364,3 +6364,11 @@ Score of 4k.c-4.36 vs 4ku-3.0: 3662 - 3925 - 4413  [0.489] 12000
 ...      White vs Black: 5438 - 2149 - 4413  [0.637] 12000
 Elo difference: -7.6 +/- 4.9, LOS: 0.1 %, DrawRatio: 36.8 %
 ```
+
+### 4.37
+
+64 bit: 4069 bytes (-15)
+
+MD5: 87a87f858fe641e1ebe026452772dd5a
+
+Static toggling
