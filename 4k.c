@@ -855,7 +855,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(68, 1, i8 passed_pawns[4];) H(68, 1, i8 king_attacks[5];)
             H(68, 1, i8 tempo;))
   H(67, 1,
-    H(69, 1, i8 bishop_pair;) H(69, 1, i8 open_files[6];)
+    H(69, 1, i8 pawn_protection[6];) H(69, 1, i8 bishop_pair;) H(69, 1, i8 open_files[6];)
         H(69, 1, i8 pst_file[64];) H(69, 1, i8 pst_rank[64];))
 } EvalParams;
 
@@ -866,7 +866,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(68, 2, i32 passed_pawns[4];) H(68, 2, i32 king_attacks[5];)
             H(68, 2, i32 tempo;))
   H(67, 2,
-    H(69, 2, i32 bishop_pair;) H(69, 2, i32 open_files[6];)
+    H(69, 2, i32 pawn_protection[6];) H(69, 2, i32 bishop_pair;) H(69, 2, i32 open_files[6];)
         H(69, 2, i32 pst_file[64];) H(69, 2, i32 pst_rank[64];))
 } EvalParamsMerged;
 
@@ -877,59 +877,53 @@ G(
     })
 
 G(70, S(1) const EvalParams mg = ((EvalParams){
-          .material = {68, 295, 298, 406, 898, 0},
-          .pst_rank =
-              {
-                  0,   -10, -10, -8,  3,  26, 94,  0,   // Pawn
-                  -23, -12, 1,   14,  25, 43, 25,  -73, // Knight
-                  -9,  6,   13,  13,  16, 16, -3,  -54, // Bishop
-                  -1,  -13, -19, -21, 1,  21, 15,  16,  // Rook
-                  16,  17,  9,   -2,  -6, -2, -23, -9,  // Queen
-                  -9,  -6,  -31, -35, 1,  60, 72,  80,  // King
-              },
-          .pst_file =
-              {
-                  -21, -10, -9, 0,   7,   22,  22, -10, // Pawn
-                  -24, -10, 0,  14,  11,  11,  3,  -4,  // Knight
-                  -10, 3,   5,  2,   5,   -3,  3,  -5,  // Bishop
-                  -8,  -7,  2,  11,  13,  3,   -3, -10, // Rook
-                  -10, -7,  -2, 2,   2,   1,   7,  7,   // Queen
-                  -16, 25,  -2, -48, -18, -37, 20, 0,   // King
-              },
-          .mobilities = {7, 6, 2, 3, -9},
-          .king_attacks = {0, 15, 20, 14, 0},
-          .open_files = {23, -10, -10, 20, -3, -31},
-          .passed_pawns = {-9, 12, 36, 94},
-          .passed_blocked_pawns = {2, 10, 10, -30},
-          .bishop_pair = 24,
+  .material = { 68, 296, 302, 409, 909, 0 },
+    .pst_rank = { 0, -9, -16, -9, 4, 30, 96, 0, // Pawn
+    -23, -12, -1, 13, 25, 45, 26, -73, // Knight
+    -9, 6, 11, 13, 17, 18, -2, -55, // Bishop
+    -1, -12, -20, -22, 0, 22, 15, 17, // Rook
+    14, 15, 10, -1, -6, -1, -23, -9, // Queen
+    -13, -6, -27, -30, 8, 65, 75, 78, // King
+  },
+    .pst_file = { -18, -12, -9, -1, 6, 21, 20, -8, // Pawn
+    -25, -10, 0, 14, 12, 11, 3, -5, // Knight
+    -10, 2, 5, 3, 5, -3, 3, -5, // Bishop
+    -8, -6, 2, 11, 13, 2, -3, -11, // Rook
+    -11, -7, -1, 1, 2, 1, 8, 7, // Queen
+    -19, 25, -3, -50, -19, -37, 20, -1, // King
+  },
+    .mobilities = { 6, 6, 2, 3, -10 },
+    .king_attacks = { 0, 15, 19, 14, 0 },
+    .open_files = { 18, -10, -10, 20, -3, -31 },
+    .pawn_protection = { 12, 3, 5, 4, -6, -36 },
+    .passed_pawns = { -7, 13, 36, 96 },
+    .passed_blocked_pawns = { 1, 9, 11, -30 },
+    .bishop_pair = 24,
           .tempo = 16});)
 
 G(70, S(1) const EvalParams eg = ((EvalParams){
-          .material = {71, 302, 297, 542, 992, 0},
-          .pst_rank =
-              {
-                  0,   -4,  -6,  -5, 0,  15, 77, 0,   // Pawn
-                  -33, -18, -4,  18, 24, 9,  1,  3,   // Knight
-                  -11, -10, -1,  2,  6,  4,  3,  9,   // Bishop
-                  -18, -19, -12, 4,  12, 11, 15, 7,   // Rook
-                  -60, -45, -20, 9,  29, 30, 38, 18,  // Queen
-                  -39, -1,  9,   19, 25, 21, 8,  -47, // King
-              },
-          .pst_file =
-              {
-                  9,   12, -1, -9, -4, -3, 2,  -6,  // Pawn
-                  -18, -3, 8,  14, 14, 6,  -1, -19, // Knight
-                  -6,  -1, 0,  3,  5,  4,  1,  -6,  // Bishop
-                  1,   4,  4,  -1, -5, 0,  0,  -3,  // Rook
-                  -19, -5, 3,  7,  12, 10, -2, -7,  // Queen
-                  -25, 1,  13, 24, 19, 21, 1,  -32, // King
-              },
-          .mobilities = {2, 4, 3, 1, -4},
-          .king_attacks = {0, -3, -6, 7, 0},
-          .open_files = {28, -4, 6, 9, 27, 8},
-          .passed_pawns = {25, 47, 84, 77},
-          .passed_blocked_pawns = {-33, -57, -95, -101},
-          .bishop_pair = 53,
+  .material = { 71, 301, 295, 546, 996, 0 },
+    .pst_rank = { 0, -4, -7, -6, 1, 16, 79, 0, // Pawn
+    -30, -15, -5, 15, 21, 7, 2, 5, // Knight
+    -8, -8, -3, -1, 2, 2, 4, 11, // Bishop
+    -18, -18, -11, 4, 11, 10, 15, 7, // Rook
+    -57, -43, -22, 8, 28, 29, 38, 19, // Queen
+    -38, -1, 8, 17, 23, 20, 7, -48, // King
+  },
+    .pst_file = { 10, 11, 0, -9, -4, -3, 0, -4, // Pawn
+    -17, -3, 8, 14, 14, 4, -3, -18, // Knight
+    -5, -2, 0, 3, 4, 3, 0, -3, // Bishop
+    1, 4, 4, -1, -5, 0, 0, -3, // Rook
+    -17, -6, 3, 8, 12, 10, -3, -6, // Queen
+    -25, 1, 13, 25, 19, 21, 1, -33, // King
+  },
+    .mobilities = { 2, 5, 3, 1, -4 },
+    .king_attacks = { 0, -4, -6, 7, 0 },
+    .open_files = { 22, -5, 5, 8, 25, 8 },
+    .pawn_protection = { 11, 15, 14, 9, 17, 14 },
+    .passed_pawns = { 29, 49, 86, 79 },
+    .passed_blocked_pawns = { -36, -59, -96, -101 },
+    .bishop_pair = 55,
           .tempo = 8});)
 
 G(70, S(0) EvalParamsMerged eval_params;)
@@ -976,7 +970,8 @@ S(1) i32 eval(Position *const restrict pos) {
   for (i32 c = 0; c < 2; c++) {
 
     G(76,
-      const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);)
+      const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);
+      const u64 protected_by_pawns = nw(own_pawns) | ne(own_pawns);)
 
     G(
         76, // BISHOP PAIR
@@ -1002,6 +997,10 @@ S(1) i32 eval(Position *const restrict pos) {
           score += eval_params.pst_file[(p - 1) * 8 + file];)
         G(44, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+
+        G(44, if ((1ULL << sq) & protected_by_pawns) {
+          score += eval_params.pawn_protection[p - 1];
+        })
 
         G(
             44, // PASSED PAWNS
