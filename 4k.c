@@ -1209,11 +1209,11 @@ i16 search(H(95, 1, Position *const restrict pos), H(95, 1, const i32 ply),
     if (G(104, !in_qsearch) && G(104, depth < 8)) {
 
       G(105, // RAZORING
-        in_qsearch = static_eval + 131 * depth <= alpha;)
+        in_qsearch = static_eval + 129 * depth <= alpha;)
 
       G(105, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 47 * depth >= beta) {
+        if (static_eval - 48 * depth >= beta) {
           return static_eval;
         }
       })
@@ -1258,13 +1258,13 @@ i16 search(H(95, 1, Position *const restrict pos), H(95, 1, const i32 ply),
           G(96, // KILLER MOVE
             move_equal(G(107, &stack[ply].killer),
                        G(107, &stack[ply].moves[order_index])) *
-                915) +
+                902) +
           G(96, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(108, &stack[ply].best_move),
                         G(108, &stack[ply].moves[order_index]))
              << 30)) +
           G(96, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 921) +
+            stack[ply].moves[order_index].takes_piece * 909) +
           G(96, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1281,7 +1281,7 @@ i16 search(H(95, 1, Position *const restrict pos), H(95, 1, const i32 ply),
     if (G(111, !in_check) &&
         G(111,
           G(112, max_material[stack[ply].moves[move_index].promo]) +
-                  G(112, static_eval + 128 * depth) +
+                  G(112, static_eval + 125 * depth) +
                   G(112,
                     max_material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
