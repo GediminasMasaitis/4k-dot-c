@@ -857,6 +857,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(67, 1,
     H(69, 1, i8 bishop_pair;) H(69, 1, i8 open_files[6];)
         H(69, 1, i8 pst_file[64];) H(69, 1, i8 pst_rank[64];))
+    u8 pawn_attacked_penalty[2];
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -868,6 +869,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(67, 2,
     H(69, 2, i32 bishop_pair;) H(69, 2, i32 open_files[6];)
         H(69, 2, i32 pst_file[64];) H(69, 2, i32 pst_rank[64];))
+    i32 pawn_attacked_penalty[2];
 } EvalParamsMerged;
 
 G(
@@ -902,6 +904,7 @@ G(70, S(1) const EvalParams mg = ((EvalParams){
           .passed_pawns = {-17, -20, -12, 10, 34, 92},
           .passed_blocked_pawns = {5, -2, 3, 11, 11, -30},
           .bishop_pair = 25,
+          .pawn_attacked_penalty = { 20, 127 },
           .tempo = 16});)
 
 G(70, S(1) const EvalParams eg = ((EvalParams){
@@ -930,6 +933,7 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
           .passed_pawns = {0, 4, 25, 46, 84, 77},
           .passed_blocked_pawns = {-13, -13, -33, -57, -95, -102},
           .bishop_pair = 53,
+          .pawn_attacked_penalty = { 16, 127 },
           .tempo = 8});)
 
 G(70, S(0) EvalParamsMerged eval_params;)
@@ -997,6 +1001,10 @@ S(1) i32 eval(Position *const restrict pos) {
         G(83, copy &= copy - 1;)
         G(83, const int file = sq & 7;)
         G(83, const int rank = sq >> 3;)
+
+        if (p != Pawn && 1ULL << sq & no_passers) {
+          score -= eval_params.pawn_attacked_penalty[c];
+        }
 
         G(44, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
