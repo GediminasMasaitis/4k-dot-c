@@ -6414,3 +6414,53 @@ Games | N: 72170 W: 21884 L: 21480 D: 28806
 Penta | [2355, 8478, 14146, 8620, 2486]
 https://gedas.pythonanywhere.com/test/1069/
 ```
+
+### 4.39
+
+64 bit: 4096 bytes (+28)
+
+MD5: 26394c94e07545923a4ca654bdbed7b6
+
+Attacked by pawns penalty
+
+```py
+info depth 1 score cp 30 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 0 nodes 104 pv b1c3
+info depth 3 score cp 30 time 0 nodes 240 pv b1c3
+info depth 4 score cp 17 time 0 nodes 417 pv b1c3
+info depth 5 score cp 14 time 1 nodes 1275 nps 1275000 pv d2d4
+info depth 6 score cp 13 time 2 nodes 2090 nps 1045000 pv d2d4
+info depth 7 score cp 13 time 5 nodes 4529 nps 905800 pv d2d4
+info depth 8 score cp 16 time 12 nodes 10492 nps 874333 pv d2d4
+info depth 9 score cp 13 time 28 nodes 29688 nps 1060285 pv d2d4
+info depth 10 score cp 23 time 42 nodes 51218 nps 1219476 pv d2d4
+info depth 11 score cp 20 time 65 nodes 91353 nps 1405430 pv d2d4
+info depth 12 score cp 21 time 116 nodes 201833 nps 1739939 pv d2d4
+info depth 13 score cp 11 time 231 nodes 477920 nps 2068917 pv d2d4
+info depth 14 score cp 24 time 475 nodes 1043961 nps 2197812 pv e2e4
+info depth 15 score cp 24 time 636 nodes 1423048 nps 2237496 pv e2e4
+info depth 16 score cp 34 time 1263 nodes 3024248 nps 2394495 pv e2e4
+info depth 17 score cp 35 time 2112 nodes 5117451 nps 2423035 pv e2e4
+info depth 18 score cp 38 time 3267 nodes 7992566 nps 2446454 pv e2e4
+info depth 19 score cp 32 time 4562 nodes 11249123 nps 2465831 pv e2e4
+bestmove e2e4
+11249123 nodes 2465831 nps
+```
+
+```py
+Elo   | 14.95 +- 7.83 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3884 W: 1254 L: 1087 D: 1543
+Penta | [113, 432, 715, 539, 143]
+https://gedas.pythonanywhere.com/test/1072/
+```
+
+60+0.6:
+```py
+Score of 4k.c-4.39 vs 4ku-3.0: 2663 - 2529 - 3308  [0.508] 8500
+...      4k.c-4.39 playing White: 1928 - 742 - 1581  [0.639] 4251
+...      4k.c-4.39 playing Black: 735 - 1787 - 1727  [0.376] 4249
+...      White vs Black: 3715 - 1477 - 3308  [0.632] 8500
+Elo difference: 5.5 +/- 5.8, LOS: 96.9 %, DrawRatio: 38.9 %
+```
