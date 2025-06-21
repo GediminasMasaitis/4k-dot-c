@@ -879,35 +879,6 @@ G(
       return G(72, (eg_val << 16)) + G(72, mg_val);
     })
 
-G(70, S(1) const EvalParams mg = ((EvalParams){
-          .material = {83, 330, 336, 454, 999, 0},
-          .pst_rank =
-              {
-                  0,   -12, -12, -10, 1,  33, 99,  0,   // Pawn
-                  -27, -14, 0,   16,  28, 49, 27,  -80, // Knight
-                  -12, 5,   13,  14,  19, 21, -3,  -58, // Bishop
-                  -3,  -15, -20, -21, 2,  23, 16,  18,  // Rook
-                  15,  16,  8,   -2,  -5, 0,  -23, -10, // Queen
-                  -11, -7,  -31, -35, 0,  61, 71,  78,  // King
-              },
-          .pst_file =
-              {
-                  -20, -10, -11, -1,  6,   23,  24, -11, // Pawn
-                  -27, -11, 0,   14,  13,  12,  4,  -5,  // Knight
-                  -11, 3,   5,   2,   5,   -3,  3,  -4,  // Bishop
-                  -9,  -7,  2,   12,  14,  3,   -2, -12, // Rook
-                  -11, -7,  -2,  1,   2,   1,   9,  7,   // Queen
-                  -18, 26,  -4,  -51, -22, -38, 20, -1,  // King
-              },
-          .mobilities = {7, 6, 3, 3, -9},
-          .king_attacks = {0, 15, 20, 15, 0},
-          .open_files = {24, -11, -10, 23, -3, -32},
-          .passed_pawns = {-19, -23, -13, 9, 27, 99},
-          .passed_blocked_pawns = {6, 0, 4, 11, 11, -33},
-          .bishop_pair = 27,
-          .pawn_attacked_penalty = {-16, -128},
-          .tempo = 16});)
-
 G(70, S(1) const EvalParams eg = ((EvalParams){
           .material = {71, 301, 296, 544, 991, 0},
           .pst_rank =
@@ -938,6 +909,35 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
           .tempo = 8});)
 
 G(70, S(0) EvalParamsMerged eval_params;)
+
+G(70, S(1) const EvalParams mg = ((EvalParams){
+          .material = {83, 330, 336, 454, 999, 0},
+          .pst_rank =
+              {
+                  0,   -12, -12, -10, 1,  33, 99,  0,   // Pawn
+                  -27, -14, 0,   16,  28, 49, 27,  -80, // Knight
+                  -12, 5,   13,  14,  19, 21, -3,  -58, // Bishop
+                  -3,  -15, -20, -21, 2,  23, 16,  18,  // Rook
+                  15,  16,  8,   -2,  -5, 0,  -23, -10, // Queen
+                  -11, -7,  -31, -35, 0,  61, 71,  78,  // King
+              },
+          .pst_file =
+              {
+                  -20, -10, -11, -1,  6,   23,  24, -11, // Pawn
+                  -27, -11, 0,   14,  13,  12,  4,  -5,  // Knight
+                  -11, 3,   5,   2,   5,   -3,  3,  -4,  // Bishop
+                  -9,  -7,  2,   12,  14,  3,   -2, -12, // Rook
+                  -11, -7,  -2,  1,   2,   1,   9,  7,   // Queen
+                  -18, 26,  -4,  -51, -22, -38, 20, -1,  // King
+              },
+          .mobilities = {7, 6, 3, 3, -9},
+          .king_attacks = {0, 15, 20, 15, 0},
+          .open_files = {24, -11, -10, 23, -3, -32},
+          .passed_pawns = {-19, -23, -13, 9, 27, 99},
+          .passed_blocked_pawns = {6, 0, 4, 11, 11, -33},
+          .bishop_pair = 27,
+          .pawn_attacked_penalty = {-16, -128},
+          .tempo = 16});)
 
 S(1) void init() {
   // INIT DIAGONAL MASKS
@@ -970,7 +970,7 @@ S(1) void init() {
 }
 
 G(74, __attribute__((aligned(8))) S(1)
-          const i16 max_material[] = {0, 71, 302, 298, 542, 991};)
+          const i16 max_material[] = {0, 83, 330, 336, 544, 999};)
 G(74,
   __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 
@@ -1032,8 +1032,7 @@ S(1) i32 eval(Position *const restrict pos) {
         G(
             44, if (p > Pawn) {
               G(
-                  88,
-                  // PIECES ATTACKED BY PAWNS
+                  88, // PIECES ATTACKED BY PAWNS
                   if (1ULL << sq & no_passers) {
                     score += eval_params.pawn_attacked_penalty[c];
                   })
@@ -1220,15 +1219,15 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   if (G(104, !in_check) && G(104, alpha == beta - 1)) {
     if (G(105, !in_qsearch) && G(105, depth < 8)) {
 
+      G(106, // RAZORING
+        in_qsearch = static_eval + 131 * depth <= alpha;)
+
       G(106, {
         // REVERSE FUTILITY PRUNING
         if (static_eval - 47 * depth >= beta) {
           return static_eval;
         }
       })
-
-      G(106, // RAZORING
-        in_qsearch = static_eval + 131 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
