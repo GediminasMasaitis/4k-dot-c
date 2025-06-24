@@ -1646,11 +1646,6 @@ S(1) void run() {
           assert(move_string_equal(line, move_name) ==
                  !strcmp(line, move_name));
           if (move_string_equal(G(124, line), G(124, move_name))) {
-            stack[pos_history_count].position_hash = get_hash(&pos);
-            pos_history_count++;
-            if (stack[0].moves[i].takes_piece != None) {
-              pos_history_count = 0;
-            }
             makemove(H(49, 4, &pos), H(49, 4, &stack[0].moves[i]));
             break;
           }
