@@ -1269,13 +1269,13 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
           G(97, // KILLER MOVE
             move_equal(G(108, &stack[ply].killer),
                        G(108, &stack[ply].moves[order_index])) *
-                915) +
+                896) +
           G(97, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(109, &stack[ply].best_move),
                         G(109, &stack[ply].moves[order_index]))
              << 30)) +
           G(97, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 921) +
+            stack[ply].moves[order_index].takes_piece * 912) +
           G(97, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
