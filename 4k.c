@@ -326,8 +326,10 @@ G(13, [[nodiscard]] S(1) u64 sw(const u64 bb) { return west(south(bb)); })
 
 G(
     13, [[nodiscard]] S(1) u64 nw(const u64 bb) {
-      return shift(H(11, 2, bb), H(11, 2, 7), H(11, 2, ~0x8080808080808080ull));
-      // return west(north(bb));
+      return A(1,
+        west(north(bb)),
+        shift(H(11, 2, bb), H(11, 2, 7), H(11, 2, ~0x8080808080808080ull))
+      );
     })
 
 G(13, [[nodiscard]] S(1) u64 ne(const u64 bb) { return east(north(bb)); })
