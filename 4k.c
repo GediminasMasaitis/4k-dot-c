@@ -851,8 +851,8 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(67, 1,
-    H(68, 1, i8 passed_blocked_pawns[6];) H(68, 1, i8 mobilities[5];)
-        H(68, 1, i8 passed_pawns[6];) H(68, 1, i8 king_attacks[5];)
+    H(68, 1, i8 king_attacks[5];) H(68, 1, i8 mobilities[5];)
+        H(68, 1, i8 passed_blocked_pawns[6];) H(68, 1, i8 passed_pawns[6];)
             H(68, 1, i8 tempo;))
   H(67, 1,
     H(69, 1, i8 bishop_pair;) H(69, 1, i8 open_files[6];)
@@ -863,8 +863,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(67, 2,
-    H(68, 2, i32 passed_blocked_pawns[6];) H(68, 2, i32 mobilities[5];)
-        H(68, 2, i32 passed_pawns[6];) H(68, 2, i32 king_attacks[5];)
+    H(68, 2, i32 king_attacks[5];) H(68, 2, i32 mobilities[5];)
+        H(68, 2, i32 passed_blocked_pawns[6];) H(68, 2, i32 passed_pawns[6];)
             H(68, 2, i32 tempo;))
   H(67, 2,
     H(69, 2, i32 bishop_pair;) H(69, 2, i32 open_files[6];)
@@ -1010,9 +1010,6 @@ S(1) i32 eval(Position *const restrict pos) {
             44, // OPEN FILES / DOUBLED PAWNS
             if ((G(84, own_pawns) & G(84, north(0x101010101010101ULL << sq))) ==
                 0) { score += eval_params.open_files[p - 1]; })
-        G(44, // SPLIT PIECE-SQUARE TABLES FOR RANK
-          score += eval_params.pst_rank[(p - 1) * 8 + rank];)
-
         G(
             44, // PASSED PAWNS
             if (G(85, p == Pawn) &&
@@ -1026,14 +1023,16 @@ S(1) i32 eval(Position *const restrict pos) {
               G(87, score += eval_params.passed_pawns[rank - 1];)
             })
 
+        G(44, // SPLIT PIECE-SQUARE TABLES FOR RANK
+          score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+
         G(44, // MATERIAL
           score += eval_params.material[p - 1];)
 
         G(
             44, if (p > Pawn) {
               G(
-                  88,
-                  // PIECES ATTACKED BY PAWNS
+                  88, // PIECES ATTACKED BY PAWNS
                   if (1ULL << sq & no_passers) {
                     score += eval_params.pawn_attacked_penalty[c];
                   })
@@ -1041,16 +1040,16 @@ S(1) i32 eval(Position *const restrict pos) {
               G(88, const u64 mobility =
                         get_mobility(H(33, 3, pos), H(33, 3, sq), H(33, 3, p));
 
-                G(89, // KING ATTACKS
+                G(89, // MOBILITY
                   score +=
-                  G(90, count(G(91, opp_king_zone) & G(91, mobility))) *
-                  G(90, eval_params.king_attacks[p - 2]);)
+                  G(90, count(G(91, ~attacked_by_pawns) & G(91, mobility) &
+                              G(91, ~pos->colour[0]))) *
+                  G(90, eval_params.mobilities[p - 2]);)
 
-                    G(89, // MOBILITY
+                    G(89, // KING ATTACKS
                       score +=
-                      G(92, count(G(93, ~attacked_by_pawns) & G(93, mobility) &
-                                  G(93, ~pos->colour[0]))) *
-                      G(92, eval_params.mobilities[p - 2]);))
+                      G(92, count(G(93, opp_king_zone) & G(93, mobility))) *
+                      G(92, eval_params.king_attacks[p - 2]);))
             })
       }
     }
@@ -1345,38 +1344,38 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
 
     if (score > best_score) {
       best_score = score;
-    }
 
-    if (score > alpha) {
-      G(116, stack[ply].best_move = stack[ply].moves[move_index];)
-      G(116, alpha = score;)
-      G(116, tt_flag = Exact;)
-      if (score >= beta) {
-        tt_flag = Lower;
-        assert(stack[ply].best_move.takes_piece ==
-               piece_on(H(24, 8, pos), H(24, 8, stack[ply].best_move.to)));
-        G(
-            117, if (stack[ply].best_move.takes_piece == None) {
-              stack[ply].killer = stack[ply].best_move;
-            })
-        G(117, const i32 bonus = depth * depth;
-          G(118,
-            i32 *const this_hist =
-                &move_history[pos->flipped][stack[ply].best_move.takes_piece]
-                             [stack[ply].best_move.from]
-                             [stack[ply].best_move.to];
+      if (score > alpha) {
+        G(116, stack[ply].best_move = stack[ply].moves[move_index];)
+        G(116, alpha = score;)
+        G(116, tt_flag = Exact;)
+        if (score >= beta) {
+          tt_flag = Lower;
+          assert(stack[ply].best_move.takes_piece ==
+                 piece_on(H(24, 8, pos), H(24, 8, stack[ply].best_move.to)));
+          G(
+              117, if (stack[ply].best_move.takes_piece == None) {
+                stack[ply].killer = stack[ply].best_move;
+              })
+          G(117, const i32 bonus = depth * depth;
+            G(118,
+              i32 *const this_hist =
+                  &move_history[pos->flipped][stack[ply].best_move.takes_piece]
+                               [stack[ply].best_move.from]
+                               [stack[ply].best_move.to];
 
-            *this_hist += bonus - bonus * *this_hist / 1024;)
-              G(
-                  118, for (i32 prev_index = 0; prev_index < move_index;
-                            prev_index++) {
-                    const Move prev = stack[ply].moves[prev_index];
-                    i32 *const prev_hist =
-                        &move_history[pos->flipped][prev.takes_piece][prev.from]
-                                     [prev.to];
-                    *prev_hist -= bonus + bonus * *prev_hist / 1024;
-                  }))
-        break;
+              *this_hist += bonus - bonus * *this_hist / 1024;)
+                G(
+                    118, for (i32 prev_index = 0; prev_index < move_index;
+                              prev_index++) {
+                      const Move prev = stack[ply].moves[prev_index];
+                      i32 *const prev_hist =
+                          &move_history[pos->flipped][prev.takes_piece]
+                                       [prev.from][prev.to];
+                      *prev_hist -= bonus + bonus * *prev_hist / 1024;
+                    }))
+          break;
+        }
       }
     }
 
