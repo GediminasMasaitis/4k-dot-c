@@ -4,6 +4,9 @@
 #define STATIC_0
 #define STATIC_1 static
 #define S(id) STATIC_##id
+#define ALT_0(a, b)   a
+#define ALT_1(a, b)   b
+#define A(id, a, b)   ALT_##id(a, b)
 
 #pragma region libc shims
 
