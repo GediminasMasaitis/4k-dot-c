@@ -905,7 +905,7 @@ G(70, S(1) const EvalParams mg = ((EvalParams){
           .passed_pawns = {-17, -20, -12, 10, 34, 92},
           .passed_blocked_pawns = {5, -2, 3, 11, 11, -30},
           .bishop_pair = 25,
-          .pawn_attacked_penalty = {-16, -128},
+          .pawn_attacked_penalty = {-16, -96},
           .tempo = 16});)
 
 G(70, S(1) const EvalParams eg = ((EvalParams){
@@ -934,7 +934,7 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
           .passed_pawns = {0, 4, 25, 46, 84, 77},
           .passed_blocked_pawns = {-13, -13, -33, -57, -95, -102},
           .bishop_pair = 53,
-          .pawn_attacked_penalty = {-8, -128},
+          .pawn_attacked_penalty = {-8, -96},
           .tempo = 8});)
 
 G(70, S(0) EvalParamsMerged eval_params;)
