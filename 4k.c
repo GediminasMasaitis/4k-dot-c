@@ -605,21 +605,21 @@ G(
       G(52, pos->pieces[piece] ^= mask;)
 
       G(
-          52, // Captures
-          if (move->takes_piece != None) {
-            G(53, pos->pieces[move->takes_piece] ^= to;)
-            G(53, pos->colour[1] ^= to;)
-          })
-
-      // Move the piece
-      G(
           52, // Castling
           if (piece == King) {
             const u64 bb = move->to - move->from == 2   ? 0xa0
                            : move->from - move->to == 2 ? 0x9
                                                         : 0;
-            G(54, pos->colour[0] ^= bb;)
-            G(54, pos->pieces[Rook] ^= bb;)
+            G(53, pos->colour[0] ^= bb;)
+            G(53, pos->pieces[Rook] ^= bb;)
+          })
+
+      // Move the piece
+      G(
+          52, // Captures
+          if (move->takes_piece != None) {
+            G(54, pos->pieces[move->takes_piece] ^= to;)
+            G(54, pos->colour[1] ^= to;)
           })
       G(52, pos->colour[0] ^= mask;)
 
@@ -1351,7 +1351,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
         G(116, tt_flag = Exact;)
         if (score >= beta) {
           assert(stack[ply].best_move.takes_piece ==
-            piece_on(H(24, 8, pos), H(24, 8, stack[ply].best_move.to)));
+                 piece_on(H(24, 8, pos), H(24, 8, stack[ply].best_move.to)));
           G(117, tt_flag = Lower;)
           G(
               117, if (stack[ply].best_move.takes_piece == None) {
