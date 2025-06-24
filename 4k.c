@@ -1344,11 +1344,11 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
     }
 
     if (score > best_score) {
+      stack[ply].best_move = stack[ply].moves[move_index];
       best_score = score;
     }
 
     if (score > alpha) {
-      G(116, stack[ply].best_move = stack[ply].moves[move_index];)
       G(116, alpha = score;)
       G(116, tt_flag = Exact;)
       if (score >= beta) {
