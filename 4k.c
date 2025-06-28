@@ -1173,8 +1173,8 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(98, ply) + G(98, pos_history_count);
-       G(99, do_null) && G(99, i > 0); i -= 2) {
+  for (i32 i = G(98, ply) + G(98, pos_history_count) - 2;
+       G(99, do_null) && G(99, i >= 0); i -= 2) {
     if (tt_hash == stack[i].position_hash) {
       return 0;
     }
@@ -1249,7 +1249,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   }
 
   G(96, u8 tt_flag = Upper;)
-  G(96, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
+  G(96, stack[pos_history_count + ply].position_hash = tt_hash;)
   G(96, stack[ply].num_moves = movegen(
             H(61, 3, pos), H(61, 3, stack[ply].moves), H(61, 3, in_qsearch));)
   G(96, i32 best_score = in_qsearch ? static_eval : -inf;)
