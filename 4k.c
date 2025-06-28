@@ -1442,7 +1442,7 @@ void iteratively_deepen(
     puts(move_name);
 #endif
 
-    if (elapsed > max_time / 16) {
+    if (elapsed > max_time / 8) {
       break;
     }
   }
