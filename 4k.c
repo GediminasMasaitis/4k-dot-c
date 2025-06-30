@@ -1174,7 +1174,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
   for (i32 i = G(98, ply) + G(98, pos_history_count);
-       G(99, do_null) && G(99, i > 0); i -= 2) {
+       G(99, do_null) && G(99, i >= 0); i -= 2) {
     if (tt_hash == stack[i].position_hash) {
       return 0;
     }
