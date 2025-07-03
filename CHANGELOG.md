@@ -6472,3 +6472,54 @@ Elo difference: 5.5 +/- 5.8, LOS: 96.9 %, DrawRatio: 38.9 %
 MD5: dfc2f39e9da8e631814704fb07d00180
 
 Smaller best move finding
+
+### 4.41
+
+64 bit: 4094 bytes (+2)
+
+MD5: 2a0b981bd48fd77406cdf4a86b2b8112
+
+Tune parameters
+
+```py
+info depth 1 score cp 30 time 0 nodes 20 pv b1c3
+info depth 2 score cp 16 time 1 nodes 104 nps 104000 pv b1c3
+info depth 3 score cp 30 time 1 nodes 241 nps 241000 pv b1c3
+info depth 4 score cp 17 time 1 nodes 419 nps 419000 pv b1c3
+info depth 5 score cp 14 time 3 nodes 1279 nps 426333 pv d2d4
+info depth 6 score cp 13 time 4 nodes 2125 nps 531250 pv d2d4
+info depth 7 score cp 13 time 9 nodes 4495 nps 499444 pv d2d4
+info depth 8 score cp 16 time 17 nodes 10341 nps 608294 pv d2d4
+info depth 9 score cp 13 time 34 nodes 22835 nps 671617 pv d2d4
+info depth 10 score cp 4 time 64 nodes 51754 nps 808656 pv d2d4
+info depth 11 score cp 10 time 137 nodes 141739 nps 1034591 pv c2c4
+info depth 12 score cp 22 time 230 nodes 270855 nps 1177630 pv c2c4
+info depth 13 score cp 11 time 451 nodes 593657 nps 1316312 pv c2c4
+info depth 14 score cp 16 time 767 nodes 1068012 nps 1392453 pv g1f3
+info depth 15 score cp 16 time 1664 nodes 2427556 nps 1458867 pv e2e4
+info depth 16 score cp 30 time 2282 nodes 3361541 nps 1473067 pv e2e4
+info depth 17 score cp 28 time 3277 nodes 4890281 nps 1492304 pv e2e4
+info depth 18 score cp 28 time 4457 nodes 6704399 nps 1504240 pv e2e4
+info depth 19 score cp 26 time 7301 nodes 11165926 nps 1529369 pv e2e4
+bestmove e2e4
+11165926 nodes 1529369 nps
+```
+
+```py
+Elo   | 2.62 +- 1.94 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.04 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 61872 W: 18584 L: 18118 D: 25170
+Penta | [1988, 7259, 12133, 7411, 2145]
+https://gedas.pythonanywhere.com/test/1094/
+```
+
+60+0.6:
+```py
+Elo   | 2.32 +- 1.65 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 78530 W: 22890 L: 22365 D: 33275
+Penta | [2115, 9217, 16216, 9462, 2255]
+https://gedas.pythonanywhere.com/test/1095/
+```
