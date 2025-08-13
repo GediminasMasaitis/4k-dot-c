@@ -848,6 +848,39 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
+#define TUNE_PARAMETER(name, initial, min, max, step) \
+    int name = initial;     \
+    int name##_min = min;   \
+    int name##_max = max;   \
+    float name##_step = step;
+
+#define PRINT_TUNE_OPTION(name) printf("option name " #name " type spin default %i min -32768 max 32767\n", name)
+
+#define READ_TUNE_OPTION(name) \
+    else if (!strcmp(line, #name)) { \
+      getl(line); \
+      getl(line); \
+      name = atoi(line); \
+      init(); \
+    }
+
+#define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %f, 0.002\n", name, name##_min, name##_max, name##_step)
+
+TUNE_PARAMETER(tempo_mg, 16, 0, 32, 1)
+TUNE_PARAMETER(tempo_eg, 8, 0, 32, 1)
+TUNE_PARAMETER(pawn_attacked_own_turn_mg, -16, -64, 0, 2)
+TUNE_PARAMETER(pawn_attacked_own_turn_eg, -8, -64, 0, 2)
+TUNE_PARAMETER(pawn_attacked_opp_turn_mg, -128, -128, -64, 3)
+TUNE_PARAMETER(pawn_attacked_opp_turn_eg, -128, -128, -64, 3)
+
+TUNE_PARAMETER(rfp_depth, 8, 5, 12, 1)
+TUNE_PARAMETER(rfp_margin, 52, 32, 96, 3)
+TUNE_PARAMETER(razor_margin, 129, 64, 256, 9)
+TUNE_PARAMETER(mvv_weight, 852, 640, 1280, 32)
+TUNE_PARAMETER(killer_weight, 919, 640, 1280, 32)
+TUNE_PARAMETER(ffp_depth, 8, 5, 12, 0.5)
+TUNE_PARAMETER(ffp_margin, 127, 72, 256, 9)
+
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(67, 1,
@@ -856,7 +889,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(68, 1, i8 tempo;))
   H(67, 1,
     H(69, 1, i8 bishop_pair;) H(69, 1, i8 open_files[6];)
-        H(69, 1, u8 pawn_attacked_penalty[2];) H(69, 1, i8 pst_file[64];)
+        H(69, 1, u8 pawn_attacked[2];) H(69, 1, i8 pst_file[64];)
             H(69, 1, i8 pst_rank[64];))
 } EvalParams;
 
@@ -868,7 +901,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(68, 2, i32 tempo;))
   H(67, 2,
     H(69, 2, i32 bishop_pair;) H(69, 2, i32 open_files[6];)
-        H(69, 2, i32 pawn_attacked_penalty[2];) H(69, 2, i32 pst_file[64];)
+        H(69, 2, i32 pawn_attacked[2];) H(69, 2, i32 pst_file[64];)
             H(69, 2, i32 pst_rank[64];))
 
 } EvalParamsMerged;
@@ -879,7 +912,7 @@ G(
       return G(72, (eg_val << 16)) + G(72, mg_val);
     })
 
-G(70, S(1) const EvalParams mg = ((EvalParams){
+G(70, S(1) EvalParams mg = ((EvalParams){
           .material = {71, 294, 298, 405, 899, 0},
           .pst_rank =
               {
@@ -905,10 +938,10 @@ G(70, S(1) const EvalParams mg = ((EvalParams){
           .passed_pawns = {-17, -20, -12, 10, 34, 92},
           .passed_blocked_pawns = {5, -2, 3, 11, 11, -30},
           .bishop_pair = 25,
-          .pawn_attacked_penalty = {-16, -128},
+          .pawn_attacked = {-16, -128},
           .tempo = 16});)
 
-G(70, S(1) const EvalParams eg = ((EvalParams){
+G(70, S(1) EvalParams eg = ((EvalParams){
           .material = {71, 302, 297, 542, 991, 0},
           .pst_rank =
               {
@@ -934,12 +967,19 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
           .passed_pawns = {0, 4, 25, 46, 84, 77},
           .passed_blocked_pawns = {-13, -13, -33, -57, -95, -102},
           .bishop_pair = 53,
-          .pawn_attacked_penalty = {-8, -128},
+          .pawn_attacked = {-8, -128},
           .tempo = 8});)
 
 G(70, S(0) EvalParamsMerged eval_params;)
 
 S(1) void init() {
+  mg.tempo = (i8)tempo_mg;
+  eg.tempo = (i8)tempo_eg;
+  mg.pawn_attacked[0] = (i8)pawn_attacked_own_turn_mg;
+  eg.pawn_attacked[0] = (i8)pawn_attacked_own_turn_eg;
+  mg.pawn_attacked[1] = (i8)pawn_attacked_opp_turn_mg;
+  eg.pawn_attacked[1] = (i8)pawn_attacked_opp_turn_eg;
+
   // INIT DIAGONAL MASKS
   G(
       49, for (i32 sq = 0; sq < 64; sq++) {
@@ -1034,7 +1074,7 @@ S(1) i32 eval(Position *const restrict pos) {
               G(
                   88, // PIECES ATTACKED BY PAWNS
                   if (1ULL << sq & no_passers) {
-                    score += eval_params.pawn_attacked_penalty[c];
+                    score += eval_params.pawn_attacked[c];
                   })
 
               G(88, const u64 mobility =
@@ -1217,17 +1257,17 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   }
 
   if (G(104, !in_check) && G(104, alpha == beta - 1)) {
-    if (G(105, !in_qsearch) && G(105, depth < 8)) {
+    if (G(105, !in_qsearch) && G(105, depth < rfp_depth)) {
 
       G(106, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * depth >= beta) {
+        if (static_eval - rfp_margin * depth >= beta) {
           return static_eval;
         }
       })
 
       G(106, // RAZORING
-        in_qsearch = static_eval + 129 * depth <= alpha;)
+        in_qsearch = static_eval + razor_margin * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1269,13 +1309,13 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
           G(97, // KILLER MOVE
             move_equal(G(108, &stack[ply].killer),
                        G(108, &stack[ply].moves[order_index])) *
-                919) +
+                killer_weight) +
           G(97, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(109, &stack[ply].best_move),
                         G(109, &stack[ply].moves[order_index]))
              << 30)) +
           G(97, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 852) +
+            stack[ply].moves[order_index].takes_piece * mvv_weight) +
           G(97, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1292,11 +1332,11 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
     if (G(112, !in_check) &&
         G(112,
           G(113, max_material[stack[ply].moves[move_index].promo]) +
-                  G(113, static_eval + 127 * depth) +
+                  G(113, static_eval + ffp_margin * depth) +
                   G(113,
                     max_material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
-        G(112, moves_evaluated) && G(112, depth < 8)) {
+        G(112, moves_evaluated) && G(112, depth < ffp_depth)) {
       break;
     }
 
@@ -1597,6 +1637,20 @@ S(1) void run() {
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
       puts("option name Threads type spin default 1 min 1 max 1");
+      PRINT_TUNE_OPTION(tempo_mg);
+      PRINT_TUNE_OPTION(tempo_eg);
+      PRINT_TUNE_OPTION(pawn_attacked_own_turn_mg);
+      PRINT_TUNE_OPTION(pawn_attacked_own_turn_eg);
+      PRINT_TUNE_OPTION(pawn_attacked_opp_turn_mg);
+      PRINT_TUNE_OPTION(pawn_attacked_opp_turn_eg);
+
+      PRINT_TUNE_OPTION(rfp_depth);
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(ffp_depth);
+      PRINT_TUNE_OPTION(ffp_margin);
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
@@ -1620,6 +1674,40 @@ S(1) void run() {
       const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
       printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed,
              nps);
+    }
+    else if (!strcmp(line, "setoption")) {
+      getl(line);
+      getl(line);
+      if (false) {}
+        READ_TUNE_OPTION(tempo_mg)
+        READ_TUNE_OPTION(tempo_eg)
+        READ_TUNE_OPTION(pawn_attacked_own_turn_mg)
+        READ_TUNE_OPTION(pawn_attacked_own_turn_eg)
+        READ_TUNE_OPTION(pawn_attacked_opp_turn_mg)
+        READ_TUNE_OPTION(pawn_attacked_opp_turn_eg)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_margin)
+        READ_TUNE_OPTION(razor_margin)
+        READ_TUNE_OPTION(mvv_weight)
+        READ_TUNE_OPTION(killer_weight)
+        READ_TUNE_OPTION(ffp_depth)
+        READ_TUNE_OPTION(ffp_margin)
+    }
+    else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(tempo_mg);
+      PRINT_TUNE_INPUT(tempo_eg);
+      PRINT_TUNE_INPUT(pawn_attacked_own_turn_mg);
+      PRINT_TUNE_INPUT(pawn_attacked_own_turn_eg);
+      PRINT_TUNE_INPUT(pawn_attacked_opp_turn_mg);
+      PRINT_TUNE_INPUT(pawn_attacked_opp_turn_eg);
+      PRINT_TUNE_INPUT(rfp_depth);
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(ffp_depth);
+      PRINT_TUNE_INPUT(ffp_margin);
     }
 #endif
     G(122, if (line[0] == 'i') { puts("readyok"); })
