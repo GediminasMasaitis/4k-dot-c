@@ -276,6 +276,7 @@ typedef struct [[nodiscard]] {
   G(6, u64 colour[2];)
   G(7, bool flipped;)
   G(7, bool castling[4];)
+  G(7, u8 padding[11];)
 } Position;
 
 [[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict lhs),
@@ -415,7 +416,7 @@ G(
 
 G(
     22,
-    S(1) void swapu32(G(25, u32 *const lhs), G(25, u32 *const rhs)) {
+    S(1) void swapu32(G(25, u32 *const rhs), G(25, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -646,8 +647,8 @@ G(
       G(57, // Update castling permissions
         G(60, pos->castling[0] &= !(mask & 0x90ull);)
             G(60, pos->castling[3] &= !(mask & 0x1100000000000000ull);)
-                G(60, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
-                    G(60, pos->castling[1] &= !(mask & 0x11ull);))
+                G(60, pos->castling[1] &= !(mask & 0x11ull);)
+                    G(60, pos->castling[2] &= !(mask & 0x9000000000000000ull);))
 
       flip_pos(pos);
 
@@ -851,8 +852,8 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(67, 1,
-    H(68, 1, i8 king_attacks[5];) H(68, 1, i8 mobilities[5];)
-        H(68, 1, i8 passed_blocked_pawns[6];) H(68, 1, i8 passed_pawns[6];)
+    H(68, 1, i8 passed_blocked_pawns[6];) H(68, 1, i8 mobilities[5];)
+        H(68, 1, i8 passed_pawns[6];) H(68, 1, i8 king_attacks[5];)
             H(68, 1, i8 tempo;))
   H(67, 1,
     H(69, 1, i8 bishop_pair;) H(69, 1, i8 open_files[6];)
@@ -863,8 +864,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(67, 2,
-    H(68, 2, i32 king_attacks[5];) H(68, 2, i32 mobilities[5];)
-        H(68, 2, i32 passed_blocked_pawns[6];) H(68, 2, i32 passed_pawns[6];)
+    H(68, 2, i32 passed_blocked_pawns[6];) H(68, 2, i32 mobilities[5];)
+        H(68, 2, i32 passed_pawns[6];) H(68, 2, i32 king_attacks[5];)
             H(68, 2, i32 tempo;))
   H(67, 2,
     H(69, 2, i32 bishop_pair;) H(69, 2, i32 open_files[6];)
@@ -1098,7 +1099,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; i++) {
+  for (i32 i = 0; i < 6; i++) {
     i128 key;
     __builtin_memcpy(&key, data + i * 16, 16);
     hash = __builtin_ia32_aesenc128(hash, key);
@@ -1120,7 +1121,7 @@ get_hash(const Position *const pos) {
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; ++i) {
+  for (i32 i = 0; i < 6; ++i) {
     uint8x16_t key;
     memcpy(&key, data + i * 16, 16);
 
@@ -1351,7 +1352,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
         G(116, tt_flag = Exact;)
         if (score >= beta) {
           assert(stack[ply].best_move.takes_piece ==
-            piece_on(H(24, 8, pos), H(24, 8, stack[ply].best_move.to)));
+                 piece_on(H(24, 8, pos), H(24, 8, stack[ply].best_move.to)));
           G(117, tt_flag = Lower;)
           G(
               117, if (stack[ply].best_move.takes_piece == None) {
