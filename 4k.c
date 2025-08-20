@@ -276,6 +276,7 @@ typedef struct [[nodiscard]] {
   G(6, u64 colour[2];)
   G(7, bool flipped;)
   G(7, bool castling[4];)
+  G(7, u8 padding[11];)
 } Position;
 
 [[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict lhs),
@@ -1098,7 +1099,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; i++) {
+  for (i32 i = 0; i < 6; i++) {
     i128 key;
     __builtin_memcpy(&key, data + i * 16, 16);
     hash = __builtin_ia32_aesenc128(hash, key);
@@ -1120,7 +1121,7 @@ get_hash(const Position *const pos) {
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 5; ++i) {
+  for (i32 i = 0; i < 6; ++i) {
     uint8x16_t key;
     memcpy(&key, data + i * 16, 16);
 
