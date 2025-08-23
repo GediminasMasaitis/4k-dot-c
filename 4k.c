@@ -1293,7 +1293,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
     if (G(112, !in_check) &&
         G(112,
           G(113, max_material[stack[ply].moves[move_index].promo]) +
-                  G(113, static_eval + 127 * depth) +
+                  G(113, G(999, static_eval) + G(999, (in_qsearch ? 64 : 127 * depth))) +
                   G(113,
                     max_material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
