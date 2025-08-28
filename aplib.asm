@@ -14,16 +14,22 @@
 
 format ELF64
 
-; void decompress_aplib(void *destination, const void *source)
-public decompress_aplib
+public _start
+
+section '.rodata' align 1
+payload_compressed:
+    file './build/4kc.ap'
+
+section '.payload' align 1
+payload_decompressed rb 4096*2
 
 section '.text'
-decompress_aplib:
-    ; push   rbx ; Uncomment to preserve System V calling convention
-
-    ; cld ; Uncomment for robustness, though in my loader it's not needed
-    mov    dl, 0x80
-    xor    ebx, ebx
+_start:
+    lea     rdi, [payload_decompressed]   ; dst
+    lea     rsi, [payload_compressed]     ; src
+    push    rdi
+    mov     dl, 0x80
+    xor     ebx, ebx
 
 literal:
     movsb

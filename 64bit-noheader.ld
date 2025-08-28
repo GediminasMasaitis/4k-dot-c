@@ -8,9 +8,10 @@ SECTIONS
 	. = start_address;
 	
 	.data : {
+		*(.start)
+		*(.text) *(.text.*)
 		*(.rodata) *(.rodata.*)
 		*(.data) *(.data.*)
-		*(.text) *(.text.*)
 	}
 	
 	.bss (NOLOAD) : {

@@ -265,9 +265,9 @@ S(1) void putl(const char *const restrict string) {
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
+  G(5, u8 promo;)
   G(5, u8 from; u8 to;)
   G(5, u8 takes_piece;)
-  G(5, u8 promo;)
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -1556,7 +1556,7 @@ S(1) void bench() {
 #endif
 
 #if !defined(FULL) && defined(NOSTDLIB)
-void _start() {
+__attribute__((section(".start"))) void _start() {
 #else
 S(1) void run() {
 #endif
