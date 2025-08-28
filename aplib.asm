@@ -21,7 +21,7 @@ section '.text'
 decompress_aplib:
     ; push   rbx ; Uncomment to preserve System V calling convention
 
-    cld
+    ; cld ; Uncomment for robustness, though in my loeader it's not needed
     mov    dl, 0x80
     xor    ebx, ebx
 
@@ -69,6 +69,7 @@ normalcodepair:
     lodsb
     call   getgamma
 
+    ; Uncomment the following 2 instructions if >32kb
     ; cmp    eax, 32000
     ; jae    short domatch_with_2inc
     cmp    ah, 5
