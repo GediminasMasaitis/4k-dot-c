@@ -46,9 +46,8 @@ compress:
 	apultra -stats -v $(EXE) $(EXE).ap
 
 loader: compress
-	fasm aplib.asm aplib.o
-	$(CC) $(CFLAGS) -DPAYLOAD_START='"'$$(grep '_start' $(EXE).map | awk '{print $$1}')'"' -c loader.c
-	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) aplib.o loader.o
+	fasm -d START_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') aplib.asm aplib.o
+	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) aplib.o
 	ls -la $(EXE)
 	md5sum $(EXE)
 
