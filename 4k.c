@@ -906,7 +906,7 @@ G(70, S(1) const EvalParams mg = ((EvalParams){
           .passed_pawns = {-17, -20, -12, 10, 34, 92},
           .passed_blocked_pawns = {5, -2, 3, 11, 11, -30},
           .bishop_pair = 25,
-          .pawn_attacked_penalty = {-16, -128},
+          .pawn_attacked_penalty = {-15, -128},
           .tempo = 16});)
 
 G(70, S(1) const EvalParams eg = ((EvalParams){
@@ -935,7 +935,7 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
           .passed_pawns = {0, 4, 25, 46, 84, 77},
           .passed_blocked_pawns = {-13, -13, -33, -57, -95, -102},
           .bishop_pair = 53,
-          .pawn_attacked_penalty = {-8, -128},
+          .pawn_attacked_penalty = {-9, -128},
           .tempo = 8});)
 
 G(70, S(0) EvalParamsMerged eval_params;)
@@ -1228,7 +1228,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
       })
 
       G(106, // RAZORING
-        in_qsearch = static_eval + 129 * depth <= alpha;)
+        in_qsearch = static_eval + 130 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1270,13 +1270,13 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
           G(97, // KILLER MOVE
             move_equal(G(108, &stack[ply].killer),
                        G(108, &stack[ply].moves[order_index])) *
-                919) +
+                878) +
           G(97, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(109, &stack[ply].best_move),
                         G(109, &stack[ply].moves[order_index]))
              << 30)) +
           G(97, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 852) +
+            stack[ply].moves[order_index].takes_piece * 814) +
           G(97, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1293,7 +1293,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
     if (G(112, !in_check) &&
         G(112,
           G(113, max_material[stack[ply].moves[move_index].promo]) +
-                  G(113, static_eval + 127 * depth) +
+                  G(113, static_eval + 126 * depth) +
                   G(113,
                     max_material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
