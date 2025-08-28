@@ -7002,3 +7002,11 @@ https://gedas.pythonanywhere.com/test/1222/
 MD5: 67f4e583e44a21d3fb7582a8c2b56165
 
 Smaller loader
+
+### 4.54
+
+64 bit: 4079 bytes (-4)
+
+MD5: d9db9ee8726aa66e9fb81812c8a2596a
+
+Full ASM loader
