@@ -21,7 +21,7 @@ section '.text'
 decompress_aplib:
     ; push   rbx ; Uncomment to preserve System V calling convention
 
-    cld
+    ; cld ; Uncomment for robustness, though in my loader it's not needed
     mov    dl, 0x80
     xor    ebx, ebx
 
@@ -69,6 +69,7 @@ normalcodepair:
     lodsb
     call   getgamma
 
+    ; Uncomment the following 2 instructions if >32kb
     ; cmp    eax, 32000
     ; jae    short domatch_with_2inc
     cmp    ah, 5
@@ -83,9 +84,9 @@ domatch_with_inc:
     inc    ecx
 
 domatch_new_lastpos:
-    xchg   eax, r8d
+    xchg   eax, ebp ; Was: xchg eax, r8d
 domatch_lastpos:
-    mov    eax, r8d
+    mov    eax, ebp ; Was: mov eax, r8d
 
     mov    bl, 1
 
