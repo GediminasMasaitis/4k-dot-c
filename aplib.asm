@@ -14,13 +14,24 @@
 
 format ELF64
 
-; void decompress_aplib(void *destination, const void *source)
-public decompress_aplib
+public _start
+
+section '.rodata' align 1
+payload_compressed:
+    file './build/4kc.ap'
+
+section '.payload' align 1
+payload_decompressed rb 4096*2
 
 section '.text'
-decompress_aplib:
-    ; push   rbx ; Uncomment to preserve System V calling convention
-    ; cld ; Uncomment for robustness, though in my loader it's not needed
+_start:
+    push payload_decompressed
+    pop rdi
+
+    push payload_compressed
+    pop rsi
+
+    push   rdi
 
     ; Technically UB but because size doesn't exceed 32k
     ; and execution starts with literal, ends up being not needed

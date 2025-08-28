@@ -1591,7 +1591,7 @@ S(1) void bench() {
 #endif
 
 #if !defined(FULL) && defined(NOSTDLIB)
-void _start() {
+__attribute__((section(".start"))) void _start() {
 #else
 S(1) void run() {
 #endif
