@@ -881,59 +881,59 @@ G(
     })
 
 G(70, S(1) const EvalParams mg = ((EvalParams){
-          .material = {71, 294, 298, 405, 899, 0},
+          .material = {68, 295, 298, 406, 898, 0},
           .pst_rank =
               {
-                  0,   -10, -9,  -8,  2,  25, 92,  0,   // Pawn
-                  -22, -11, 1,   14,  25, 43, 25,  -74, // Knight
-                  -8,  6,   14,  13,  16, 16, -3,  -54, // Bishop
+                  0,   -10, -10, -8,  3,  26, 94,  0,   // Pawn
+                  -23, -12, 1,   14,  25, 43, 25,  -73, // Knight
+                  -9,  6,   13,  13,  16, 16, -3,  -54, // Bishop
                   -1,  -13, -19, -21, 1,  21, 15,  16,  // Rook
-                  16,  17,  9,   -2,  -6, -2, -24, -9,  // Queen
-                  -9,  -6,  -31, -35, 0,  59, 71,  78,  // King
+                  16,  17,  9,   -2,  -6, -2, -23, -9,  // Queen
+                  -9,  -6,  -31, -35, 1,  60, 72,  80,  // King
               },
           .pst_file =
               {
-                  -19, -9,  -10, -1,  6,   21,  22, -10, // Pawn
-                  -24, -10, 0,   14,  11,  11,  3,  -4,  // Knight
-                  -10, 3,   5,   2,   5,   -3,  3,  -5,  // Bishop
-                  -8,  -7,  2,   11,  12,  3,   -3, -10, // Rook
-                  -10, -7,  -2,  2,   2,   1,   7,  7,   // Queen
-                  -16, 24,  -3,  -49, -19, -37, 19, 0,   // King
+                  -21, -10, -9, 0,   7,   22,  22, -10, // Pawn
+                  -24, -10, 0,  14,  11,  11,  3,  -4,  // Knight
+                  -10, 3,   5,  2,   5,   -3,  3,  -5,  // Bishop
+                  -8,  -7,  2,  11,  13,  3,   -3, -10, // Rook
+                  -10, -7,  -2, 2,   2,   1,   7,  7,   // Queen
+                  -16, 25,  -2, -48, -18, -37, 20, 0,   // King
               },
           .mobilities = {7, 6, 2, 3, -9},
-          .king_attacks = {0, 15, 19, 14, 0},
-          .open_files = {24, -10, -10, 21, -3, -31},
-          .passed_pawns = {-17, -20, -12, 10, 34, 92},
-          .passed_blocked_pawns = {5, -2, 3, 11, 11, -30},
-          .bishop_pair = 25,
+          .king_attacks = {0, 15, 20, 14, 0},
+          .open_files = {23, -10, -10, 20, -3, -31},
+          .passed_pawns = {-9, 12, 36, 94},
+          .passed_blocked_pawns = {2, 10, 10, -30},
+          .bishop_pair = 24,
           .pawn_attacked_penalty = {-16, -128},
           .tempo = 16});)
 
 G(70, S(1) const EvalParams eg = ((EvalParams){
-          .material = {71, 302, 297, 542, 991, 0},
+          .material = {71, 302, 297, 542, 992, 0},
           .pst_rank =
               {
                   0,   -4,  -6,  -5, 0,  15, 77, 0,   // Pawn
-                  -33, -18, -4,  18, 23, 9,  1,  3,   // Knight
-                  -11, -10, -1,  2,  5,  3,  3,  9,   // Bishop
-                  -18, -19, -12, 5,  12, 10, 15, 7,   // Rook
-                  -60, -45, -20, 10, 29, 30, 39, 19,  // Queen
-                  -39, -1,  9,   19, 24, 21, 8,  -47, // King
+                  -33, -18, -4,  18, 24, 9,  1,  3,   // Knight
+                  -11, -10, -1,  2,  6,  4,  3,  9,   // Bishop
+                  -18, -19, -12, 4,  12, 11, 15, 7,   // Rook
+                  -60, -45, -20, 9,  29, 30, 38, 18,  // Queen
+                  -39, -1,  9,   19, 25, 21, 8,  -47, // King
               },
           .pst_file =
               {
                   9,   12, -1, -9, -4, -3, 2,  -6,  // Pawn
-                  -18, -3, 8,  14, 14, 5,  -1, -19, // Knight
+                  -18, -3, 8,  14, 14, 6,  -1, -19, // Knight
                   -6,  -1, 0,  3,  5,  4,  1,  -6,  // Bishop
                   1,   4,  4,  -1, -5, 0,  0,  -3,  // Rook
-                  -19, -5, 3,  7,  12, 10, -1, -7,  // Queen
-                  -25, 1,  13, 25, 19, 21, 1,  -32, // King
+                  -19, -5, 3,  7,  12, 10, -2, -7,  // Queen
+                  -25, 1,  13, 24, 19, 21, 1,  -32, // King
               },
           .mobilities = {2, 4, 3, 1, -4},
           .king_attacks = {0, -3, -6, 7, 0},
           .open_files = {28, -4, 6, 9, 27, 8},
-          .passed_pawns = {0, 4, 25, 46, 84, 77},
-          .passed_blocked_pawns = {-13, -13, -33, -57, -95, -102},
+          .passed_pawns = {25, 47, 84, 77},
+          .passed_blocked_pawns = {-33, -57, -95, -101},
           .bishop_pair = 53,
           .pawn_attacked_penalty = {-8, -128},
           .tempo = 8});)
@@ -1013,15 +1013,15 @@ S(1) i32 eval(Position *const restrict pos) {
                 0) { score += eval_params.open_files[p - 1]; })
         G(
             44, // PASSED PAWNS
-            if (G(85, p == Pawn) &&
+            if (rank > 2 && G(85, p == Pawn) &&
                 G(85,
                   !(G(86, (0x101010101010101ULL << sq)) & G(86, no_passers)))) {
               G(
                   87, if (north(1ULL << sq) & pos->colour[1]) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
+                    score += eval_params.passed_blocked_pawns[rank - 3];
                   })
 
-              G(87, score += eval_params.passed_pawns[rank - 1];)
+              G(87, score += eval_params.passed_pawns[rank - 3];)
             })
 
         G(44, // SPLIT PIECE-SQUARE TABLES FOR RANK
