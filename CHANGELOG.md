@@ -6572,3 +6572,61 @@ Games | N: 34468 W: 9953 L: 9982 D: 14533
 Penta | [899, 4173, 7174, 4034, 954]
 https://gedas.pythonanywhere.com/test/1121/
 ```
+
+### 4.43
+
+64 bit: 4084 bytes (-3)
+
+MD5: 420557e930addd6476915d4235f5ef24
+
+Smaller decompressor
+
+### 4.44
+
+64 bit: 4083 bytes (-1)
+
+MD5: 0784ca2fae6987cca522fd3a2e842182
+
+Tune parameters
+
+```py
+info depth 1 score cp 29 time 0 nodes 20 pv b1c3
+info depth 2 score cp 17 time 0 nodes 104 pv b1c3
+info depth 3 score cp 29 time 0 nodes 241 pv b1c3
+info depth 4 score cp 18 time 0 nodes 419 pv b1c3
+info depth 5 score cp 13 time 1 nodes 1294 nps 1294000 pv d2d4
+info depth 6 score cp 14 time 2 nodes 2212 nps 1106000 pv d2d4
+info depth 7 score cp 12 time 4 nodes 4569 nps 1142250 pv d2d4
+info depth 8 score cp 17 time 10 nodes 10321 nps 1032100 pv d2d4
+info depth 9 score cp 12 time 30 nodes 38065 nps 1268833 pv d2d4
+info depth 10 score cp 29 time 46 nodes 66058 nps 1436043 pv d2d4
+info depth 11 score cp 14 time 104 nodes 196217 nps 1886701 pv g1f3
+info depth 12 score cp 16 time 170 nodes 344900 nps 2028823 pv g1f3
+info depth 13 score cp 16 time 281 nodes 600342 nps 2136448 pv g1f3
+info depth 14 score cp 13 time 524 nodes 1177076 nps 2246328 pv g1f3
+info depth 15 score cp 10 time 934 nodes 2165457 nps 2318476 pv g1f3
+info depth 16 score cp 28 time 2118 nodes 5090576 nps 2403482 pv e2e4
+info depth 17 score cp 30 time 3104 nodes 7611209 nps 2452064 pv e2e4
+info depth 18 score cp 20 time 4772 nodes 11897633 nps 2493217 pv e2e4
+info depth 19 score cp 32 time 6633 nodes 16837823 nps 2538492 pv e2e4
+bestmove e2e4
+16837823 nodes 2538492 nps
+```
+
+```py
+Elo   | 2.54 +- 1.88 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 66678 W: 19983 L: 19496 D: 27199
+Penta | [2228, 7675, 13090, 8074, 2272]
+https://gedas.pythonanywhere.com/test/1135/
+```
+
+```py
+Elo   | 2.67 +- 2.07 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 49232 W: 14331 L: 13953 D: 20948
+Penta | [1301, 5765, 10126, 6103, 1321]
+https://gedas.pythonanywhere.com/test/1136/
+```
