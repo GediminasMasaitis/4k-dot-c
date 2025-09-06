@@ -907,7 +907,7 @@ G(70, S(1) const EvalParams mg = ((EvalParams){
           .passed_blocked_pawns = {5, -2, 3, 11, 11, -30},
           .bishop_pair = 25,
           .pawn_attacked_penalty = {-16, -128},
-          .tempo = 16});)
+          .tempo = 17});)
 
 G(70, S(1) const EvalParams eg = ((EvalParams){
           .material = {71, 302, 297, 542, 991, 0},
@@ -935,8 +935,8 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
           .passed_pawns = {0, 4, 25, 46, 84, 77},
           .passed_blocked_pawns = {-13, -13, -33, -57, -95, -102},
           .bishop_pair = 53,
-          .pawn_attacked_penalty = {-8, -128},
-          .tempo = 8});)
+          .pawn_attacked_penalty = {-10, -128},
+          .tempo = 7});)
 
 G(70, S(0) EvalParamsMerged eval_params;)
 
@@ -984,12 +984,12 @@ S(1) i32 eval(Position *const restrict pos) {
     G(76,
       const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);)
 
+    G(76, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
     G(
         76, // BISHOP PAIR
         if (count(G(78, pos->pieces[Bishop]) & G(78, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-    G(76, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
     G(76,
       const u64 opp_pawns = G(79, pos->pieces[Pawn]) & G(79, pos->colour[1]);
       const u64 attacked_by_pawns = G(80, se(opp_pawns)) | G(80, sw(opp_pawns));
@@ -1063,9 +1063,9 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(68, i32 static_eval;)
-  G(68, Move best_move;)
   G(68, i32 num_moves;)
+  G(68, Move best_move;)
+  G(68, i32 static_eval;)
   G(68, u64 position_hash;)
   G(68, Move killer;)
   G(68, Move moves[max_moves];)
@@ -1228,7 +1228,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
       })
 
       G(106, // RAZORING
-        in_qsearch = static_eval + 129 * depth <= alpha;)
+        in_qsearch = static_eval + 123 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1270,13 +1270,13 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
           G(97, // KILLER MOVE
             move_equal(G(108, &stack[ply].killer),
                        G(108, &stack[ply].moves[order_index])) *
-                919) +
+                861) +
           G(97, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(109, &stack[ply].best_move),
                         G(109, &stack[ply].moves[order_index]))
              << 30)) +
           G(97, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 852) +
+            stack[ply].moves[order_index].takes_piece * 737) +
           G(97, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1293,7 +1293,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
     if (G(112, !in_check) &&
         G(112,
           G(113, max_material[stack[ply].moves[move_index].promo]) +
-                  G(113, static_eval + 127 * depth) +
+                  G(113, static_eval + 136 * depth) +
                   G(113,
                     max_material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
