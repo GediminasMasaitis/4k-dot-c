@@ -416,7 +416,7 @@ G(
 
 G(
     22,
-    S(1) void swapu32(G(25, u32 *const rhs), G(25, u32 *const lhs)) {
+    S(1) void swapu32(G(25, u32 *const lhs), G(25, u32 *const rhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -647,8 +647,8 @@ G(
       G(57, // Update castling permissions
         G(60, pos->castling[0] &= !(mask & 0x90ull);)
             G(60, pos->castling[3] &= !(mask & 0x1100000000000000ull);)
-                G(60, pos->castling[1] &= !(mask & 0x11ull);)
-                    G(60, pos->castling[2] &= !(mask & 0x9000000000000000ull);))
+                G(60, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
+                    G(60, pos->castling[1] &= !(mask & 0x11ull);))
 
       flip_pos(pos);
 
@@ -981,15 +981,15 @@ S(1) i32 eval(Position *const restrict pos) {
 
   for (i32 c = 0; c < 2; c++) {
 
-    G(76,
-      const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);)
-
     G(76, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
+
     G(
         76, // BISHOP PAIR
         if (count(G(78, pos->pieces[Bishop]) & G(78, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
+    G(76,
+      const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);)
     G(76,
       const u64 opp_pawns = G(79, pos->pieces[Pawn]) & G(79, pos->colour[1]);
       const u64 attacked_by_pawns = G(80, se(opp_pawns)) | G(80, sw(opp_pawns));
@@ -1065,18 +1065,18 @@ S(1) i32 eval(Position *const restrict pos) {
 typedef struct [[nodiscard]] {
   G(68, i32 num_moves;)
   G(68, Move best_move;)
-  G(68, i32 static_eval;)
-  G(68, u64 position_hash;)
   G(68, Move killer;)
+  G(68, u64 position_hash;)
+  G(68, i32 static_eval;)
   G(68, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(94, i16 score;)
-  G(94, Move move;)
-  G(94, u16 partial_hash;)
   G(94, u8 flag;)
+  G(94, i16 score;)
+  G(94, u16 partial_hash;)
   G(94, i8 depth;)
+  G(94, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1183,15 +1183,15 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
 
   // TT PROBING
   G(100, stack[ply].best_move = (Move){0};)
-  G(100, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(100, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
+  G(100, const u16 tt_hash_partial = tt_hash / tt_length;)
   if (tt_entry->partial_hash == tt_hash_partial) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(101, alpha == beta - 1) &&
+    if (G(101, tt_entry->depth >= depth) &&
         G(101, tt_entry->flag != tt_entry->score <= alpha) &&
-        G(101, tt_entry->depth >= depth)) {
+        G(101, alpha == beta - 1)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1204,8 +1204,8 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   i32 static_eval = eval(pos);
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(102, tt_entry->partial_hash == tt_hash_partial) &&
-      G(102, tt_entry->flag != static_eval > tt_entry->score)) {
+  if (G(102, tt_entry->flag != static_eval > tt_entry->score) &&
+      G(102, tt_entry->partial_hash == tt_hash_partial)) {
     static_eval = tt_entry->score;
   }
 
@@ -1220,15 +1220,15 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   if (G(104, !in_check) && G(104, alpha == beta - 1)) {
     if (G(105, !in_qsearch) && G(105, depth < 8)) {
 
+      G(106, // RAZORING
+        in_qsearch = static_eval + 123 * depth <= alpha;)
+
       G(106, {
         // REVERSE FUTILITY PRUNING
         if (static_eval - 52 * depth >= beta) {
           return static_eval;
         }
       })
-
-      G(106, // RAZORING
-        in_qsearch = static_eval + 123 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1250,12 +1250,12 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   }
 
   G(96, u8 tt_flag = Upper;)
-  G(96, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
   G(96, stack[ply].num_moves = movegen(
             H(61, 3, pos), H(61, 3, stack[ply].moves), H(61, 3, in_qsearch));)
   G(96, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(96, i32 moves_evaluated = 0;)
+  G(96, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
   G(96, i32 quiets_evaluated = 0;)
+  G(96, i32 moves_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     i32 move_score = ~0x1010101LL; // Ends up as large negative
@@ -1399,7 +1399,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
                         .score = best_score,
-                        .depth = depth,
+                        .depth = depth * !in_qsearch,
                         .flag = tt_flag};
 
   return best_score;
