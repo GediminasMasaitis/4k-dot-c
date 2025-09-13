@@ -1276,7 +1276,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
                         G(109, &stack[ply].moves[order_index]))
              << 30)) +
           G(97, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 737) +
+            max_material[stack[ply].moves[order_index].takes_piece] * 2) +
           G(97, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
