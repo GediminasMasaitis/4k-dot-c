@@ -603,16 +603,6 @@ G(
       G(51, const i32 piece = piece_on(H(24, 6, pos), H(24, 6, move->from));
         assert(piece != None);)
 
-      G(52, pos->pieces[piece] ^= mask;)
-
-      G(
-          52, // Captures
-          if (move->takes_piece != None) {
-            G(53, pos->pieces[move->takes_piece] ^= to;)
-            G(53, pos->colour[1] ^= to;)
-          })
-
-      // Move the piece
       G(
           52, // Castling
           if (piece == King) {
@@ -622,7 +612,17 @@ G(
             G(54, pos->colour[0] ^= bb;)
             G(54, pos->pieces[Rook] ^= bb;)
           })
+
       G(52, pos->colour[0] ^= mask;)
+
+      // Move the piece
+      G(52, pos->pieces[piece] ^= mask;)
+      G(
+          52, // Captures
+          if (move->takes_piece != None) {
+            G(53, pos->pieces[move->takes_piece] ^= to;)
+            G(53, pos->colour[1] ^= to;)
+          })
 
       // En passant
       if (G(55, piece == Pawn) && G(55, to == pos->ep)) {
@@ -955,8 +955,8 @@ S(1) void init() {
   G(
       49, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
-        eval_params.material[i] = combine_eval_param(H(71, 3, mg.material[i]),
-                                                     H(71, 3, eg.material[i]));
+        eval_params.material[i] = combine_eval_param(H(71, 2, mg.material[i]),
+                                                     H(71, 2, eg.material[i]));
       })
   G(
       49, // MERGE NON-MATERIAL VALUES
@@ -965,8 +965,8 @@ S(1) void init() {
         // But since the structs are packed, it works
         const i32 offset = sizeof(mg.material);
         ((i32 *)&eval_params)[offset / sizeof(*mg.material) + i] =
-            combine_eval_param(H(71, 2, ((i8 *)&mg)[offset + i]),
-                               H(71, 2, ((i8 *)&eg)[offset + i]));
+            combine_eval_param(H(71, 3, ((i8 *)&mg)[offset + i]),
+                               H(71, 3, ((i8 *)&eg)[offset + i]));
       })
 }
 
@@ -985,11 +985,11 @@ S(1) i32 eval(Position *const restrict pos) {
 
     G(
         76, // BISHOP PAIR
-        if (count(G(78, pos->pieces[Bishop]) & G(78, pos->colour[0])) > 1) {
+        if (count(G(77, pos->pieces[Bishop]) & G(77, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
     G(76,
-      const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);)
+      const u64 own_pawns = G(78, pos->pieces[Pawn]) & G(78, pos->colour[0]);)
     G(76,
       const u64 opp_pawns = G(79, pos->pieces[Pawn]) & G(79, pos->colour[1]);
       const u64 attacked_by_pawns = G(80, se(opp_pawns)) | G(80, sw(opp_pawns));
@@ -1020,37 +1020,37 @@ S(1) i32 eval(Position *const restrict pos) {
         G(
             44, if (p > Pawn) {
               G(
-                  88, // PIECES ATTACKED BY PAWNS
+                  85, // PIECES ATTACKED BY PAWNS
                   if (1ULL << sq & no_passers) {
                     score += eval_params.pawn_attacked_penalty[c];
                   })
 
-              G(88, const u64 mobility =
+              G(85, const u64 mobility =
                         get_mobility(H(33, 3, pos), H(33, 3, sq), H(33, 3, p));
 
-                G(89, // MOBILITY
+                G(86, // MOBILITY
                   score +=
-                  G(90, count(G(91, ~attacked_by_pawns) & G(91, mobility) &
-                              G(91, ~pos->colour[0]))) *
-                  G(90, eval_params.mobilities[p - 2]);)
+                  G(87, count(G(88, ~attacked_by_pawns) & G(88, mobility) &
+                              G(88, ~pos->colour[0]))) *
+                  G(87, eval_params.mobilities[p - 2]);)
 
-                    G(89, // KING ATTACKS
+                    G(86, // KING ATTACKS
                       score +=
-                      G(92, count(G(93, opp_king_zone) & G(93, mobility))) *
-                      G(92, eval_params.king_attacks[p - 2]);))
+                      G(89, count(G(90, opp_king_zone) & G(90, mobility))) *
+                      G(89, eval_params.king_attacks[p - 2]);))
             })
 
         G(
             44, // PASSED PAWNS
-            if (G(85, p == Pawn) &&
-                G(85,
-                  !(G(86, (0x101010101010101ULL << sq)) & G(86, no_passers)))) {
+            if (G(91, p == Pawn) &&
+                G(91,
+                  !(G(92, (0x101010101010101ULL << sq)) & G(92, no_passers)))) {
               G(
-                  87, if (north(1ULL << sq) & pos->colour[1]) {
+                  93, if (north(1ULL << sq) & pos->colour[1]) {
                     score += eval_params.passed_blocked_pawns[rank - 1];
                   })
 
-              G(87, score += eval_params.passed_pawns[rank - 1];)
+              G(93, score += eval_params.passed_pawns[rank - 1];)
             })
       }
     }
