@@ -1232,7 +1232,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
     }
 
     // NULL MOVE PRUNING
-    if (G(107, static_eval >= beta) && G(107, depth > 2) && G(107, do_null)) {
+    if (G(107, static_eval >= beta) && G(107, depth > 1) && G(107, do_null)) {
       Position npos = *pos;
       flip_pos(&npos);
       npos.ep = 0;
