@@ -544,8 +544,56 @@ def main():
         root_nodes, _ = parse_nodes(text)
 
         if enable_random_shuffle:
-            # (your existing random-shuffle logic here)
-            pass
+            # Initial shuffle of all groups' members before starting this run
+            groups = {}
+            collect_groups(root_nodes, groups)
+
+            # Identify correlated H keys
+            h_base_to_ids = {}
+            for identifier in groups:
+                if identifier.startswith('H_'):
+                    parts_split = identifier.split('_', 2)
+                    key = parts_split[1]
+                    base = 'H_' + key
+                    h_base_to_ids.setdefault(base, []).append(identifier)
+
+            # Shuffle H groups first
+            h_bases = list(h_base_to_ids.keys())
+            random.shuffle(h_bases)
+            for base in h_bases:
+                groups = {}
+                collect_groups(root_nodes, groups)
+                ids = h_base_to_ids[base]
+                length = len(groups[ids[0]])
+                if length > 1:
+                    perm = list(range(length))
+                    random.shuffle(perm)
+                    content = render_tree(root_nodes, base, ids, tuple(perm), groups)
+                    _uid_counter = 0
+                    root_nodes, _ = parse_nodes(content)
+
+            # Shuffle G groups
+            groups = {}
+            collect_groups(root_nodes, groups)
+            g_identifiers = [identifier for identifier in groups if identifier.startswith('G_')]
+            random.shuffle(g_identifiers)
+            for identifier in g_identifiers:
+                groups = {}
+                collect_groups(root_nodes, groups)
+                group_nodes = groups.get(identifier, [])
+                n = len(group_nodes)
+                if n > 1:
+                    perm = list(range(n))
+                    random.shuffle(perm)
+                    content = render_tree(root_nodes, identifier, None, tuple(perm), groups)
+                    _uid_counter = 0
+                    root_nodes, _ = parse_nodes(content)
+
+            # After shuffling, write the shuffled content back to file
+            shuffled_content = render_tree(root_nodes)
+            with open(src_filename, 'w') as f:
+                f.write(shuffled_content)
+            text = shuffled_content
 
         size, content = write_and_build_tree(root_nodes, src_filename)
         pass_best = {'initial': size, 'best': size, 'best_content': content}
