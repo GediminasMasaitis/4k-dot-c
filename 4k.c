@@ -1258,9 +1258,15 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   G(96, i32 quiets_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
+<<<<<<< Updated upstream
     i32 move_score = ~0x1010101LL; // Ends up as large negative
 
     // MOVE ORDERING
+=======
+    // MOVE ORDERING
+    G(999, i32 move_score = ~0x1010101LL;)
+    G(999, i32 best_index = 0;)
+>>>>>>> Stashed changes
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
