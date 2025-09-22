@@ -416,7 +416,7 @@ G(
 
 G(
     22,
-    S(1) void swapu32(G(25, u32 *const rhs), G(25, u32 *const lhs)) {
+    S(1) void swapu32(G(25, u32 *const lhs), G(25, u32 *const rhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -1063,9 +1063,9 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(68, i32 num_moves;)
-  G(68, Move best_move;)
   G(68, i32 static_eval;)
+  G(68, Move best_move;)
+  G(68, i32 num_moves;)
   G(68, u64 position_hash;)
   G(68, Move killer;)
   G(68, Move moves[max_moves];)
@@ -1220,15 +1220,15 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   if (G(104, !in_check) && G(104, alpha == beta - 1)) {
     if (G(105, !in_qsearch) && G(105, depth < 8)) {
 
+      G(106, // RAZORING
+        in_qsearch = static_eval + 123 * depth <= alpha;)
+
       G(106, {
         // REVERSE FUTILITY PRUNING
         if (static_eval - 52 * depth >= beta) {
           return static_eval;
         }
       })
-
-      G(106, // RAZORING
-        in_qsearch = static_eval + 123 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1258,9 +1258,9 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
   G(96, i32 quiets_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
-    i32 move_score = ~0x1010101LL; // Ends up as large negative
-
     // MOVE ORDERING
+    i32 move_score = ~0x1010101LL; // Ends up as large negative
+    i32 best_index = 0;
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
@@ -1283,11 +1283,13 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, const i32 ply),
                         [stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]);
       if (order_move_score > move_score) {
-        G(110, swapmoves(G(111, &stack[ply].moves[move_index]),
-                         G(111, &stack[ply].moves[order_index]));)
+        G(110, best_index = order_index;)
         G(110, move_score = order_move_score;)
       }
     }
+
+    swapmoves(G(111, &stack[ply].moves[move_index]),
+              G(111, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(112, !in_check) &&
