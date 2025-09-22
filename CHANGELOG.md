@@ -6630,3 +6630,62 @@ Games | N: 49232 W: 14331 L: 13953 D: 20948
 Penta | [1301, 5765, 10126, 6103, 1321]
 https://gedas.pythonanywhere.com/test/1136/
 ```
+
+### 4.45
+
+64 bit: 4094 bytes (+11)
+
+MD5: 8fe28a6e333db96423318817d472d38a
+
+Faster move ordering
+
+```py
+info depth 1 score cp 29 time 1 nodes 20 nps 20000 pv b1c3
+info depth 2 score cp 17 time 1 nodes 104 nps 104000 pv b1c3
+info depth 3 score cp 29 time 1 nodes 241 nps 241000 pv b1c3
+info depth 4 score cp 18 time 1 nodes 423 nps 423000 pv b1c3
+info depth 5 score cp 13 time 2 nodes 1391 nps 695500 pv d2d4
+info depth 6 score cp 14 time 3 nodes 2677 nps 892333 pv d2d4
+info depth 7 score cp 12 time 5 nodes 4810 nps 962000 pv d2d4
+info depth 8 score cp 17 time 13 nodes 13461 nps 1035461 pv d2d4
+info depth 9 score cp 12 time 25 nodes 28177 nps 1127080 pv d2d4
+info depth 10 score cp 17 time 48 nodes 69376 nps 1445333 pv g1f3
+info depth 11 score cp 18 time 69 nodes 111898 nps 1621710 pv g1f3
+info depth 12 score cp 17 time 114 nodes 222911 nps 1955359 pv g1f3
+info depth 13 score cp 10 time 395 nodes 930113 nps 2354716 pv g1f3
+info depth 14 score cp 13 time 572 nodes 1361241 nps 2379791 pv g1f3
+info depth 15 score cp 23 time 1072 nodes 2651401 nps 2473321 pv e2e4
+info depth 16 score cp 23 time 1332 nodes 3329644 nps 2499732 pv e2e4
+info depth 17 score cp 23 time 1751 nodes 4433260 nps 2531844 pv e2e4
+info depth 18 score cp 28 time 2732 nodes 7041462 nps 2577401 pv e2e4
+info depth 19 score cp 28 time 4136 nodes 10735613 nps 2595651 pv e2e4
+bestmove e2e4
+10735613 nodes 2595651 nps
+```
+
+```py
+Elo   | 9.28 +- 5.88 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6700 W: 2079 L: 1900 D: 2721
+Penta | [199, 740, 1343, 819, 249]
+https://gedas.pythonanywhere.com/test/1149/
+```
+
+```py
+Elo   | 9.19 +- 5.68 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6314 W: 1914 L: 1747 D: 2653
+Penta | [130, 734, 1313, 799, 181]
+https://gedas.pythonanywhere.com/test/1150/
+```
+
+Local 10+0.1 test on mini version:
+```py
+Score of 4kc-4.45-mini vs 4kc-4.44-mini: 35157 - 31588 - 45255  [0.516] 112000
+...      4kc-4.45-mini playing White: 24900 - 8886 - 22212  [0.643] 55998
+...      4kc-4.45-mini playing Black: 10257 - 22702 - 23043  [0.389] 56002
+...      White vs Black: 47602 - 19143 - 45255  [0.627] 112000
+Elo difference: 11.1 +/- 1.6, LOS: 100.0 %, DrawRatio: 40.4 %
+```
