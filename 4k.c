@@ -94,11 +94,39 @@ G(
     })
 
 G(
+    3,
+    S(1) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
+             H(2, 2, 1));
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+[[nodiscard]] S(1) bool strcmp(const char *restrict lhs,
+                               const char *restrict rhs) {
+  while (*lhs || *rhs) {
+    if (*lhs != *rhs) {
+      return true;
+    }
+    lhs++;
+    rhs++;
+  }
+  return false;
+}
+
+G(
     3, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
-        const int result = _sys(H(2, 2, stdin), H(2, 2, 1),
-                                H(2, 2, (ssize_t)string), H(2, 2, 0));
+        const int result = _sys(H(2, 3, stdin), H(2, 3, 1),
+                                H(2, 3, (ssize_t)string), H(2, 3, 0));
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -115,34 +143,6 @@ G(
 
         string++;
       }
-    })
-
-[[nodiscard]] S(1) bool strcmp(const char *restrict lhs,
-                               const char *restrict rhs) {
-  while (*lhs || *rhs) {
-    if (*lhs != *rhs) {
-      return true;
-    }
-    lhs++;
-    rhs++;
-  }
-  return false;
-}
-
-G(
-    3,
-    S(1) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        _sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])),
-             H(2, 3, 1));
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
     })
 
 #define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
@@ -330,7 +330,7 @@ G(
 
 G(13, [[nodiscard]] S(1) u64 sw(const u64 bb) { return west(south(bb)); })
 
-G(14, S(1) u64 diag_mask[64];)
+G(14, S(0) u64 diag_mask[64];)
 
 G(
     14, [[nodiscard]] S(1)
@@ -393,7 +393,7 @@ G(
 
 G(
     22,
-    S(1) void swapu32(G(23, u32 *const lhs), G(23, u32 *const rhs)) {
+    S(1) void swapu32(G(23, u32 *const rhs), G(23, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -448,7 +448,7 @@ G(
     })
 
 G(
-    22, [[nodiscard]] S(1)
+    22, [[nodiscard]] S(0)
             i32 piece_on(H(31, 1, const Position *const restrict pos),
                          H(31, 1, const i32 sq)) {
               assert(sq >= 0);
@@ -981,17 +981,17 @@ S(1) i32 eval(Position *const restrict pos) {
 
     G(76, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
 
-    G(76,
-      const u64 own_pawns = G(77, pos->pieces[Pawn]) & G(77, pos->colour[0]);)
-    G(76,
-      const u64 opp_pawns = G(78, pos->colour[1]) & G(78, pos->pieces[Pawn]);
-      const u64 attacked_by_pawns = G(79, se(opp_pawns)) | G(79, sw(opp_pawns));
-      const u64 no_passers = G(80, opp_pawns) | G(80, attacked_by_pawns);)
     G(
         76, // BISHOP PAIR
-        if (count(G(81, pos->pieces[Bishop]) & G(81, pos->colour[0])) > 1) {
+        if (count(G(77, pos->pieces[Bishop]) & G(77, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
+    G(76,
+      const u64 own_pawns = G(78, pos->pieces[Pawn]) & G(78, pos->colour[0]);)
+    G(76,
+      const u64 opp_pawns = G(79, pos->colour[1]) & G(79, pos->pieces[Pawn]);
+      const u64 attacked_by_pawns = G(80, se(opp_pawns)) | G(80, sw(opp_pawns));
+      const u64 no_passers = G(81, opp_pawns) | G(81, attacked_by_pawns);)
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(82, pos->colour[0]) & G(82, pos->pieces[p]);
@@ -1086,7 +1086,7 @@ enum { mate = 30000, inf = 32000 };
 G(95, S(1) i32 move_history[2][6][64][64];)
 G(95, S(1) TTEntry tt[tt_length];)
 G(95, S(0) size_t start_time;)
-G(95, S(1) size_t max_time;)
+G(95, S(0) size_t max_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1286,8 +1286,8 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
       }
     }
 
-    swapmoves(G(112, &stack[ply].moves[best_index]),
-              G(112, &stack[ply].moves[move_index]));
+    swapmoves(G(112, &stack[ply].moves[move_index]),
+              G(112, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(113, depth < 8) &&
@@ -1316,7 +1316,8 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
     // LATE MOVE REDUCTION
     i32 reduction = G(115, depth > 1) && G(115, moves_evaluated > 6)
                         ? G(116, (alpha == beta - 1)) +
-                              G(116, moves_evaluated / 11) + G(116, !improving)
+                              G(116, moves_evaluated / 11) + G(116, depth / 8) +
+                              G(116, !improving)
                         : 0;
 
     i32 score;
