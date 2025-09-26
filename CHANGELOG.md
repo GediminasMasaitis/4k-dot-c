@@ -6631,7 +6631,7 @@ Penta | [1301, 5765, 10126, 6103, 1321]
 https://gedas.pythonanywhere.com/test/1136/
 ```
 
-### 4.45
+### 4.46
 
 64 bit: 4094 bytes (+11)
 
@@ -6688,4 +6688,55 @@ Score of 4kc-4.45-mini vs 4kc-4.44-mini: 35157 - 31588 - 45255  [0.516] 112000
 ...      4kc-4.45-mini playing Black: 10257 - 22702 - 23043  [0.389] 56002
 ...      White vs Black: 47602 - 19143 - 45255  [0.627] 112000
 Elo difference: 11.1 +/- 1.6, LOS: 100.0 %, DrawRatio: 40.4 %
+```
+
+### 4.47
+
+64 bit: 4072 bytes (-22)
+
+MD5: 3f1111f4606d2cebf5aed7dd5af56ac2
+
+Smaller LMR
+
+```py
+info depth 1 score cp 29 time 0 nodes 20 pv b1c3
+info depth 2 score cp 17 time 0 nodes 104 pv b1c3
+info depth 3 score cp 29 time 0 nodes 241 pv b1c3
+info depth 4 score cp 18 time 0 nodes 423 pv b1c3
+info depth 5 score cp 13 time 1 nodes 1391 nps 1391000 pv d2d4
+info depth 6 score cp 14 time 3 nodes 2677 nps 892333 pv d2d4
+info depth 7 score cp 12 time 4 nodes 4810 nps 1202500 pv d2d4
+info depth 8 score cp 17 time 12 nodes 13461 nps 1121750 pv d2d4
+info depth 9 score cp 12 time 24 nodes 28177 nps 1174041 pv d2d4
+info depth 10 score cp 17 time 48 nodes 69376 nps 1445333 pv g1f3
+info depth 11 score cp 18 time 67 nodes 111898 nps 1670119 pv g1f3
+info depth 12 score cp 17 time 111 nodes 222911 nps 2008207 pv g1f3
+info depth 13 score cp 10 time 378 nodes 930113 nps 2460616 pv g1f3
+info depth 14 score cp 13 time 547 nodes 1361241 nps 2488557 pv g1f3
+info depth 15 score cp 23 time 1035 nodes 2651401 nps 2561740 pv e2e4
+info depth 16 score cp 23 time 1288 nodes 3329644 nps 2585127 pv e2e4
+info depth 17 score cp 23 time 1698 nodes 4433260 nps 2610871 pv e2e4
+info depth 18 score cp 28 time 2655 nodes 7041462 nps 2652151 pv e2e4
+info depth 19 score cp 28 time 4011 nodes 10735613 nps 2676542 pv e2e4
+bestmove e2e4
+10735613 nodes 2676542 nps
+```
+
+```py
+Elo   | -0.94 +- 4.11 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.63 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 13308 W: 3919 L: 3955 D: 5434
+Penta | [418, 1585, 2665, 1587, 399]
+https://gedas.pythonanywhere.com/test/1156/
+```
+
+10+0.01 mini:
+```py
+Finished game 6012 (4kc-4.45 vs 4kc-dev): 1/2-1/2 {Draw by 3-fold repetition}
+Score of 4kc-dev vs 4kc-4.45: 1835 - 1802 - 2363  [0.503] 6000
+...      4kc-dev playing White: 1279 - 546 - 1176  [0.622] 3001
+...      4kc-dev playing Black: 556 - 1256 - 1187  [0.383] 2999
+...      White vs Black: 2535 - 1102 - 2363  [0.619] 6000
+Elo difference: 1.9 +/- 6.8, LOS: 70.8 %, DrawRatio: 39.4 %
 ```
