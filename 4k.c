@@ -78,27 +78,27 @@ G(
     })
 
 G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
-      // Will break if reads a value over 4294967295
-      // This works out to be just over 49 days
-
-      u32 result = 0;
-      while (true) {
-        if (!*string) {
-          return result;
-        }
-        result *= 10;
-        result += *string - '0';
-        string++;
+    3,
+    S(1) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
+             H(2, 2, 1));
+        length++;
       }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
     })
 
 G(
     3, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
-        const int result = _sys(H(2, 2, stdin), H(2, 2, 1),
-                                H(2, 2, (ssize_t)string), H(2, 2, 0));
+        const int result = _sys(H(2, 3, stdin), H(2, 3, 1),
+                                H(2, 3, (ssize_t)string), H(2, 3, 0));
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -130,19 +130,19 @@ G(
 }
 
 G(
-    3,
-    S(1) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        _sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])),
-             H(2, 3, 1));
-        length++;
-      }
-    }
+    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+      // Will break if reads a value over 4294967295
+      // This works out to be just over 49 days
 
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
+      u32 result = 0;
+      while (true) {
+        if (!*string) {
+          return result;
+        }
+        result *= 10;
+        result += *string - '0';
+        string++;
+      }
     })
 
 #define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
@@ -902,7 +902,7 @@ G(70, S(1) const EvalParams mg = ((EvalParams){
           .passed_blocked_pawns = {5, -2, 3, 11, 11, -30},
           .bishop_pair = 25,
           .pawn_attacked_penalty = {-16, -128},
-          .tempo = 17});)
+          .tempo = 16});)
 
 G(
     70, [[nodiscard]] S(1) i32 combine_eval_param(H(71, 1, const i32 mg_val),
@@ -936,7 +936,7 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
           .passed_pawns = {0, 4, 25, 46, 84, 77},
           .passed_blocked_pawns = {-13, -13, -33, -57, -95, -102},
           .bishop_pair = 53,
-          .pawn_attacked_penalty = {-10, -128},
+          .pawn_attacked_penalty = {-9, -128},
           .tempo = 7});)
 
 S(1) void init() {
@@ -1216,17 +1216,17 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
   }
 
   if (G(104, !in_check) && G(104, alpha == beta - 1)) {
-    if (G(105, depth < 8) && G(105, !in_qsearch)) {
+    if (G(105, depth < 10) && G(105, !in_qsearch)) {
 
       G(106, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * depth >= beta) {
+        if (static_eval - 51 * depth >= beta) {
           return static_eval;
         }
       })
 
       G(106, // RAZORING
-        in_qsearch = static_eval + 123 * depth <= alpha;)
+        in_qsearch = static_eval + 112 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1268,13 +1268,13 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
           G(97, // KILLER MOVE
             move_equal(G(109, &stack[ply].moves[order_index]),
                        G(109, &stack[ply].killer)) *
-                861) +
+                835) +
           G(97, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(110, &stack[ply].best_move),
                         G(110, &stack[ply].moves[order_index]))
              << 30)) +
           G(97, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 737) +
+            stack[ply].moves[order_index].takes_piece * 669) +
           G(97, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1290,9 +1290,9 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
               G(112, &stack[ply].moves[move_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(113, depth < 8) &&
+    if (G(113, depth < 7) &&
         G(113,
-          G(114, static_eval + 136 * depth) +
+          G(114, static_eval + 133 * depth) +
                   G(114,
                     max_material[stack[ply].moves[move_index].takes_piece]) +
                   G(114, max_material[stack[ply].moves[move_index].promo]) <
@@ -1385,9 +1385,8 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
     }
 
     // LATE MOVE PRUNING
-    if (G(120, !in_check) &&
-        G(120, quiets_evaluated > 1 + depth * depth >> !improving) &&
-        G(120, alpha == beta - 1)) {
+    if (G(120, !in_check) && G(120, alpha == beta - 1) &&
+        G(120, quiets_evaluated > 1 + depth * depth >> !improving)) {
       break;
     }
   }
