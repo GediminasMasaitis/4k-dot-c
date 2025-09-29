@@ -1065,7 +1065,7 @@ typedef struct [[nodiscard]] {
   G(68, i32 static_eval;)
   G(68, Move killer;)
   G(68, i32 num_moves;)
-  G(68, u64 position_hash;)
+  G(68, u32 position_hash;)
   G(68, Move best_move;)
 } SearchStack;
 
@@ -1091,7 +1091,7 @@ G(95, S(1) size_t max_time;)
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
 
-[[nodiscard]] __attribute__((target("aes"))) S(1) u64
+[[nodiscard]] __attribute__((target("aes"))) S(1) u32
     get_hash(const Position *const pos) {
   i128 hash = {0};
 
@@ -1113,7 +1113,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
 #include <arm_neon.h>
 
-[[nodiscard]] __attribute__((target("+aes"))) u64
+[[nodiscard]] __attribute__((target("+aes"))) u32
 get_hash(const Position *const pos) {
   uint8x16_t hash = vdupq_n_u8(0);
 
@@ -1168,7 +1168,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
     return alpha;
   }
 
-  const u64 tt_hash = get_hash(pos);
+  const u32 tt_hash = get_hash(pos);
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
