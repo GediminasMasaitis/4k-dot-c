@@ -1236,7 +1236,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
       npos.ep = 0;
       const i32 score = -search(
           H(96, 2, &npos), H(96, 2, -beta), H(96, 2, ply + 1),
-          H(96, 2, depth - 3 - depth / 4), H(97, 2, stack),
+          H(96, 2, depth - 4 - depth / 6), H(97, 2, stack),
 #ifdef FULL
           nodes,
 #endif
