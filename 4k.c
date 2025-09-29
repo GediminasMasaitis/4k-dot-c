@@ -1358,7 +1358,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
               119, if (stack[ply].best_move.takes_piece == None) {
                 stack[ply].killer = stack[ply].best_move;
               })
-          G(119, const i32 bonus = depth * depth;
+          G(119, const i32 bonus = depth * depth + 1;
             G(120,
               i32 *const this_hist =
                   &move_history[pos->flipped][stack[ply].best_move.takes_piece]
