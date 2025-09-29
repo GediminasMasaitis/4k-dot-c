@@ -942,19 +942,19 @@ G(70, S(1) const EvalParams eg = ((EvalParams){
 S(1) void init() {
   // INIT DIAGONAL MASKS
   G(
+      44, // MERGE MATERIAL VALUES
+      for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
+        eval_params.material[i] = combine_eval_param(H(71, 2, mg.material[i]),
+                                                     H(71, 2, eg.material[i]));
+      })
+
+  G(
       44, for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] = G(73, ray(H(15, 4, 0), H(15, 4, ~0x8080808080808080ull),
                                   H(15, 4, bb), H(15, 4, -9))) | // Northeast
                         G(73, ray(H(15, 5, 0), H(15, 5, ~0x101010101010101ull),
                                   H(15, 5, bb), H(15, 5, 9))); // Southwest
-      })
-
-  G(
-      44, // MERGE MATERIAL VALUES
-      for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
-        eval_params.material[i] = combine_eval_param(H(71, 2, mg.material[i]),
-                                                     H(71, 2, eg.material[i]));
       })
   G(
       44, // MERGE NON-MATERIAL VALUES
@@ -1065,16 +1065,16 @@ typedef struct [[nodiscard]] {
   G(68, i32 static_eval;)
   G(68, Move killer;)
   G(68, i32 num_moves;)
-  G(68, u32 position_hash;)
   G(68, Move best_move;)
+  G(68, u32 position_hash;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
+  G(94, u8 flag;)
   G(94, i16 score;)
   G(94, i8 depth;)
-  G(94, Move move;)
   G(94, u16 partial_hash;)
-  G(94, u8 flag;)
+  G(94, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1086,7 +1086,7 @@ enum { mate = 30000, inf = 32000 };
 G(95, S(1) i32 move_history[2][6][64][64];)
 G(95, S(1) TTEntry tt[tt_length];)
 G(95, S(0) size_t start_time;)
-G(95, S(1) size_t max_time;)
+G(95, S(0) size_t max_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1145,12 +1145,12 @@ get_hash(const Position *const pos) {
 S(1)
 i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
            H(96, 1, const i32 ply), H(96, 1, i32 depth),
-           H(97, 1, SearchStack *restrict stack),
+           H(97, 1, const bool do_null),
 #ifdef FULL
            u64 *nodes,
 #endif
-           H(97, 1, const bool do_null), H(97, 1, const i32 pos_history_count),
-           H(97, 1, const i32 beta)) {
+           H(97, 1, SearchStack *restrict stack),
+           H(97, 1, const i32 pos_history_count), H(97, 1, const i32 beta)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1236,11 +1236,11 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
       npos.ep = 0;
       const i32 score = -search(
           H(96, 2, &npos), H(96, 2, -beta), H(96, 2, ply + 1),
-          H(96, 2, depth - 3 - depth / 4), H(97, 2, stack),
+          H(96, 2, depth - 3 - depth / 4), H(97, 2, false),
 #ifdef FULL
           nodes,
 #endif
-          H(97, 2, false), H(97, 2, pos_history_count), H(97, 2, -alpha));
+          H(97, 2, stack), H(97, 2, pos_history_count), H(97, 2, -alpha));
       if (score >= beta) {
         return score;
       }
@@ -1323,11 +1323,11 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
     while (true) {
       score = -search(
           H(96, 3, &npos), H(96, 3, low), H(96, 3, ply + 1),
-          H(96, 3, depth - G(117, 1) - G(117, reduction)), H(97, 3, stack),
+          H(96, 3, depth - G(117, 1) - G(117, reduction)), H(97, 3, true),
 #ifdef FULL
           nodes,
 #endif
-          H(97, 3, true), H(97, 3, pos_history_count), H(97, 3, -alpha));
+          H(97, 3, stack), H(97, 3, pos_history_count), H(97, 3, -alpha));
 
       if (score > alpha) {
         if (reduction != 0) {
@@ -1421,11 +1421,11 @@ void iteratively_deepen(
 #endif
     i32 score =
         search(H(96, 4, pos), H(96, 4, -inf), H(96, 4, 0), H(96, 4, depth),
-               H(97, 4, stack),
+               H(97, 4, false),
 #ifdef FULL
                nodes,
 #endif
-               H(97, 4, false), H(97, 4, pos_history_count), H(97, 4, inf));
+               H(97, 4, stack), H(97, 4, pos_history_count), H(97, 4, inf));
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
