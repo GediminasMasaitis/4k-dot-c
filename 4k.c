@@ -436,7 +436,7 @@ G(
       }
 
       G(30, str[5] = '\0';)
-      G(30, str[4] = "\0\0nbrq"[move->promo];)
+      G(30, str[4] = "\0\0nbrq"[move->promo >> 4];)
     })
 
 G(
@@ -533,7 +533,7 @@ G(
 
       G(45, const u64 from = 1ull << move->from;)
       G(45, const u64 to = 1ull << move->to;)
-      G(46, const i32 piece = piece_on(H(31, 3, pos), H(31, 3, move->from));
+      G(46, const i32 piece = move->promo & 0xF;
         assert(piece != None);)
       G(46, const u64 mask = from | to;)
 
@@ -573,9 +573,9 @@ G(
 
       G(
           33, // Promotions
-          if (move->promo != None) {
+          if ((move->promo >> 4) != None) {
             G(54, pos->pieces[Pawn] ^= to;)
-            G(54, pos->pieces[move->promo] ^= to;)
+            G(54, pos->pieces[move->promo >> 4] ^= to;)
           })
 
       G(52, // Update castling permissions
@@ -635,7 +635,7 @@ G(
             G(59, *movelist++ = ((Move){
                       .from = from,
                       .to = to,
-                      .promo = None,
+                      .promo = piece,
                       .takes_piece = piece_on(H(31, 4, pos), H(31, 4, to))});)
             G(59, moves &= moves - 1;)
           }
@@ -663,11 +663,11 @@ G(
         if (to > 55) {
           for (u8 piece = Queen; piece >= Knight; piece--) {
             *movelist++ = ((Move){
-                .from = from, .to = to, .promo = piece, .takes_piece = takes});
+                .from = from, .to = to, .promo = (piece << 4) | Pawn, .takes_piece = takes});
           }
         } else {
           *movelist++ = ((Move){
-              .from = from, .to = to, .promo = None, .takes_piece = takes});
+              .from = from, .to = to, .promo = Pawn, .takes_piece = takes});
         }
       }
 
@@ -712,14 +712,14 @@ enum { max_moves = 218 };
       G(64, !is_attacked(H(33, 3, pos), H(33, 3, true), H(33, 3, 1ULL << 5))) &&
       G(64, !is_attacked(H(33, 4, pos), H(33, 4, true), H(33, 4, 1ULL << 4)))) {
     *movelist++ =
-        (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
+        (Move){.from = 4, .to = 6, .promo = King, .takes_piece = None};
   }
   if (G(65, !only_captures) && G(65, pos->castling[1]) &&
       G(65, !(all & 0xEull)) &&
       G(66, !is_attacked(H(33, 5, pos), H(33, 5, true), H(33, 5, 1ULL << 3))) &&
       G(66, !is_attacked(H(33, 6, pos), H(33, 6, true), H(33, 6, 1ULL << 4)))) {
     *movelist++ =
-        (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
+        (Move){.from = 4, .to = 2, .promo = King, .takes_piece = None};
   }
   movelist = generate_piece_moves(H(56, 2, to_mask), H(56, 2, movelist),
                                   H(56, 2, pos));
@@ -1295,7 +1295,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
           G(114, static_eval + 136 * depth) +
                   G(114,
                     max_material[stack[ply].moves[move_index].takes_piece]) +
-                  G(114, max_material[stack[ply].moves[move_index].promo]) <
+                  G(114, max_material[stack[ply].moves[move_index].promo >> 4]) <
               alpha) &&
         G(113, moves_evaluated) && G(113, !in_check)) {
       break;
