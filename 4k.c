@@ -1291,7 +1291,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
               G(113, &stack[ply].moves[move_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(114, depth < 8) &&
+    if (ply > 0 && G(114, depth < 8) &&
         G(114,
           G(115, static_eval + 136 * depth) +
                   G(115, max_material[stack[ply].moves[move_index].promo]) +
@@ -1418,18 +1418,29 @@ void iteratively_deepen(
     H(123, 1, SearchStack *restrict stack),
     H(123, 1, const i32 pos_history_count)) {
   start_time = get_time();
+  i32 score = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    i32 score =
-        search(H(96, 4, pos), H(96, 4, -inf), H(96, 4, 0), H(96, 4, depth),
+    i32 alpha = score - 64;
+    i32 beta = score + 64;
+    while(true)
+    {
+        score = search(H(96, 4, pos), H(96, 4, alpha), H(96, 4, 0), H(96, 4, depth),
                H(97, 4, false),
 #ifdef FULL
                nodes,
 #endif
-               H(97, 4, stack), H(97, 4, pos_history_count), H(97, 4, inf));
+               H(97, 4, stack), H(97, 4, pos_history_count), H(97, 4, beta));
+        if(score > alpha && score < beta){
+          break;
+        }
+        i32 alpha = -inf;
+        i32 beta = inf;
+    }
+
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
