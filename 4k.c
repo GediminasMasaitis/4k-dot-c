@@ -1253,7 +1253,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
   G(96, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
   G(96, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(96, stack[ply].num_moves = movegen(
-            H(61, 3, pos), H(61, 3, stack[ply].moves), H(61, 3, in_qsearch));)
+            H(61, 3, pos), H(61, 3, stack[ply].moves), H(61, 3, in_qsearch && !in_check));)
   G(96, u8 tt_flag = Upper;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
