@@ -515,6 +515,10 @@ G(
       return moves;
     })
 
+S(1) i32 find_in_check(const Position* restrict pos) {
+  return is_attacked(H(33, 2, pos), H(33, 2, pos->colour[0] & pos->pieces[King]));
+}
+
 G(
     45, S(0) i32 makemove(H(46, 1, Position *const restrict pos),
                           H(46, 1, const Move *const restrict move)) {
@@ -582,8 +586,7 @@ G(
                 G(57, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
                     G(57, pos->castling[0] &= !(mask & 0x90ull);))
 
-      if (is_attacked(H(33, 2, pos),
-                      H(33, 2, pos->colour[0] & pos->pieces[King]))) {
+      if (find_in_check(pos)) {
         return false;
       }
 
@@ -1156,8 +1159,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   assert(alpha < beta);
   assert(ply >= 0);
 
-  const bool in_check =
-      is_attacked(H(33, 7, pos), H(33, 7, pos->colour[0] & pos->pieces[King]));
+  const bool in_check = find_in_check(pos);
 
   // IN-CHECK EXTENSION
   if (in_check) {
