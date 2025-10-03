@@ -468,11 +468,9 @@ G(
               assert(count(bb) == 1);
               const u64 theirs = pos->colour[1];
               const u64 pawns = theirs & pos->pieces[Pawn];
-              if ((sw(pawns) | se(pawns)) & bb) {
-                return true;
-              }
               const u64 blockers = pos->colour[0] | pos->colour[1];
-              return G(34, bishop(H(18, 2, blockers), H(18, 2, bb)) & theirs &
+              return G(34, (G(999, sw(pawns)) | G(999, se(pawns))) & bb) ||
+                     G(34, bishop(H(18, 2, blockers), H(18, 2, bb)) & theirs &
                                (pos->pieces[Bishop] | pos->pieces[Queen])) ||
                      G(34, knight(bb) & theirs & pos->pieces[Knight]) ||
                      G(34, king(bb) & theirs & pos->pieces[King]) ||
