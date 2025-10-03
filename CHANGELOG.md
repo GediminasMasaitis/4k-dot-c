@@ -6748,6 +6748,17 @@ MD5: e5c687e5e0f6e6f97d5ea821e120fda6
 
 No history bonus in qsearch
 
+-Oz:
+```py
+info depth 6 nodes 119060324 time 5684 nps 20946573
+```
+
+-O3:
+```py
+perft 6
+info depth 6 nodes 119060324 time 2984 nps 39899572
+```
+
 ```py
 info depth 1 score cp 29 time 0 nodes 20 pv b1c3
 info depth 2 score cp 17 time 0 nodes 104 pv b1c3
@@ -6788,4 +6799,57 @@ LLR   | 2.95 (-2.94, 2.94) [-5.00, 0.00]
 Games | N: 22930 W: 6534 L: 6507 D: 9889
 Penta | [601, 2771, 4716, 2754, 623]
 https://gedas.pythonanywhere.com/test/1178/
+```
+
+### 4.49
+
+64 bit: 4061 bytes (-7)
+
+MD5: 914cd3d79b0b9437c42bac11c63ebac0
+
+Simplify is_attacked and speedup
+
+-Oz:
+```py
+perft 6
+info depth 6 nodes 119060324 time 7317 nps 16271740
+```
+
+-O3:
+```py
+perft 6
+info depth 6 nodes 119060324 time 3799 nps 31339911
+```
+
+```py
+info depth 1 score cp 29 time 0 nodes 20 pv b1c3
+info depth 2 score cp 17 time 0 nodes 104 pv b1c3
+info depth 3 score cp 29 time 0 nodes 241 pv b1c3
+info depth 4 score cp 18 time 1 nodes 423 nps 423000 pv b1c3
+info depth 5 score cp 13 time 2 nodes 1391 nps 695500 pv d2d4
+info depth 6 score cp 14 time 3 nodes 2673 nps 891000 pv d2d4
+info depth 7 score cp 12 time 5 nodes 4803 nps 960600 pv d2d4
+info depth 8 score cp 17 time 14 nodes 13932 nps 995142 pv d2d4
+info depth 9 score cp 12 time 23 nodes 24208 nps 1052521 pv d2d4
+info depth 10 score cp 17 time 35 nodes 41218 nps 1177657 pv d2d4
+info depth 11 score cp 28 time 61 nodes 94294 nps 1545803 pv d2d4
+info depth 12 score cp 32 time 108 nodes 200535 nps 1856805 pv d2d4
+info depth 13 score cp 20 time 179 nodes 369525 nps 2064385 pv d2d4
+info depth 14 score cp 17 time 293 nodes 639838 nps 2183747 pv d2d4
+info depth 15 score cp 33 time 727 nodes 1698375 nps 2336141 pv e2e4
+info depth 16 score cp 24 time 1030 nodes 2446315 nps 2375063 pv e2e4
+info depth 17 score cp 26 time 1578 nodes 3851763 nps 2440914 pv e2e4
+info depth 18 score cp 26 time 2440 nodes 6097287 nps 2498888 pv e2e4
+info depth 19 score cp 26 time 3951 nodes 9966603 nps 2522552 pv e2e4
+bestmove e2e4
+9966603 nodes 2522552 nps
+```
+
+```py
+Elo   | 0.90 +- 6.25 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.91 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 5776 W: 1740 L: 1725 D: 2311
+Penta | [171, 678, 1208, 627, 204]
+https://gedas.pythonanywhere.com/test/1182/
 ```
