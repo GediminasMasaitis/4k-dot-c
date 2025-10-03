@@ -464,11 +464,11 @@ G(
 G(
     32, [[nodiscard]] S(1)
             i32 is_attacked(H(33, 1, const Position *const restrict pos),
-                            H(33, 1, const u64 bb), H(33, 1, const i32 them)) {
+                            H(33, 1, const u64 bb)) {
               assert(count(bb) == 1);
-              const u64 theirs = pos->colour[them];
+              const u64 theirs = pos->colour[1];
               const u64 pawns = theirs & pos->pieces[Pawn];
-              if ((them ? sw(pawns) | se(pawns) : nw(pawns) | ne(pawns)) & bb) {
+              if ((sw(pawns) | se(pawns)) & bb) {
                 return true;
               }
               const u64 blockers = pos->colour[0] | pos->colour[1];
@@ -584,6 +584,10 @@ G(
                 G(55, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
                     G(55, pos->castling[0] &= !(mask & 0x90ull);))
 
+      if(is_attacked(H(33, 2, pos), H(33, 2, pos->colour[0] & pos->pieces[King]))) {
+        return false;
+      }
+
       flip_pos(pos);
 
       assert(!(pos->colour[0] & pos->colour[1]));
@@ -604,9 +608,7 @@ G(
       assert(!(pos->pieces[Queen] & pos->pieces[King]));
 
       // Return move legality
-      return !is_attacked(H(33, 2, pos),
-                          H(33, 2, pos->colour[1] & pos->pieces[King]),
-                          H(33, 2, false));
+      return true;
     })
 
 G(
@@ -710,15 +712,15 @@ enum { max_moves = 218 };
       H(60, 5, -9));
   if (G(63, !only_captures) && G(63, pos->castling[0]) &&
       G(63, !(all & 0x60ull)) &&
-      G(64, !is_attacked(H(33, 3, pos), H(33, 3, 1ULL << 5), H(33, 3, true))) &&
-      G(64, !is_attacked(H(33, 4, pos), H(33, 4, 1ULL << 4), H(33, 4, true)))) {
+      G(64, !is_attacked(H(33, 3, pos), H(33, 3, 1ULL << 5))) &&
+      G(64, !is_attacked(H(33, 4, pos), H(33, 4, 1ULL << 4)))) {
     *movelist++ =
         (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
   }
   if (G(65, !only_captures) && G(65, pos->castling[1]) &&
       G(65, !(all & 0xEull)) &&
-      G(66, !is_attacked(H(33, 5, pos), H(33, 5, 1ULL << 3), H(33, 5, true))) &&
-      G(66, !is_attacked(H(33, 6, pos), H(33, 6, 1ULL << 4), H(33, 6, true)))) {
+      G(66, !is_attacked(H(33, 5, pos), H(33, 5, 1ULL << 3))) &&
+      G(66, !is_attacked(H(33, 6, pos), H(33, 6, 1ULL << 4)))) {
     *movelist++ =
         (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
   }
@@ -1155,9 +1157,7 @@ i16 search(H(96, 1, Position *const restrict pos), H(96, 1, i32 alpha),
   assert(alpha < beta);
   assert(ply >= 0);
 
-  const bool in_check =
-      is_attacked(H(33, 7, pos), H(33, 7, pos->colour[0] & pos->pieces[King]),
-                  H(33, 7, true));
+  const bool in_check = is_attacked(H(33, 7, pos), H(33, 7, pos->colour[0] & pos->pieces[King]));
 
   // IN-CHECK EXTENSION
   if (in_check) {
