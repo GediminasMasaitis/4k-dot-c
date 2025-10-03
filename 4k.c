@@ -393,7 +393,7 @@ G(
 
 G(
     22,
-    S(1) void swapu32(G(23, u32 *const lhs), G(23, u32 *const rhs)) {
+    S(1) void swapu32(G(23, u32 *const rhs), G(23, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -486,12 +486,12 @@ G(
           })
 
       G(37, swapu64(G(39, &pos->colour[0]), G(39, &pos->colour[1]));)
+      G(37, pos->flipped ^= 1;)
       G(
           37, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-      G(37, pos->flipped ^= 1;)
     })
 
 G(
@@ -515,8 +515,9 @@ G(
       return moves;
     })
 
-S(1) i32 find_in_check(const Position* restrict pos) {
-  return is_attacked(H(33, 2, pos), H(33, 2, pos->colour[0] & pos->pieces[King]));
+S(1) i32 find_in_check(const Position *restrict pos) {
+  return is_attacked(H(33, 2, pos),
+                     H(33, 2, pos->colour[0] & pos->pieces[King]));
 }
 
 G(
@@ -1075,10 +1076,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(96, i8 depth;)
   G(96, u16 partial_hash;)
-  G(96, Move move;)
   G(96, i16 score;)
+  G(96, i8 depth;)
+  G(96, Move move;)
   G(96, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1190,9 +1191,8 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(103, alpha == beta - 1) &&
-        G(103, tt_entry->flag != tt_entry->score <= alpha) &&
-        G(103, tt_entry->depth >= depth)) {
+    if (G(103, alpha == beta - 1) && G(103, tt_entry->depth >= depth) &&
+        G(103, tt_entry->flag != tt_entry->score <= alpha)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1250,8 +1250,8 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     }
   }
 
-  G(98, i32 quiets_evaluated = 0;)
   G(98, i32 moves_evaluated = 0;)
+  G(98, i32 quiets_evaluated = 0;)
   G(98, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
   G(98, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(98, stack[ply].num_moves = movegen(
@@ -1296,11 +1296,11 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     if (G(116, depth < 8) &&
         G(116,
           G(117, static_eval + 136 * depth) +
-                  G(117, max_material[stack[ply].moves[move_index].promo]) +
                   G(117,
-                    max_material[stack[ply].moves[move_index].takes_piece]) <
+                    max_material[stack[ply].moves[move_index].takes_piece]) +
+                  G(117, max_material[stack[ply].moves[move_index].promo]) <
               alpha) &&
-        G(116, moves_evaluated) && G(116, !in_check)) {
+        G(116, !in_check) && G(116, moves_evaluated)) {
       break;
     }
 
@@ -1317,10 +1317,15 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(118, depth > 1) && G(118, moves_evaluated > 6)
-                        ? G(119, (alpha == beta - 1)) +
-                              G(119, moves_evaluated / 11) + G(119, !improving)
-                        : 0;
+    i32 reduction =
+        G(118, depth > 1) && G(118, moves_evaluated > 6)
+            ? G(119, (alpha == beta - 1)) + G(119, moves_evaluated / 11) +
+                  G(119, !improving) +
+                  G(119, (move_history[pos->flipped]
+                                      [stack[ply].moves[move_index].takes_piece]
+                                      [stack[ply].moves[move_index].from]
+                                      [stack[ply].moves[move_index].to] < 0))
+            : 0;
 
     i32 score;
     while (true) {
@@ -1573,7 +1578,6 @@ S(1) void run() {
   G(126, char line[4096];)
   G(126, Position pos;)
   G(126, i32 pos_history_count;)
-  G(126, init();)
   G(126, __builtin_memset(move_history, 0, sizeof(move_history));)
   G(126, // #ifdef LOWSTACK
          //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
@@ -1581,6 +1585,7 @@ S(1) void run() {
     SearchStack stack[1024];
     // #endif
   )
+  G(126, init();)
 
 #ifdef FULL
   pos = start_pos;
