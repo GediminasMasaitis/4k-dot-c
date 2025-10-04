@@ -271,9 +271,9 @@ typedef struct [[nodiscard]] {
 } Move;
 
 typedef struct [[nodiscard]] {
-  G(6, u64 ep;)
   G(6, u64 pieces[7];)
   G(6, u64 colour[2];)
+  u64 ep;
   G(7, bool castling[4];)
   G(7, bool flipped;)
   G(7, u8 padding[11];)
@@ -1100,50 +1100,41 @@ enum { pawn_corrhist_size = 16384 };
 enum { corrhist_scaling = 256 };
 enum { corrhist_keep_part = 256 };
 
-G(97, S(1) i16 pawn_corrhist[2][pawn_corrhist_size];)
+G(97, S(1) i16 corrhist[2][7][pawn_corrhist_size];)
 G(97, S(1) i32 move_history[2][6][64][64];)
 G(97, S(0) size_t max_time;)
 G(97, S(0) size_t start_time;)
 G(97, S(1) TTEntry tt[tt_length];)
 
+typedef struct [[nodiscard]] {
+  u64 hashes[7];
+} HashBag;
+
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
 
-[[nodiscard]] __attribute__((target("aes"))) S(0) u64
-    get_hash(const Position *const pos) {
+__attribute__((target("aes"))) S(0) void
+    get_hash(const Position *const pos, HashBag *bag) {
   i128 hash = {0};
 
-  // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 6; i++) {
-    i128 key;
-    __builtin_memcpy(&key, data + i * 16, 16);
-    hash = __builtin_ia32_aesenc128(hash, key);
+  for (i32 i = Pawn; i < sizeof(Position) / 8; i++) {
+    i128 key = {0};
+    __builtin_memcpy(&key, data + i * 8, 8);
+    //Initial
+    i128 piece_hash = __builtin_ia32_aesenc128(hash, key);
+    //Mixing
+    piece_hash = __builtin_ia32_aesenc128(piece_hash, piece_hash);
+    if (i <= King)
+    {
+      bag->hashes[i] = piece_hash[0];
+    }
+    hash ^= piece_hash;
   }
 
-  // FINAL ROUND FOR BIT MIXING
-  hash = __builtin_ia32_aesenc128(hash, hash);
-
-  // USE FIRST 64 BITS AS POSITION HASH
-  return hash[0];
+  bag->hashes[0] = hash[0];
 }
 
-[[nodiscard]] __attribute__((target("aes"))) S(0) u64
-    get_pawn_hash(const Position *const pos) {
-  i128 hash = {0};
-
-  // PAWN HASH
-  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
-  i128 key;
-  __builtin_memcpy(&key, data, 8);
-  hash = __builtin_ia32_aesenc128(hash, key);
-
-  // FINAL ROUND FOR BIT MIXING
-  hash = __builtin_ia32_aesenc128(hash, hash);
-
-  // USE FIRST 64 BITS AS POSITION HASH
-  return hash[0];
-}
 #elif defined(__aarch64__)
 
 #include <arm_neon.h>
@@ -1161,28 +1152,6 @@ get_hash(const Position *const pos) {
     hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
     hash = veorq_u8(hash, key);
   }
-
-  // FINAL ROUND FOR BIT MIXING
-  uint8x16_t key = hash;
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, key);
-
-  // USE FIRST 64 BITS AS POSITION HASH
-  u64 result;
-  memcpy(&result, &hash, sizeof(result));
-  return result;
-}
-
-[[nodiscard]] __attribute__((target("+aes"))) u64
-get_pawn_hash(const Position *const pos) {
-  uint8x16_t hash = vdupq_n_u8(0);
-
-  // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
-  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
-  uint8x16_t key;
-  memcpy(&key, data, 8);
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, key);
 
   // FINAL ROUND FOR BIT MIXING
   uint8x16_t key = hash;
@@ -1223,7 +1192,9 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     return alpha;
   }
 
-  const u64 tt_hash = get_hash(pos);
+  HashBag bag;
+  get_hash(pos, &bag);
+  const u64 tt_hash = bag.hashes[0];
 
   // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
@@ -1254,8 +1225,10 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
-  const u64 pawn_hash = get_pawn_hash(pos);
-  i32 static_eval = eval(pos) + pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] / corrhist_scaling;
+  i32 static_eval = eval(pos);
+  for (i32 piece = Pawn; piece <= King; piece++) {
+    static_eval += corrhist[pos->flipped][piece][bag.hashes[piece] % pawn_corrhist_size] / corrhist_scaling;
+  }
   
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1459,12 +1432,14 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   //if(!in_qsearch && !in_check && stack[ply].best_move.takes_piece == None && (tt_flag != Lower || best_score > static_eval)) {
 
   if (!(in_qsearch || in_check || (stack[ply].best_move.takes_piece && tt_flag != Upper) || (tt_flag == Lower && best_score <= static_eval) || (tt_flag == Upper && best_score >= static_eval))) {
-    i16* entry = &pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
-    const i32 old_scaled = *entry * (corrhist_keep_part - depth);
-    const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
-    const i32 new_scaled = scaled_gradient * depth;
-    const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
-    *entry = min(max(updated_value, -8192), 8192);
+    for (i32 piece = Pawn; piece <= King; piece++) {
+      i16* entry = &corrhist[pos->flipped][piece][bag.hashes[piece] % pawn_corrhist_size];
+      const i32 old_scaled = *entry * (corrhist_keep_part - depth);
+      const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
+      const i32 new_scaled = scaled_gradient * depth;
+      const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
+      *entry = min(max(updated_value, -8192), 8192);
+    }
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
@@ -1585,7 +1560,9 @@ S(1) void display_pos(Position *const pos) {
     putl("q");
   }
   printf("\nEn passant: %d", lsb(npos.ep));
-  printf("\nHash: %llu", get_hash(&npos));
+  HashBag bag;
+  get_hash(&npos, &bag);
+  printf("\nHash: %llu", bag.hashes[0]);
   putl("\nEval: ");
   i32 score = eval(pos);
   if (pos->flipped) {
@@ -1613,7 +1590,7 @@ S(1) void bench() {
   SearchStack stack[1024];
 #endif
   __builtin_memset(move_history, 0, sizeof(move_history));
-  __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
+  __builtin_memset(corrhist, 0, sizeof(corrhist));
   pos = start_pos;
   max_time = 99999999999;
   u64 nodes = 0;
@@ -1674,7 +1651,7 @@ S(1) void run() {
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
       __builtin_memset(move_history, 0, sizeof(move_history));
-      __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
+      __builtin_memset(corrhist, 0, sizeof(corrhist));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
@@ -1719,7 +1696,9 @@ S(1) void run() {
           assert(move_string_equal(line, move_name) ==
                  !strcmp(line, move_name));
           if (move_string_equal(G(129, line), G(129, move_name))) {
-            stack[pos_history_count].position_hash = get_hash(&pos);
+            HashBag bag;
+            get_hash(&pos, &bag);
+            stack[pos_history_count].position_hash = bag.hashes[0];
             pos_history_count++;
             if (stack[0].moves[i].takes_piece != None) {
               pos_history_count = 0;
