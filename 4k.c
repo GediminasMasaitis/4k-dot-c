@@ -1458,7 +1458,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
   //if(!in_qsearch && !in_check && stack[ply].best_move.takes_piece == None && (tt_flag != Lower || best_score > static_eval)) {
 
-  if (!(in_qsearch || in_check || stack[ply].best_move.takes_piece || (tt_flag == Lower && best_score <= static_eval) || (tt_flag == Upper && best_score >= static_eval))) {
+  if (!(in_qsearch || in_check || (stack[ply].best_move.takes_piece && tt_flag != Upper) || (tt_flag == Lower && best_score <= static_eval) || (tt_flag == Upper && best_score >= static_eval))) {
     i16* entry = &pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
     const i32 old_scaled = *entry * (corrhist_keep_part - depth);
     const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
