@@ -279,6 +279,14 @@ typedef struct [[nodiscard]] {
   G(7, u8 padding[11];)
 } Position;
 
+S(1) i16 min(i16 lhs, i16 rhs) {
+  return lhs < rhs ? lhs : rhs;
+}
+
+S(1) i16 max(i16 lhs, i16 rhs) {
+  return lhs > rhs ? lhs : rhs;
+}
+
 [[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict lhs),
                                           G(8, const char *restrict rhs)) {
   return (G(9, *(const u64 *)rhs) ^ G(9, *(const u64 *)lhs)) << 24 == 0;
@@ -515,8 +523,9 @@ G(
       return moves;
     })
 
-S(1) i32 find_in_check(const Position* restrict pos) {
-  return is_attacked(H(33, 2, pos), H(33, 2, pos->colour[0] & pos->pieces[King]));
+S(1) i32 find_in_check(const Position *restrict pos) {
+  return is_attacked(H(33, 2, pos),
+                     H(33, 2, pos->colour[0] & pos->pieces[King]));
 }
 
 G(
@@ -1087,7 +1096,11 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 30000, inf = 32000 };
+enum { pawn_corrhist_size = 16384 };
+enum { corrhist_scaling = 256 };
+enum { corrhist_keep_part = 256 };
 
+G(97, S(1) i16 pawn_corrhist[2][pawn_corrhist_size];)
 G(97, S(1) i32 move_history[2][6][64][64];)
 G(97, S(0) size_t max_time;)
 G(97, S(0) size_t start_time;)
@@ -1114,6 +1127,23 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   // USE FIRST 64 BITS AS POSITION HASH
   return hash[0];
 }
+
+[[nodiscard]] __attribute__((target("aes"))) S(0) u64
+    get_pawn_hash(const Position *const pos) {
+  i128 hash = {0};
+
+  // PAWN HASH
+  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
+  i128 key;
+  __builtin_memcpy(&key, data, 8);
+  hash = __builtin_ia32_aesenc128(hash, key);
+
+  // FINAL ROUND FOR BIT MIXING
+  hash = __builtin_ia32_aesenc128(hash, hash);
+
+  // USE FIRST 64 BITS AS POSITION HASH
+  return hash[0];
+}
 #elif defined(__aarch64__)
 
 #include <arm_neon.h>
@@ -1131,6 +1161,28 @@ get_hash(const Position *const pos) {
     hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
     hash = veorq_u8(hash, key);
   }
+
+  // FINAL ROUND FOR BIT MIXING
+  uint8x16_t key = hash;
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key);
+
+  // USE FIRST 64 BITS AS POSITION HASH
+  u64 result;
+  memcpy(&result, &hash, sizeof(result));
+  return result;
+}
+
+[[nodiscard]] __attribute__((target("+aes"))) u64
+get_pawn_hash(const Position *const pos) {
+  uint8x16_t hash = vdupq_n_u8(0);
+
+  // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
+  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
+  uint8x16_t key;
+  memcpy(&key, data, 8);
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key);
 
   // FINAL ROUND FOR BIT MIXING
   uint8x16_t key = hash;
@@ -1202,7 +1254,9 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
-  i32 static_eval = eval(pos);
+  const u64 pawn_hash = get_pawn_hash(pos);
+  i32 static_eval = eval(pos) + pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] / corrhist_scaling;
+  
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (G(104, tt_entry->partial_hash == tt_hash_partial) &&
@@ -1400,6 +1454,17 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   // MATE / STALEMATE DETECTION
   if (best_score == -inf) {
     return (ply - mate) * in_check;
+  }
+
+  //if(!in_qsearch && !in_check && stack[ply].best_move.takes_piece == None && (tt_flag != Lower || best_score > static_eval)) {
+
+  if (!(in_qsearch || in_check || (tt_flag == Lower && best_score <= static_eval) || (tt_flag == Upper && best_score >= static_eval))) {
+    i16* entry = &pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
+    const i32 old_scaled = *entry * (corrhist_keep_part - depth);
+    const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
+    const i32 new_scaled = scaled_gradient * depth;
+    const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
+    *entry = min(max(updated_value, -8192), 8192);
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
