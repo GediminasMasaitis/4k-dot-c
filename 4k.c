@@ -1096,11 +1096,11 @@ enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 30000, inf = 32000 };
-enum { pawn_corrhist_size = 16384 };
+enum { corrhist_size = 16384 };
 enum { corrhist_scaling = 256 };
 enum { corrhist_keep_part = 256 };
 
-G(97, S(1) i16 corrhist[2][7][pawn_corrhist_size];)
+G(97, S(1) i16 corrhist[2][7][corrhist_size];)
 G(97, S(1) i32 move_history[2][6][64][64];)
 G(97, S(0) size_t max_time;)
 G(97, S(0) size_t start_time;)
@@ -1118,11 +1118,12 @@ __attribute__((target("aes"))) S(0) void
   i128 hash = {0};
 
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = Pawn; i < sizeof(Position) / 8; i++) {
+  for (i32 i = Pawn; i <= King; i++) {
     i128 key = {0};
     __builtin_memcpy(&key, data + i * 8, 8);
     //Initial
-    i128 piece_hash = __builtin_ia32_aesenc128(hash, key);
+    i128 piece_hash = { 0 };
+    piece_hash = __builtin_ia32_aesenc128(piece_hash, key);
     //Mixing
     piece_hash = __builtin_ia32_aesenc128(piece_hash, piece_hash);
     if (i <= King)
@@ -1227,7 +1228,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   i32 static_eval = eval(pos);
   for (i32 piece = Pawn; piece <= King; piece++) {
-    static_eval += corrhist[pos->flipped][piece][bag.hashes[piece] % pawn_corrhist_size] / corrhist_scaling;
+    static_eval += corrhist[pos->flipped][piece][bag.hashes[piece] % corrhist_size] / corrhist_scaling;
   }
   
   stack[ply].static_eval = static_eval;
@@ -1433,7 +1434,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
   if (!(in_qsearch || in_check || (stack[ply].best_move.takes_piece && tt_flag != Upper) || (tt_flag == Lower && best_score <= static_eval) || (tt_flag == Upper && best_score >= static_eval))) {
     for (i32 piece = Pawn; piece <= King; piece++) {
-      i16* entry = &corrhist[pos->flipped][piece][bag.hashes[piece] % pawn_corrhist_size];
+      i16* entry = &corrhist[pos->flipped][piece][bag.hashes[piece] % corrhist_size];
       const i32 old_scaled = *entry * (corrhist_keep_part - depth);
       const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
       const i32 new_scaled = scaled_gradient * depth;
