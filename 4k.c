@@ -1613,6 +1613,7 @@ S(1) void bench() {
   SearchStack stack[1024];
 #endif
   __builtin_memset(move_history, 0, sizeof(move_history));
+  __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
   pos = start_pos;
   max_time = 99999999999;
   u64 nodes = 0;
@@ -1673,6 +1674,7 @@ S(1) void run() {
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
       __builtin_memset(move_history, 0, sizeof(move_history));
+      __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
