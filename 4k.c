@@ -1106,6 +1106,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
     i128 key;
     __builtin_memcpy(&key, data + i * 16, 16);
     hash = __builtin_ia32_aesenc128(hash, key);
+    hash = __builtin_ia32_aesenc128(hash, hash);
   }
 
   // FINAL ROUND FOR BIT MIXING
@@ -1130,6 +1131,10 @@ get_hash(const Position *const pos) {
 
     hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
     hash = veorq_u8(hash, key);
+
+    uint8x16_t key2 = hash;
+    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+    hash = veorq_u8(hash, key2);
   }
 
   // FINAL ROUND FOR BIT MIXING
