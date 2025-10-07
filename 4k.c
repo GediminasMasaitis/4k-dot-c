@@ -1157,11 +1157,9 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
            u64 *nodes,
 #endif
            H(100, 1, const bool do_null),
-           H(100, 1, const i32 pos_history_count), H(100, 1, const i32 beta), H(100, 1, const i32 checkers)) {
+           H(100, 1, const i32 pos_history_count), H(100, 1, const i32 beta), H(100, 1, const i32 in_check)) {
   assert(alpha < beta);
   assert(ply >= 0);
-
-  const bool in_check = find_in_check(pos);
 
   // IN-CHECK EXTENSION
   if (in_check) {
