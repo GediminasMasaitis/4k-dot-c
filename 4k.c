@@ -1157,7 +1157,7 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
            u64 *nodes,
 #endif
            H(100, 1, const bool do_null),
-           H(100, 1, const i32 pos_history_count), H(100, 1, const i32 beta)) {
+           H(100, 1, const i32 pos_history_count), H(100, 1, const i32 beta), H(100, 1, const i32 checkers)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1245,7 +1245,7 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
 #ifdef FULL
           nodes,
 #endif
-          H(100, 2, false), H(100, 2, pos_history_count), H(100, 2, -alpha));
+          H(100, 2, false), H(100, 2, pos_history_count), H(100, 2, -alpha), H(100, 2, find_in_check(&npos)));
       if (score >= beta) {
         return score;
       }
@@ -1314,13 +1314,16 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
       continue;
     }
 
+    G(999,
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     moves_evaluated++;
+      )
+
+    G(999, const bool checks = find_in_check(&npos);)
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(119, depth > 1) && G(119, moves_evaluated > 6) &&
-                            !find_in_check(&npos)
+    i32 reduction = G(119, depth > 1) && G(119, moves_evaluated > 6)
                         ? G(120, (alpha == beta - 1)) +
                               G(120, moves_evaluated / 11) + G(120, !improving)
                         : 0;
@@ -1333,7 +1336,7 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
 #ifdef FULL
           nodes,
 #endif
-          H(100, 3, true), H(100, 3, pos_history_count), H(100, 3, -alpha));
+          H(100, 3, true), H(100, 3, pos_history_count), H(100, 3, -alpha), H(100, 3, checks));
 
       if (score > alpha) {
         if (reduction != 0) {
@@ -1434,7 +1437,7 @@ void iteratively_deepen(
 #ifdef FULL
                nodes,
 #endif
-               H(100, 4, false), H(100, 4, pos_history_count), H(100, 4, inf));
+               H(100, 4, false), H(100, 4, pos_history_count), H(100, 4, inf), H(100, 4, find_in_check(pos)));
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
