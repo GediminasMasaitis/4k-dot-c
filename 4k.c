@@ -974,10 +974,7 @@ S(1) void init() {
       })
 }
 
-G(76, __attribute__((aligned(8))) S(1)
-          const i16 max_material[] = {0, 86, 398, 392, 706, 1340};)
-G(76,
-  __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
+__attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};
 
 S(1) i32 eval(Position *const restrict pos) {
   G(77, i32 score = eval_params.tempo;)
@@ -1304,9 +1301,9 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
     if (G(117, depth < 8) &&
         G(117,
           G(118, static_eval + 136 * depth) +
-                  G(118, max_material[stack[ply].moves[move_index].promo]) +
+                  G(118, eg.material[stack[ply].moves[move_index].promo]-1) +
                   G(118,
-                    max_material[stack[ply].moves[move_index].takes_piece]) <
+                    eg.material[stack[ply].moves[move_index].takes_piece]-1) <
               alpha) &&
         G(117, moves_evaluated) && G(117, !in_check)) {
       break;
