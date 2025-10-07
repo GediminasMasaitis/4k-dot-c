@@ -393,7 +393,7 @@ G(
 
 G(
     22,
-    S(1) void swapu32(G(23, u32 *const lhs), G(23, u32 *const rhs)) {
+    S(1) void swapu32(G(23, u32 *const rhs), G(23, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -1013,13 +1013,13 @@ S(1) i32 eval(Position *const restrict pos) {
             if ((G(86, north(0x101010101010101ULL << sq)) & G(86, own_pawns)) ==
                 0) { score += eval_params.open_files[p - 1]; })
 
-        G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
-          score += eval_params.pst_file[(p - 1) * 8 + file];)
-        G(62, // SPLIT PIECE-SQUARE TABLES FOR RANK
-          score += eval_params.pst_rank[(p - 1) * 8 + rank];)
-
         G(62, // MATERIAL
           score += eval_params.material[p - 1];)
+        G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
+          score += eval_params.pst_file[(p - 1) * 8 + file];)
+
+        G(62, // SPLIT PIECE-SQUARE TABLES FOR RANK
+          score += eval_params.pst_rank[(p - 1) * 8 + rank];)
 
         G(
             62, if (p > Pawn) {
@@ -1078,10 +1078,10 @@ typedef struct [[nodiscard]] {
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(97, i8 depth;)
-  G(97, u8 flag;)
   G(97, u16 partial_hash;)
-  G(97, i16 score;)
+  G(97, u8 flag;)
   G(97, Move move;)
+  G(97, i16 score;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1254,16 +1254,16 @@ i16 search(H(99, 1, const i32 ply), H(99, 1, i32 alpha), H(99, 1, i32 depth),
 
   G(99, i32 moves_evaluated = 0;)
   G(99, i32 quiets_evaluated = 0;)
+  G(99, u8 tt_flag = Upper;)
+  G(99, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
   G(99, stack[ply].num_moves = movegen(
             H(63, 3, pos), H(63, 3, stack[ply].moves), H(63, 3, in_qsearch));)
   G(99, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(99, u8 tt_flag = Upper;)
-  G(99, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(112, i32 move_score = ~0x1010101LL;)
     G(112, i32 best_index = 0;)
+    G(112, i32 move_score = ~0x1010101LL;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
