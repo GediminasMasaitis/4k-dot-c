@@ -1064,7 +1064,8 @@ S(1) i32 eval(Position *const restrict pos) {
     G(58, flip_pos(pos);)
   }
 
-  return ((short)score * phase + ((score + 0x8000) >> 16) * (24 - phase)) / 24;
+  const i32 stronger_side_pawns_missing = 8 - count(pos->colour[score < 0] & pos->pieces[Pawn]);
+  return ((short)score * phase + ((score + 0x8000) >> 16) * (128 - stronger_side_pawns_missing * stronger_side_pawns_missing) / 128 * (24 - phase)) / 24;
 }
 
 typedef struct [[nodiscard]] {
