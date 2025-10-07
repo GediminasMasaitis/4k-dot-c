@@ -1279,7 +1279,7 @@ get_hash(const Position* const pos) {
 #ifdef FULL
           nodes,
 #endif
-          H(100, 3, true), H(100, 3, pos_history_count), H(100, 3, -alpha), gives_check);
+          H(100, 3, true), H(100, 3, pos_history_count), H(100, 3, -alpha), H(100, 3, gives_check));
 
         if (score > alpha) {
           if (reduction != 0) {
@@ -1377,7 +1377,7 @@ void iteratively_deepen(
 #ifdef FULL
         nodes,
 #endif
-        H(100, 4, false), H(100, 4, pos_history_count), H(100, 4, inf), find_in_check(pos));
+        H(100, 4, false), H(100, 4, pos_history_count), H(100, 4, inf), H(100, 4, find_in_check(pos)));
     size_t elapsed = get_time() - start_time;
 
 #ifdef FULL
