@@ -910,7 +910,7 @@ G(72, S(1) const EvalParams mg = ((EvalParams){
           .passed_blocked_pawns = {3, -2, 4, 12, 14, -31},
           .bishop_pair = 23,
           .pawn_attacked_penalty = {-16, -128},
-          .tempo = 17});)
+          .tempo = 16});)
 
 G(72, __attribute__((aligned(8))) S(1)
           const i16 max_material[] = {0, 86, 398, 392, 706, 1340};)
@@ -947,8 +947,8 @@ G(72, S(1) const EvalParams eg = ((EvalParams){
           .passed_pawns = {0, 5, 31, 58, 105, 96},
           .passed_blocked_pawns = {-14, -16, -40, -69, -118, -124},
           .bishop_pair = 63,
-          .pawn_attacked_penalty = {-10, -128},
-          .tempo = 7});)
+          .pawn_attacked_penalty = {-9, -128},
+          .tempo = 6});)
 
 S(1) void init() {
   // INIT DIAGONAL MASKS
@@ -1226,11 +1226,11 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
   }
 
   if (G(107, !in_check) && G(107, alpha == beta - 1)) {
-    if (G(108, depth < 8) && G(108, !in_qsearch)) {
+    if (G(108, depth < 9) && G(108, !in_qsearch)) {
 
       G(109, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * depth >= beta) {
+        if (static_eval - 51 * depth >= beta) {
           return static_eval;
         }
       })
@@ -1278,13 +1278,13 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
           G(100, // KILLER MOVE
             move_equal(G(113, &stack[ply].moves[order_index]),
                        G(113, &stack[ply].killer)) *
-                861) +
+                807) +
           G(100, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(114, &stack[ply].best_move),
                         G(114, &stack[ply].moves[order_index]))
              << 30)) +
           G(100, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 737) +
+            stack[ply].moves[order_index].takes_piece * 667) +
           G(100, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1300,9 +1300,9 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
               G(116, &stack[ply].moves[move_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(117, depth < 8) &&
+    if (G(117, depth < 7) &&
         G(117,
-          G(118, static_eval + 136 * depth) +
+          G(118, static_eval + 124 * depth) +
                   G(118, max_material[stack[ply].moves[move_index].promo]) +
                   G(118,
                     max_material[stack[ply].moves[move_index].takes_piece]) <
