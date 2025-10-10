@@ -688,44 +688,59 @@ enum { max_moves = 218 };
   G(64, const u64 all = pos->colour[0] | pos->colour[1];)
   G(64, const Move *start = movelist;)
   G(64, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
-  if (!only_captures) {
+  G(
+      999,
+      // PAWN PROMOTIONS
+      if (!only_captures) {
+        movelist = generate_pawn_moves(
+            H(62, 2, pos), H(62, 2, movelist),
+            H(62, 2,
+              north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) &
+                  ~all),
+            H(62, 2, -16));
+      })
+  G(999,
+    // PAWN DOUBLE MOVES
     movelist = generate_pawn_moves(
-        H(62, 2, pos), H(62, 2, movelist),
-        H(62, 2,
-          north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) &
-              ~all),
-        H(62, 2, -16));
-  }
-  movelist = generate_pawn_moves(
-      H(62, 3, pos), H(62, 3, movelist),
-      H(62, 3,
-        north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
-            (only_captures ? 0xFF00000000000000ull : ~0ull)),
-      H(62, 3, -8));
-  movelist = generate_pawn_moves(
-      H(62, 4, pos), H(62, 4, movelist),
-      H(62, 4,
-        nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-      H(62, 4, -7));
-  movelist = generate_pawn_moves(
-      H(62, 5, pos), H(62, 5, movelist),
-      H(62, 5,
-        ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-      H(62, 5, -9));
-  if (G(65, !only_captures) && G(65, pos->castling[0]) &&
-      G(65, !(all & 0x60ull)) &&
-      G(66, !is_attacked(H(33, 3, pos), H(33, 3, 1ULL << 5))) &&
-      G(66, !is_attacked(H(33, 4, pos), H(33, 4, 1ULL << 4)))) {
-    *movelist++ =
-        (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
-  }
-  if (G(67, !only_captures) && G(67, pos->castling[1]) &&
-      G(67, !(all & 0xEull)) &&
-      G(68, !is_attacked(H(33, 5, pos), H(33, 5, 1ULL << 3))) &&
-      G(68, !is_attacked(H(33, 6, pos), H(33, 6, 1ULL << 4)))) {
-    *movelist++ =
-        (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
-  }
+        H(62, 3, pos), H(62, 3, movelist),
+        H(62, 3,
+          north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
+              (only_captures ? 0xFF00000000000000ull : ~0ull)),
+        H(62, 3, -8));)
+  G(999,
+    // PAWN WEST CAPTURES
+    movelist = generate_pawn_moves(
+        H(62, 4, pos), H(62, 4, movelist),
+        H(62, 4,
+          nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
+        H(62, 4, -7));)
+  G(999,
+    // PAWN EAST CAPTURES
+    movelist = generate_pawn_moves(
+        H(62, 5, pos), H(62, 5, movelist),
+        H(62, 5,
+          ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
+        H(62, 5, -9));)
+  G(
+      999,
+      // LONG CASTLE
+      if (G(65, !only_captures) && G(65, pos->castling[0]) &&
+          G(65, !(all & 0x60ull)) &&
+          G(66, !is_attacked(H(33, 3, pos), H(33, 3, 1ULL << 5))) &&
+          G(66, !is_attacked(H(33, 4, pos), H(33, 4, 1ULL << 4)))) {
+        *movelist++ =
+            (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
+      })
+  G(
+      999,
+      // SHORT CASTLE
+      if (G(67, !only_captures) && G(67, pos->castling[1]) &&
+          G(67, !(all & 0xEull)) &&
+          G(68, !is_attacked(H(33, 5, pos), H(33, 5, 1ULL << 3))) &&
+          G(68, !is_attacked(H(33, 6, pos), H(33, 6, 1ULL << 4)))) {
+        *movelist++ =
+            (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
+      })
   movelist = generate_piece_moves(H(58, 2, to_mask), H(58, 2, movelist),
                                   H(58, 2, pos));
 
