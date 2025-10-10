@@ -200,19 +200,7 @@ typedef struct [[nodiscard]] {
   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-#ifdef ASSERTS
-#define assert(condition)                                                      \
-  if (!(condition)) {                                                          \
-    printf("Assert failed on line %i: ", __LINE__);                            \
-    puts(#condition);                                                          \
-    _sys(H(2, 6, 1), H(2, 6, 0), H(2, 6, 0), H(2, 6, 60));                     \
-  }
 #else
-#define assert(condition)
-#endif
-
-#else
-#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -278,6 +266,17 @@ typedef struct [[nodiscard]] {
   G(7, bool flipped;)
   G(7, u8 padding[11];)
 } Position;
+
+#ifdef ASSERTS
+#define assert(condition)                              \
+  if (!(condition)) {                                  \
+    printf("Assert failed on line %i: ", __LINE__);    \
+    puts(#condition);                                  \
+    exit_now();                                        \
+  }
+#else
+#define assert(condition)
+#endif
 
 [[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict lhs),
                                           G(8, const char *restrict rhs)) {
@@ -1200,6 +1199,8 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
     // TT PRUNING
     if (G(104, alpha == beta - 1) && G(104, tt_entry->depth >= depth) &&
         G(104, tt_entry->flag != tt_entry->score <= alpha)) {
+      assert(tt_entry->score < inf);
+      assert(tt_entry->score > -inf);
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1210,12 +1211,18 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   i32 static_eval = eval(pos);
+  assert(static_eval < mate);
+  assert(static_eval > -mate);
+  
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (G(105, tt_entry->partial_hash == tt_hash_partial) &&
       G(105, tt_entry->flag != static_eval > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
+
+  assert(static_eval < inf);
+  assert(static_eval > -inf);
 
   // QUIESCENCE
   if (G(106, static_eval > alpha) && G(106, in_qsearch)) {
@@ -1231,6 +1238,8 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
       G(109, {
         // REVERSE FUTILITY PRUNING
         if (static_eval - 52 * depth >= beta) {
+          assert(static_eval < inf);
+          assert(static_eval > -inf);
           return static_eval;
         }
       })
@@ -1251,6 +1260,9 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
           nodes,
 #endif
           H(100, 2, pos_history_count), H(100, 2, -alpha), H(100, 2, stack));
+      assert(score < inf);
+      assert(score > -inf);
+
       if (score >= beta) {
         return score;
       }
@@ -1338,6 +1350,8 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
           nodes,
 #endif
           H(100, 3, pos_history_count), H(100, 3, -alpha), H(100, 3, stack));
+      assert(score < inf);
+      assert(score > -inf);
 
       if (score > alpha) {
         if (reduction != 0) {
@@ -1409,6 +1423,9 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
     return (ply - mate) * in_check;
   }
 
+  assert(best_score < inf);
+  assert(best_score > -inf);
+
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
                         .score = best_score,
@@ -1439,8 +1456,10 @@ void iteratively_deepen(
                nodes,
 #endif
                H(100, 4, pos_history_count), H(100, 4, inf), H(100, 4, stack));
-    size_t elapsed = get_time() - start_time;
+    assert(score < inf);
+    assert(score > -inf);
 
+    size_t elapsed = get_time() - start_time;
 #ifdef FULL
     printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
            *nodes);
