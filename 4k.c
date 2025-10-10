@@ -1351,7 +1351,9 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
-        return 0;
+        // Returning best_score just ends up being smallest,
+        // doesn't matter what we return here
+        return best_score;
       }
 
       if (score > alpha) {
