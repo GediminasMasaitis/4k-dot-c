@@ -1256,7 +1256,7 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
       assert(score > -inf);
 
       if (score >= beta) {
-        return score;
+        return beta;
       }
     }
   }
