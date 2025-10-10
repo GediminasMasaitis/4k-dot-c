@@ -1154,6 +1154,75 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
+S(1) void display_pos(Position *const pos) {
+  Position npos = *pos;
+  if (npos.flipped) {
+    flip_pos(&npos);
+  }
+  for (i32 rank = 7; rank >= 0; rank--) {
+    for (i32 file = 0; file < 8; file++) {
+      i32 sq = rank * 8 + file;
+      u64 bb = 1ULL << sq;
+      i32 piece = piece_on(H(31, 9, &npos), H(31, 9, sq));
+      if (bb & npos.colour[0]) {
+        if (piece == Pawn) {
+          putl("P");
+        } else if (piece == Knight) {
+          putl("N");
+        } else if (piece == Bishop) {
+          putl("B");
+        } else if (piece == Rook) {
+          putl("R");
+        } else if (piece == Queen) {
+          putl("Q");
+        } else if (piece == King) {
+          putl("K");
+        }
+      } else if (bb & npos.colour[1]) {
+        if (piece == Pawn) {
+          putl("p");
+        } else if (piece == Knight) {
+          putl("n");
+        } else if (piece == Bishop) {
+          putl("b");
+        } else if (piece == Rook) {
+          putl("r");
+        } else if (piece == Queen) {
+          putl("q");
+        } else if (piece == King) {
+          putl("k");
+        }
+      } else {
+        putl(".");
+      }
+    }
+    putl("\n");
+  }
+  putl("\nTurn: ");
+  putl(pos->flipped ? "Black" : "White");
+  putl("\nCastling: ");
+  if (npos.castling[0]) {
+    putl("K");
+  }
+  if (npos.castling[1]) {
+    putl("Q");
+  }
+  if (npos.castling[2]) {
+    putl("k");
+  }
+  if (npos.castling[3]) {
+    putl("q");
+  }
+  printf("\nEn passant: %d", lsb(npos.ep));
+  printf("\nHash: %llu", get_hash(&npos));
+  putl("\nEval: ");
+  i32 score = eval(pos);
+  if (pos->flipped) {
+    score = -score;
+  }
+  printf("%d\n", score);
+}
+
 S(1)
 i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
            H(99, 1, const i32 ply), H(99, 1, i32 depth),
@@ -1175,6 +1244,8 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
 
   // EARLY EXITS
   if (depth > 4 && get_time() - start_time > max_time) {
+    assert(alpha < inf);
+    assert(alpha > -inf);
     return alpha;
   }
 
@@ -1350,6 +1421,18 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
           nodes,
 #endif
           H(100, 3, pos_history_count), H(100, 3, -alpha), H(100, 3, stack));
+
+      if(score >= inf)
+      {
+        printf("ERROR Depth: %d, Ply: %d, Alpha: %d, Beta: %d, Score: %d, best_score: %d, move_count: %d, moves_evaluated: %d, move_index: %d",
+          depth, ply, alpha, beta, score, best_score, stack[ply].num_moves, moves_evaluated, move_index);
+        display_pos(pos);
+        puts("");
+        display_pos(&npos);
+        
+        fflush(stdout);
+      }
+          
       assert(score < inf);
       assert(score > -inf);
 
@@ -1484,75 +1567,6 @@ void iteratively_deepen(
            H(28, 3, pos->flipped));
   putl("bestmove ");
   puts(move_name);
-}
-
-S(1) void display_pos(Position *const pos) {
-  Position npos = *pos;
-  if (npos.flipped) {
-    flip_pos(&npos);
-  }
-  for (i32 rank = 7; rank >= 0; rank--) {
-    for (i32 file = 0; file < 8; file++) {
-      i32 sq = rank * 8 + file;
-      u64 bb = 1ULL << sq;
-      i32 piece = piece_on(H(31, 9, &npos), H(31, 9, sq));
-      if (bb & npos.colour[0]) {
-        if (piece == Pawn) {
-          putl("P");
-        } else if (piece == Knight) {
-          putl("N");
-        } else if (piece == Bishop) {
-          putl("B");
-        } else if (piece == Rook) {
-          putl("R");
-        } else if (piece == Queen) {
-          putl("Q");
-        } else if (piece == King) {
-          putl("K");
-        }
-      } else if (bb & npos.colour[1]) {
-        if (piece == Pawn) {
-          putl("p");
-        } else if (piece == Knight) {
-          putl("n");
-        } else if (piece == Bishop) {
-          putl("b");
-        } else if (piece == Rook) {
-          putl("r");
-        } else if (piece == Queen) {
-          putl("q");
-        } else if (piece == King) {
-          putl("k");
-        }
-      } else {
-        putl(".");
-      }
-    }
-    putl("\n");
-  }
-  putl("\nTurn: ");
-  putl(pos->flipped ? "Black" : "White");
-  putl("\nCastling: ");
-  if (npos.castling[0]) {
-    putl("K");
-  }
-  if (npos.castling[1]) {
-    putl("Q");
-  }
-  if (npos.castling[2]) {
-    putl("k");
-  }
-  if (npos.castling[3]) {
-    putl("q");
-  }
-  printf("\nEn passant: %d", lsb(npos.ep));
-  printf("\nHash: %llu", get_hash(&npos));
-  putl("\nEval: ");
-  i32 score = eval(pos);
-  if (pos->flipped) {
-    score = -score;
-  }
-  printf("%d\n", score);
 }
 
 S(1)
