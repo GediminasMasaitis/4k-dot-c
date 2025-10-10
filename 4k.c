@@ -409,7 +409,7 @@ G(
     })
 
 G(
-    22, S(1) void swapu64(G(27, u64 *const lhs), G(27, u64 *const rhs)) {
+    22, S(1) void swapu64(G(27, u64 *const rhs), G(27, u64 *const lhs)) {
       const u64 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -499,8 +499,8 @@ G(
                                             H(40, 1, const i32 piece)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(41, if (piece == King) { moves = king(bb); })
-      else G(41, if (piece == Knight) { moves = knight(bb); }) else {
+      G(41, if (piece == Knight) { moves = knight(bb); })
+      else G(41, if (piece == King) { moves = king(bb); }) else {
         const u64 blockers = pos->colour[0] | pos->colour[1];
         G(
             42, if (G(43, piece == Queen) || G(43, piece == Bishop)) {
