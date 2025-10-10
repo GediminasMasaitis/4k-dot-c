@@ -1102,7 +1102,7 @@ _Static_assert(sizeof(TTEntry) == 10);
 enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
-enum { mate = 30720, inf = 31744 };
+enum { mate = 31744, inf = 32256 };
 
 G(98, S(1) i32 move_history[2][6][64][64];)
 G(98, S(0) size_t max_time;)
