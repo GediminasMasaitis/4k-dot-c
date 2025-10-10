@@ -1173,11 +1173,6 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
     depth++;
   }
 
-  // EARLY EXITS
-  if (depth > 4 && get_time() - start_time > max_time) {
-    return alpha;
-  }
-
   const u64 tt_hash = get_hash(pos);
 
   // FULL REPETITION DETECTION
@@ -1352,6 +1347,11 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
           H(100, 3, pos_history_count), H(100, 3, -alpha), H(100, 3, stack));
       assert(score < inf);
       assert(score > -inf);
+
+      // EARLY EXITS
+      if (depth > 4 && get_time() - start_time > max_time) {
+        return 0;
+      }
 
       if (score > alpha) {
         if (reduction != 0) {
