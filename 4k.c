@@ -1667,7 +1667,8 @@ S(1) void run() {
     }
 #endif
     G(128, if (line[0] == 'i') { puts("readyok"); })
-    else G(128, if (line[0] == 'q') { exit_now(); }) else if (line[0] == 'p') {
+    else G(128, if (line[0] == 'q') { exit_now(); })
+    else G(128, if (line[0] == 'p') {
       G(129, pos_history_count = 0;)
       G(129, pos = start_pos;)
       while (true) {
@@ -1702,8 +1703,8 @@ S(1) void run() {
           break;
         }
       }
-    }
-    else if (line[0] == 'g') {
+    })
+    else G(128, if (line[0] == 'g') {
 #ifdef FULL
       while (true) {
         getl(line);
@@ -1730,7 +1731,7 @@ S(1) void run() {
       iteratively_deepen(H(126, 5, &pos), H(126, 5, stack),
                          H(126, 5, pos_history_count));
 #endif
-    }
+    })
   }
 }
 
