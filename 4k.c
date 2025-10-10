@@ -268,11 +268,11 @@ typedef struct [[nodiscard]] {
 } Position;
 
 #ifdef ASSERTS
-#define assert(condition)                              \
-  if (!(condition)) {                                  \
-    printf("Assert failed on line %i: ", __LINE__);    \
-    puts(#condition);                                  \
-    exit_now();                                        \
+#define assert(condition)                                                      \
+  if (!(condition)) {                                                          \
+    printf("Assert failed on line %i: ", __LINE__);                            \
+    puts(#condition);                                                          \
+    exit_now();                                                                \
   }
 #else
 #define assert(condition)
@@ -681,68 +681,68 @@ G(
 
 enum { max_moves = 218 };
 
-[[nodiscard]] S(1) i32 movegen(H(63, 1, const Position* const restrict pos),
-  H(63, 1, Move* restrict movelist),
-  H(63, 1, const i32 only_captures)) {
+[[nodiscard]] S(1) i32 movegen(H(63, 1, const Position *const restrict pos),
+                               H(63, 1, Move *restrict movelist),
+                               H(63, 1, const i32 only_captures)) {
 
   G(64, const u64 all = pos->colour[0] | pos->colour[1];)
-    G(64, const Move * start = movelist;)
-    G(64, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
-    G(
-      999,
+  G(64, const Move *start = movelist;)
+  G(64, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
+  G(
+      65,
       // PAWN PROMOTIONS
       if (!only_captures) {
         movelist = generate_pawn_moves(
-          H(62, 2, pos), H(62, 2, movelist),
-          H(62, 2,
-            north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) &
-            ~all),
-          H(62, 2, -16));
+            H(62, 2, pos), H(62, 2, movelist),
+            H(62, 2,
+              north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) &
+                  ~all),
+            H(62, 2, -16));
       })
-    G(999,
-      // PAWN DOUBLE MOVES
-      movelist = generate_pawn_moves(
+  G(65,
+    // PAWN DOUBLE MOVES
+    movelist = generate_pawn_moves(
         H(62, 3, pos), H(62, 3, movelist),
         H(62, 3,
           north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
-          (only_captures ? 0xFF00000000000000ull : ~0ull)),
+              (only_captures ? 0xFF00000000000000ull : ~0ull)),
         H(62, 3, -8));)
-    G(999,
-      // PAWN WEST CAPTURES
-      movelist = generate_pawn_moves(
+  G(65,
+    // PAWN WEST CAPTURES
+    movelist = generate_pawn_moves(
         H(62, 4, pos), H(62, 4, movelist),
         H(62, 4,
           nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
         H(62, 4, -7));)
-    G(999,
-      // PAWN EAST CAPTURES
-      movelist = generate_pawn_moves(
+  G(65,
+    // PAWN EAST CAPTURES
+    movelist = generate_pawn_moves(
         H(62, 5, pos), H(62, 5, movelist),
         H(62, 5,
           ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
         H(62, 5, -9));)
-    G(
-      999,
+  G(
+      65,
       // LONG CASTLE
-      if (G(65, !only_captures) && G(65, pos->castling[0]) &&
-        G(65, !(all & 0x60ull)) &&
-        G(66, !is_attacked(H(33, 3, pos), H(33, 3, 1ULL << 5))) &&
-        G(66, !is_attacked(H(33, 4, pos), H(33, 4, 1ULL << 4)))) {
+      if (G(66, !only_captures) && G(66, pos->castling[0]) &&
+          G(66, !(all & 0x60ull)) &&
+          G(67, !is_attacked(H(33, 3, pos), H(33, 3, 1ULL << 5))) &&
+          G(67, !is_attacked(H(33, 4, pos), H(33, 4, 1ULL << 4)))) {
         *movelist++ =
-          (Move){ .from = 4, .to = 6, .promo = None, .takes_piece = None };
+            (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
       })
-    G(
-      999,
+  G(
+      65,
       // SHORT CASTLE
-      if (G(67, !only_captures) && G(67, pos->castling[1]) &&
-        G(67, !(all & 0xEull)) &&
-        G(68, !is_attacked(H(33, 5, pos), H(33, 5, 1ULL << 3))) &&
-        G(68, !is_attacked(H(33, 6, pos), H(33, 6, 1ULL << 4)))) {
+      if (G(68, !only_captures) && G(68, pos->castling[1]) &&
+          G(68, !(all & 0xEull)) &&
+          G(69, !is_attacked(H(33, 5, pos), H(33, 5, 1ULL << 3))) &&
+          G(69, !is_attacked(H(33, 6, pos), H(33, 6, 1ULL << 4)))) {
         *movelist++ =
-          (Move){ .from = 4, .to = 2, .promo = None, .takes_piece = None };
+            (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
-    movelist = generate_piece_moves(H(58, 2, to_mask), H(58, 2, movelist),
-      H(58, 2, pos));
+  movelist = generate_piece_moves(H(58, 2, to_mask), H(58, 2, movelist),
+                                  H(58, 2, pos));
 
   const i32 num_moves = movelist - start;
   assert(num_moves < max_moves);
@@ -870,34 +870,34 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
-  H(69, 1,
-    H(70, 1, i8 king_attacks[5];) H(70, 1, i8 mobilities[5];)
-        H(70, 1, i8 passed_pawns[6];) H(70, 1, i8 passed_blocked_pawns[6];)
-            H(70, 1, i8 tempo;))
-  H(69, 1,
-    H(71, 1, i8 bishop_pair;) H(71, 1, u8 pawn_attacked_penalty[2];)
-        H(71, 1, i8 open_files[6];) H(71, 1, i8 pst_file[64];)
-            H(71, 1, i8 pst_rank[64];))
+  H(70, 1,
+    H(71, 1, i8 king_attacks[5];) H(71, 1, i8 mobilities[5];)
+        H(71, 1, i8 passed_pawns[6];) H(71, 1, i8 passed_blocked_pawns[6];)
+            H(71, 1, i8 tempo;))
+  H(70, 1,
+    H(72, 1, i8 bishop_pair;) H(72, 1, u8 pawn_attacked_penalty[2];)
+        H(72, 1, i8 open_files[6];) H(72, 1, i8 pst_file[64];)
+            H(72, 1, i8 pst_rank[64];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
-  H(69, 2,
-    H(70, 2, i32 king_attacks[5];) H(70, 2, i32 mobilities[5];)
-        H(70, 2, i32 passed_pawns[6];) H(70, 2, i32 passed_blocked_pawns[6];)
-            H(70, 2, i32 tempo;))
-  H(69, 2,
-    H(71, 2, i32 bishop_pair;) H(71, 2, i32 pawn_attacked_penalty[2];)
-        H(71, 2, i32 open_files[6];) H(71, 2, i32 pst_file[64];)
-            H(71, 2, i32 pst_rank[64];))
+  H(70, 2,
+    H(71, 2, i32 king_attacks[5];) H(71, 2, i32 mobilities[5];)
+        H(71, 2, i32 passed_pawns[6];) H(71, 2, i32 passed_blocked_pawns[6];)
+            H(71, 2, i32 tempo;))
+  H(70, 2,
+    H(72, 2, i32 bishop_pair;) H(72, 2, i32 pawn_attacked_penalty[2];)
+        H(72, 2, i32 open_files[6];) H(72, 2, i32 pst_file[64];)
+            H(72, 2, i32 pst_rank[64];))
 
 } EvalParamsMerged;
 
-G(72,
+G(73,
   __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
-G(72, S(0) EvalParamsMerged eval_params;)
+G(73, S(0) EvalParamsMerged eval_params;)
 
-G(72, S(1) const EvalParams mg = ((EvalParams){
+G(73, S(1) const EvalParams mg = ((EvalParams){
           .material = {67, 266, 270, 357, 768, 0},
           .pst_rank =
               {
@@ -926,16 +926,16 @@ G(72, S(1) const EvalParams mg = ((EvalParams){
           .pawn_attacked_penalty = {-16, -128},
           .tempo = 17});)
 
-G(72, __attribute__((aligned(8))) S(1)
+G(73, __attribute__((aligned(8))) S(1)
           const i16 max_material[] = {0, 86, 398, 392, 706, 1340};)
 
 G(
-    72, [[nodiscard]] S(1) i32 combine_eval_param(H(73, 1, const i32 mg_val),
-                                                  H(73, 1, const i32 eg_val)) {
-      return G(74, mg_val) + G(74, (eg_val << 16));
+    73, [[nodiscard]] S(1) i32 combine_eval_param(H(74, 1, const i32 mg_val),
+                                                  H(74, 1, const i32 eg_val)) {
+      return G(75, mg_val) + G(75, (eg_val << 16));
     })
 
-G(72, S(1) const EvalParams eg = ((EvalParams){
+G(73, S(1) const EvalParams eg = ((EvalParams){
           .material = {86, 398, 392, 706, 1340, 0},
           .pst_rank =
               {
@@ -969,17 +969,17 @@ S(1) void init() {
   G(
       46, for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
-        diag_mask[sq] = G(75, ray(H(15, 4, 0), H(15, 4, ~0x8080808080808080ull),
+        diag_mask[sq] = G(76, ray(H(15, 4, 0), H(15, 4, ~0x8080808080808080ull),
                                   H(15, 4, bb), H(15, 4, -9))) | // Northeast
-                        G(75, ray(H(15, 5, 0), H(15, 5, ~0x101010101010101ull),
+                        G(76, ray(H(15, 5, 0), H(15, 5, ~0x101010101010101ull),
                                   H(15, 5, bb), H(15, 5, 9))); // Southwest
       })
 
   G(
       46, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
-        eval_params.material[i] = combine_eval_param(H(73, 2, mg.material[i]),
-                                                     H(73, 2, eg.material[i]));
+        eval_params.material[i] = combine_eval_param(H(74, 2, mg.material[i]),
+                                                     H(74, 2, eg.material[i]));
       })
   G(
       46, // MERGE NON-MATERIAL VALUES
@@ -988,8 +988,8 @@ S(1) void init() {
         // But since the structs are packed, it works
         const i32 offset = sizeof(mg.material);
         ((i32 *)&eval_params)[offset / sizeof(*mg.material) + i] =
-            combine_eval_param(H(73, 3, ((i8 *)&mg)[offset + i]),
-                               H(73, 3, ((i8 *)&eg)[offset + i]));
+            combine_eval_param(H(74, 3, ((i8 *)&mg)[offset + i]),
+                               H(74, 3, ((i8 *)&eg)[offset + i]));
       })
 }
 
@@ -1088,12 +1088,12 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(70, Move moves[max_moves];)
-  G(70, i32 static_eval;)
-  G(70, Move killer;)
-  G(70, i32 num_moves;)
-  G(70, u64 position_hash;)
-  G(70, Move best_move;)
+  G(71, Move moves[max_moves];)
+  G(71, i32 static_eval;)
+  G(71, Move killer;)
+  G(71, i32 num_moves;)
+  G(71, u64 position_hash;)
+  G(71, Move best_move;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1223,7 +1223,7 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
   i32 static_eval = eval(pos);
   assert(static_eval < mate);
   assert(static_eval > -mate);
-  
+
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (G(105, tt_entry->partial_hash == tt_hash_partial) &&
