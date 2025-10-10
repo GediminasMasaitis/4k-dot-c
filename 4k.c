@@ -958,35 +958,6 @@ G(73, S(1) const EvalParams eg = ((EvalParams){
           .pawn_attacked_penalty = {-10, -128},
           .tempo = 7});)
 
-S(1) void init() {
-  // INIT DIAGONAL MASKS
-  G(
-      46, for (i32 sq = 0; sq < 64; sq++) {
-        const u64 bb = 1ULL << sq;
-        diag_mask[sq] = G(76, ray(H(15, 4, 0), H(15, 4, ~0x8080808080808080ull),
-                                  H(15, 4, bb), H(15, 4, -9))) | // Northeast
-                        G(76, ray(H(15, 5, 0), H(15, 5, ~0x101010101010101ull),
-                                  H(15, 5, bb), H(15, 5, 9))); // Southwest
-      })
-
-  G(
-      46, // MERGE MATERIAL VALUES
-      for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
-        eval_params.material[i] = combine_eval_param(H(74, 2, mg.material[i]),
-                                                     H(74, 2, eg.material[i]));
-      })
-  G(
-      46, // MERGE NON-MATERIAL VALUES
-      for (i32 i = 0; i < sizeof(mg) - sizeof(mg.material); i++) {
-        // Technically writes past end of array
-        // But since the structs are packed, it works
-        const i32 offset = sizeof(mg.material);
-        ((i32 *)&eval_params)[offset / sizeof(*mg.material) + i] =
-            combine_eval_param(H(74, 3, ((i8 *)&mg)[offset + i]),
-                               H(74, 3, ((i8 *)&eg)[offset + i]));
-      })
-}
-
 S(1) i32 eval(Position *const restrict pos) {
   G(77, i32 score = eval_params.tempo;)
   G(77, i32 phase = 0;)
@@ -1445,6 +1416,36 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
   return best_score;
 }
 
+S(1) void init() {
+  G(46, __builtin_memset(move_history, 0, sizeof(move_history));)
+  // INIT DIAGONAL MASKS
+  G(
+      46, for (i32 sq = 0; sq < 64; sq++) {
+        const u64 bb = 1ULL << sq;
+        diag_mask[sq] = G(76, ray(H(15, 4, 0), H(15, 4, ~0x8080808080808080ull),
+                                  H(15, 4, bb), H(15, 4, -9))) | // Northeast
+                        G(76, ray(H(15, 5, 0), H(15, 5, ~0x101010101010101ull),
+                                  H(15, 5, bb), H(15, 5, 9))); // Southwest
+      })
+
+  G(
+      46, // MERGE MATERIAL VALUES
+      for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
+        eval_params.material[i] = combine_eval_param(H(74, 2, mg.material[i]),
+                                                     H(74, 2, eg.material[i]));
+      })
+  G(
+      46, // MERGE NON-MATERIAL VALUES
+      for (i32 i = 0; i < sizeof(mg) - sizeof(mg.material); i++) {
+        // Technically writes past end of array
+        // But since the structs are packed, it works
+        const i32 offset = sizeof(mg.material);
+        ((i32 *)&eval_params)[offset / sizeof(*mg.material) + i] =
+            combine_eval_param(H(74, 3, ((i8 *)&mg)[offset + i]),
+                               H(74, 3, ((i8 *)&eg)[offset + i]));
+      })
+}
+
 S(1)
 void iteratively_deepen(
 #ifdef FULL
@@ -1615,7 +1616,6 @@ S(1) void run() {
     SearchStack stack[1024];
     // #endif
   )
-  G(127, __builtin_memset(move_history, 0, sizeof(move_history));)
   G(127, init();)
 
 #ifdef FULL
