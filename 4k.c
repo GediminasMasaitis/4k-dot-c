@@ -1666,43 +1666,42 @@ S(1) void run() {
              nps);
     }
 #endif
-    G(128, if (line[0] == 'i') { puts("readyok"); })
-    else G(128, if (line[0] == 'q') { exit_now(); })
+    G(128, if (line[0] == 'q') { exit_now(); })
     else G(128, if (line[0] == 'p') {
       G(129, pos_history_count = 0;)
-      G(129, pos = start_pos;)
-      while (true) {
-        const bool line_continue = getl(line);
+        G(129, pos = start_pos;)
+        while (true) {
+          const bool line_continue = getl(line);
 
 #if FULL
-        if (!strcmp(line, "fen")) {
-          getl(line);
-          get_fen(&pos, line);
-        }
+          if (!strcmp(line, "fen")) {
+            getl(line);
+            get_fen(&pos, line);
+          }
 #endif
 
-        const i32 num_moves =
+          const i32 num_moves =
             movegen(H(63, 4, &pos), H(63, 4, stack[0].moves), H(63, 4, false));
-        for (i32 i = 0; i < num_moves; i++) {
-          char move_name[8];
-          move_str(H(28, 4, move_name), H(28, 4, &stack[0].moves[i]),
-                   H(28, 4, pos.flipped));
-          assert(move_string_equal(line, move_name) ==
-                 !strcmp(line, move_name));
-          if (move_string_equal(G(130, line), G(130, move_name))) {
-            stack[pos_history_count].position_hash = get_hash(&pos);
-            pos_history_count++;
-            if (stack[0].moves[i].takes_piece != None) {
-              pos_history_count = 0;
+          for (i32 i = 0; i < num_moves; i++) {
+            char move_name[8];
+            move_str(H(28, 4, move_name), H(28, 4, &stack[0].moves[i]),
+              H(28, 4, pos.flipped));
+            assert(move_string_equal(line, move_name) ==
+              !strcmp(line, move_name));
+            if (move_string_equal(G(130, line), G(130, move_name))) {
+              stack[pos_history_count].position_hash = get_hash(&pos);
+              pos_history_count++;
+              if (stack[0].moves[i].takes_piece != None) {
+                pos_history_count = 0;
+              }
+              makemove(H(46, 4, &pos), H(46, 4, &stack[0].moves[i]));
+              break;
             }
-            makemove(H(46, 4, &pos), H(46, 4, &stack[0].moves[i]));
+          }
+          if (!line_continue) {
             break;
           }
         }
-        if (!line_continue) {
-          break;
-        }
-      }
     })
     else G(128, if (line[0] == 'g') {
 #ifdef FULL
@@ -1712,26 +1711,29 @@ S(1) void run() {
           getl(line);
           max_time = atoi(line) / 2;
           break;
-        } else if (pos.flipped && !strcmp(line, "btime")) {
+        }
+        else if (pos.flipped && !strcmp(line, "btime")) {
           getl(line);
           max_time = atoi(line) / 2;
           break;
-        } else if (!strcmp(line, "movetime")) {
+        }
+        else if (!strcmp(line, "movetime")) {
           max_time = 20000; // Assume Lichess bot
           break;
         }
       }
       iteratively_deepen(max_ply, &nodes, H(126, 4, &pos), H(126, 4, stack),
-                         H(126, 4, pos_history_count));
+        H(126, 4, pos_history_count));
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
         max_time = atoi(line) / 2;
       }
       iteratively_deepen(H(126, 5, &pos), H(126, 5, stack),
-                         H(126, 5, pos_history_count));
+        H(126, 5, pos_history_count));
 #endif
     })
+    else G(128, if (line[0] == 'i') { puts("readyok"); })
   }
 }
 
