@@ -27,7 +27,8 @@ decompress_aplib:
     ; xor    ebx, ebx
 
     mov    dl, 0x80
-    lea    rbp, [getbit]
+    push getbit
+    pop rbp
 
 literal:
     movsb
@@ -91,7 +92,6 @@ domatch_new_lastpos:
     xchg   eax, r8d
 domatch_lastpos:
     mov    eax, r8d
-
     mov    bl, 1
 
 domatch:
