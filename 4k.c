@@ -1150,7 +1150,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
   // IN-CHECK EXTENSION
   if (in_check) {
-    depth++;
+    depth = depth > 0 ? depth + 1 : 1;
   }
 
   const u64 tt_hash = get_hash(pos);
