@@ -12,12 +12,13 @@
 ;; http://www.ibsensoftware.com/
 ;;
 
-format ELF64
+BITS 64
+DEFAULT REL
 
 ; void decompress_aplib(void *destination, const void *source)
-public decompress_aplib
+global decompress_aplib
 
-section '.text'
+section .text
 decompress_aplib:
     ; push   rbx ; Uncomment to preserve System V calling convention
     ; cld ; Uncomment for robustness, though in my loader it's not needed
