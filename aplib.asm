@@ -24,25 +24,26 @@ decompress_aplib:
     ; cld ; Uncomment for robustness, though in my loader it's not needed
     mov    dl, 0x80
     xor    ebx, ebx
+    lea    r11, [getbit]
 
 literal:
     movsb
     mov    bl, 2
 nexttag:
-    call   getbit
+    call   r11 ; getbit
     jnc    literal
 
     xor    ecx, ecx
-    call   getbit
+    call   r11 ; getbit
     jnc    codepair
     xor    eax, eax
-    call   getbit
+    call   r11 ; getbit
     jnc    shortmatch
     mov    bl, 2
     inc    ecx
     mov    al, 10h
   .getmorebits:
-    call   getbit
+    call   r11 ; getbit
     adc    al, al
     jnc    .getmorebits
     jnz    domatch
@@ -112,9 +113,9 @@ getgamma:
 getgamma_no_ecx:
     inc    ecx
   .getgammaloop:
-    call   getbit
+    call   r11 ; getbit
     adc    ecx, ecx
-    call   getbit
+    call   r11 ; getbit
     jc     .getgammaloop
     ret
 
