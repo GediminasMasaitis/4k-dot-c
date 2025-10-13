@@ -20,29 +20,34 @@ public decompress_aplib
 section '.text'
 decompress_aplib:
     ; push   rbx ; Uncomment to preserve System V calling convention
-
     ; cld ; Uncomment for robustness, though in my loader it's not needed
+
+    ; Technically UB but because size doesn't exceed 32k
+    ; and execution starts with literal, ends up being not needed
+    ; xor    ebx, ebx
+
     mov    dl, 0x80
-    xor    ebx, ebx
+    push getbit
+    pop rbp
 
 literal:
     movsb
     mov    bl, 2
 nexttag:
-    call   getbit
+    call   rbp ; getbit
     jnc    literal
 
     xor    ecx, ecx
-    call   getbit
+    call   rbp ; getbit
     jnc    codepair
     xor    eax, eax
-    call   getbit
+    call   rbp ; getbit
     jnc    shortmatch
     mov    bl, 2
     inc    ecx
     mov    al, 10h
   .getmorebits:
-    call   getbit
+    call   rbp ; getbit
     adc    al, al
     jnc    .getmorebits
     jnz    domatch
@@ -84,10 +89,9 @@ domatch_with_inc:
     inc    ecx
 
 domatch_new_lastpos:
-    xchg   eax, ebp ; Was: xchg eax, r8d
+    xchg   eax, r8d
 domatch_lastpos:
-    mov    eax, ebp ; Was: mov eax, r8d
-
+    mov    eax, r8d
     mov    bl, 1
 
 domatch:
@@ -112,12 +116,14 @@ getgamma:
 getgamma_no_ecx:
     inc    ecx
   .getgammaloop:
-    call   getbit
+    call   rbp ; getbit
     adc    ecx, ecx
-    call   getbit
+    call   rbp ; getbit
     jc     .getgammaloop
+donedepacking:
     ret
 
-donedepacking:
-    ; pop    rbx ; Uncomment to preserve System V calling convention
-    ret
+; Use to preserve System V calling convention
+;donedepacking:
+;    pop    rbx
+;    ret
