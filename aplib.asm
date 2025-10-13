@@ -117,8 +117,10 @@ getgamma_no_ecx:
     adc    ecx, ecx
     call   rbp ; getbit
     jc     .getgammaloop
+donedepacking:
     ret
 
-donedepacking:
-    ; pop    rbx ; Uncomment to preserve System V calling convention
-    ret
+; Use to preserve System V calling convention
+;donedepacking:
+;    pop    rbx
+;    ret
