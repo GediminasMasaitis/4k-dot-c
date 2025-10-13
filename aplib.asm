@@ -20,10 +20,13 @@ public decompress_aplib
 section '.text'
 decompress_aplib:
     ; push   rbx ; Uncomment to preserve System V calling convention
-
     ; cld ; Uncomment for robustness, though in my loader it's not needed
+
+    ; Technically UB but because size doesn't exceed 32k
+    ; and execution starts with literal, ends up being not needed
+    ; xor    ebx, ebx
+
     mov    dl, 0x80
-    xor    ebx, ebx
     lea    rbp, [getbit]
 
 literal:
