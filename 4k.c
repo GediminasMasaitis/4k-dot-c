@@ -1072,7 +1072,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
-G(97, S(1) i32 move_history[2][6][64][64];)
+G(97, S(1) i32 move_history[2][2][64][64];)
 G(97, S(0) size_t max_time;)
 G(97, S(0) size_t start_time;)
 G(97, S(1) TTEntry tt[tt_length];)
@@ -1262,7 +1262,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
             stack[ply].moves[order_index].takes_piece * 737) +
           G(99, // HISTORY HEURISTIC
             move_history[pos->flipped]
-                        [stack[ply].moves[order_index].takes_piece]
+                        [stack[ply].moves[order_index].takes_piece == None]
                         [stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]);
       if (order_move_score > move_score) {
@@ -1353,7 +1353,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
                 const i32 bonus = depth * depth;
                 G(123, i32 *const this_hist =
                            &move_history[pos->flipped]
-                                        [stack[ply].best_move.takes_piece]
+                                        [stack[ply].best_move.takes_piece == None]
                                         [stack[ply].best_move.from]
                                         [stack[ply].best_move.to];
 
@@ -1363,7 +1363,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
                               prev_index++) {
                       const Move prev = stack[ply].moves[prev_index];
                       i32 *const prev_hist =
-                          &move_history[pos->flipped][prev.takes_piece]
+                          &move_history[pos->flipped][prev.takes_piece == None]
                                        [prev.from][prev.to];
                       *prev_hist -= bonus + bonus * *prev_hist / 1024;
                     })
