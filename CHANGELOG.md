@@ -6097,7 +6097,7 @@ Penta | [35, 136, 306, 199, 82]
 https://gedas.pythonanywhere.com/test/992/
 ```
 
-```
+```py
 Elo   | 22.13 +- 9.72 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
 LLR   | 2.98 (-2.94, 2.94) [0.00, 5.00]
@@ -7010,3 +7010,11 @@ Smaller loader
 MD5: d9db9ee8726aa66e9fb81812c8a2596a
 
 Full ASM loader
+
+### 4.55
+
+64 bit: 4076 bytes (-3)
+
+MD5: 65fe9176c8667e80867e45efb23198af
+
+Remove max_material

@@ -863,7 +863,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 }
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i16 material[6];
+  i16 material[7];
   H(70, 1,
     H(71, 1, i8 king_attacks[5];) H(71, 1, i8 passed_pawns[6];)
         H(71, 1, i8 tempo;) H(71, 1, i8 passed_blocked_pawns[6];)
@@ -875,7 +875,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i32 material[6];
+  i32 material[7];
   H(70, 2,
     H(71, 2, i32 king_attacks[5];) H(71, 2, i32 passed_pawns[6];)
         H(71, 2, i32 tempo;) H(71, 2, i32 passed_blocked_pawns[6];)
@@ -892,7 +892,7 @@ G(73,
 G(73, S(0) EvalParamsMerged eval_params;)
 
 G(73, S(1) const EvalParams mg = ((EvalParams){
-          .material = {67, 266, 270, 357, 768, 0},
+          .material = {0, 67, 266, 270, 357, 768, 0},
           .pst_rank =
               {
                   0,   -10, -9,  -8,  3,   24, 90,  0,   // Pawn
@@ -920,9 +920,6 @@ G(73, S(1) const EvalParams mg = ((EvalParams){
           .pawn_attacked_penalty = {-16, -128},
           .tempo = 17});)
 
-G(73, __attribute__((aligned(8))) S(1)
-          const i16 max_material[] = {0, 86, 398, 392, 706, 1340};)
-
 G(
     73, [[nodiscard]] S(1) i32 combine_eval_param(H(74, 1, const i32 mg_val),
                                                   H(74, 1, const i32 eg_val)) {
@@ -930,7 +927,7 @@ G(
     })
 
 G(73, S(1) const EvalParams eg = ((EvalParams){
-          .material = {86, 398, 392, 706, 1340, 0},
+          .material = {0, 86, 398, 392, 706, 1340, 0},
           .pst_rank =
               {
                   0,   -5,  -7,  -6, 0,  18, 96, 0,   // Pawn
@@ -993,7 +990,7 @@ S(1) i32 eval(Position *const restrict pos) {
                 0) { score += eval_params.open_files[p - 1]; })
 
         G(62, // MATERIAL
-          score += eval_params.material[p - 1];)
+          score += eval_params.material[p];)
         G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
 
@@ -1281,9 +1278,9 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     if (G(116, depth < 8) &&
         G(116,
           G(117, static_eval + 136 * depth) +
-                  G(117, max_material[stack[ply].moves[move_index].promo]) +
+                  G(117, eg.material[stack[ply].moves[move_index].promo]) +
                   G(117,
-                    max_material[stack[ply].moves[move_index].takes_piece]) <
+                    eg.material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
         G(116, moves_evaluated) && G(116, !in_check)) {
       break;
