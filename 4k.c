@@ -1379,7 +1379,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
     // LATE MOVE PRUNING
     if (G(124, !in_check) && G(124, alpha == beta - 1) &&
-        G(124, quiets_evaluated > 1 + depth * depth >> !improving)) {
+        G(124, (quiets_evaluated > 1 + depth * depth >> !improving || moves_evaluated > 3 + 2 * depth * depth >> !improving))) {
       break;
     }
   }
