@@ -1447,8 +1447,8 @@ void iteratively_deepen(
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    i32 alpha = score - 64;
-    i32 beta = score + 64;
+    i32 alpha = score - 32;
+    i32 beta = score + 32;
     size_t elapsed;
     while (true) {
       score =
