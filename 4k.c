@@ -1437,8 +1437,8 @@ void iteratively_deepen(
         if(score > alpha && score < beta){
           break;
         }
-        i32 alpha = -inf;
-        i32 beta = inf;
+        alpha = -inf;
+        beta = inf;
     }
 
     size_t elapsed = get_time() - start_time;
