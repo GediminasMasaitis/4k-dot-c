@@ -1449,6 +1449,7 @@ void iteratively_deepen(
 #endif
     i32 alpha = score - 64;
     i32 beta = score + 64;
+    size_t elapsed;
     while (true) {
       score =
           search(H(98, 4, pos), H(98, 4, alpha), H(98, 4, 0), H(98, 4, depth),
@@ -1457,13 +1458,13 @@ void iteratively_deepen(
                  nodes,
 #endif
                  H(99, 4, beta), H(99, 4, pos_history_count), H(99, 4, false));
-      if(score > alpha && score < beta){
+      elapsed = get_time() - start_time;
+      if((score > alpha && score < beta) || elapsed > max_time){
         break;
       }
       alpha = -inf;
       beta = inf;
     }
-    size_t elapsed = get_time() - start_time;
 #ifdef FULL
     // Don't print unreliable scores
     if (elapsed > max_time) {
