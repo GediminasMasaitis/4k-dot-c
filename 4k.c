@@ -483,7 +483,7 @@ G(
 
       G(
           37, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(37, pos->flipped ^= 1;)
@@ -1061,8 +1061,8 @@ typedef struct [[nodiscard]] {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(96, u16 partial_hash;)
   G(96, i16 score;)
-  G(96, Move move;)
   G(96, i8 depth;)
+  G(96, Move move;)
   G(96, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1400,8 +1400,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
 S(1) void init() {
   G(
-      46,
-      // INIT DIAGONAL MASKS
+      46, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] =
@@ -1417,8 +1416,7 @@ S(1) void init() {
                                                      H(74, 2, eg.material[i]));
       })
 
-  G(46,
-    // CLEAR HISTORY
+  G(46, // CLEAR HISTORY
     __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       46, // MERGE NON-MATERIAL VALUES
