@@ -478,12 +478,12 @@ G(
             })
 
 G(
-    32, S(1) void flip_pos(Position *const restrict pos) {
+    32, S(0) void flip_pos(Position *const restrict pos) {
       G(37, swapu64(G(38, &pos->colour[0]), G(38, &pos->colour[1]));)
 
       G(
           37, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(37, pos->flipped ^= 1;)
@@ -539,8 +539,6 @@ G(
         assert(piece != None);)
       G(48, const u64 mask = from | to;)
 
-      G(49, pos->pieces[piece] ^= mask;)
-
       G(
           49, // Castling
           if (piece == King) {
@@ -551,8 +549,10 @@ G(
             G(50, pos->colour[0] ^= bb;)
           })
 
-      // Move the piece
       G(49, pos->colour[0] ^= mask;)
+
+      // Move the piece
+      G(49, pos->pieces[piece] ^= mask;)
       G(
           49, // Captures
           if (move->takes_piece != None) {
@@ -1050,20 +1050,20 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
+  G(71, Move moves[max_moves];)
   G(71, i32 static_eval;)
   G(71, Move killer;)
   G(71, Move best_move;)
   G(71, u64 position_hash;)
   G(71, i32 num_moves;)
-  G(71, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(96, u16 partial_hash;)
-  G(96, i16 score;)
-  G(96, Move move;)
   G(96, i8 depth;)
+  G(96, i16 score;)
   G(96, u8 flag;)
+  G(96, u16 partial_hash;)
+  G(96, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1080,7 +1080,7 @@ G(97, S(1) TTEntry tt[tt_length];)
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
 
-[[nodiscard]] __attribute__((target("aes"))) S(0) u64
+[[nodiscard]] __attribute__((target("aes"))) S(1) u64
     get_hash(const Position *const pos) {
   i128 hash = {0};
 
@@ -1187,8 +1187,8 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(104, tt_entry->flag != static_eval > tt_entry->score) &&
-      G(104, tt_entry->partial_hash == tt_hash_partial)) {
+  if (G(104, tt_entry->partial_hash == tt_hash_partial) &&
+      G(104, tt_entry->flag != static_eval > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
 
@@ -1217,8 +1217,8 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     // NULL MOVE PRUNING
     if (G(109, depth > 2) && G(109, static_eval >= beta) && G(109, do_null)) {
       Position npos = *pos;
-      G(110, npos.ep = 0;)
       G(110, flip_pos(&npos);)
+      G(110, npos.ep = 0;)
       const i32 score = -search(
           H(98, 2, &npos), H(98, 2, -beta), H(98, 2, ply + 1),
           H(98, 2, depth - 3 - depth / 4), H(99, 2, stack),
@@ -1232,12 +1232,12 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     }
   }
 
-  G(98, i32 quiets_evaluated = 0;)
   G(98, i32 moves_evaluated = 0;)
+  G(98, i32 quiets_evaluated = 0;)
   G(98, stack[ply].num_moves = movegen(
             H(63, 3, pos), H(63, 3, stack[ply].moves), H(63, 3, in_qsearch));)
-  G(98, u8 tt_flag = Upper;)
   G(98, i32 best_score = in_qsearch ? static_eval : -inf;)
+  G(98, u8 tt_flag = Upper;)
   G(98, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
@@ -1275,14 +1275,14 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
               G(115, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (ply > 0 && G(116, depth < 8) &&
+    if (ply > 0 &&
         G(116,
           G(117, static_eval + 136 * depth) +
                   G(117, eg.material[stack[ply].moves[move_index].promo]) +
                   G(117,
                     eg.material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
-        G(116, moves_evaluated) && G(116, !in_check)) {
+        G(116, moves_evaluated) && G(116, !in_check) && G(116, depth < 8)) {
       break;
     }
 
@@ -1400,8 +1400,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
 S(1) void init() {
   G(
-      46,
-      // INIT DIAGONAL MASKS
+      46, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] =
@@ -1417,8 +1416,7 @@ S(1) void init() {
                                                      H(74, 2, eg.material[i]));
       })
 
-  G(46,
-    // CLEAR HISTORY
+  G(46, // CLEAR HISTORY
     __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       46, // MERGE NON-MATERIAL VALUES
@@ -1450,7 +1448,7 @@ void iteratively_deepen(
     i32 window = 32;
     size_t elapsed;
     while (true) {
-    //for(i32 window = 32;;window *= 2) {
+      // for(i32 window = 32;;window *= 2) {
       i32 alpha = score - window;
       i32 beta = score + window;
       score =
@@ -1461,7 +1459,7 @@ void iteratively_deepen(
 #endif
                  H(99, 4, beta), H(99, 4, pos_history_count), H(99, 4, false));
       elapsed = get_time() - start_time;
-      if((score > alpha && score < beta) || elapsed > max_time){
+      if ((score > alpha && score < beta) || elapsed > max_time) {
         break;
       }
       window *= 2;
@@ -1666,42 +1664,6 @@ S(1) void run() {
     }
 #endif
     G(128, if (line[0] == 'q') { exit_now(); })
-    else G(128, if (line[0] == 'p') {
-      G(129, pos_history_count = 0;)
-        G(129, pos = start_pos;)
-        while (true) {
-          const bool line_continue = getl(line);
-
-#if FULL
-          if (!strcmp(line, "fen")) {
-            getl(line);
-            get_fen(&pos, line);
-          }
-#endif
-
-          const i32 num_moves =
-            movegen(H(63, 4, &pos), H(63, 4, stack[0].moves), H(63, 4, false));
-          for (i32 i = 0; i < num_moves; i++) {
-            char move_name[8];
-            move_str(H(28, 4, move_name), H(28, 4, &stack[0].moves[i]),
-              H(28, 4, pos.flipped));
-            assert(move_string_equal(line, move_name) ==
-              !strcmp(line, move_name));
-            if (move_string_equal(G(130, line), G(130, move_name))) {
-              stack[pos_history_count].position_hash = get_hash(&pos);
-              pos_history_count++;
-              if (stack[0].moves[i].takes_piece != None) {
-                pos_history_count = 0;
-              }
-              makemove(H(46, 4, &pos), H(46, 4, &stack[0].moves[i]));
-              break;
-            }
-          }
-          if (!line_continue) {
-            break;
-          }
-        }
-    })
     else G(128, if (line[0] == 'g') {
 #ifdef FULL
       while (true) {
@@ -1731,6 +1693,42 @@ S(1) void run() {
       iteratively_deepen(H(126, 5, &pos), H(126, 5, stack),
         H(126, 5, pos_history_count));
 #endif
+    })
+    else G(128, if (line[0] == 'p') {
+      G(129, pos_history_count = 0;)
+        G(129, pos = start_pos;)
+        while (true) {
+          const bool line_continue = getl(line);
+
+#if FULL
+          if (!strcmp(line, "fen")) {
+            getl(line);
+            get_fen(&pos, line);
+          }
+#endif
+
+          const i32 num_moves =
+            movegen(H(63, 4, &pos), H(63, 4, stack[0].moves), H(63, 4, false));
+          for (i32 i = 0; i < num_moves; i++) {
+            char move_name[8];
+            move_str(H(28, 4, move_name), H(28, 4, &stack[0].moves[i]),
+              H(28, 4, pos.flipped));
+            assert(move_string_equal(line, move_name) ==
+              !strcmp(line, move_name));
+            if (move_string_equal(G(130, move_name), G(130, line))) {
+              stack[pos_history_count].position_hash = get_hash(&pos);
+              pos_history_count++;
+              if (stack[0].moves[i].takes_piece != None) {
+                pos_history_count = 0;
+              }
+              makemove(H(46, 4, &pos), H(46, 4, &stack[0].moves[i]));
+              break;
+            }
+          }
+          if (!line_continue) {
+            break;
+          }
+        }
     })
     else G(128, if (line[0] == 'i') { puts("readyok"); })
   }
