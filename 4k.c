@@ -1445,7 +1445,7 @@ void iteratively_deepen(
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    i32 window = 32;
+    i32 window = 24;
     size_t elapsed;
     while (true) {
       // for(i32 window = 32;;window *= 2) {
