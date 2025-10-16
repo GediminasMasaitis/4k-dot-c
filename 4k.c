@@ -1447,10 +1447,12 @@ void iteratively_deepen(
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    i32 alpha = score - 64;
-    i32 beta = score + 64;
+    i32 window = 32;
     size_t elapsed;
     while (true) {
+    //for(i32 window = 32;;window *= 2) {
+      i32 alpha = score - window;
+      i32 beta = score + window;
       score =
           search(H(98, 4, pos), H(98, 4, alpha), H(98, 4, 0), H(98, 4, depth),
                  H(99, 4, stack),
@@ -1462,8 +1464,7 @@ void iteratively_deepen(
       if((score > alpha && score < beta) || elapsed > max_time){
         break;
       }
-      alpha = -inf;
-      beta = inf;
+      window *= 2;
     }
 #ifdef FULL
     // Don't print unreliable scores
