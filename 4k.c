@@ -917,8 +917,8 @@ G(73, S(1) const EvalParams mg = ((EvalParams){
           .passed_pawns = {-16, -20, -13, 8, 31, 90},
           .passed_blocked_pawns = {3, -2, 4, 12, 14, -31},
           .bishop_pair = 23,
-          .pawn_attacked_penalty = {-16, -128},
-          .tempo = 17});)
+          .pawn_attacked_penalty = {-16, -122},
+          .tempo = 16});)
 
 G(
     73, [[nodiscard]] S(1) i32 combine_eval_param(H(74, 1, const i32 mg_val),
@@ -1201,17 +1201,17 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   }
 
   if (G(106, !in_check) && G(106, alpha == beta - 1)) {
-    if (G(107, depth < 8) && G(107, !in_qsearch)) {
+    if (G(107, depth < 9) && G(107, !in_qsearch)) {
 
       G(108, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * depth >= beta) {
+        if (static_eval - 50 * depth >= beta) {
           return static_eval;
         }
       })
 
       G(108, // RAZORING
-        in_qsearch = static_eval + 123 * depth <= alpha;)
+        in_qsearch = static_eval + 114 * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1253,13 +1253,13 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
           G(99, // KILLER MOVE
             move_equal(G(112, &stack[ply].moves[order_index]),
                        G(112, &stack[ply].killer)) *
-                861) +
+                811) +
           G(99, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(113, &stack[ply].best_move),
                         G(113, &stack[ply].moves[order_index]))
              << 30)) +
           G(99, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 737) +
+            stack[ply].moves[order_index].takes_piece * 672) +
           G(99, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1275,9 +1275,9 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
               G(115, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(116, depth < 8) &&
+    if (G(116, depth < 7) &&
         G(116,
-          G(117, static_eval + 136 * depth) +
+          G(117, static_eval + 127 * depth) +
                   G(117, eg.material[stack[ply].moves[move_index].promo]) +
                   G(117,
                     eg.material[stack[ply].moves[move_index].takes_piece]) <
