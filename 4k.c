@@ -863,7 +863,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 }
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i16 material[6];
+  i16 material[7];
   H(70, 1,
     H(71, 1, i8 passed_pawns[6];) H(71, 1, i8 king_attacks[5];)
         H(71, 1, i8 passed_blocked_pawns[6];) H(71, 1, i8 tempo;)
@@ -875,7 +875,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i32 material[6];
+  i32 material[7];
   H(70, 2,
     H(71, 2, i32 passed_pawns[6];) H(71, 2, i32 king_attacks[5];)
         H(71, 2, i32 passed_blocked_pawns[6];) H(71, 2, i32 tempo;)
@@ -895,7 +895,7 @@ G(
     })
 
 G(73, S(1) const EvalParams eg = ((EvalParams) {
-  .material = { 71, 302, 297, 542, 993, 0 },
+  .material = { 0, 71, 302, 297, 542, 993, 0 },
     .pst_rank =
   {
       0,   -4,  -6,  -5, 0,  15, 77, 0,   // Pawn
@@ -926,11 +926,9 @@ G(73, S(1) const EvalParams eg = ((EvalParams) {
 
 G(73,
   __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
-G(73, __attribute__((aligned(8))) S(1)
-    const i16 max_material[] = { 0, 71, 302, 298, 542, 993 };)
 
 G(73, S(1) const EvalParams mg = ((EvalParams) {
-  .material = { 71, 294, 298, 405, 898, 0 },
+  .material = { 0, 71, 294, 298, 405, 898, 0 },
     .pst_rank =
   {
       0,   -10, -10, -8,  3,  25, 92,  0,   // Pawn
@@ -999,7 +997,7 @@ S(1) i32 eval(Position *const restrict pos) {
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
 
         G(62, // MATERIAL
-          score += eval_params.material[p - 1];)
+          score += eval_params.material[p];)
 
         G(
             62, if (p > Pawn) {
@@ -1276,9 +1274,9 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     if (ply > 0 &&
         G(116,
           G(117, static_eval + 136 * depth) +
-                  G(117, max_material[stack[ply].moves[move_index].promo]) +
+                  G(117, eg.material[stack[ply].moves[move_index].promo]) +
                   G(117,
-                    max_material[stack[ply].moves[move_index].takes_piece]) <
+                    eg.material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
         G(116, moves_evaluated) && G(116, !in_check) && G(116, depth < 8)) {
       break;
