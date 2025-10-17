@@ -7026,3 +7026,53 @@ Remove max_material
 MD5: e3a442c746421a06cbd11af0af3476f7
 
 Smaller syscalls 
+
+### 4.57
+
+64 bit: 4078 bytes (+9)
+
+MD5: 03da8492562da9095582f124f876c518
+
+More RFP if improving
+
+```py
+info depth 1 score cp 26 time 0 nodes 20 pv b1c3
+info depth 2 score cp 17 time 0 nodes 103 pv b1c3
+info depth 3 score cp 26 time 0 nodes 260 pv b1c3
+info depth 4 score cp 17 time 1 nodes 510 nps 510000 pv b1c3
+info depth 5 score cp 12 time 1 nodes 1315 nps 1315000 pv d2d4
+info depth 6 score cp 17 time 2 nodes 2463 nps 1231500 pv d2d4
+info depth 7 score cp 12 time 5 nodes 5791 nps 1158200 pv d2d4
+info depth 8 score cp 17 time 10 nodes 11441 nps 1144100 pv d2d4
+info depth 9 score cp 10 time 19 nodes 22451 nps 1181631 pv d2d4
+info depth 10 score cp 17 time 31 nodes 39715 nps 1281129 pv d2d4
+info depth 11 score cp 11 time 67 nodes 103879 nps 1550432 pv g1f3
+info depth 12 score cp 9 time 119 nodes 217615 nps 1828697 pv g1f3
+info depth 13 score cp 13 time 216 nodes 450859 nps 2087310 pv g1f3
+info depth 14 score cp 16 time 376 nodes 842263 nps 2240061 pv g1f3
+info depth 15 score cp 24 time 875 nodes 2043366 nps 2335275 pv e2e4
+info depth 16 score cp 29 time 1180 nodes 2772398 nps 2349489 pv e2e4
+info depth 17 score cp 29 time 1596 nodes 3809306 nps 2386783 pv e2e4
+info depth 18 score cp 27 time 2514 nodes 6083950 nps 2420027 pv e2e4
+info depth 19 score cp 27 time 3497 nodes 8532027 nps 2439813 pv e2e4
+bestmove e2e4
+8532027 nodes 2439813 nps
+```
+
+```py
+Elo   | 6.63 +- 4.68 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 10372 W: 3125 L: 2927 D: 4320
+Penta | [303, 1194, 2031, 1318, 340]
+https://gedas.pythonanywhere.com/test/1253/
+```
+
+```py
+Elo   | 6.17 +- 4.37 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 10026 W: 2776 L: 2598 D: 4652
+Penta | [191, 1177, 2134, 1285, 226]
+https://gedas.pythonanywhere.com/test/1255/
+```
