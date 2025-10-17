@@ -1445,12 +1445,12 @@ void iteratively_deepen(
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    i32 window = 24;
-    size_t elapsed;
+    G(127, i32 window = 24;)
+    G(127, size_t elapsed;)
     while (true) {
       // for(i32 window = 32;;window *= 2) {
-      i32 alpha = score - window;
-      i32 beta = score + window;
+      G(128, const i32 alpha = score - window;)
+      G(128, const i32 beta = score + window;)
       score =
           search(H(98, 4, pos), H(98, 4, alpha), H(98, 4, 0), H(98, 4, depth),
                  H(99, 4, stack),
@@ -1459,10 +1459,10 @@ void iteratively_deepen(
 #endif
                  H(99, 4, beta), H(99, 4, pos_history_count), H(99, 4, false));
       elapsed = get_time() - start_time;
-      if ((score > alpha && score < beta) || elapsed > max_time) {
-        break;
-      }
-      window *= 2;
+      G(
+          129,
+          if ((score > alpha && score < beta) || elapsed > max_time) { break; })
+      G(129, window *= 2;)
     }
 #ifdef FULL
     // Don't print unreliable scores
@@ -1605,16 +1605,16 @@ S(1) void run() {
   setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 
-  G(127, char line[4096];)
-  G(127, Position pos;)
-  G(127, i32 pos_history_count;)
-  G(127, // #ifdef LOWSTACK
+  G(130, char line[4096];)
+  G(130, Position pos;)
+  G(130, i32 pos_history_count;)
+  G(130, // #ifdef LOWSTACK
          //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
          // #else
     SearchStack stack[1024];
     // #endif
   )
-  G(127, init();)
+  G(130, init();)
 
 #ifdef FULL
   pos = start_pos;
@@ -1663,8 +1663,8 @@ S(1) void run() {
              nps);
     }
 #endif
-    G(128, if (line[0] == 'q') { exit_now(); })
-    else G(128, if (line[0] == 'g') {
+    G(131, if (line[0] == 'q') { exit_now(); })
+    else G(131, if (line[0] == 'g') {
 #ifdef FULL
       while (true) {
         getl(line);
@@ -1694,9 +1694,9 @@ S(1) void run() {
         H(126, 5, pos_history_count));
 #endif
     })
-    else G(128, if (line[0] == 'p') {
-      G(129, pos_history_count = 0;)
-        G(129, pos = start_pos;)
+    else G(131, if (line[0] == 'p') {
+      G(132, pos_history_count = 0;)
+        G(132, pos = start_pos;)
         while (true) {
           const bool line_continue = getl(line);
 
@@ -1715,7 +1715,7 @@ S(1) void run() {
               H(28, 4, pos.flipped));
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
-            if (move_string_equal(G(130, move_name), G(130, line))) {
+            if (move_string_equal(G(133, move_name), G(133, line))) {
               stack[pos_history_count].position_hash = get_hash(&pos);
               pos_history_count++;
               if (stack[0].moves[i].takes_piece != None) {
@@ -1730,7 +1730,7 @@ S(1) void run() {
           }
         }
     })
-    else G(128, if (line[0] == 'i') { puts("readyok"); })
+    else G(131, if (line[0] == 'i') { puts("readyok"); })
   }
 }
 
