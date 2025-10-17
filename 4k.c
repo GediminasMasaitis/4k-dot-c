@@ -279,15 +279,7 @@ typedef struct [[nodiscard]] {
 }
 
 [[nodiscard]] S(1) u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
-
-#ifdef ARCH32
-#pragma GCC push_options
-#pragma GCC optimize("O3")
-#endif
-S(1) i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
-#ifdef ARCH32
-#pragma GCC pop_options
-#endif
+[[nodiscard]] S(1) i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
 
 G(
     10, [[nodiscard]] S(1)
