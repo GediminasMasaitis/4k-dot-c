@@ -1001,7 +1001,7 @@ S(1) i32 eval(Position *const restrict pos) {
               G(86, const u64 mobility =
                         G(87, get_mobility(H(40, 3, pos), H(40, 3, sq),
                                            H(40, 3, p))) &
-                        G(87, G(88, ~pos->colour[0]));
+                        G(87, ~pos->colour[0]);
 
                 G(89, // MOBILITY
                   score +=
