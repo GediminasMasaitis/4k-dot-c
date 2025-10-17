@@ -57,7 +57,7 @@ G(
       ssize_t ret;
       asm volatile("syscall"
                    : "=a"(ret)
-                   : "a"(call), "D"(arg1), "S"(arg2), "d"(arg3)
+                   : "0"(call), "D"(arg1), "S"(arg2), "d"(arg3)
                    : "rcx", "r11", "memory");
       return ret;
     })
