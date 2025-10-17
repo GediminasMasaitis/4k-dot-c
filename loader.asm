@@ -12,16 +12,17 @@
 ;; http://www.ibsensoftware.com/
 ;;
 
-format ELF64
+BITS 64
+default rel
 
-public _start
+global _start
 
-section '.rodata' align 1
+section .rodata align=1
 payload_compressed:
-    file './build/4kc.ap'
+    incbin './build/4kc.ap'
 
-section '.payload' align 1
-payload_decompressed rb 4096*2
+section .payload align=1
+payload_decompressed resb 4096*2
 
 section '.text'
 _start:
