@@ -1149,23 +1149,20 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   assert(alpha < beta);
   assert(ply >= 0);
 
-  const bool in_check = find_in_check(pos);
+  G(999,
+    // IN-CHECK EXTENSION
+    const bool in_check = find_in_check(pos);
+    depth += in_check;)
 
-  // IN-CHECK EXTENSION
-  if (in_check) {
-    depth++;
-  }
-
+  G(999, // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
-
-  // FULL REPETITION DETECTION
   bool in_qsearch = depth <= 0;
   for (i32 i = G(100, ply) + G(100, pos_history_count);
        G(101, i > 0) && G(101, do_null); i -= 2) {
     if (tt_hash == stack[i].position_hash) {
       return 0;
     }
-  }
+  })
 
   // TT PROBING
   G(102, stack[ply].best_move = (Move){0};)
