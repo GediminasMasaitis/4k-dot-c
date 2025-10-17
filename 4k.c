@@ -1307,7 +1307,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     // LATE MOVE REDUCTION
     i32 reduction = G(118, depth > 1) && G(118, moves_evaluated > 6)
                         ? G(119, (alpha == beta - 1)) +
-                              G(119, moves_evaluated / 11) + G(119, !improving)
+                              G(119, moves_evaluated / 11)
                         : 0;
 
     i32 score;
