@@ -273,13 +273,13 @@ typedef struct [[nodiscard]] {
 #define assert(condition)
 #endif
 
-[[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict lhs),
+G(10, S(1) bool move_string_equal(G(8, const char *restrict lhs),
                                           G(8, const char *restrict rhs)) {
   return (G(9, *(const u64 *)rhs) ^ G(9, *(const u64 *)lhs)) << 24 == 0;
-}
+})
 
-[[nodiscard]] S(1) u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); }
-[[nodiscard]] S(1) i32 lsb(u64 bb) { return __builtin_ctzll(bb); }
+G(10, S(1) u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); })
+G(10, [[nodiscard]] S(1) i32 lsb(u64 bb) { return __builtin_ctzll(bb); })
 
 G(
     10, [[nodiscard]] S(1)
