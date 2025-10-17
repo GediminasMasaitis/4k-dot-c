@@ -64,8 +64,8 @@ G(
 
 G(
     1, S(1) void exit_now() {
-      asm volatile("movl $60, %eax\n\t"
-                   "syscall");
+      asm volatile("syscall" : : "a"(60));
+      __builtin_unreachable();
     })
 
 G(
@@ -483,7 +483,7 @@ G(
 
       G(
           37, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(37, pos->flipped ^= 1;)
@@ -1061,8 +1061,8 @@ typedef struct [[nodiscard]] {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(96, u16 partial_hash;)
   G(96, i16 score;)
-  G(96, Move move;)
   G(96, i8 depth;)
+  G(96, Move move;)
   G(96, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1073,9 +1073,9 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
 G(97, S(1) i32 move_history[2][6][64][64];)
-G(97, S(0) size_t max_time;)
 G(97, S(0) size_t start_time;)
 G(97, S(1) TTEntry tt[tt_length];)
+G(97, S(0) size_t max_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1400,8 +1400,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
 S(1) void init() {
   G(
-      46,
-      // INIT DIAGONAL MASKS
+      46, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] =
@@ -1417,8 +1416,7 @@ S(1) void init() {
                                                      H(74, 2, eg.material[i]));
       })
 
-  G(46,
-    // CLEAR HISTORY
+  G(46, // CLEAR HISTORY
     __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       46, // MERGE NON-MATERIAL VALUES
@@ -1654,7 +1652,8 @@ S(1) void run() {
              nps);
     }
 #endif
-    G(128, if (line[0] == 'q') { exit_now(); })
+    G(128, if (line[0] == 'i') { puts("readyok"); })
+    else G(128, if (line[0] == 'q') { exit_now(); })
     else G(128, if (line[0] == 'p') {
       G(129, pos_history_count = 0;)
         G(129, pos = start_pos;)
@@ -1721,7 +1720,6 @@ S(1) void run() {
         H(126, 5, pos_history_count));
 #endif
     })
-    else G(128, if (line[0] == 'i') { puts("readyok"); })
   }
 }
 

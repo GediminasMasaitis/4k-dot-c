@@ -7018,3 +7018,11 @@ Full ASM loader
 MD5: 65fe9176c8667e80867e45efb23198af
 
 Remove max_material
+
+### 4.56
+
+64 bit: 4074 bytes (-2)
+
+MD5: bacd53b6256efaeab5c76077017c6855
+
+Smaller exit_now
