@@ -273,12 +273,16 @@ typedef struct [[nodiscard]] {
 #define assert(condition)
 #endif
 
-G(10, S(1) bool move_string_equal(G(8, const char *restrict lhs),
-                                          G(8, const char *restrict rhs)) {
-  return (G(9, *(const u64 *)rhs) ^ G(9, *(const u64 *)lhs)) << 24 == 0;
-})
+G(
+    10,
+    [[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict lhs),
+                                              G(8, const char *restrict rhs)) {
+      return (G(9, *(const u64 *)rhs) ^ G(9, *(const u64 *)lhs)) << 24 == 0;
+    })
 
-G(10, S(1) u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); })
+G(
+    10, [[nodiscard]] S(1)
+            u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); })
 G(10, [[nodiscard]] S(1) i32 lsb(u64 bb) { return __builtin_ctzll(bb); })
 
 G(
@@ -1137,15 +1141,16 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     const bool in_check = find_in_check(pos);
     depth += in_check;)
 
-  G(999, // FULL REPETITION DETECTION
-  const u64 tt_hash = get_hash(pos);
-  bool in_qsearch = depth <= 0;
-  for (i32 i = G(100, ply) + G(100, pos_history_count);
-       G(101, i > 0) && G(101, do_null); i -= 2) {
-    if (tt_hash == stack[i].position_hash) {
-      return 0;
-    }
-  })
+  G(
+      999, // FULL REPETITION DETECTION
+      const u64 tt_hash = get_hash(pos);
+      bool in_qsearch = depth <= 0;
+      for (i32 i = G(100, ply) + G(100, pos_history_count);
+           G(101, i > 0) && G(101, do_null); i -= 2) {
+        if (tt_hash == stack[i].position_hash) {
+          return 0;
+        }
+      })
 
   // TT PROBING
   G(102, stack[ply].best_move = (Move){0};)
