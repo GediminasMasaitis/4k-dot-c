@@ -1168,7 +1168,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   }
 
   // TT PROBING
-  G(102, stack[ply].best_move = (Move){0};)
+  //G(102, stack[ply].best_move = (Move){0};)
   G(102, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(102, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   if (tt_entry->partial_hash == tt_hash_partial) {
