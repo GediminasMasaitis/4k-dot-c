@@ -69,15 +69,6 @@ G(
     })
 
 G(
-    1, [[nodiscard]] S(1) i32 strlen(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        length++;
-      }
-      return length;
-    })
-
-G(
     3, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
