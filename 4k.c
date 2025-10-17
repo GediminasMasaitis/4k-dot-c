@@ -196,7 +196,11 @@ typedef struct [[nodiscard]] {
 
 [[nodiscard]] S(1) size_t get_time() {
   timespec ts;
-  _sys(H(2, 5, 1), H(2, 5, 0), H(2, 5, (ssize_t)&ts), H(2, 5, 228));
+  ssize_t ret; // Unused
+  asm volatile("syscall"
+    : "=a"(ret)
+    : "0"(228), "D"(1), "S"(&ts)
+    : "rcx", "r11", "memory");
   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
