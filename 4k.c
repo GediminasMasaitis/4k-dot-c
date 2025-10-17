@@ -1211,7 +1211,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
       G(108, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * depth >= beta) {
+        if (static_eval - 52 * (depth - improving) >= beta) {
           return static_eval;
         }
       })
