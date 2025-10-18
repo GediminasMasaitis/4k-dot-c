@@ -1501,7 +1501,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
                         .score = best_score,
-                        .depth = depth,
+                        .depth = depth * !in_qsearch,
                         .flag = tt_flag};
 
   return best_score;
