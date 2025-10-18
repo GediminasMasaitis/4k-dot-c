@@ -1266,7 +1266,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(117, depth < 8) &&
         G(117,
-          G(118, static_eval + 136 * depth) +
+          G(118, static_eval + 136 * (depth - !improving)) +
                   G(118, eg.material[stack[ply].moves[move_index].promo]) +
                   G(118,
                     eg.material[stack[ply].moves[move_index].takes_piece]) <
