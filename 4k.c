@@ -1667,7 +1667,7 @@ S(1) void run() {
             if (move_string_equal(G(131, line), G(131, move_name))) {
               stack[pos_history_count].position_hash = get_hash(&pos);
               pos_history_count++;
-              if (stack[0].moves[i].takes_piece != None) {
+              if (stack[0].moves[i].takes_piece != None || piece_on(&pos, stack[0].moves[i].from) == Pawn) {
                 pos_history_count = 0;
               }
               makemove(H(46, 4, &pos), H(46, 4, &stack[0].moves[i]));
