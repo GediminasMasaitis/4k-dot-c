@@ -1144,7 +1144,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
       const u64 tt_hash = get_hash(pos);
       bool in_qsearch = depth <= 0;
       for (i32 i = G(101, ply) + G(101, pos_history_count);
-           G(102, i > 0) && G(102, do_null); i -= 2) {
+           G(102, i >= 0) && G(102, do_null); i -= 2) {
         if (tt_hash == stack[i].position_hash) {
           return 0;
         }
