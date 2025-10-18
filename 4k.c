@@ -1381,7 +1381,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                         .move = stack[ply].best_move,
                         .score = best_score,
-                        .depth = depth,
+                        .depth = depth * (depth > 0),
                         .flag = tt_flag};
 
   return best_score;
