@@ -854,6 +854,45 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
+#define TUNE_PARAMETER(name, initial, min, max, step)                          \
+  int name = initial;                                                          \
+  int name##_min = min;                                                        \
+  int name##_max = max;                                                        \
+  float name##_step = step;
+
+#define PRINT_TUNE_OPTION(name)                                                \
+  printf("option name " #name " type spin default %i min -32768 max 32767\n",  \
+         name)
+
+#define READ_TUNE_OPTION(name)                                                 \
+  else if (!strcmp(line, #name)) {                                             \
+    getl(line);                                                                \
+    getl(line);                                                                \
+    name = atoi(line);                                                         \
+    init();                                                                    \
+  }
+
+#define PRINT_TUNE_INPUT(name)                                                 \
+  printf(#name ", int, %i, %i, %i, %f, 0.002\n", name, name##_min, name##_max, \
+         name##_step)
+
+TUNE_PARAMETER(tempo_mg, 17, 0, 32, 1)
+TUNE_PARAMETER(tempo_eg, 7, 0, 32, 1)
+TUNE_PARAMETER(pawn_attacked_own_turn_mg, -16, -32, 0, 1)
+TUNE_PARAMETER(pawn_attacked_own_turn_eg, -10, -32, 0, 1)
+TUNE_PARAMETER(pawn_attacked_opp_turn_mg, -128, -128, -64, 3)
+TUNE_PARAMETER(pawn_attacked_opp_turn_eg, -128, -128, -64, 3)
+
+TUNE_PARAMETER(rfp_depth, 8, 6, 11, 0.5)
+TUNE_PARAMETER(rfp_margin, 52, 32, 96, 3)
+TUNE_PARAMETER(razor_margin, 123, 64, 256, 9)
+TUNE_PARAMETER(mvv_weight, 737, 512, 1024, 32)
+TUNE_PARAMETER(killer_weight, 861, 512, 1024, 32)
+TUNE_PARAMETER(lmp_moves, 11, 8, 14, 0.8)
+TUNE_PARAMETER(ffp_depth, 8, 5, 12, 0.5)
+TUNE_PARAMETER(ffp_margin, 136, 72, 192, 6)
+
+
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(70, 1,
@@ -883,7 +922,7 @@ G(73,
   __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 G(73, S(0) EvalParamsMerged eval_params;)
 
-G(73, S(1) const EvalParams mg = ((EvalParams){
+G(73, S(1) EvalParams mg = ((EvalParams){
           .material = {0, 67, 266, 270, 357, 768, 0},
           .pst_rank =
               {
@@ -918,7 +957,7 @@ G(
       return G(75, mg_val) + G(75, (eg_val << 16));
     })
 
-G(73, S(1) const EvalParams eg = ((EvalParams){
+G(73, S(1) EvalParams eg = ((EvalParams){
           .material = {0, 86, 398, 392, 706, 1340, 0},
           .pst_rank =
               {
@@ -1190,17 +1229,17 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
   }
 
   if (G(107, !in_check) && G(107, alpha == beta - 1)) {
-    if (G(108, depth < 8) && G(108, !in_qsearch)) {
+    if (G(108, depth < rfp_depth) && G(108, !in_qsearch)) {
 
       G(109, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * (depth - improving) >= beta) {
+        if (static_eval - rfp_margin * (depth - improving) >= beta) {
           return static_eval;
         }
       })
 
       G(109, // RAZORING
-        in_qsearch = static_eval + 123 * depth <= alpha;)
+        in_qsearch = static_eval + razor_margin * depth <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1242,13 +1281,13 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
           G(99, // KILLER MOVE
             move_equal(G(113, &stack[ply].moves[order_index]),
                        G(113, &stack[ply].killer)) *
-                861) +
+                killer_weight) +
           G(99, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(114, &stack[ply].best_move),
                         G(114, &stack[ply].moves[order_index]))
              << 30)) +
           G(99, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 737) +
+            stack[ply].moves[order_index].takes_piece * mvv_weight) +
           G(99, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1264,9 +1303,9 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
               G(116, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(117, depth < 8) &&
+    if (G(117, depth < ffp_depth) &&
         G(117,
-          G(118, static_eval + 136 * depth) +
+          G(118, static_eval + ffp_margin * depth) +
                   G(118, eg.material[stack[ply].moves[move_index].promo]) +
                   G(118,
                     eg.material[stack[ply].moves[move_index].takes_piece]) <
@@ -1290,7 +1329,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     // LATE MOVE REDUCTION
     i32 reduction = G(119, depth > 1) && G(119, moves_evaluated > 6)
                         ? G(120, (alpha == beta - 1)) +
-                              G(120, moves_evaluated / 11) + G(120, !improving)
+                              G(120, moves_evaluated / lmp_moves) + G(120, !improving)
                         : 0;
 
     i32 score;
@@ -1388,6 +1427,13 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 }
 
 S(1) void init() {
+  mg.tempo = (i8)tempo_mg;
+  eg.tempo = (i8)tempo_eg;
+  mg.pawn_attacked_penalty[0] = (i8)pawn_attacked_own_turn_mg;
+  eg.pawn_attacked_penalty[0] = (i8)pawn_attacked_own_turn_eg;
+  mg.pawn_attacked_penalty[1] = (i8)pawn_attacked_opp_turn_mg;
+  eg.pawn_attacked_penalty[1] = (i8)pawn_attacked_opp_turn_eg;
+
   G(
       46, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
@@ -1616,8 +1662,60 @@ S(1) void run() {
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
       puts("option name Threads type spin default 1 min 1 max 1");
+      PRINT_TUNE_OPTION(tempo_mg);
+      PRINT_TUNE_OPTION(tempo_eg);
+      PRINT_TUNE_OPTION(pawn_attacked_own_turn_mg);
+      PRINT_TUNE_OPTION(pawn_attacked_own_turn_eg);
+      PRINT_TUNE_OPTION(pawn_attacked_opp_turn_mg);
+      PRINT_TUNE_OPTION(pawn_attacked_opp_turn_eg);
+
+      PRINT_TUNE_OPTION(rfp_depth);
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(lmp_moves);
+      PRINT_TUNE_OPTION(ffp_depth);
+      PRINT_TUNE_OPTION(ffp_margin);
       puts("uciok");
-    } else if (!strcmp(line, "ucinewgame")) {
+    }
+    else if (!strcmp(line, "setoption")) {
+      getl(line);
+      getl(line);
+      if (false) {}
+      READ_TUNE_OPTION(tempo_mg)
+        READ_TUNE_OPTION(tempo_eg)
+        READ_TUNE_OPTION(pawn_attacked_own_turn_mg)
+        READ_TUNE_OPTION(pawn_attacked_own_turn_eg)
+        READ_TUNE_OPTION(pawn_attacked_opp_turn_mg)
+        READ_TUNE_OPTION(pawn_attacked_opp_turn_eg)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_margin)
+        READ_TUNE_OPTION(razor_margin)
+        READ_TUNE_OPTION(mvv_weight)
+        READ_TUNE_OPTION(killer_weight)
+        READ_TUNE_OPTION(lmp_moves)
+        READ_TUNE_OPTION(ffp_depth)
+        READ_TUNE_OPTION(ffp_margin)
+    }
+    else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(tempo_mg);
+      PRINT_TUNE_INPUT(tempo_eg);
+      PRINT_TUNE_INPUT(pawn_attacked_own_turn_mg);
+      PRINT_TUNE_INPUT(pawn_attacked_own_turn_eg);
+      PRINT_TUNE_INPUT(pawn_attacked_opp_turn_mg);
+      PRINT_TUNE_INPUT(pawn_attacked_opp_turn_eg);
+      PRINT_TUNE_INPUT(rfp_depth);
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(lmp_moves);
+      PRINT_TUNE_INPUT(ffp_depth);
+      PRINT_TUNE_INPUT(ffp_margin);
+    }
+    else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
       __builtin_memset(move_history, 0, sizeof(move_history));
     } else if (!strcmp(line, "bench")) {
