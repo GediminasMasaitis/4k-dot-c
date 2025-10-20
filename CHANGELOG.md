@@ -7076,3 +7076,64 @@ Games | N: 10026 W: 2776 L: 2598 D: 4652
 Penta | [191, 1177, 2134, 1285, 226]
 https://gedas.pythonanywhere.com/test/1255/
 ```
+
+### 4.58
+
+64 bit: 4095 bytes (+17)
+
+MD5: 4790b0115546b2e9d5e5e1c8e2048c9c
+
+Adjust NMP depth by beta distance to eval
+
+```py
+info depth 1 score cp 26 time 0 nodes 20 pv b1c3
+info depth 2 score cp 17 time 0 nodes 103 pv b1c3
+info depth 3 score cp 26 time 1 nodes 260 nps 260000 pv b1c3
+info depth 4 score cp 17 time 1 nodes 510 nps 510000 pv b1c3
+info depth 5 score cp 12 time 2 nodes 1315 nps 657500 pv d2d4
+info depth 6 score cp 17 time 2 nodes 2463 nps 1231500 pv d2d4
+info depth 7 score cp 12 time 6 nodes 5791 nps 965166 pv d2d4
+info depth 8 score cp 17 time 10 nodes 11440 nps 1144000 pv d2d4
+info depth 9 score cp 10 time 19 nodes 22454 nps 1181789 pv d2d4
+info depth 10 score cp 17 time 32 nodes 39707 nps 1240843 pv d2d4
+info depth 11 score cp 11 time 72 nodes 108760 nps 1510555 pv g1f3
+info depth 12 score cp 20 time 128 nodes 230039 nps 1797179 pv d2d4
+info depth 13 score cp 14 time 354 nodes 736547 nps 2080641 pv c2c4
+info depth 14 score cp 17 time 540 nodes 1160475 nps 2149027 pv d2d4
+info depth 15 score cp 24 time 871 nodes 1926464 nps 2211784 pv e2e4
+info depth 16 score cp 25 time 1156 nodes 2584940 nps 2236107 pv e2e4
+info depth 17 score cp 25 time 1599 nodes 3610243 nps 2257813 pv e2e4
+info depth 18 score cp 25 time 2448 nodes 5753192 nps 2350160 pv e2e4
+info depth 19 score cp 29 time 4100 nodes 9716191 nps 2369802 pv e2e4
+bestmove e2e4
+9716191 nodes 2369802 nps
+```
+
+```py
+Elo   | 7.96 +- 5.25 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 7818 W: 2309 L: 2130 D: 3379
+Penta | [196, 897, 1592, 980, 244]
+https://gedas.pythonanywhere.com/test/1270/
+```
+
+Older test, same change:
+```py
+Elo   | 7.65 +- 5.17 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 8726 W: 2641 L: 2449 D: 3636
+Penta | [259, 989, 1744, 1043, 328]
+https://gedas.pythonanywhere.com/test/1176/
+```
+
+Older test, same change:
+```py
+Elo   | 4.24 +- 3.36 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 18990 W: 5613 L: 5381 D: 7996
+Penta | [494, 2221, 3898, 2323, 559]
+https://gedas.pythonanywhere.com/test/1177/
+```
