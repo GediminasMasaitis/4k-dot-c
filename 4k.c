@@ -1162,7 +1162,7 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(104, tt_entry->flag != tt_entry->score <= alpha) &&
+    if (ply > 0 && G(104, tt_entry->flag != tt_entry->score <= alpha) &&
         G(104, tt_entry->depth >= depth)) {
       return tt_entry->score;
     }
