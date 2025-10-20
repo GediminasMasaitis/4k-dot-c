@@ -542,8 +542,10 @@ def main():
         text = read_file(src_filename)
         _uid_counter = 0
         root_nodes, _ = parse_nodes(text)
+        smallest_initial = 9999;
+        smallest_content = ""
+        for initial_index in range(100):
 
-        if enable_random_shuffle:
             # Initial shuffle of all groups' members before starting this run
             groups = {}
             collect_groups(root_nodes, groups)
@@ -594,9 +596,12 @@ def main():
             with open(src_filename, 'w') as f:
                 f.write(shuffled_content)
             text = shuffled_content
-
-        size, content = write_and_build_tree(root_nodes, src_filename)
-        pass_best = {'initial': size, 'best': size, 'best_content': content}
+            size, content = write_and_build_tree(root_nodes, src_filename)
+            print(f"Initial run {size}")
+            if(size < smallest_initial):
+                smallest_initial = size
+                smallest_content = content
+        pass_best = {'initial': smallest_initial, 'best': size, 'best_content': smallest_content}
 
         print(f'\n=== Starting run {run}/{num_runs} ===')
         print(f'Run {run} initial size: {size}B')
