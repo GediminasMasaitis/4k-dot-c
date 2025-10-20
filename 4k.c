@@ -1209,7 +1209,7 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
 
     // NULL MOVE PRUNING
     if (G(111, depth > 2) && G(111, static_eval >= beta) && G(111, do_null) &&
-        G(111, count(pos->colour[0]) > 4)) {
+        G(111, count(pos->colour[0]) > 3)) {
       Position npos = *pos;
       G(112, flip_pos(&npos);)
       G(112, npos.ep = 0;)
