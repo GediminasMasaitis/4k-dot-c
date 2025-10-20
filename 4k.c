@@ -273,6 +273,10 @@ typedef struct [[nodiscard]] {
 #define assert(condition)
 #endif
 
+[[nodiscard]] S(1) i32 min(H(998, 1, const i32 a), H(998, 1, const i32 b)) {
+  return (a < b) ? a : b;
+}
+
 G(
     8,
     [[nodiscard]] S(1) bool move_string_equal(G(9, const char *restrict lhs),
@@ -1210,7 +1214,11 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
       G(111, flip_pos(&npos);)
       const i32 score = -search(
           H(98, 2, &npos), H(98, 2, -beta), H(98, 2, ply + 1),
-          H(98, 2, depth - 3 - depth / 4), H(99, 2, stack),
+          H(98, 2,
+            depth - G(999, 3) - G(999, depth / 4) -
+                G(999,
+                  min(H(998, 2, (static_eval - beta) / 128), H(998, 2, 3)))),
+          H(99, 2, stack),
 #ifdef FULL
           nodes,
 #endif
