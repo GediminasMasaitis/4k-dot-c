@@ -1162,7 +1162,9 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
 
     // TT PRUNING
     if (tt_entry->depth >= depth) {
-      if (tt_entry->flag == Exact || tt_entry->flag == Upper && tt_entry->score <= alpha || tt_entry->flag == Lower && tt_entry->score >= beta) {
+      if (G(104, tt_entry->flag == Exact) ||
+          G(104, tt_entry->flag == Upper && tt_entry->score <= alpha) ||
+          G(104, tt_entry->flag == Lower && tt_entry->score >= beta)) {
         return tt_entry->score;
       }
     }
