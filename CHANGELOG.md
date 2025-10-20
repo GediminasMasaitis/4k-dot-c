@@ -7076,3 +7076,40 @@ Games | N: 10026 W: 2776 L: 2598 D: 4652
 Penta | [191, 1177, 2134, 1285, 226]
 https://gedas.pythonanywhere.com/test/1255/
 ```
+
+### 4.58
+
+64 bit: 4095 bytes (+17)
+
+MD5: 4790b0115546b2e9d5e5e1c8e2048c9c
+
+Adjust NMP depth by beta distance to eval
+
+```py
+Elo   | 7.96 +- 5.25 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 7818 W: 2309 L: 2130 D: 3379
+Penta | [196, 897, 1592, 980, 244]
+https://gedas.pythonanywhere.com/test/1270/
+```
+
+Older test, same change:
+```py
+Elo   | 7.65 +- 5.17 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 8726 W: 2641 L: 2449 D: 3636
+Penta | [259, 989, 1744, 1043, 328]
+https://gedas.pythonanywhere.com/test/1176/
+```
+
+Older test, same change:
+```py
+Elo   | 4.24 +- 3.36 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 18990 W: 5613 L: 5381 D: 7996
+Penta | [494, 2221, 3898, 2323, 559]
+https://gedas.pythonanywhere.com/test/1177/
+```
