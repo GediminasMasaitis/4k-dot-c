@@ -866,8 +866,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(72, 1, i8 mobilities[5];))
   H(71, 1,
     H(73, 1, i8 bishop_pair;) H(73, 1, i8 open_files[6];)
-        H(73, 1, u8 pawn_attacked_penalty[2];) H(73, 1, i8 pst_rank[64];)
-            H(73, 1, i8 pst_file[64];))
+        H(73, 1, u8 pawn_attacked_penalty[2];) H(73, 1, i8 pst_file[64];)
+            H(73, 1, i8 pst_rank[64];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -878,15 +878,12 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(72, 2, i32 mobilities[5];))
   H(71, 2,
     H(73, 2, i32 bishop_pair;) H(73, 2, i32 open_files[6];)
-        H(73, 2, i32 pawn_attacked_penalty[2];) H(73, 2, i32 pst_rank[64];)
-            H(73, 2, i32 pst_file[64];))
+        H(73, 2, i32 pawn_attacked_penalty[2];) H(73, 2, i32 pst_file[64];)
+            H(73, 2, i32 pst_rank[64];))
 
 } EvalParamsMerged;
 
-G(74,
-  __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 G(74, S(0) EvalParamsMerged eval_params;)
-
 G(74, S(1) const EvalParams mg = ((EvalParams){
           .material = {0, 67, 264, 271, 357, 769, 0},
           .pst_rank =
@@ -916,11 +913,8 @@ G(74, S(1) const EvalParams mg = ((EvalParams){
           .pawn_attacked_penalty = {-16, -128},
           .tempo = 17});)
 
-G(
-    74, [[nodiscard]] S(1) i32 combine_eval_param(H(75, 1, const i32 mg_val),
-                                                  H(75, 1, const i32 eg_val)) {
-      return G(76, mg_val) + G(76, (eg_val << 16));
-    })
+G(74,
+  __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 
 G(74, S(1) const EvalParams eg = ((EvalParams){
           .material = {0, 86, 399, 392, 706, 1340, 0},
@@ -950,6 +944,12 @@ G(74, S(1) const EvalParams eg = ((EvalParams){
           .bishop_pair = 63,
           .pawn_attacked_penalty = {-10, -128},
           .tempo = 7});)
+
+G(
+    74, [[nodiscard]] S(1) i32 combine_eval_param(H(75, 1, const i32 mg_val),
+                                                  H(75, 1, const i32 eg_val)) {
+      return G(76, mg_val) + G(76, (eg_val << 16));
+    })
 
 S(1) i32 eval(Position *const restrict pos) {
   G(77, i32 score = eval_params.tempo;)
@@ -1162,8 +1162,9 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(105, alpha == beta - 1) && G(105, tt_entry->depth >= depth) &&
-        G(105, tt_entry->flag != tt_entry->score <= alpha)) {
+    if (G(105, alpha == beta - 1) &&
+        G(105, tt_entry->flag != tt_entry->score <= alpha) &&
+        G(105, tt_entry->depth >= depth)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1209,8 +1210,8 @@ i16 search(H(99, 1, Position *const restrict pos), H(99, 1, i32 alpha),
     // NULL MOVE PRUNING
     if (G(111, depth > 2) && G(111, static_eval >= beta) && G(111, do_null)) {
       Position npos = *pos;
-      G(112, flip_pos(&npos);)
       G(112, npos.ep = 0;)
+      G(112, flip_pos(&npos);)
       const i32 score = -search(
           H(99, 2, &npos), H(99, 2, -beta), H(99, 2, ply + 1),
           H(99, 2,
