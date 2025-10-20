@@ -993,13 +993,13 @@ S(1) i32 eval(Position *const restrict pos) {
             if ((G(85, north(0x101010101010101ULL << sq)) & G(85, own_pawns)) ==
                 0) { score += eval_params.open_files[p - 1]; })
 
-        G(62, // MATERIAL
-          score += eval_params.material[p];)
         G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
-
         G(62, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+
+        G(62, // MATERIAL
+          score += eval_params.material[p];)
 
         G(
             62, if (p > Pawn) {
@@ -1137,7 +1137,7 @@ get_hash(const Position *const pos) {
 
 S(1)
 i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
-           H(98, 1, const i32 ply), H(98, 1, i32 depth),
+           H(98, 1, i32 depth), H(98, 1, const i32 ply),
            H(99, 1, SearchStack *restrict stack),
 #ifdef FULL
            u64 *nodes,
@@ -1224,8 +1224,8 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
       G(110, npos.ep = 0;)
       G(110, flip_pos(&npos);)
       const i32 score = -search(
-          H(98, 2, &npos), H(98, 2, -beta), H(98, 2, ply + 1),
-          H(98, 2, depth - 3 - depth / 4), H(99, 2, stack),
+          H(98, 2, &npos), H(98, 2, -beta), H(98, 2, depth - 4),
+          H(98, 2, ply + 1), H(99, 2, stack),
 #ifdef FULL
           nodes,
 #endif
@@ -1286,7 +1286,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
                   G(117,
                     eg.material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
-        G(116, moves_evaluated) && G(116, !in_check) && G(116, ply > 0)) {
+        G(116, moves_evaluated) && G(116, !in_check)) {
       break;
     }
 
@@ -1310,13 +1310,14 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
 
     i32 score;
     while (true) {
-      score = -search(
-          H(98, 3, &npos), H(98, 3, low), H(98, 3, ply + 1),
-          H(98, 3, depth - G(120, 1) - G(120, reduction)), H(99, 3, stack),
+      score = -search(H(98, 3, &npos), H(98, 3, low),
+                      H(98, 3, depth - G(120, 1) - G(120, reduction)),
+                      H(98, 3, ply + 1), H(99, 3, stack),
 #ifdef FULL
-          nodes,
+                      nodes,
 #endif
-          H(99, 3, -alpha), H(99, 3, pos_history_count), H(99, 3, true));
+                      H(99, 3, -alpha), H(99, 3, pos_history_count),
+                      H(99, 3, true));
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
@@ -1455,7 +1456,7 @@ void iteratively_deepen(
       G(129, const i32 alpha = score - window;)
       G(129, const i32 beta = score + window;)
       score =
-          search(H(98, 4, pos), H(98, 4, alpha), H(98, 4, 0), H(98, 4, depth),
+          search(H(98, 4, pos), H(98, 4, alpha), H(98, 4, depth), H(98, 4, 0),
                  H(99, 4, stack),
 #ifdef FULL
                  nodes,
