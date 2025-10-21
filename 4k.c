@@ -1483,9 +1483,9 @@ void iteratively_deepen(
     // ASPIRATION WINDOWS
     G(128, i32 window = 24;)
     G(128, size_t elapsed;)
+    G(129, i32 alpha = score - window;)
+    G(129, i32 beta = score + window;)
     while (true) {
-      G(129, const i32 alpha = score - window;)
-      G(129, const i32 beta = score + window;)
       score = search(H(98, 4, alpha), H(98, 4, beta), H(98, 4, depth),
                      H(98, 4, false), H(98, 4, stack),
 #ifdef FULL
@@ -1496,10 +1496,22 @@ void iteratively_deepen(
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
       elapsed = get_time() - start_time;
-      G(
-          130, if (G(131, (score > alpha && score < beta)) ||
-                   G(131, elapsed > max_time)) { break; })
+      G(130, if (elapsed > max_time) {
+        break;
+      })
       G(130, window *= 2;)
+      
+      G(131,
+      if(score <= alpha) {
+        alpha = score - window;
+      })
+      else        G(131,
+      if(score >= beta) {
+        beta = score + window;
+      })
+      else {
+        break;
+      }
     }
 
     if (elapsed > max_time / 16) {
