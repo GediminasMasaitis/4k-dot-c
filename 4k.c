@@ -856,25 +856,25 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(70, 1,
-    H(71, 1, i8 king_attacks[5];) H(71, 1, i8 passed_pawns[6];)
-        H(71, 1, i8 tempo;) H(71, 1, i8 passed_blocked_pawns[6];)
+    H(71, 1, i8 king_attacks[5];) H(72, 1, i8 passed_pawns[6];)
+        H(71, 1, i8 tempo;) H(72, 1, i8 passed_blocked_pawns[6];)
             H(71, 1, i8 mobilities[5];))
   H(70, 1,
     H(72, 1, i8 bishop_pair;) H(72, 1, i8 open_files[6];)
-        H(72, 1, u8 pawn_attacked_penalty[2];) H(72, 1, i8 pst_rank[64];)
-            H(72, 1, i8 pst_file[64];))
+        H(72, 1, u8 pawn_attacked_penalty[2];) H(71, 1, i8 pst_rank[64];)
+            H(71, 1, i8 pst_file[64];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[7];
   H(70, 2,
-    H(71, 2, i32 king_attacks[5];) H(71, 2, i32 passed_pawns[6];)
-        H(71, 2, i32 tempo;) H(71, 2, i32 passed_blocked_pawns[6];)
+    H(71, 2, i32 king_attacks[5];) H(72, 2, i32 passed_pawns[6];)
+        H(71, 2, i32 tempo;) H(72, 2, i32 passed_blocked_pawns[6];)
             H(71, 2, i32 mobilities[5];))
   H(70, 2,
     H(72, 2, i32 bishop_pair;) H(72, 2, i32 open_files[6];)
-        H(72, 2, i32 pawn_attacked_penalty[2];) H(72, 2, i32 pst_rank[64];)
-            H(72, 2, i32 pst_file[64];))
+        H(72, 2, i32 pawn_attacked_penalty[2];) H(71, 2, i32 pst_rank[64];)
+            H(71, 2, i32 pst_file[64];))
 
 } EvalParamsMerged;
 
@@ -1043,8 +1043,8 @@ S(1) i32 eval(Position *const restrict pos) {
 typedef struct [[nodiscard]] {
   G(71, i32 static_eval;)
   G(71, Move killer;)
-  G(71, Move best_move;)
   G(71, u64 position_hash;)
+  G(71, Move best_move;)
   G(71, i32 num_moves;)
   G(71, Move moves[max_moves];)
 } SearchStack;
@@ -1128,8 +1128,8 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 #ifdef FULL
            u64 *nodes,
 #endif
-           H(98, 1, Position *const restrict pos),
-           H(98, 1, const i32 pos_history_count), H(98, 1, const i32 ply)) {
+           H(999, 1, Position *const restrict pos),
+           H(999, 1, const i32 pos_history_count), H(999, 1, const i32 ply)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1211,7 +1211,7 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 #ifdef FULL
           nodes,
 #endif
-          H(98, 2, &npos), H(98, 2, pos_history_count), H(98, 2, ply + 1));
+          H(999, 2, &npos), H(999, 2, pos_history_count), H(999, 2, ply + 1));
       if (score >= beta) {
         return score;
       }
@@ -1298,8 +1298,8 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 #ifdef FULL
                       nodes,
 #endif
-                      H(98, 3, &npos), H(98, 3, pos_history_count),
-                      H(98, 3, ply + 1));
+                      H(999, 3, &npos), H(999, 3, pos_history_count),
+                      H(999, 3, ply + 1));
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
@@ -1432,17 +1432,18 @@ void iteratively_deepen(
 #else
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
-    G(128, i32 window = 24;)
+    G(128, i32 window = 16;)
     G(128, size_t elapsed;)
     while (true) {
       G(129, const i32 alpha = score - window;)
       G(129, const i32 beta = score + window;)
-      score = search(H(98, 4, alpha), H(98, 4, beta), H(98, 4, depth),
-                     H(98, 4, false), H(98, 4, stack),
+      score =
+          search(H(98, 4, alpha), H(98, 4, beta), H(98, 4, depth),
+                 H(98, 4, false), H(98, 4, stack),
 #ifdef FULL
-                     nodes,
+                 nodes,
 #endif
-                     H(98, 4, pos), H(98, 4, pos_history_count), H(98, 4, 0));
+                 H(999, 4, pos), H(999, 4, pos_history_count), H(999, 4, 0));
       elapsed = get_time() - start_time;
       G(
           130, if (G(131, (score > alpha && score < beta)) ||
@@ -1650,6 +1651,36 @@ S(1) void run() {
     }
 #endif
     G(133, if (line[0] == 'i') { puts("readyok"); })
+    else G(133, if (line[0] == 'g') {
+#ifdef FULL
+      while (true) {
+        getl(line);
+        if (!pos.flipped && !strcmp(line, "wtime")) {
+          getl(line);
+          max_time = atoi(line) / 2;
+          break;
+        }
+        else if (pos.flipped && !strcmp(line, "btime")) {
+          getl(line);
+          max_time = atoi(line) / 2;
+          break;
+        }
+        else if (!strcmp(line, "movetime")) {
+          max_time = 20000; // Assume Lichess bot
+          break;
+        }
+      }
+      iteratively_deepen(max_ply, &nodes, H(126, 4, &pos), H(126, 4, stack),
+        H(126, 4, pos_history_count));
+#else
+      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
+        getl(line);
+        max_time = atoi(line) / 2;
+      }
+      iteratively_deepen(H(126, 5, &pos), H(126, 5, stack),
+        H(126, 5, pos_history_count));
+#endif
+    })
     else G(133, if (line[0] == 'q') { exit_now(); })
     else G(133, if (line[0] == 'p') {
       G(134, pos_history_count = 0;)
@@ -1686,36 +1717,6 @@ S(1) void run() {
             break;
           }
         }
-    })
-    else G(133, if (line[0] == 'g') {
-#ifdef FULL
-      while (true) {
-        getl(line);
-        if (!pos.flipped && !strcmp(line, "wtime")) {
-          getl(line);
-          max_time = atoi(line) / 2;
-          break;
-        }
-        else if (pos.flipped && !strcmp(line, "btime")) {
-          getl(line);
-          max_time = atoi(line) / 2;
-          break;
-        }
-        else if (!strcmp(line, "movetime")) {
-          max_time = 20000; // Assume Lichess bot
-          break;
-        }
-      }
-      iteratively_deepen(max_ply, &nodes, H(126, 4, &pos), H(126, 4, stack),
-        H(126, 4, pos_history_count));
-#else
-      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
-        getl(line);
-        max_time = atoi(line) / 2;
-      }
-      iteratively_deepen(H(126, 5, &pos), H(126, 5, stack),
-        H(126, 5, pos_history_count));
-#endif
     })
   }
 }
