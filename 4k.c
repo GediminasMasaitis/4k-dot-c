@@ -1136,7 +1136,7 @@ get_hash(const Position *const pos) {
 #endif
 
 S(1)
-i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
+i16 search(H(98, 1, Position *const restrict pos), H(99, 1, i32 alpha),
            H(98, 1, const i32 ply), H(98, 1, i32 depth),
            H(99, 1, SearchStack *restrict stack),
 #ifdef FULL
@@ -1224,7 +1224,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
       G(110, npos.ep = 0;)
       G(110, flip_pos(&npos);)
       const i32 score = -search(
-          H(98, 2, &npos), H(98, 2, -beta), H(98, 2, ply + 1),
+          H(98, 2, &npos), H(99, 2, -beta), H(98, 2, ply + 1),
           H(98, 2, depth - 3 - depth / 4), H(99, 2, stack),
 #ifdef FULL
           nodes,
@@ -1311,7 +1311,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
     i32 score;
     while (true) {
       score = -search(
-          H(98, 3, &npos), H(98, 3, low), H(98, 3, ply + 1),
+          H(98, 3, &npos), H(99, 3, low), H(98, 3, ply + 1),
           H(98, 3, depth - G(120, 1) - G(120, reduction)), H(99, 3, stack),
 #ifdef FULL
           nodes,
@@ -1455,7 +1455,7 @@ void iteratively_deepen(
       G(997, const i32 alpha = score - window;)
       G(997, const i32 beta = score + window;)
       score =
-          search(H(98, 4, pos), H(98, 4, alpha), H(98, 4, 0), H(98, 4, depth),
+          search(H(98, 4, pos), H(99, 4, alpha), H(98, 4, 0), H(98, 4, depth),
                  H(99, 4, stack),
 #ifdef FULL
                  nodes,
