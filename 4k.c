@@ -861,8 +861,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(71, 1, i8 passed_pawns[6];))
   H(70, 1,
     H(72, 1, i8 bishop_pair;) H(72, 1, i8 open_files[6];)
-        H(71, 1, i8 passed_blocked_pawns[6];) H(71, 1, i8 pst_file[64];)
-            H(71, 1, i8 pst_rank[64];))
+        H(72, 1, i8 passed_blocked_pawns[6];) H(72, 1, i8 pst_file[64];)
+            H(72, 1, i8 pst_rank[64];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -873,8 +873,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(71, 2, i32 passed_pawns[6];))
   H(70, 2,
     H(72, 2, i32 bishop_pair;) H(72, 2, i32 open_files[6];)
-        H(71, 2, i32 passed_blocked_pawns[6];) H(71, 2, i32 pst_file[64];)
-            H(71, 2, i32 pst_rank[64];))
+        H(72, 2, i32 passed_blocked_pawns[6];) H(72, 2, i32 pst_file[64];)
+            H(72, 2, i32 pst_rank[64];))
 
 } EvalParamsMerged;
 
