@@ -7137,3 +7137,55 @@ Games | N: 18990 W: 5613 L: 5381 D: 7996
 Penta | [494, 2221, 3898, 2323, 559]
 https://gedas.pythonanywhere.com/test/1177/
 ```
+
+### 4.59
+
+64 bit: 4094 bytes (-1)
+
+MD5: 05a7ae7da673d4b07e5ebfa7fe3f077e
+
+* Aspiration windows
+* Remove More RFP if improving
+* Remove Adjust NMP depth by beta distance to eval
+
+```py
+info depth 1 score cp 26 time 0 nodes 38 pv b1c3
+info depth 2 score cp 17 time 1 nodes 107 nps 107000 pv b1c3
+info depth 3 score cp 26 time 1 nodes 236 nps 236000 pv b1c3
+info depth 4 score cp 17 time 2 nodes 618 nps 309000 pv b1c3
+info depth 5 score cp 12 time 4 nodes 1463 nps 365750 pv d2d4
+info depth 6 score cp 17 time 10 nodes 3704 nps 370400 pv d2d4
+info depth 7 score cp 8 time 19 nodes 6142 nps 323263 pv d2d4
+info depth 8 score cp 17 time 36 nodes 12272 nps 340888 pv d2d4
+info depth 9 score cp 10 time 59 nodes 21683 nps 367508 pv d2d4
+info depth 10 score cp 17 time 106 nodes 43372 nps 409169 pv d2d4
+info depth 11 score cp 25 time 175 nodes 87998 nps 502845 pv d2d4
+info depth 12 score cp 22 time 316 nodes 188963 nps 597984 pv d2d4
+info depth 13 score cp 12 time 722 nodes 526866 nps 729731 pv d2d4
+info depth 14 score cp 11 time 1272 nodes 984565 nps 774029 pv d2d4
+info depth 15 score cp 30 time 3844 nodes 2760764 nps 718200 pv e2e4
+info depth 16 score cp 34 time 5751 nodes 4192972 nps 729085 pv e2e4
+info depth 17 score cp 29 time 8088 nodes 6196486 nps 766133 pv e2e4
+info depth 18 score cp 23 time 11647 nodes 9373973 nps 804840 pv e2e4
+info depth 19 score cp 25 time 16089 nodes 13281744 nps 825517 pv e2e4
+bestmove e2e4
+13281744 nodes 825517 nps
+```
+
+```py
+Elo   | 10.16 +- 6.17 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 5852 W: 1774 L: 1603 D: 2475
+Penta | [151, 660, 1187, 723, 205]
+https://gedas.pythonanywhere.com/test/1291/
+```
+
+```py
+Elo   | 13.03 +- 6.89 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3974 W: 1137 L: 988 D: 1849
+Penta | [73, 419, 878, 520, 97]
+https://gedas.pythonanywhere.com/test/1292/
+```
