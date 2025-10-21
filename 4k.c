@@ -856,25 +856,25 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(70, 1,
-    H(71, 1, i8 king_attacks[5];) H(72, 1, i8 passed_pawns[6];)
-        H(71, 1, i8 tempo;) H(72, 1, i8 passed_blocked_pawns[6];)
-            H(71, 1, i8 mobilities[5];))
+    H(71, 1, u8 pawn_attacked_penalty[2];) H(71, 1, i8 mobilities[5];)
+        H(71, 1, i8 tempo;) H(71, 1, i8 king_attacks[5];)
+            H(71, 1, i8 passed_pawns[6];))
   H(70, 1,
     H(72, 1, i8 bishop_pair;) H(72, 1, i8 open_files[6];)
-        H(72, 1, u8 pawn_attacked_penalty[2];) H(71, 1, i8 pst_rank[64];)
-            H(71, 1, i8 pst_file[64];))
+        H(71, 1, i8 passed_blocked_pawns[6];) H(71, 1, i8 pst_file[64];)
+            H(71, 1, i8 pst_rank[64];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[7];
   H(70, 2,
-    H(71, 2, i32 king_attacks[5];) H(72, 2, i32 passed_pawns[6];)
-        H(71, 2, i32 tempo;) H(72, 2, i32 passed_blocked_pawns[6];)
-            H(71, 2, i32 mobilities[5];))
+    H(71, 2, i32 pawn_attacked_penalty[2];) H(71, 2, i32 mobilities[5];)
+        H(71, 2, i32 tempo;) H(71, 2, i32 king_attacks[5];)
+            H(71, 2, i32 passed_pawns[6];))
   H(70, 2,
     H(72, 2, i32 bishop_pair;) H(72, 2, i32 open_files[6];)
-        H(72, 2, i32 pawn_attacked_penalty[2];) H(71, 2, i32 pst_rank[64];)
-            H(71, 2, i32 pst_file[64];))
+        H(71, 2, i32 passed_blocked_pawns[6];) H(71, 2, i32 pst_file[64];)
+            H(71, 2, i32 pst_rank[64];))
 
 } EvalParamsMerged;
 
@@ -1064,9 +1064,9 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
 G(97, S(1) i32 move_history[2][6][64][64];)
-G(97, S(0) size_t start_time;)
 G(97, S(1) TTEntry tt[tt_length];)
 G(97, S(0) size_t max_time;)
+G(97, S(0) size_t start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
