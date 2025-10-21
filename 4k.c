@@ -980,13 +980,13 @@ S(1) i32 eval(Position *const restrict pos) {
             if ((G(85, north(0x101010101010101ULL << sq)) & G(85, own_pawns)) ==
                 0) { score += eval_params.open_files[p - 1]; })
 
-        G(62, // MATERIAL
-          score += eval_params.material[p];)
         G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
-
         G(62, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+
+        G(62, // MATERIAL
+          score += eval_params.material[p];)
 
         G(
             62, if (p > Pawn) {
@@ -1050,10 +1050,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(96, u16 partial_hash;)
   G(96, i16 score;)
   G(96, i8 depth;)
   G(96, Move move;)
+  G(96, u16 partial_hash;)
   G(96, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1191,7 +1191,7 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 
       G(107, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * depth >= beta) {
+        if (static_eval - 52 * (depth - improving) >= beta) {
           return static_eval;
         }
       })
