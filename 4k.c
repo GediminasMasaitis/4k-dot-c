@@ -1417,6 +1417,54 @@ S(1) void init() {
       })
 }
 
+static void print_info(const Position *pos, const i32 depth, const i32 alpha,
+                       const i32 beta, const i32 score, const u64 nodes,
+                       const Move pv_move) {
+  // Do not print unfinished iteration scores
+  size_t elapsed = get_time() - start_time;
+  if (elapsed > max_time) {
+    puts("info string hard time limit exceeded");
+    return;
+  }
+
+  putl("info ");
+  if (score <= alpha) {
+    putl("upperbound ");
+  } else if (score >= beta) {
+    putl("lowerbound ");
+  }
+  printf("depth %i score ", depth);
+
+  // Handle mate scores
+  const i32 abs_score = score > 0 ? score : -score;
+  if (abs_score > mate - 1024 && score <= mate) {
+    const i32 abs_dist_plies = mate - abs_score;
+    const i32 abs_dist_moves = (abs_dist_plies + 1) / 2;
+    const i32 dist_moves = score > 0 ? abs_dist_moves : -abs_dist_moves;
+    printf("mate %i ", dist_moves);
+  } else {
+    printf("cp %i ", score);
+  }
+
+  printf("time %i nodes %i", elapsed, nodes);
+
+  // Only print nps if >1 ms elapsed
+  if (elapsed > 0) {
+    const u64 nps = nodes * 1000 / elapsed;
+    printf(" nps %i", nps);
+  }
+
+  // Only print pv move if within window
+  if (score > alpha && score < beta) {
+    putl(" pv ");
+    char move_name[8];
+    move_str(H(28, 2, move_name), H(28, 2, &pv_move), H(28, 2, pos->flipped));
+    putl(move_name);
+  }
+
+  putl("\n");
+}
+
 S(1)
 void iteratively_deepen(
 #ifdef FULL
@@ -1444,32 +1492,15 @@ void iteratively_deepen(
                      nodes,
 #endif
                      H(98, 4, pos), H(98, 4, pos_history_count), H(98, 4, 0));
+#ifdef FULL
+      print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
+#endif
       elapsed = get_time() - start_time;
       G(
           130, if (G(131, (score > alpha && score < beta)) ||
                    G(131, elapsed > max_time)) { break; })
       G(130, window *= 2;)
     }
-
-#ifdef FULL
-    // Don't print unreliable scores
-    if (elapsed > max_time) {
-      break;
-    }
-
-    printf("info depth %i score cp %i time %i nodes %i", depth, score, elapsed,
-           *nodes);
-    if (elapsed > 0) {
-      const u64 nps = *nodes * 1000 / elapsed;
-      printf(" nps %i", nps);
-    }
-
-    putl(" pv ");
-    char move_name[8];
-    move_str(H(28, 2, move_name), H(28, 2, &stack[0].best_move),
-             H(28, 2, pos->flipped));
-    puts(move_name);
-#endif
 
     if (elapsed > max_time / 16) {
       break;
