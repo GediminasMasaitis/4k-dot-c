@@ -1014,15 +1014,15 @@ S(1) i32 eval(Position *const restrict pos) {
                                            H(40, 3, p))) &
                         G(87, G(88, ~pos->colour[0]));
 
-                G(89, // KING ATTACKS
+                G(89, // MOBILITY
                   score +=
-                  G(91, count(G(92, mobility) & G(92, opp_king_zone))) *
-                  G(91, eval_params.king_attacks[p - 2]);)
+                  G(90, count(G(88, mobility) & G(88, ~attacked_by_pawns))) *
+                  G(90, eval_params.mobilities[p - 2]);)
 
-                    G(89, // MOBILITY
-                      score += G(90, count(G(88, mobility) &
-                                           G(88, ~attacked_by_pawns))) *
-                               G(90, eval_params.mobilities[p - 2]);))
+                    G(89, // KING ATTACKS
+                      score +=
+                      G(91, count(G(92, mobility) & G(92, opp_king_zone))) *
+                      G(91, eval_params.king_attacks[p - 2]);))
             })
 
         G(
