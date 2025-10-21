@@ -7189,3 +7189,56 @@ Games | N: 3974 W: 1137 L: 988 D: 1849
 Penta | [73, 419, 878, 520, 97]
 https://gedas.pythonanywhere.com/test/1292/
 ```
+
+### 4.60
+
+64 bit: 4094 bytes (=)
+
+MD5: a221ebd3d9864e6ef56705201f72eb57
+
+Aspiration window margin 16
+
+```py
+info lowerbound depth 1 score cp 18 time 0 nodes 5
+info depth 1 score cp 26 time 0 nodes 25 pv b1c3
+info depth 2 score cp 17 time 1 nodes 105 nps 105000 pv b1c3
+info depth 3 score cp 25 time 1 nodes 243 nps 243000 pv b1c3
+info depth 4 score cp 18 time 2 nodes 518 nps 259000 pv b1c3
+info depth 5 score cp 12 time 3 nodes 1050 nps 350000 pv b1c3
+info depth 6 score cp 16 time 5 nodes 2016 nps 403200 pv b1c3
+info depth 7 score cp 12 time 40 nodes 7873 nps 196825 pv d2d4
+info depth 8 score cp 17 time 81 nodes 17581 nps 217049 pv d2d4
+info depth 9 score cp 10 time 171 nodes 39206 nps 229274 pv d2d4
+info depth 10 score cp 17 time 227 nodes 61120 nps 269251 pv d2d4
+info depth 11 score cp 11 time 360 nodes 170746 nps 474294 pv g1f3
+info depth 12 score cp 19 time 540 nodes 318484 nps 589785 pv g1f3
+info depth 13 score cp 12 time 1180 nodes 848197 nps 718811 pv b1c3
+info lowerbound depth 14 score cp 28 time 1779 nodes 1388924 nps 780732
+info depth 14 score cp 21 time 1984 nodes 1572278 nps 792478 pv e2e4
+info depth 15 score cp 22 time 2705 nodes 2191806 nps 810279 pv e2e4
+info depth 16 score cp 30 time 3898 nodes 3249082 nps 833525 pv e2e4
+info upperbound depth 17 score cp 14 time 8285 nodes 6794425 nps 820087
+info depth 17 score cp 28 time 9009 nodes 7306694 nps 811043 pv e2e4
+info depth 18 score cp 28 time 11043 nodes 9099047 nps 823965 pv e2e4
+info depth 19 score cp 28 time 14790 nodes 12254833 nps 828589 pv e2e4
+bestmove e2e4
+12254833 nodes 828589 nps
+```
+
+```py
+Elo   | 7.66 +- 5.21 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 8528 W: 2592 L: 2404 D: 3532
+Penta | [257, 964, 1674, 1072, 297]
+https://gedas.pythonanywhere.com/test/1293/
+```
+
+```py
+Elo   | 6.35 +- 13.86 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.31 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1040 W: 279 L: 260 D: 501
+Penta | [19, 127, 219, 126, 29]
+https://gedas.pythonanywhere.com/test/1297/
+```
