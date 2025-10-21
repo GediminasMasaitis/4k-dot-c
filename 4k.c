@@ -1455,7 +1455,7 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
   }
 
   // Only print pv move if within window
-  if (score > alpha && score < beta) {
+  if (depth > 0 && score > alpha && score < beta) {
     putl(" pv ");
     char move_name[8];
     move_str(H(28, 2, move_name), H(28, 2, &pv_move), H(28, 2, pos->flipped));
@@ -1476,9 +1476,9 @@ void iteratively_deepen(
   G(127, start_time = get_time();)
   G(127, i32 score = 0;)
 #ifdef FULL
-  for (i32 depth = 1; depth < maxdepth; depth++) {
+  for (i32 depth = 0; depth < maxdepth; depth++) {
 #else
-  for (i32 depth = 1; depth < max_ply; depth++) {
+  for (i32 depth = 0; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
     G(128, i32 window = 16;)
