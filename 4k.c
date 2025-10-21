@@ -860,8 +860,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(71, 1, i8 tempo;) H(71, 1, i8 king_attacks[5];)
             H(71, 1, i8 passed_pawns[6];))
   H(70, 1,
-    H(71, 1, i8 bishop_pair;) H(71, 1, i8 open_files[6];)
-        H(71, 1, i8 passed_blocked_pawns[6];) H(72, 1, i8 pst_file[64];)
+    H(72, 1, i8 bishop_pair;) H(72, 1, i8 open_files[6];)
+        H(72, 1, i8 passed_blocked_pawns[6];) H(72, 1, i8 pst_file[64];)
             H(72, 1, i8 pst_rank[64];))
 } EvalParams;
 
@@ -872,8 +872,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(71, 2, i32 tempo;) H(71, 2, i32 king_attacks[5];)
             H(71, 2, i32 passed_pawns[6];))
   H(70, 2,
-    H(71, 2, i32 bishop_pair;) H(71, 2, i32 open_files[6];)
-        H(71, 2, i32 passed_blocked_pawns[6];) H(72, 2, i32 pst_file[64];)
+    H(72, 2, i32 bishop_pair;) H(72, 2, i32 open_files[6];)
+        H(72, 2, i32 passed_blocked_pawns[6];) H(72, 2, i32 pst_file[64];)
             H(72, 2, i32 pst_rank[64];))
 
 } EvalParamsMerged;
@@ -884,7 +884,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParamsInitial;
 
 G(73,
-  __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
+  S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 G(73, S(0) EvalParamsMerged eval_params;)
 
 G(73, __attribute__((aligned(8))) S(1) const EvalParamsInitial initial_params = {
@@ -1135,8 +1135,8 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 #ifdef FULL
            u64 *nodes,
 #endif
-           H(98, 1, Position *const restrict pos),
-           H(98, 1, const i32 pos_history_count), H(98, 1, const i32 ply)) {
+           H(999, 1, Position *const restrict pos),
+           H(999, 1, const i32 pos_history_count), H(999, 1, const i32 ply)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1218,7 +1218,7 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 #ifdef FULL
           nodes,
 #endif
-          H(98, 2, &npos), H(98, 2, pos_history_count), H(98, 2, ply + 1));
+          H(999, 2, &npos), H(999, 2, pos_history_count), H(999, 2, ply + 1));
       if (score >= beta) {
         return score;
       }
@@ -1307,8 +1307,8 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 #ifdef FULL
                       nodes,
 #endif
-                      H(98, 3, &npos), H(98, 3, pos_history_count),
-                      H(98, 3, ply + 1));
+                      H(999, 3, &npos), H(999, 3, pos_history_count),
+                      H(999, 3, ply + 1));
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
@@ -1458,7 +1458,7 @@ void iteratively_deepen(
 #ifdef FULL
                  nodes,
 #endif
-                 H(98, 4, pos), H(98, 4, pos_history_count), H(98, 4, 0));
+                 H(999, 4, pos), H(999, 4, pos_history_count), H(999, 4, 0));
       elapsed = get_time() - start_time;
       G(
           130, if (G(131, (score > alpha && score < beta)) ||
