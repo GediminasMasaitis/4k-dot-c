@@ -878,11 +878,17 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 
 } EvalParamsMerged;
 
+typedef struct [[nodiscard]] __attribute__((packed)) {
+  G(998, EvalParams mg;)
+  G(998, EvalParams eg;)
+} EvalParamsInitial;
+
 G(73,
   __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 G(73, S(0) EvalParamsMerged eval_params;)
 
-G(73, S(1) const EvalParams mg = ((EvalParams){
+G(73, __attribute__((aligned(8))) S(1) const EvalParamsInitial initial_params = {
+    .mg = {
           .material = {0, 67, 266, 270, 357, 768, 0},
           .pst_rank =
               {
@@ -909,15 +915,9 @@ G(73, S(1) const EvalParams mg = ((EvalParams){
           .passed_blocked_pawns = {3, -2, 4, 12, 14, -31},
           .bishop_pair = 23,
           .pawn_attacked_penalty = {-16, -128},
-          .tempo = 17});)
-
-G(
-    73, [[nodiscard]] S(1) i32 combine_eval_param(H(74, 1, const i32 mg_val),
-                                                  H(74, 1, const i32 eg_val)) {
-      return G(75, mg_val) + G(75, (eg_val << 16));
-    })
-
-G(73, S(1) const EvalParams eg = ((EvalParams){
+          .tempo = 17
+      },
+      .eg = {
           .material = {0, 86, 398, 392, 706, 1340, 0},
           .pst_rank =
               {
@@ -944,7 +944,14 @@ G(73, S(1) const EvalParams eg = ((EvalParams){
           .passed_blocked_pawns = {-14, -16, -40, -69, -118, -124},
           .bishop_pair = 63,
           .pawn_attacked_penalty = {-10, -128},
-          .tempo = 7});)
+          .tempo = 7
+    }};)
+
+G(
+    73, [[nodiscard]] S(1) i32 combine_eval_param(H(74, 1, const i32 mg_val),
+                                                  H(74, 1, const i32 eg_val)) {
+      return G(75, mg_val) + G(75, (eg_val << 16));
+    })
 
 S(1) i32 eval(Position *const restrict pos) {
   G(76, i32 score = eval_params.tempo;)
@@ -1264,9 +1271,11 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
     if (G(116, depth < 8) &&
         G(116,
           G(117, static_eval + 136 * depth) +
-                  G(117, eg.material[stack[ply].moves[move_index].promo]) +
+                  G(117, initial_params.eg
+                             .material[stack[ply].moves[move_index].promo]) +
                   G(117,
-                    eg.material[stack[ply].moves[move_index].takes_piece]) <
+                    initial_params.eg
+                        .material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
         G(116, moves_evaluated) && G(116, !in_check)) {
       break;
@@ -1398,22 +1407,28 @@ S(1) void init() {
       })
   G(
       46, // MERGE MATERIAL VALUES
-      for (i32 i = 0; i < sizeof(mg.material) / sizeof(i16); i++) {
-        eval_params.material[i] = combine_eval_param(H(74, 2, mg.material[i]),
-                                                     H(74, 2, eg.material[i]));
+      for (i32 i = 0; i < sizeof(initial_params.mg.material) / sizeof(i16);
+           i++) {
+        eval_params.material[i] =
+            combine_eval_param(H(74, 2, initial_params.mg.material[i]),
+                               H(74, 2, initial_params.eg.material[i]));
       })
 
   G(46, // CLEAR HISTORY
     __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       46, // MERGE NON-MATERIAL VALUES
-      for (i32 i = 0; i < sizeof(mg) - sizeof(mg.material); i++) {
+      for (i32 i = 0;
+           i < sizeof(initial_params.mg) - sizeof(initial_params.mg.material);
+           i++) {
         // Technically writes past end of array
         // But since the structs are packed, it works
-        const i32 offset = sizeof(mg.material);
-        ((i32 *)&eval_params)[offset / sizeof(*mg.material) + i] =
-            combine_eval_param(H(74, 3, ((i8 *)&mg)[offset + i]),
-                               H(74, 3, ((i8 *)&eg)[offset + i]));
+        const i32 offset = sizeof(initial_params.mg.material);
+        ((i32 *)&eval_params)[offset / sizeof(*initial_params.mg.material) +
+                              i] =
+            combine_eval_param(
+                H(74, 3, ((i8 *)&initial_params.mg)[offset + i]),
+                H(74, 3, ((i8 *)&initial_params.eg)[offset + i]));
       })
 }
 
