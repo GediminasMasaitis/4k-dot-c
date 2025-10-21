@@ -1190,8 +1190,8 @@ i16 search(H(99, 1, i32 alpha), H(99, 1, const i32 beta), H(99, 1, i32 depth),
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(104, tt_entry->flag != static_eval > tt_entry->score) &&
-      G(104, tt_entry->partial_hash == tt_hash_partial)) {
+  if (G(104, tt_entry->partial_hash == tt_hash_partial) &&
+      G(104, tt_entry->flag != static_eval > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
 
@@ -1220,8 +1220,8 @@ i16 search(H(99, 1, i32 alpha), H(99, 1, const i32 beta), H(99, 1, i32 depth),
     // NULL MOVE PRUNING
     if (G(109, depth > 2) && G(109, static_eval >= beta) && G(109, do_null)) {
       Position npos = *pos;
-      G(110, npos.ep = 0;)
       G(110, flip_pos(&npos);)
+      G(110, npos.ep = 0;)
       const i32 score = -search(
           H(99, 2, -beta), H(99, 2, -alpha), H(99, 2, depth - 3 - depth / 4),
           H(99, 2, false), H(99, 2, stack),
