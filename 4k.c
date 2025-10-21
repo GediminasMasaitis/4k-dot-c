@@ -884,7 +884,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParamsInitial;
 
 G(73,
-  S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
+  __attribute__((aligned(8))) S(1) const i8 phases[] = {0, 0, 1, 1, 2, 4, 0};)
 G(73, S(0) EvalParamsMerged eval_params;)
 
 G(73, __attribute__((aligned(8))) S(1) const EvalParamsInitial initial_params = {
