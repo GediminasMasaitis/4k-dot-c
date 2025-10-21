@@ -993,13 +993,13 @@ S(1) i32 eval(Position *const restrict pos) {
             if ((G(85, north(0x101010101010101ULL << sq)) & G(85, own_pawns)) ==
                 0) { score += eval_params.open_files[p - 1]; })
 
-        G(62, // MATERIAL
-          score += eval_params.material[p];)
         G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
-
         G(62, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+
+        G(62, // MATERIAL
+          score += eval_params.material[p];)
 
         G(
             62, if (p > Pawn) {
@@ -1063,10 +1063,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(96, i8 depth;)
-  G(96, u16 partial_hash;)
-  G(96, Move move;)
   G(96, i16 score;)
+  G(96, i8 depth;)
+  G(96, Move move;)
+  G(96, u16 partial_hash;)
   G(96, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1286,7 +1286,7 @@ i16 search(H(98, 1, Position *const restrict pos), H(98, 1, i32 alpha),
                   G(117,
                     eg.material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
-        G(116, moves_evaluated) && G(116, !in_check) && G(116, ply > 0)) {
+        G(116, moves_evaluated) && G(116, !in_check)) {
       break;
     }
 
@@ -1445,9 +1445,9 @@ void iteratively_deepen(
   G(127, start_time = get_time();)
   G(127, i32 score = 0;)
 #ifdef FULL
-  for (i32 depth = 1; depth < maxdepth; depth++) {
+  for (i32 depth = 0; depth < maxdepth; depth++) {
 #else
-  for (i32 depth = 1; depth < max_ply; depth++) {
+  for (i32 depth = 0; depth < max_ply; depth++) {
 #endif
     G(128, i32 window = 24;)
     G(128, size_t elapsed;)
@@ -1462,10 +1462,10 @@ void iteratively_deepen(
 #endif
                  H(99, 4, beta), H(99, 4, pos_history_count), H(99, 4, false));
       elapsed = get_time() - start_time;
-      G(
-          130, if (G(131, (score > alpha && score < beta)) ||
-                   G(131, elapsed > max_time)) { break; })
       G(130, window *= 2;)
+      G(
+          130, if (G(131, elapsed > max_time) ||
+                   G(131, (score > alpha && score < beta))) { break; })
     }
 
 #ifdef FULL
@@ -1667,8 +1667,7 @@ S(1) void run() {
              nps);
     }
 #endif
-    G(133, if (line[0] == 'i') { puts("readyok"); })
-    else G(133, if (line[0] == 'q') { exit_now(); })
+    G(133, if (line[0] == 'q') { exit_now(); })
     else G(133, if (line[0] == 'g') {
 #ifdef FULL
       while (true) {
@@ -1699,6 +1698,7 @@ S(1) void run() {
         H(126, 5, pos_history_count));
 #endif
     })
+    else G(133, if (line[0] == 'i') { puts("readyok"); })
     else G(133, if (line[0] == 'p') {
       G(134, pos_history_count = 0;)
         G(134, pos = start_pos;)
