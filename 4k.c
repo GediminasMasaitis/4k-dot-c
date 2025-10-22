@@ -696,6 +696,18 @@ enum { max_moves = 218 };
           north(pos->colour[0] & pos->pieces[Pawn]) & ~all &
               (only_captures ? 0xFF00000000000000ull : ~0ull)),
         H(62, 3, -8));)
+  G(65, // PAWN EAST CAPTURES
+    movelist = generate_pawn_moves(
+        H(62, 4, pos), H(62, 4, movelist),
+        H(62, 4,
+          ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
+        H(62, 4, -9));)
+  G(65, // PAWN WEST CAPTURES
+    movelist = generate_pawn_moves(
+        H(62, 5, pos), H(62, 5, movelist),
+        H(62, 5,
+          nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
+        H(62, 5, -7));)
   G(
       65, // LONG CASTLE
       if (G(66, !only_captures) && G(66, pos->castling[0]) &&
@@ -705,12 +717,6 @@ enum { max_moves = 218 };
         *movelist++ =
             (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
       })
-  G(65, // PAWN EAST CAPTURES
-    movelist = generate_pawn_moves(
-        H(62, 4, pos), H(62, 4, movelist),
-        H(62, 4,
-          ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-        H(62, 4, -9));)
   G(
       65, // SHORT CASTLE
       if (G(68, !only_captures) && G(68, pos->castling[1]) &&
@@ -720,12 +726,6 @@ enum { max_moves = 218 };
         *movelist++ =
             (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
-  G(65, // PAWN WEST CAPTURES
-    movelist = generate_pawn_moves(
-        H(62, 5, pos), H(62, 5, movelist),
-        H(62, 5,
-          nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
-        H(62, 5, -7));)
   movelist = generate_piece_moves(H(58, 2, to_mask), H(58, 2, movelist),
                                   H(58, 2, pos));
 
@@ -1042,19 +1042,19 @@ S(1) i32 eval(Position *const restrict pos) {
 
 typedef struct [[nodiscard]] {
   G(71, i32 static_eval;)
-  G(71, Move killer;)
   G(71, u64 position_hash;)
   G(71, Move best_move;)
+  G(71, Move killer;)
   G(71, i32 num_moves;)
   G(71, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(96, i16 score;)
   G(96, i8 depth;)
-  G(96, Move move;)
-  G(96, u16 partial_hash;)
   G(96, u8 flag;)
+  G(96, u16 partial_hash;)
+  G(96, i16 score;)
+  G(96, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1123,7 +1123,7 @@ get_hash(const Position *const pos) {
 #endif
 
 S(1)
-i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
+i32 search(H(98, 1, const i32 beta), H(98, 1, i32 alpha), H(98, 1, i32 depth),
            H(98, 1, const bool do_null), H(98, 1, SearchStack *restrict stack),
 #ifdef FULL
            u64 *nodes,
@@ -1155,9 +1155,8 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(102, alpha == beta - 1) &&
-        G(102, tt_entry->flag != tt_entry->score <= alpha) &&
-        G(102, tt_entry->depth >= depth)) {
+    if (G(102, tt_entry->flag != tt_entry->score <= alpha) &&
+        G(102, tt_entry->depth >= depth) && G(102, alpha == beta - 1)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1173,8 +1172,8 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(103, tt_entry->partial_hash == tt_hash_partial) &&
-      G(103, tt_entry->flag != static_eval > tt_entry->score)) {
+  if (G(103, tt_entry->flag != static_eval > tt_entry->score) &&
+      G(103, tt_entry->partial_hash == tt_hash_partial)) {
     static_eval = tt_entry->score;
   }
 
@@ -1203,10 +1202,10 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
     // NULL MOVE PRUNING
     if (G(108, depth > 2) && G(108, static_eval >= beta) && G(108, do_null)) {
       Position npos = *pos;
-      G(109, flip_pos(&npos);)
       G(109, npos.ep = 0;)
+      G(109, flip_pos(&npos);)
       const i32 score = -search(
-          H(98, 2, -beta), H(98, 2, -alpha), H(98, 2, depth - 3 - depth / 4),
+          H(98, 2, -alpha), H(98, 2, -beta), H(98, 2, depth - 3 - depth / 4),
           H(98, 2, false), H(98, 2, stack),
 #ifdef FULL
           nodes,
@@ -1292,7 +1291,7 @@ i16 search(H(98, 1, i32 alpha), H(98, 1, const i32 beta), H(98, 1, i32 depth),
 
     i32 score;
     while (true) {
-      score = -search(H(98, 3, low), H(98, 3, -alpha),
+      score = -search(H(98, 3, -alpha), H(98, 3, low),
                       H(98, 3, depth - G(120, 1) - G(120, reduction)),
                       H(98, 3, true), H(98, 3, stack),
 #ifdef FULL
@@ -1438,7 +1437,7 @@ void iteratively_deepen(
       G(129, const i32 alpha = score - window;)
       G(129, const i32 beta = score + window;)
       score =
-          search(H(98, 4, alpha), H(98, 4, beta), H(98, 4, depth),
+          search(H(98, 4, beta), H(98, 4, alpha), H(98, 4, depth),
                  H(98, 4, false), H(98, 4, stack),
 #ifdef FULL
                  nodes,
@@ -1651,36 +1650,6 @@ S(1) void run() {
     }
 #endif
     G(133, if (line[0] == 'i') { puts("readyok"); })
-    else G(133, if (line[0] == 'g') {
-#ifdef FULL
-      while (true) {
-        getl(line);
-        if (!pos.flipped && !strcmp(line, "wtime")) {
-          getl(line);
-          max_time = atoi(line) / 2;
-          break;
-        }
-        else if (pos.flipped && !strcmp(line, "btime")) {
-          getl(line);
-          max_time = atoi(line) / 2;
-          break;
-        }
-        else if (!strcmp(line, "movetime")) {
-          max_time = 20000; // Assume Lichess bot
-          break;
-        }
-      }
-      iteratively_deepen(max_ply, &nodes, H(126, 4, &pos), H(126, 4, stack),
-        H(126, 4, pos_history_count));
-#else
-      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
-        getl(line);
-        max_time = atoi(line) / 2;
-      }
-      iteratively_deepen(H(126, 5, &pos), H(126, 5, stack),
-        H(126, 5, pos_history_count));
-#endif
-    })
     else G(133, if (line[0] == 'q') { exit_now(); })
     else G(133, if (line[0] == 'p') {
       G(134, pos_history_count = 0;)
@@ -1717,6 +1686,36 @@ S(1) void run() {
             break;
           }
         }
+    })
+    else G(133, if (line[0] == 'g') {
+#ifdef FULL
+      while (true) {
+        getl(line);
+        if (!pos.flipped && !strcmp(line, "wtime")) {
+          getl(line);
+          max_time = atoi(line) / 2;
+          break;
+        }
+        else if (pos.flipped && !strcmp(line, "btime")) {
+          getl(line);
+          max_time = atoi(line) / 2;
+          break;
+        }
+        else if (!strcmp(line, "movetime")) {
+          max_time = 20000; // Assume Lichess bot
+          break;
+        }
+      }
+      iteratively_deepen(max_ply, &nodes, H(126, 4, &pos), H(126, 4, stack),
+        H(126, 4, pos_history_count));
+#else
+      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
+        getl(line);
+        max_time = atoi(line) / 2;
+      }
+      iteratively_deepen(H(126, 5, &pos), H(126, 5, stack),
+        H(126, 5, pos_history_count));
+#endif
     })
   }
 }
