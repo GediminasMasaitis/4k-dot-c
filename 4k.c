@@ -463,11 +463,11 @@ G(
               const u64 theirs = pos->colour[1];
               G(34, const u64 pawns = theirs & pos->pieces[Pawn];)
               G(34, const u64 blockers = theirs | pos->colour[0];)
-              return G(35, (G(36, sw(pawns)) | G(36, se(pawns))) & bb) ||
-                     G(35, bishop(H(18, 2, blockers), H(18, 2, bb)) & theirs & (pos->pieces[Bishop] | pos->pieces[Queen])) ||
-                     G(35, king(bb) & theirs & pos->pieces[King]) ||
-                     G(35, knight(bb) & theirs & pos->pieces[Knight]) ||
-                     G(35, rook(H(21, 2, blockers), H(21, 2, bb)) & theirs & (pos->pieces[Rook] | pos->pieces[Queen]));
+              return G(35, G(931, (G(36, sw(pawns)) | G(36, se(pawns)))) & G(931, bb)) ||
+                     G(35, G(932, bishop(H(18, 2, blockers), H(18, 2, bb))) & G(932, theirs) & G(932, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
+                     G(35, G(933, king(bb)) & G(933, theirs) & G(933, pos->pieces[King])) ||
+                     G(35, G(934, knight(bb)) & G(934,theirs) & G(934,pos->pieces[Knight])) ||
+                     G(35, G(935, rook(H(21, 2, blockers), H(21, 2, bb))) & G(935, theirs) & G(935, (pos->pieces[Rook] | pos->pieces[Queen])));
             })
 
 G(
