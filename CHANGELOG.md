@@ -7356,3 +7356,47 @@ Games | N: 10328 W: 2810 L: 2634 D: 4884
 Penta | [188, 1179, 2289, 1285, 223]
 https://gedas.pythonanywhere.com/test/1310/
 ```
+
+### 4.63
+
+64 bit: 4096 bytes (=)
+
+MD5: 3c9222aee8a505f1f30a8be15e5af073
+
+More ordering permutations
+
+```py
+info lowerbound depth 1 score cp 18 time 0 nodes 5
+info depth 1 score cp 26 time 1 nodes 25 nps 25000 pv b1c3
+info depth 2 score cp 17 time 1 nodes 105 nps 105000 pv b1c3
+info depth 3 score cp 25 time 1 nodes 241 nps 241000 pv b1c3
+info depth 4 score cp 18 time 1 nodes 496 nps 496000 pv b1c3
+info depth 5 score cp 13 time 2 nodes 1233 nps 616500 pv d2d4
+info depth 6 score cp 17 time 4 nodes 3271 nps 817750 pv b1c3
+info depth 7 score cp 12 time 8 nodes 5589 nps 698625 pv b1c3
+info depth 8 score cp 17 time 16 nodes 12479 nps 779937 pv b1c3
+info upperbound depth 9 score cp 1 time 41 nodes 35994 nps 877902
+info depth 9 score cp -2 time 46 nodes 40994 nps 891173 pv b1c3
+info lowerbound depth 10 score cp 14 time 59 nodes 54897 nps 930457
+info depth 10 score cp 16 time 68 nodes 64222 nps 944441 pv e2e4
+info depth 11 score cp 11 time 110 nodes 118416 nps 1076509 pv g1f3
+info depth 12 score cp 16 time 156 nodes 183220 nps 1174487 pv g1f3
+info depth 13 score cp 16 time 364 nodes 485607 nps 1334085 pv d2d4
+info depth 14 score cp 16 time 502 nodes 709275 nps 1412898 pv d2d4
+info depth 15 score cp 23 time 934 nodes 1384822 nps 1482678 pv e2e4
+info depth 16 score cp 23 time 1209 nodes 1816909 nps 1502819 pv e2e4
+info depth 17 score cp 24 time 1755 nodes 2659492 nps 1515380 pv e2e4
+info depth 18 score cp 28 time 2675 nodes 4084439 nps 1526893 pv e2e4
+info depth 19 score cp 29 time 5177 nodes 8058826 nps 1556659 pv e2e4
+bestmove e2e4
+8058826 nodes 1556659 nps
+```
+
+```py
+Elo   | 0.99 +- 3.51 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 18254 W: 5391 L: 5339 D: 7524
+Penta | [574, 2101, 3733, 2137, 582]
+https://gedas.pythonanywhere.com/test/1318/
+```
