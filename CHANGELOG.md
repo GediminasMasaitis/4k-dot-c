@@ -7305,3 +7305,54 @@ Games | N: 14638 W: 4007 L: 3808 D: 6823
 Penta | [271, 1743, 3154, 1818, 333]
 https://gedas.pythonanywhere.com/test/1303/
 ```
+
+### 4.62
+
+64 bit: 4096 bytes (=)
+
+MD5: 5f075b47f8da6b6532a84d96728e29a5
+
+NMP base depth reduction 4
+
+```py
+info lowerbound depth 1 score cp 18 time 0 nodes 5
+info depth 1 score cp 26 time 0 nodes 25 pv b1c3
+info depth 2 score cp 17 time 0 nodes 105 pv b1c3
+info depth 3 score cp 25 time 0 nodes 241 pv b1c3
+info depth 4 score cp 18 time 1 nodes 496 nps 496000 pv b1c3
+info depth 5 score cp 12 time 1 nodes 1087 nps 1087000 pv b1c3
+info depth 6 score cp 15 time 2 nodes 2001 nps 1000500 pv b1c3
+info depth 7 score cp 12 time 6 nodes 6137 nps 1022833 pv b1c3
+info depth 8 score cp 17 time 10 nodes 10499 nps 1049900 pv b1c3
+info depth 9 score cp 10 time 22 nodes 25829 nps 1174045 pv b1c3
+info depth 10 score cp 17 time 34 nodes 41182 nps 1211235 pv b1c3
+info depth 11 score cp 25 time 58 nodes 80867 nps 1394258 pv b1c3
+info depth 12 score cp 17 time 134 nodes 228611 nps 1706052 pv c2c4
+info depth 13 score cp 21 time 184 nodes 329495 nps 1790733 pv c2c4
+info depth 14 score cp 20 time 363 nodes 706151 nps 1945319 pv e2e4
+info depth 15 score cp 17 time 691 nodes 1373724 nps 1988023 pv e2e4
+info depth 16 score cp 25 time 980 nodes 1945568 nps 1985273 pv e2e4
+info depth 17 score cp 30 time 1607 nodes 3186430 nps 1982843 pv e2e4
+info depth 18 score cp 34 time 2498 nodes 5183545 nps 2075078 pv e2e4
+info depth 19 score cp 23 time 3583 nodes 7542173 nps 2104988 pv e2e4
+bestmove e2e4
+7542173 nodes 2104988 nps
+```
+
+```py
+Elo   | 4.89 +- 3.75 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 15920 W: 4697 L: 4473 D: 6750
+Penta | [468, 1823, 3181, 1993, 495]
+https://gedas.pythonanywhere.com/test/1309/
+```
+
+```py
+Elo   | 5.92 +- 4.23 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 10328 W: 2810 L: 2634 D: 4884
+Penta | [188, 1179, 2289, 1285, 223]
+https://gedas.pythonanywhere.com/test/1310/
+```
