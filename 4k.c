@@ -339,8 +339,8 @@ G(
     14, [[nodiscard]] S(0) u64 xattack(H(16, 1, const u64 dir_mask),
                                        H(16, 1, const u64 bb),
                                        H(16, 1, const u64 blockers)) {
-      return G(910, dir_mask) & G(910, ((G(911, blockers) & G(911, dir_mask)) - bb ^
-                         flip_bb(flip_bb(G(912, blockers) & G(912, dir_mask)) - flip_bb(bb))));
+      return G(910, dir_mask) & G(910, ( G(929, (G(911, blockers) & G(911, dir_mask)) - bb) ^
+                         G(929, flip_bb(flip_bb(G(912, blockers) & G(912, dir_mask)) - flip_bb(bb)))));
     })
 
 G(
