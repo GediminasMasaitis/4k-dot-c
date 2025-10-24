@@ -1222,7 +1222,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
   bool in_qsearch = depth <= 0;
   for (i32 i = G(101, ply) + G(101, pos_history_count);
        G(102, i > 0) && G(102, do_null); i -= 2) {
-    if (G(970 ,tt_hash) == G(970 ,stack[i].position_hash)) {
+    if (G(970, tt_hash) == G(970 ,stack[i].position_hash)) {
       return 0;
     }
   }
@@ -1253,7 +1253,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (G(105, G(969, tt_entry->partial_hash) == G(969, tt_hash_partial)) &&
-      G(105, tt_entry->flag != static_eval > tt_entry->score)) {
+      G(105, G(971,tt_entry->flag) != G(971,static_eval) > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
 
@@ -1265,18 +1265,18 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
     alpha = static_eval;
   }
 
-  if (G(107, !in_check) && G(107, alpha == beta - 1)) {
+  if (G(107, !in_check) && G(107, G(972,alpha) == G(972,beta - 1))) {
     if (G(108, depth < 8) && G(108, !in_qsearch)) {
 
       G(109, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - 52 * (depth - improving) >= beta) {
+        if (static_eval - G(973, 52) * G(973,(depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(109, // RAZORING
-        in_qsearch = static_eval + 123 * depth <= alpha;)
+        in_qsearch = static_eval + G(974,123) * G(974,depth) <= alpha;)
     }
 
     // NULL MOVE PRUNING
