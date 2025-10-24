@@ -308,9 +308,9 @@ G(
     12, [[nodiscard]] S(1)
             u64 east(const u64 bb) { return G(906, bb << 1) & G(906, ~0x101010101010101ull); })
 
-G(13, [[nodiscard]] S(1) u64 se(const u64 bb) { return east(south(bb)); })
+G(13, [[nodiscard]] S(1) u64 se(const u64 bb) { return G(907, east)(G(907, south)(bb)); })
 
-G(13, [[nodiscard]] S(1) u64 ne(const u64 bb) { return east(north(bb)); })
+G(13, [[nodiscard]] S(1) u64 ne(const u64 bb) { return G(908, east)(G(908, north)(bb)); })
 
 G(
     13, [[nodiscard]] S(1) u64 nw(const u64 bb) {
@@ -318,7 +318,7 @@ G(
       // return west(north(bb));
     })
 
-G(13, [[nodiscard]] S(1) u64 sw(const u64 bb) { return west(south(bb)); })
+G(13, [[nodiscard]] S(1) u64 sw(const u64 bb) { return G(909, west)(G(909, south)(bb)); })
 
 G(14, S(0) u64 diag_mask[64];)
 
