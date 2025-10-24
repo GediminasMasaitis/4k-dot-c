@@ -711,7 +711,7 @@ enum { max_moves = 218 };
     movelist = generate_pawn_moves(
         H(62, 4, pos), H(62, 4, movelist),
         H(62, 4,
-          ne(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
+          G(950, ne(G(948,pos->colour[0]) & G(948,pos->pieces[Pawn]))) & G(950,(G(949,pos->colour[1]) | G(949,pos->ep)))),
         H(62, 4, -9));)
   G(
       65, // SHORT CASTLE
