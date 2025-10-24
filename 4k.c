@@ -678,7 +678,7 @@ enum { max_moves = 218 };
                                H(63, 1, Move *restrict movelist),
                                H(63, 1, const i32 only_captures)) {
 
-  G(64, const u64 all = pos->colour[0] | pos->colour[1];)
+  G(64, const u64 all = G(941,pos->colour[0]) | G(941,pos->colour[1]);)
   G(64, const Move *start = movelist;)
   G(64, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
   G(
@@ -687,8 +687,8 @@ enum { max_moves = 218 };
         movelist = generate_pawn_moves(
             H(62, 2, pos), H(62, 2, movelist),
             H(62, 2,
-              north(north(pos->colour[0] & pos->pieces[Pawn] & 0xFF00) & ~all) &
-                  ~all),
+              G(944,north(G(943, north(G(942,pos->colour[0]) & G(942,pos->pieces[Pawn]) & G(942,0xFF00))) & G(943,~all))) &
+              G(944, ~all)),
             H(62, 2, -16));
       })
   G(65, // PAWN DOUBLE MOVES
