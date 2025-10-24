@@ -400,7 +400,7 @@ G(
 G(
     22, [[nodiscard]] S(1) bool move_equal(G(26, Move *const rhs),
                                            G(26, Move *const lhs)) {
-      return *(u32 *)lhs == *(u32 *)rhs;
+      return G(928, *(u32 *)lhs) == G(928, *(u32 *)rhs);
     })
 
 G(
