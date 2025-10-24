@@ -1454,8 +1454,8 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
   }
 
   // MATE / STALEMATE DETECTION
-  if (best_score == -inf) {
-    return (ply - mate) * in_check;
+  if (G(982, best_score) == G(982,-inf)) {
+    return G(983,(ply - mate)) * G(983,in_check);
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
