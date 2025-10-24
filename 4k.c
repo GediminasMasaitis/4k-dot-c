@@ -1304,7 +1304,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
              H(63, 3, pos), H(63, 3, stack[ply].moves), H(63, 3, in_qsearch));)
   G(113, u8 tt_flag = Upper;)
   G(113, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(113, stack[pos_history_count + ply + 2].position_hash = tt_hash;)
+  G(113, stack[G(975, pos_history_count) + G(975, ply) + G(975, 2)].position_hash = tt_hash;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
