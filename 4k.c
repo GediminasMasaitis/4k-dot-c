@@ -202,15 +202,15 @@ typedef struct [[nodiscard]] {
 #include <string.h>
 #include <time.h>
 
-[[nodiscard]] S(1) size_t get_time() {
+[[nodiscard]] static size_t get_time() {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-S(1) void exit_now() { exit(0); }
+static void exit_now() { exit(0); }
 
-S(1) bool getl(char *restrict string) {
+static bool getl(char *restrict string) {
   while (true) {
 
     const char c = getchar();
@@ -234,7 +234,7 @@ S(1) bool getl(char *restrict string) {
   }
 }
 
-S(1) void putl(const char *const restrict string) {
+static void putl(const char *const restrict string) {
   fputs(string, stdout);
   fflush(stdout);
 }
@@ -289,7 +289,7 @@ G(
     8, [[nodiscard]] S(1)
            u64 shift(H(11, 1, const i32 shift), H(11, 1, const u64 mask),
                      H(11, 1, const u64 bb)) {
-             return shift > 0 ? bb << shift & mask : bb >> -shift & mask;
+             return shift > 0 ? G(903, bb << shift) & G(903, mask) : G(904, bb >> -shift) & G(904, mask);
            })
 
 G(
