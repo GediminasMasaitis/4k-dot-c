@@ -1113,10 +1113,10 @@ S(1) i32 eval(Position *const restrict pos) {
 
   const i32 stronger_side_pawns_missing =
       8 - count(G(961, pos->colour[score < 0]) & G(961, pos->pieces[Pawn]));
-  return ((short)score * phase + ((score + 0x8000) >> 16) *
-                                     (128 - stronger_side_pawns_missing *
-                                                stronger_side_pawns_missing) /
-                                     128 * (24 - phase)) /
+  return ((short)G(962, score) * G(962, phase) + G(963, ((score + 0x8000) >> 16)) *
+                                     G(963, (128 - stronger_side_pawns_missing *
+                                                stronger_side_pawns_missing)) /
+                                                G(964, 128) * G(964,(24 - phase))) /
          24;
 }
 
