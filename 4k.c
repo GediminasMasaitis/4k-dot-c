@@ -448,7 +448,7 @@ G(
               assert(sq >= 0);
               assert(sq < 64);
               for (i32 i = Pawn; i <= King; ++i) {
-                if (pos->pieces[i] & 1ull << sq) {
+                if (G(930, pos->pieces[i]) & G(930, 1ull << sq)) {
                   return i;
                 }
               }
@@ -464,12 +464,10 @@ G(
               G(34, const u64 pawns = theirs & pos->pieces[Pawn];)
               G(34, const u64 blockers = theirs | pos->colour[0];)
               return G(35, (G(36, sw(pawns)) | G(36, se(pawns))) & bb) ||
-                     G(35, bishop(H(18, 2, blockers), H(18, 2, bb)) & theirs &
-                               (pos->pieces[Bishop] | pos->pieces[Queen])) ||
+                     G(35, bishop(H(18, 2, blockers), H(18, 2, bb)) & theirs & (pos->pieces[Bishop] | pos->pieces[Queen])) ||
                      G(35, king(bb) & theirs & pos->pieces[King]) ||
                      G(35, knight(bb) & theirs & pos->pieces[Knight]) ||
-                     G(35, rook(H(21, 2, blockers), H(21, 2, bb)) & theirs &
-                               (pos->pieces[Rook] | pos->pieces[Queen]));
+                     G(35, rook(H(21, 2, blockers), H(21, 2, bb)) & theirs & (pos->pieces[Rook] | pos->pieces[Queen]));
             })
 
 G(
