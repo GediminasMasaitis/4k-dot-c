@@ -734,13 +734,13 @@ enum { max_moves = 218 };
         *movelist++ =
             (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
       })
-  G(106, // PAWN WEST CAPTURES
+  G(106, // PAWN EAST CAPTURES
     movelist = generate_pawn_moves(
-        H(101, 5, pos), H(101, 5, movelist),
-        H(101, 5,
-          G(121, nw(G(122, pos->colour[0]) & G(122, pos->pieces[Pawn]))) &
-              G(121, (G(123, pos->colour[1]) | G(123, pos->ep)))),
-        H(101, 5, -7));)
+        H(101, 4, pos), H(101, 4, movelist),
+        H(101, 4,
+          G(115, ne(G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
+              G(115, (G(117, pos->colour[1]) | G(117, pos->ep)))),
+        H(101, 4, -9));)
   G(
       106, // SHORT CASTLE
       if (G(118, !only_captures) && G(118, pos->castling[1]) &&
@@ -750,13 +750,13 @@ enum { max_moves = 218 };
         *movelist++ =
             (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
-  G(106, // PAWN EAST CAPTURES
+  G(106, // PAWN WEST CAPTURES
     movelist = generate_pawn_moves(
-        H(101, 4, pos), H(101, 4, movelist),
-        H(101, 4,
-          G(115, ne(G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
-              G(115, (G(117, pos->colour[1]) | G(117, pos->ep)))),
-        H(101, 4, -9));)
+        H(101, 5, pos), H(101, 5, movelist),
+        H(101, 5,
+          G(121, nw(G(122, pos->colour[0]) & G(122, pos->pieces[Pawn]))) &
+              G(121, (G(123, pos->colour[1]) | G(123, pos->ep)))),
+        H(101, 5, -7));)
   movelist = generate_piece_moves(H(96, 2, to_mask), H(96, 2, movelist),
                                   H(96, 2, pos));
 
