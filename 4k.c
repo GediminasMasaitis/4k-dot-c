@@ -614,7 +614,7 @@ G(
       for (i32 piece = Knight; piece <= King; piece++) {
         assert(piece == Knight || piece == Bishop || piece == Rook ||
                piece == Queen || piece == King);
-        u64 copy = pos->colour[0] & pos->pieces[piece];
+        u64 copy = G(939, pos->colour[0]) & G(939, pos->pieces[piece]);
         while (copy) {
           const u8 from = lsb(copy);
           assert(from >= 0);
@@ -651,7 +651,7 @@ G(
       while (to_mask) {
         const u8 to = lsb(to_mask);
         to_mask &= to_mask - 1;
-        const u8 from = to + offset;
+        const u8 from = G(940, to) + G(940, offset);
         assert(from >= 0);
         assert(from < 64);
         assert(to >= 0);
