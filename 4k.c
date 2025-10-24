@@ -881,7 +881,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i8 phases[7];
+  G(73, i8 phases[7];)
   G(73, EvalParams mg;)
   G(73, EvalParams eg;)
 } EvalParamsInitial;
