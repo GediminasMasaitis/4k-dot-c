@@ -298,7 +298,7 @@ G(
 
 G(
     12, [[nodiscard]] S(1)
-            u64 west(const u64 bb) { return bb >> 1 & ~0x8080808080808080ull; })
+            u64 west(const u64 bb) { return G(905, bb >> 1) & G(905, ~0x8080808080808080ull); })
 
 G(12, [[nodiscard]] S(1) u64 north(const u64 bb) { return bb << 8; })
 
@@ -306,7 +306,7 @@ G(12, [[nodiscard]] S(1) u64 south(const u64 bb) { return bb >> 8; })
 
 G(
     12, [[nodiscard]] S(1)
-            u64 east(const u64 bb) { return bb << 1 & ~0x101010101010101ull; })
+            u64 east(const u64 bb) { return G(906, bb << 1) & G(906, ~0x101010101010101ull); })
 
 G(13, [[nodiscard]] S(1) u64 se(const u64 bb) { return east(south(bb)); })
 
