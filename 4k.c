@@ -1497,11 +1497,10 @@ S(1) void init() {
         // Technically writes past end of array
         // But since the structs are packed, it works
         const i32 offset = sizeof(initial_params.mg.material);
-        ((i32 *)&eval_params)[offset / sizeof(*initial_params.mg.material) +
-                              i] =
+        ((i32 *)&eval_params)[G(984, offset / sizeof(*initial_params.mg.material)) + G(984, i)] =
             combine_eval_param(
-                H(75, 3, ((i8 *)&initial_params.mg)[offset + i]),
-                H(75, 3, ((i8 *)&initial_params.eg)[offset + i]));
+                H(75, 3, ((i8 *)&initial_params.mg)[G(985, offset) + G(985, i)]),
+                H(75, 3, ((i8 *)&initial_params.eg)[G(986, offset) + G(986, i)]));
       })
 }
 
