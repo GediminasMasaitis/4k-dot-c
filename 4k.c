@@ -1252,7 +1252,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(105, tt_entry->partial_hash == tt_hash_partial) &&
+  if (G(105, G(969, tt_entry->partial_hash) == G(969, tt_hash_partial)) &&
       G(105, tt_entry->flag != static_eval > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
