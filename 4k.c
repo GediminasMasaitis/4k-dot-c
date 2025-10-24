@@ -1338,8 +1338,8 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
     swapmoves(G(118, &stack[ply].moves[move_index]),
               G(118, &stack[ply].moves[best_index]));
 
-    // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(119, depth < 8) &&
+    // FORWARD FUTILITY PRUNING
+    if (G(119, !in_qsearch) && G(119, depth < 8) &&
         G(119,
           G(120, static_eval + 136 * depth) +
                   G(120, initial_params.eg
