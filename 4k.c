@@ -1317,15 +1317,15 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
           piece_on(H(31, 7, pos), H(31, 7, stack[ply].moves[order_index].to)));
       const i32 order_move_score =
           G(99, // KILLER MOVE
-            move_equal(G(115, &stack[ply].moves[order_index]),
-                       G(115, &stack[ply].killer)) *
-                861) +
+            G(976, move_equal(G(115, &stack[ply].moves[order_index]),
+                       G(115, &stack[ply].killer))) *
+                       G(976, 861)) +
           G(99, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(116, &stack[ply].best_move),
                         G(116, &stack[ply].moves[order_index]))
              << 30)) +
           G(99, // MOST VALUABLE VICTIM
-            stack[ply].moves[order_index].takes_piece * 737) +
+            G(977, stack[ply].moves[order_index].takes_piece) * G(977, 737)) +
           G(99, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
