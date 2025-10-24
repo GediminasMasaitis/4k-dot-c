@@ -1806,7 +1806,7 @@ S(1) void run() {
           }
         }
     })
-    else G(136, if (line[0] == 'g') {
+    else G(136, if (G(990, line[0]) == G(990, 'g')) {
 #ifdef FULL
       while (true) {
         getl(line);
@@ -1836,7 +1836,7 @@ S(1) void run() {
         H(129, 5, pos_history_count));
 #endif
     })
-    else G(136, if (line[0] == 'i') { puts("readyok"); })
+    else G(136, if (G(991, line[0]) == G(991, 'i')) { puts("readyok"); })
   }
 }
 
