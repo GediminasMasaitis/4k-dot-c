@@ -339,8 +339,8 @@ G(
     14, [[nodiscard]] S(0) u64 xattack(H(16, 1, const u64 dir_mask),
                                        H(16, 1, const u64 bb),
                                        H(16, 1, const u64 blockers)) {
-      return dir_mask & ((blockers & dir_mask) - bb ^
-                         flip_bb(flip_bb(blockers & dir_mask) - flip_bb(bb)));
+      return G(910, dir_mask) & G(910, ((G(911, blockers) & G(911, dir_mask)) - bb ^
+                         flip_bb(flip_bb(G(912, blockers) & G(912, dir_mask)) - flip_bb(bb))));
     })
 
 G(
@@ -348,10 +348,10 @@ G(
             u64 bishop(H(18, 1, const u64 blockers), H(18, 1, const u64 bb)) {
               assert(count(bb) == 1);
               const i32 sq = lsb(bb);
-              return xattack(H(16, 2, diag_mask[sq]), H(16, 2, bb),
-                             H(16, 2, blockers)) |
-                     xattack(H(16, 3, flip_bb(diag_mask[sq ^ 56])),
-                             H(16, 3, bb), H(16, 3, blockers));
+              return G(913, xattack(H(16, 2, diag_mask[sq]), H(16, 2, bb),
+                             H(16, 2, blockers))) |
+                     G(913, xattack(H(16, 3, flip_bb(diag_mask[G(914, sq) ^ G(914, 56)])),
+                             H(16, 3, bb), H(16, 3, blockers)));
             })
 
 G(
