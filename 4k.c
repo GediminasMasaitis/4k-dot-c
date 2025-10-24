@@ -1572,7 +1572,7 @@ void iteratively_deepen(
     G(131, size_t elapsed;)
     while (true) {
       G(132, const i32 alpha = score - window;)
-      G(132, const i32 beta = score + window;)
+      G(132, const i32 beta = G(987, score) + G(987, window);)
       score =
           search(H(99, 4, beta), H(99, 4, alpha), H(99, 4, depth),
                  H(99, 4, false), H(99, 4, stack),
