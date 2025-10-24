@@ -1426,7 +1426,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
                                         [stack[ply].best_move.from]
                                         [stack[ply].best_move.to];
 
-                  *this_hist += bonus - bonus * *this_hist / 1024;)
+                  *this_hist += bonus - G(979, bonus) * G(979, *this_hist) / 1024;)
                 G(
                     126, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1434,7 +1434,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
                       i32 *const prev_hist =
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
-                      *prev_hist -= bonus + bonus * *prev_hist / 1024;
+                      *prev_hist -= bonus + G(980, bonus) * G(980, *prev_hist) / 1024;
                     })
               })
           break;
@@ -1447,7 +1447,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
     }
 
     // LATE MOVE PRUNING
-    if (G(127, !in_check) && G(127, alpha == beta - 1) &&
+    if (G(127, !in_check) && G(127, G(981,alpha) == G(981,beta - 1)) &&
         G(127, quiets_evaluated > 1 + depth * depth >> !improving)) {
       break;
     }
