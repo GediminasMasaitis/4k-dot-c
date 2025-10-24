@@ -1769,8 +1769,8 @@ S(1) void run() {
              nps);
     }
 #endif
-    G(136, if (line[0] == 'q') { exit_now(); })
-    else G(136, if (line[0] == 'p') {
+    G(136, if (G(988, line[0]) == G(988, 'q')) { exit_now(); })
+    else G(136, if (G(989, line[0]) == G(989, 'p')) {
       G(137, pos_history_count = 0;)
         G(137, pos = start_pos;)
         while (true) {
