@@ -716,7 +716,7 @@ enum { max_moves = 218 };
   G(
       65, // SHORT CASTLE
       if (G(68, !only_captures) && G(68, pos->castling[1]) &&
-          G(68, !(all & 0xEull)) &&
+          G(68, !(G(951, all) & G(951, 0xEull))) &&
           G(69, !is_attacked(H(33, 5, pos), H(33, 5, 1ULL << 3))) &&
           G(69, !is_attacked(H(33, 6, pos), H(33, 6, 1ULL << 4)))) {
         *movelist++ =
@@ -726,7 +726,7 @@ enum { max_moves = 218 };
     movelist = generate_pawn_moves(
         H(62, 5, pos), H(62, 5, movelist),
         H(62, 5,
-          nw(pos->colour[0] & pos->pieces[Pawn]) & (pos->colour[1] | pos->ep)),
+          G(954, nw(G(952, pos->colour[0]) & G(952, pos->pieces[Pawn]))) & G(954, (G(953, pos->colour[1]) | G(953, pos->ep)))),
         H(62, 5, -7));)
   movelist = generate_piece_moves(H(58, 2, to_mask), H(58, 2, movelist),
                                   H(58, 2, pos));
