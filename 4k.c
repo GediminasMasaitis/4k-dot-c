@@ -1222,7 +1222,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
   bool in_qsearch = depth <= 0;
   for (i32 i = G(101, ply) + G(101, pos_history_count);
        G(102, i > 0) && G(102, do_null); i -= 2) {
-    if (tt_hash == stack[i].position_hash) {
+    if (G(970 ,tt_hash) == G(970 ,stack[i].position_hash)) {
       return 0;
     }
   }
