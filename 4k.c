@@ -383,7 +383,7 @@ G(
 
 G(
     22,
-    S(1) void swapu32(G(23, u32 *const lhs), G(23, u32 *const rhs)) {
+    S(1) void swapu32(G(23, u32 *const rhs), G(23, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -1058,13 +1058,26 @@ S(1) i32 eval(Position *const restrict pos) {
             if ((G(86, north(0x101010101010101ULL << sq)) & G(86, own_pawns)) ==
                 0) { score += eval_params.open_files[p - 1]; })
 
+        G(62, // MATERIAL
+          score += eval_params.material[p];)
         G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score += eval_params.pst_file[(p - 1) * 8 + file];)
+
         G(62, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score += eval_params.pst_rank[(p - 1) * 8 + rank];)
 
-        G(62, // MATERIAL
-          score += eval_params.material[p];)
+        G(
+            62, // PASSED PAWNS
+            if (G(94,
+                  !(G(95, (0x101010101010101ULL << sq)) & G(95, no_passers))) &&
+                G(94, p == Pawn)) {
+              G(
+                  96, if (north(1ULL << sq) & pos->colour[1]) {
+                    score += eval_params.passed_blocked_pawns[rank - 1];
+                  })
+
+              G(96, score += eval_params.passed_pawns[rank - 1];)
+            })
 
         G(
             62, if (p > Pawn) {
@@ -1089,19 +1102,6 @@ S(1) i32 eval(Position *const restrict pos) {
                       G(92, count(G(93, mobility) & G(93, opp_king_zone))) *
                       G(92, eval_params.king_attacks[p - 2]);))
             })
-
-        G(
-            62, // PASSED PAWNS
-            if (G(94,
-                  !(G(95, (0x101010101010101ULL << sq)) & G(95, no_passers))) &&
-                G(94, p == Pawn)) {
-              G(
-                  96, if (north(1ULL << sq) & pos->colour[1]) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
-                  })
-
-              G(96, score += eval_params.passed_pawns[rank - 1];)
-            })
       }
     }
 
@@ -1119,11 +1119,11 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(71, i32 static_eval;)
-  G(71, u64 position_hash;)
   G(71, Move best_move;)
+  G(71, i32 static_eval;)
   G(71, Move killer;)
   G(71, i32 num_moves;)
+  G(71, u64 position_hash;)
   G(71, Move moves[max_moves];)
 } SearchStack;
 
@@ -1587,11 +1587,9 @@ void iteratively_deepen(
       G(
           133, if (G(134, (score > alpha && score < beta)) ||
                    G(134, elapsed > max_time)) { break; })
-      G(133, if (score >= beta) {
-        beta_window *= 2;
-      } else {
-        alpha_window *= 2;
-      })
+      G(
+          133,
+          if (score >= beta) { beta_window *= 2; } else { alpha_window *= 2; })
     }
 
     if (elapsed > max_time / 16) {
@@ -1774,6 +1772,7 @@ S(1) void run() {
     }
 #endif
     G(136, if (line[0] == 'q') { exit_now(); })
+    else G(136, if (line[0] == 'i') { puts("readyok"); })
     else G(136, if (line[0] == 'p') {
       G(137, pos_history_count = 0;)
         G(137, pos = start_pos;)
@@ -1840,7 +1839,6 @@ S(1) void run() {
         H(129, 5, pos_history_count));
 #endif
     })
-    else G(136, if (line[0] == 'i') { puts("readyok"); })
   }
 }
 
