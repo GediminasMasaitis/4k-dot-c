@@ -363,10 +363,10 @@ G(
 
 G(
     17, [[nodiscard]] S(1) u64 knight(const u64 bb) {
-      return G(20, (bb << 17 | bb >> 15) & ~0x101010101010101ull) |
-             G(20, (bb << 15 | bb >> 17) & ~0x8080808080808080ull) |
-             G(20, (bb << 6 | bb >> 10) & 0x3F3F3F3F3F3F3F3Full) |
-             G(20, (bb << 10 | bb >> 6) & 0xFCFCFCFCFCFCFCFCull);
+      return G(20, G(923, (G(919, bb << 17) | G(919, bb >> 15))) & G(923, ~0x101010101010101ull)) |
+             G(20, G(924, (G(920, bb << 15 | G(920, bb >> 17)))) & G(924, ~0x8080808080808080ull)) |
+             G(20, G(925, (G(921, bb << 6) | G(921, bb >> 10))) & G(925, 0x3F3F3F3F3F3F3F3Full)) |
+             G(20, G(926, (G(222, bb << 10) | G(222, bb >> 6))) & G(926, 0xFCFCFCFCFCFCFCFCull));
     })
 
 G(
