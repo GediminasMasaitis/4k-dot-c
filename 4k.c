@@ -494,7 +494,7 @@ G(
       const u64 bb = 1ULL << sq;
       G(41, if (piece == King) { moves = king(bb); })
       else G(41, if (piece == Knight) { moves = knight(bb); }) else {
-        const u64 blockers = pos->colour[0] | pos->colour[1];
+        const u64 blockers = G(936, pos->colour[0]) | G(936, pos->colour[1]);
         G(
             42, if (G(43, piece == Queen) || G(43, piece == Bishop)) {
               moves |= bishop(H(18, 3, blockers), H(18, 3, bb));
@@ -509,7 +509,7 @@ G(
 
 S(0) i32 find_in_check(const Position *restrict pos) {
   return is_attacked(H(33, 2, pos),
-                     H(33, 2, pos->colour[0] & pos->pieces[King]));
+                     H(33, 2, G(937, pos->colour[0]) & G(937, pos->pieces[King])));
 }
 
 G(
@@ -530,7 +530,7 @@ G(
       G(47, const u64 to = 1ull << move->to;)
       G(48, const i32 piece = piece_on(H(31, 3, pos), H(31, 3, move->from));
         assert(piece != None);)
-      G(48, const u64 mask = from | to;)
+      G(48, const u64 mask = G(938,from) | G(938,to);)
 
       G(
           49, // Castling
