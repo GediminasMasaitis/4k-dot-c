@@ -1159,7 +1159,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   const u8 *const data = (const u8 *)pos;
   for (i32 i = 0; i < 6; i++) {
     i128 key;
-    __builtin_memcpy(&key, data + i * 16, 16);
+    __builtin_memcpy(&key, data + G(965, i) * G(965, 16), 16);
     hash = __builtin_ia32_aesenc128(hash, key);
   }
 
@@ -1231,12 +1231,12 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
   G(103, stack[ply].best_move = (Move){0};)
   G(103, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(103, const u16 tt_hash_partial = tt_hash / tt_length;)
-  if (tt_entry->partial_hash == tt_hash_partial) {
+  if (G(966, tt_entry->partial_hash) == G(966, tt_hash_partial)) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(104, tt_entry->flag != tt_entry->score <= alpha) &&
-        G(104, tt_entry->depth >= depth) && G(104, alpha == beta - 1)) {
+    if (G(104, G(968, tt_entry->flag) != G(968, tt_entry->score <= alpha)) &&
+        G(104, tt_entry->depth >= depth) && G(104, G(967, alpha) == G(967, beta - 1))) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
