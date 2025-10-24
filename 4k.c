@@ -373,12 +373,16 @@ G(
     17, [[nodiscard]] S(1)
             u64 rook(H(21, 1, const u64 blockers), H(21, 1, const u64 bb)) {
               assert(count(bb) == 1);
-              return xattack(H(16, 4, bb ^ 0x101010101010101ULL << lsb(bb) % 8),
-                             H(16, 4, bb), H(16, 4, blockers)) |
-                     ray(H(15, 2, blockers), H(15, 2, ~0x101010101010101ull),
-                         H(15, 2, bb), H(15, 2, 1)) // East
-                     | ray(H(15, 3, blockers), H(15, 3, ~0x8080808080808080ull),
-                           H(15, 3, bb), H(15, 3, -1)); // West
+              return G(927, xattack(H(16, 4, bb ^ 0x101010101010101ULL << lsb(bb) % 8),
+                             H(16, 4, bb), H(16, 4, blockers))) |
+                     G(927,
+                      // East
+                      ray(H(15, 2, blockers), H(15, 2, ~0x101010101010101ull),
+                         H(15, 2, bb), H(15, 2, 1))
+                     | G(927, 
+                      // West
+                      ray(H(15, 3, blockers), H(15, 3, ~0x8080808080808080ull),
+                           H(15, 3, bb), H(15, 3, -1)));
             })
 
 G(
