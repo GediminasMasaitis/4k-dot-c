@@ -108,7 +108,7 @@ G(
       putl("\n");
     })
 
-[[nodiscard]] S(1) bool strcmp(const char *restrict lhs,
+[[nodiscard]] static bool strcmp(const char *restrict lhs,
                                const char *restrict rhs) {
   while (*lhs || *rhs) {
     if (*lhs != *rhs) {
@@ -192,7 +192,7 @@ typedef struct [[nodiscard]] {
                : "=a"(ret)
                : "0"(228), "D"(1), "S"(&ts)
                : "rcx", "r11", "memory");
-  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+  return G(901, G(902, ts.tv_sec) * G(902, 1000)) + G(901, ts.tv_nsec / 1000000);
 }
 
 #else
