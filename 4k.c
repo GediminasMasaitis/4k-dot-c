@@ -1061,9 +1061,9 @@ S(1) i32 eval(Position *const restrict pos) {
                 0) { score += eval_params.open_files[p - 1]; })
 
         G(62, // SPLIT PIECE-SQUARE TABLES FOR FILE
-          score += eval_params.pst_file[(p - 1) * 8 + file];)
+          score += eval_params.pst_file[G(957,(p - 1)) * G(957,8) + file];)
         G(62, // SPLIT PIECE-SQUARE TABLES FOR RANK
-          score += eval_params.pst_rank[(p - 1) * 8 + rank];)
+          score += eval_params.pst_rank[G(958,(p - 1)) * G(958,8) + rank];)
 
         G(62, // MATERIAL
           score += eval_params.material[p];)
@@ -1072,7 +1072,7 @@ S(1) i32 eval(Position *const restrict pos) {
             62, if (p > Pawn) {
               G(
                   87, // PIECES ATTACKED BY PAWNS
-                  if (1ULL << sq & no_passers) {
+                  if (G(959,1ULL << sq) & G(959,no_passers)) {
                     score += eval_params.pawn_attacked_penalty[c];
                   })
 
@@ -1098,7 +1098,7 @@ S(1) i32 eval(Position *const restrict pos) {
                   !(G(95, (0x101010101010101ULL << sq)) & G(95, no_passers))) &&
                 G(94, p == Pawn)) {
               G(
-                  96, if (north(1ULL << sq) & pos->colour[1]) {
+                  96, if (G(960, north(1ULL << sq)) & G(960, pos->colour[1])) {
                     score += eval_params.passed_blocked_pawns[rank - 1];
                   })
 
@@ -1112,7 +1112,7 @@ S(1) i32 eval(Position *const restrict pos) {
   }
 
   const i32 stronger_side_pawns_missing =
-      8 - count(pos->colour[score < 0] & pos->pieces[Pawn]);
+      8 - count(G(961, pos->colour[score < 0]) & G(961, pos->pieces[Pawn]));
   return ((short)score * phase + ((score + 0x8000) >> 16) *
                                      (128 - stronger_side_pawns_missing *
                                                 stronger_side_pawns_missing) /
