@@ -1368,7 +1368,7 @@ i32 search(H(99, 1, const i32 beta), H(99, 1, i32 alpha), H(99, 1, i32 depth),
 
     // LATE MOVE REDUCTION
     i32 reduction = G(121, depth > 1) && G(121, moves_evaluated > 6)
-                        ? G(122, (alpha == beta - 1)) +
+                        ? G(122, (G(978, alpha) == G(978, beta - 1))) +
                               G(122, moves_evaluated / 11) + G(122, !improving)
                         : 0;
 
