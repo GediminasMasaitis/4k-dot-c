@@ -1044,13 +1044,13 @@ S(1) i32 eval(Position *const restrict pos) {
       const u64 no_passers = G(82, opp_pawns) | G(82, attacked_by_pawns);)
     G(78,
       const u64 own_pawns = G(83, pos->pieces[Pawn]) & G(83, pos->colour[0]);)
-    G(78, const u64 opp_king_zone = king(pos->colour[1] & pos->pieces[King]);)
+    G(78, const u64 opp_king_zone = king(G(955, pos->colour[1]) & G(955,pos->pieces[King]));)
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(84, pos->colour[0]) & G(84, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(85, const int file = sq & 7;)
+        G(85, const int file = G(956,sq) & G(956,7);)
         G(85, const int rank = sq >> 3;)
         G(85, phase += initial_params.phases[p];)
         G(85, copy &= copy - 1;)
