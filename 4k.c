@@ -498,7 +498,7 @@ G(
 
       G(
           72, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
+          // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(72, pos->flipped ^= 1;)
@@ -1614,9 +1614,9 @@ void iteratively_deepen(
     // ASPIRATION WINDOWS
     G(218, i32 window = 16;)
     G(218, size_t elapsed;)
+    G(998, i32 alpha = score - window;)
+    G(998, i32 beta = G(220, score) + G(220, window);)
     while (true) {
-      G(219, const i32 alpha = score - window;)
-      G(219, const i32 beta = G(220, score) + G(220, window);)
       score =
           search(H(164, 4, beta), H(164, 4, alpha), H(164, 4, depth),
                  H(164, 4, false), H(164, 4, stack),
@@ -1628,10 +1628,11 @@ void iteratively_deepen(
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
       elapsed = get_time() - start_time;
-      G(
-          221, if (G(222, (score > alpha && score < beta)) ||
-                   G(222, elapsed > max_time)) { break; })
-      G(221, window *= 2;)
+      G(221, if (G(999, score > alpha) && G(999, score < beta)) { break; })
+      G(221, if (elapsed > max_time) { break; })
+      G(221, if (score <= alpha) { alpha = score - window; })
+      G(221, if (score >= beta) { beta = score + window; })
+      window *= 2;
     }
 
     if (elapsed > max_time / 16) {
