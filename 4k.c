@@ -1357,13 +1357,13 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
           G(164, // KILLER MOVE
             G(190, move_equal(G(191, &stack[ply].moves[order_index]),
                               G(191, &stack[ply].killer))) *
-                G(190, 861)) +
+                G(190, 3444)) +
           G(164, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(192, &stack[ply].best_move),
                         G(192, &stack[ply].moves[order_index]))
              << 30)) +
           G(164, // MOST VALUABLE VICTIM
-            G(193, stack[ply].moves[order_index].takes_piece) * G(193, 737)) +
+            G(193, stack[ply].moves[order_index].takes_piece) * G(193, 2948)) +
           G(164, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1465,7 +1465,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
                                         [stack[ply].best_move.to];
 
                   *this_hist +=
-                  bonus - G(206, bonus) * G(206, *this_hist) / 1024;)
+                  bonus - G(206, bonus) * G(206, *this_hist) / 4096;)
                 G(
                     205, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1474,7 +1474,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
-                          bonus + G(207, bonus) * G(207, *prev_hist) / 1024;
+                          bonus + G(207, bonus) * G(207, *prev_hist) / 4096;
                     })
               })
           break;
