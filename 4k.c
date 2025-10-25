@@ -366,38 +366,38 @@ G(
     })
 
 G(
-    30, [[nodiscard]] S(1) u64 rook(H(48, 1, const u64 blockers),
-                                    H(48, 1, const u64 bb)) {
+    30, [[nodiscard]] S(1) u64 rook(H(34, 1, const u64 blockers),
+                                    H(34, 1, const u64 bb)) {
       assert(count(bb) == 1);
-      return G(49, xattack(H(25, 4, bb ^ 0x101010101010101ULL << lsb(bb) % 8),
+      return G(35, xattack(H(25, 4, bb ^ 0x101010101010101ULL << lsb(bb) % 8),
                            H(25, 4, bb), H(25, 4, blockers))) |
-             G(49, // East
+             G(35, // East
                ray(H(24, 2, blockers), H(24, 2, ~0x101010101010101ull),
                    H(24, 2, bb), H(24, 2, 1))) |
-             G(49, // West
+             G(35, // West
                ray(H(24, 3, blockers), H(24, 3, ~0x8080808080808080ull),
                    H(24, 3, bb), H(24, 3, -1)));
     })
 
 G(
     30, [[nodiscard]] S(1) u64 knight(const u64 bb) {
-      return G(39, G(40, (G(41, bb << 17) | G(41, bb >> 15))) &
-                       G(40, ~0x101010101010101ull)) |
-             G(39, G(42, (G(43, bb << 15 | G(43, bb >> 17)))) &
-                       G(42, ~0x8080808080808080ull)) |
-             G(39, G(44, (G(45, bb << 6) | G(45, bb >> 10))) &
-                       G(44, 0x3F3F3F3F3F3F3F3Full)) |
-             G(39, G(46, (G(47, bb >> 6) | G(47, bb << 10))) &
-                       G(46, 0xFCFCFCFCFCFCFCFCull));
+      return G(36, G(37, (G(38, bb << 17) | G(38, bb >> 15))) &
+                       G(37, ~0x101010101010101ull)) |
+             G(36, G(39, (G(40, bb << 15 | G(40, bb >> 17)))) &
+                       G(39, ~0x8080808080808080ull)) |
+             G(36, G(41, (G(42, bb << 6) | G(42, bb >> 10))) &
+                       G(41, 0x3F3F3F3F3F3F3F3Full)) |
+             G(36, G(43, (G(44, bb >> 6) | G(44, bb << 10))) &
+                       G(43, 0xFCFCFCFCFCFCFCFCull));
     })
 
 G(
     30, [[nodiscard]] S(1) u64 king(const u64 bb) {
-      return G(34, bb << 8) | G(34, bb >> 8) |
-             G(34, G(35, (G(36, bb << 9) | G(36, bb >> 7) | G(36, bb << 1))) &
-                       G(35, ~0x101010101010101ull)) |
-             G(34, G(37, (G(38, bb << 7) | G(38, bb >> 9) | G(38, bb >> 1))) &
-                       G(37, ~0x8080808080808080ull));
+      return G(45, bb << 8) | G(45, bb >> 8) |
+             G(45, G(46, (G(47, bb << 9) | G(47, bb >> 7) | G(47, bb << 1))) &
+                       G(46, ~0x101010101010101ull)) |
+             G(45, G(48, (G(49, bb << 7) | G(49, bb >> 9) | G(49, bb >> 1))) &
+                       G(48, ~0x8080808080808080ull));
     })
 
 G(
@@ -487,7 +487,7 @@ G(
                G(69, king(bb)) & G(69, theirs) & G(69, pos->pieces[King])) ||
              G(65, G(70, knight(bb)) & G(70, theirs) &
                        G(70, pos->pieces[Knight])) ||
-             G(65, G(71, rook(H(48, 2, blockers), H(48, 2, bb))) &
+             G(65, G(71, rook(H(34, 2, blockers), H(34, 2, bb))) &
                        G(71, theirs) &
                        G(71, (pos->pieces[Rook] | pos->pieces[Queen])));
     })
@@ -498,7 +498,7 @@ G(
 
       G(
           72, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(72, pos->flipped ^= 1;)
@@ -523,7 +523,7 @@ G(
             })
         G(
             78, if (G(80, piece == Queen) || G(80, piece == Rook)) {
-              moves |= rook(H(48, 3, blockers), H(48, 3, bb));
+              moves |= rook(H(34, 3, blockers), H(34, 3, bb));
             })
       }
       return moves;
@@ -722,8 +722,8 @@ enum { max_moves = 218 };
         H(101, 3, pos), H(101, 3, movelist),
         H(101, 3,
           north(G(110, G(111, pos->colour[0]) & G(111, pos->pieces[Pawn]))) &
-              G(110, ~all) &
-              G(110, (only_captures ? 0xFF00000000000000ull : ~0ull))),
+              G(110, (only_captures ? 0xFF00000000000000ull : ~0ull)) &
+              G(110, ~all)),
         H(101, 3, -8));)
   G(
       106, // LONG CASTLE
@@ -736,11 +736,11 @@ enum { max_moves = 218 };
       })
   G(106, // PAWN WEST CAPTURES
     movelist = generate_pawn_moves(
-        H(101, 5, pos), H(101, 5, movelist),
-        H(101, 5,
-          G(121, nw(G(122, pos->colour[0]) & G(122, pos->pieces[Pawn]))) &
-              G(121, (G(123, pos->colour[1]) | G(123, pos->ep)))),
-        H(101, 5, -7));)
+        H(101, 4, pos), H(101, 4, movelist),
+        H(101, 4,
+          G(115, nw(G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
+              G(115, (G(117, pos->colour[1]) | G(117, pos->ep)))),
+        H(101, 4, -7));)
   G(
       106, // SHORT CASTLE
       if (G(118, !only_captures) && G(118, pos->castling[1]) &&
@@ -752,11 +752,11 @@ enum { max_moves = 218 };
       })
   G(106, // PAWN EAST CAPTURES
     movelist = generate_pawn_moves(
-        H(101, 4, pos), H(101, 4, movelist),
-        H(101, 4,
-          G(115, ne(G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
-              G(115, (G(117, pos->colour[1]) | G(117, pos->ep)))),
-        H(101, 4, -9));)
+        H(101, 5, pos), H(101, 5, movelist),
+        H(101, 5,
+          G(121, ne(G(122, pos->colour[0]) & G(122, pos->pieces[Pawn]))) &
+              G(121, (G(123, pos->colour[1]) | G(123, pos->ep)))),
+        H(101, 5, -9));)
   movelist = generate_piece_moves(H(96, 2, to_mask), H(96, 2, movelist),
                                   H(96, 2, pos));
 
@@ -1163,10 +1163,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(161, i8 depth;)
   G(161, u16 partial_hash;)
   G(161, i16 score;)
   G(161, Move move;)
+  G(161, i8 depth;)
   G(161, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1614,8 +1614,8 @@ void iteratively_deepen(
     // ASPIRATION WINDOWS
     G(218, i32 window = 16;)
     G(218, size_t elapsed;)
-    G(998, i32 alpha = score - window;)
-    G(998, i32 beta = G(220, score) + G(220, window);)
+    G(219, i32 alpha = score - window;)
+    G(219, i32 beta = G(220, score) + G(220, window);)
     while (true) {
       score =
           search(H(164, 4, beta), H(164, 4, alpha), H(164, 4, depth),
@@ -1628,7 +1628,7 @@ void iteratively_deepen(
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
       elapsed = get_time() - start_time;
-      G(221, if (G(999, score > alpha) && G(999, score < beta)) { break; })
+      G(221, if (G(222, score > alpha) && G(222, score < beta)) { break; })
       G(221, if (elapsed > max_time) { break; })
       G(221, if (score <= alpha) { alpha = score - window; })
       G(221, if (score >= beta) { beta = score + window; })
