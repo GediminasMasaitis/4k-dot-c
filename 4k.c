@@ -884,6 +884,46 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 }
 
+#define TUNE_PARAMETER(name, initial, min, max, step)                          \
+  int name = initial;                                                          \
+  int name##_min = min;                                                        \
+  int name##_max = max;                                                        \
+  float name##_step = step;
+
+#define PRINT_TUNE_OPTION(name)                                                \
+  printf("option name " #name " type spin default %i min -32768 max 32767\n",  \
+         name)
+
+#define READ_TUNE_OPTION(name)                                                 \
+  else if (!strcmp(line, #name)) {                                             \
+    getl(line);                                                                \
+    getl(line);                                                                \
+    name = atoi(line);                                                         \
+    init();                                                                    \
+  }
+
+#define PRINT_TUNE_INPUT(name)                                                 \
+  printf(#name ", int, %i, %i, %i, %f, 0.002\n", name, name##_min, name##_max, \
+         name##_step)
+
+TUNE_PARAMETER(tempo_mg, 17, 0, 32, 1)
+TUNE_PARAMETER(tempo_eg, 7, 0, 32, 1)
+TUNE_PARAMETER(pawn_attacked_own_turn_mg, -16, -32, 0, 1)
+TUNE_PARAMETER(pawn_attacked_own_turn_eg, -10, -32, 0, 1)
+TUNE_PARAMETER(pawn_attacked_opp_turn_mg, -128, -128, -64, 3)
+TUNE_PARAMETER(pawn_attacked_opp_turn_eg, -128, -128, -64, 3)
+
+TUNE_PARAMETER(rfp_depth, 8, 6, 11, 0.5)
+TUNE_PARAMETER(rfp_margin, 52, 32, 96, 3)
+TUNE_PARAMETER(razor_margin, 123, 64, 256, 9)
+TUNE_PARAMETER(mvv_weight, 737, 512, 1024, 32)
+TUNE_PARAMETER(killer_weight, 861, 512, 1024, 32)
+TUNE_PARAMETER(lmr_move_limit, 6, 3, 10, 0.5)
+TUNE_PARAMETER(lmr_move_divisor, 11, 8, 14, 0.5)
+TUNE_PARAMETER(ffp_depth, 8, 5, 12, 0.5)
+TUNE_PARAMETER(ffp_margin, 136, 72, 192, 6)
+TUNE_PARAMETER(aw_margin, 16, 10, 36, 1)
+
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(124, 1,
@@ -919,7 +959,7 @@ G(128, S(0) EvalParamsMerged eval_params;)
 
 G(128,
   __attribute__((aligned(8))) S(1)
-      const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4, 0},
+      EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4, 0},
                                                 .mg = {.material = {0, 67, 266,
                                                                     270, 357,
                                                                     768, 0},
@@ -1301,17 +1341,17 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
   }
 
   if (G(178, !in_check) && G(178, G(179, alpha) == G(179, beta - 1))) {
-    if (G(180, depth < 8) && G(180, !in_qsearch)) {
+    if (G(180, depth < rfp_depth) && G(180, !in_qsearch)) {
 
       G(181, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(182, 52) * G(182, (depth - improving)) >= beta) {
+        if (static_eval - G(182, rfp_margin) * G(182, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(181, // RAZORING
-        in_qsearch = static_eval + G(183, 123) * G(183, depth) <= alpha;)
+        in_qsearch = static_eval + G(183, razor_margin) * G(183, depth) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1357,13 +1397,13 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
           G(164, // KILLER MOVE
             G(190, move_equal(G(191, &stack[ply].moves[order_index]),
                               G(191, &stack[ply].killer))) *
-                G(190, 861)) +
+                G(190, killer_weight)) +
           G(164, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(192, &stack[ply].best_move),
                         G(192, &stack[ply].moves[order_index]))
              << 30)) +
           G(164, // MOST VALUABLE VICTIM
-            G(193, stack[ply].moves[order_index].takes_piece) * G(193, 737)) +
+            G(193, stack[ply].moves[order_index].takes_piece) * G(193, mvv_weight)) +
           G(164, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1379,9 +1419,9 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
               G(195, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(196, depth < 8) &&
+    if (G(196, depth < ffp_depth) &&
         G(196,
-          G(197, static_eval) + G(197, G(198, 136) * G(198, depth)) +
+          G(197, static_eval) + G(197, G(198, ffp_margin) * G(198, depth)) +
                   G(197, initial_params.eg
                              .material[stack[ply].moves[move_index].promo]) +
                   G(197,
@@ -1405,9 +1445,9 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 6)
+    i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > lmr_move_limit)
                         ? G(200, (G(201, alpha) == G(201, beta - 1))) +
-                              G(200, moves_evaluated / 11) + G(200, !improving)
+                              G(200, moves_evaluated / lmr_move_divisor) + G(200, !improving)
                         : 0;
 
     i32 score;
@@ -1508,6 +1548,12 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
 }
 
 S(1) void init() {
+  initial_params.mg.tempo = (i8)tempo_mg;
+  initial_params.eg.tempo = (i8)tempo_eg;
+  initial_params.mg.pawn_attacked_penalty[0] = (i8)pawn_attacked_own_turn_mg;
+  initial_params.eg.pawn_attacked_penalty[0] = (i8)pawn_attacked_own_turn_eg;
+  initial_params.mg.pawn_attacked_penalty[1] = (i8)pawn_attacked_opp_turn_mg;
+  initial_params.eg.pawn_attacked_penalty[1] = (i8)pawn_attacked_opp_turn_eg;
   G(
       83, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
@@ -1612,7 +1658,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(218, i32 window = 16;)
+    G(218, i32 window = aw_margin;)
     G(218, size_t elapsed;)
     while (true) {
       G(219, const i32 alpha = score - window;)
@@ -1788,8 +1834,66 @@ S(1) void run() {
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
       puts("option name Threads type spin default 1 min 1 max 1");
+      PRINT_TUNE_OPTION(tempo_mg);
+      PRINT_TUNE_OPTION(tempo_eg);
+      PRINT_TUNE_OPTION(pawn_attacked_own_turn_mg);
+      PRINT_TUNE_OPTION(pawn_attacked_own_turn_eg);
+      PRINT_TUNE_OPTION(pawn_attacked_opp_turn_mg);
+      PRINT_TUNE_OPTION(pawn_attacked_opp_turn_eg);
+
+      PRINT_TUNE_OPTION(rfp_depth);
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(lmr_move_limit);
+      PRINT_TUNE_OPTION(lmr_move_divisor);
+      PRINT_TUNE_OPTION(ffp_depth);
+      PRINT_TUNE_OPTION(ffp_margin);
+      PRINT_TUNE_OPTION(aw_margin);
       puts("uciok");
-    } else if (!strcmp(line, "ucinewgame")) {
+    }
+    else if (!strcmp(line, "setoption")) {
+      getl(line);
+      getl(line);
+      if (false) {}
+      READ_TUNE_OPTION(tempo_mg)
+        READ_TUNE_OPTION(tempo_eg)
+        READ_TUNE_OPTION(pawn_attacked_own_turn_mg)
+        READ_TUNE_OPTION(pawn_attacked_own_turn_eg)
+        READ_TUNE_OPTION(pawn_attacked_opp_turn_mg)
+        READ_TUNE_OPTION(pawn_attacked_opp_turn_eg)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_margin)
+        READ_TUNE_OPTION(razor_margin)
+        READ_TUNE_OPTION(mvv_weight)
+        READ_TUNE_OPTION(killer_weight)
+        READ_TUNE_OPTION(lmr_move_limit)
+        READ_TUNE_OPTION(lmr_move_divisor)
+        READ_TUNE_OPTION(ffp_depth)
+        READ_TUNE_OPTION(ffp_margin)
+        READ_TUNE_OPTION(aw_margin)
+    }
+    else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(tempo_mg);
+      PRINT_TUNE_INPUT(tempo_eg);
+      PRINT_TUNE_INPUT(pawn_attacked_own_turn_mg);
+      PRINT_TUNE_INPUT(pawn_attacked_own_turn_eg);
+      PRINT_TUNE_INPUT(pawn_attacked_opp_turn_mg);
+      PRINT_TUNE_INPUT(pawn_attacked_opp_turn_eg);
+      PRINT_TUNE_INPUT(rfp_depth);
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(lmr_move_limit);
+      PRINT_TUNE_INPUT(lmr_move_divisor);
+      PRINT_TUNE_INPUT(ffp_depth);
+      PRINT_TUNE_INPUT(ffp_margin);
+      PRINT_TUNE_INPUT(aw_margin);
+    }
+    else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
       __builtin_memset(move_history, 0, sizeof(move_history));
     } else if (!strcmp(line, "bench")) {
