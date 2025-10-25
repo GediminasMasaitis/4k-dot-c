@@ -1407,7 +1407,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     // LATE MOVE REDUCTION
     i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 6)
                         ? G(200, (G(201, alpha) == G(201, beta - 1))) +
-                              G(200, moves_evaluated / 11) + G(200, !improving)
+                              G(200, moves_evaluated / 11) + G(200, !improving) + G(200, (G(999, stack[ply].best_move.takes_piece) && G(999, !stack[ply].moves[move_index].takes_piece)))
                         : 0;
 
     i32 score;
