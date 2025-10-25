@@ -192,7 +192,7 @@ typedef struct [[nodiscard]] {
                : "=a"(ret)
                : "0"(228), "D"(1), "S"(&ts)
                : "rcx", "r11", "memory");
-  return G(5, G(6, ts.tv_sec) * G(6, 1000)) + G(5, ts.tv_nsec / 1000000);
+  return G(5, ts.tv_nsec / 1000000) + G(5, G(6, ts.tv_sec) * G(6, 1000));
 }
 
 #else
@@ -402,7 +402,7 @@ G(
 
 G(
     50,
-    S(1) void swapu32(G(51, u32 *const lhs), G(51, u32 *const rhs)) {
+    S(1) void swapu32(G(51, u32 *const rhs), G(51, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -1146,27 +1146,27 @@ S(1) i32 eval(Position *const restrict pos) {
   const i32 stronger_side_pawns_missing =
       8 - count(G(157, pos->colour[score < 0]) & G(157, pos->pieces[Pawn]));
   return ((short)G(158, score) * G(158, phase) +
-          G(159, ((score + 0x8000) >> 16)) *
-              G(159, (128 - stronger_side_pawns_missing *
-                                stronger_side_pawns_missing)) /
-              G(160, 128) * G(160, (24 - phase))) /
+          G(159,
+            (128 - stronger_side_pawns_missing * stronger_side_pawns_missing)) *
+              G(159, ((score + 0x8000) >> 16)) / G(160, 128) *
+              G(160, (24 - phase))) /
          24;
 }
 
 typedef struct [[nodiscard]] {
-  G(125, i32 static_eval;)
-  G(125, u64 position_hash;)
   G(125, Move best_move;)
+  G(125, u64 position_hash;)
+  G(125, i32 static_eval;)
   G(125, Move killer;)
   G(125, i32 num_moves;)
   G(125, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(161, i8 depth;)
   G(161, u16 partial_hash;)
   G(161, i16 score;)
   G(161, Move move;)
+  G(161, i8 depth;)
   G(161, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1375,11 +1375,11 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
       }
     }
 
-    swapmoves(G(195, &stack[ply].moves[move_index]),
-              G(195, &stack[ply].moves[best_index]));
+    swapmoves(G(195, &stack[ply].moves[best_index]),
+              G(195, &stack[ply].moves[move_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(196, depth < 8) &&
+    if (G(196, !in_check) &&
         G(196,
           G(197, static_eval) + G(197, G(198, 136) * G(198, depth)) +
                   G(197, initial_params.eg
@@ -1388,7 +1388,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
                     initial_params.eg
                         .material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
-        G(196, moves_evaluated) && G(196, !in_check)) {
+        G(196, moves_evaluated) && G(196, depth < 8)) {
       break;
     }
 
@@ -1405,8 +1405,11 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = (G(199, depth > 1) & G(199, moves_evaluated > 6)) * ( G(200, (G(201, alpha) == G(201, beta - 1))) +
-                              G(200, moves_evaluated / 11) + G(200, depth / 8) + G(200, !improving));
+    i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 6)
+                        ? G(200, (G(201, alpha) == G(201, beta - 1))) +
+                              G(200, !improving) + G(200, depth / 8) +
+                              G(200, moves_evaluated / 11)
+                        : 0;
 
     i32 score;
     while (true) {
@@ -1812,6 +1815,37 @@ S(1) void run() {
     }
 #endif
     G(225, if (G(226, line[0]) == G(226, 'q')) { exit_now(); })
+    else G(225, if (G(231, line[0]) == G(231, 'i')) { puts("readyok"); })
+    else G(225, if (G(230, line[0]) == G(230, 'g')) {
+#ifdef FULL
+      while (true) {
+        getl(line);
+        if (!pos.flipped && !strcmp(line, "wtime")) {
+          getl(line);
+          max_time = atoi(line) / 2;
+          break;
+        }
+        else if (pos.flipped && !strcmp(line, "btime")) {
+          getl(line);
+          max_time = atoi(line) / 2;
+          break;
+        }
+        else if (!strcmp(line, "movetime")) {
+          max_time = 20000; // Assume Lichess bot
+          break;
+        }
+      }
+      iteratively_deepen(max_ply, &nodes, H(216, 4, &pos), H(216, 4, stack),
+        H(216, 4, pos_history_count));
+#else
+      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
+        getl(line);
+        max_time = atoi(line) / 2;
+      }
+      iteratively_deepen(H(216, 5, &pos), H(216, 5, stack),
+        H(216, 5, pos_history_count));
+#endif
+    })
     else G(225, if (G(227, line[0]) == G(227, 'p')) {
       G(228, pos_history_count = 0;)
         G(228, pos = start_pos;)
@@ -1848,37 +1882,6 @@ S(1) void run() {
           }
         }
     })
-    else G(225, if (G(230, line[0]) == G(230, 'g')) {
-#ifdef FULL
-      while (true) {
-        getl(line);
-        if (!pos.flipped && !strcmp(line, "wtime")) {
-          getl(line);
-          max_time = atoi(line) / 2;
-          break;
-        }
-        else if (pos.flipped && !strcmp(line, "btime")) {
-          getl(line);
-          max_time = atoi(line) / 2;
-          break;
-        }
-        else if (!strcmp(line, "movetime")) {
-          max_time = 20000; // Assume Lichess bot
-          break;
-        }
-      }
-      iteratively_deepen(max_ply, &nodes, H(216, 4, &pos), H(216, 4, stack),
-        H(216, 4, pos_history_count));
-#else
-      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
-        getl(line);
-        max_time = atoi(line) / 2;
-      }
-      iteratively_deepen(H(216, 5, &pos), H(216, 5, stack),
-        H(216, 5, pos_history_count));
-#endif
-    })
-    else G(225, if (G(231, line[0]) == G(231, 'i')) { puts("readyok"); })
   }
 }
 
