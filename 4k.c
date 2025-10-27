@@ -1305,13 +1305,13 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
 
       G(181, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(182, 52) * G(182, (depth - improving)) >= beta) {
+        if (static_eval - G(182, 56) * G(182, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(181, // RAZORING
-        in_qsearch = static_eval + G(183, 123) * G(183, depth) <= alpha;)
+        in_qsearch = static_eval + G(183, 122) * G(183, depth) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1357,13 +1357,13 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
           G(164, // KILLER MOVE
             G(190, move_equal(G(191, &stack[ply].moves[order_index]),
                               G(191, &stack[ply].killer))) *
-                G(190, 861)) +
+                G(190, 836)) +
           G(164, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(192, &stack[ply].best_move),
                         G(192, &stack[ply].moves[order_index]))
              << 30)) +
           G(164, // MOST VALUABLE VICTIM
-            G(193, stack[ply].moves[order_index].takes_piece) * G(193, 737)) +
+            G(193, stack[ply].moves[order_index].takes_piece) * G(193, 712)) +
           G(164, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1381,7 +1381,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(196, depth < 8) &&
         G(196,
-          G(197, static_eval) + G(197, G(198, 136) * G(198, depth)) +
+          G(197, static_eval) + G(197, G(198, 142) * G(198, depth)) +
                   G(197, initial_params.eg
                              .material[stack[ply].moves[move_index].promo]) +
                   G(197,
@@ -1405,9 +1405,9 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 6)
+    i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 5)
                         ? G(200, (G(201, alpha) == G(201, beta - 1))) +
-                              G(200, moves_evaluated / 11) + G(200, !improving)
+                              G(200, moves_evaluated / 10) + G(200, !improving)
                         : 0;
 
     i32 score;
@@ -1623,7 +1623,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(218, i32 window = 16;)
+    G(218, i32 window = 15;)
     G(218, size_t elapsed;)
     while (true) {
       G(219, const i32 alpha = score - window;)
@@ -1748,7 +1748,7 @@ S(1) void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(20, &nodes, H(216, 2, &pos), H(216, 2, stack),
+  iteratively_deepen(21, &nodes, H(216, 2, &pos), H(216, 2, stack),
                      H(216, 2, pos_history_count));
   const u64 end = get_time();
   const i32 elapsed = end - start;
