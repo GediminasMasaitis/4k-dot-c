@@ -1354,14 +1354,14 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
           stack[ply].moves[order_index].takes_piece ==
           piece_on(H(60, 7, pos), H(60, 7, stack[ply].moves[order_index].to)));
       const i32 order_move_score =
-          G(164, // KILLER MOVE
-            G(190, move_equal(G(191, &stack[ply].moves[order_index]),
-                              G(191, &stack[ply].killer))) *
-                G(190, 836)) +
           G(164, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(192, &stack[ply].best_move),
                         G(192, &stack[ply].moves[order_index]))
              << 30)) +
+          G(164, // KILLER MOVE
+            G(190, move_equal(G(191, &stack[ply].moves[order_index]),
+                              G(191, &stack[ply].killer))) *
+                G(190, 836)) +
           G(164, // MOST VALUABLE VICTIM
             G(193, stack[ply].moves[order_index].takes_piece) * G(193, 712)) +
           G(164, // HISTORY HEURISTIC
@@ -1388,7 +1388,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
                     initial_params.eg
                         .material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
-        G(196, moves_evaluated) && G(196, !in_check)) {
+        G(196, !in_check) && G(196, moves_evaluated)) {
       break;
     }
 
@@ -1406,9 +1406,9 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
 
     // LATE MOVE REDUCTION
     i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 5)
-                        ? G(200, (G(201, alpha) == G(201, beta - 1))) +
-                              G(200, moves_evaluated / 10) +
-                              G(200, !improving) + G(200, (move_score < -512))
+                        ? G(200, moves_evaluated / 10) +
+                              G(200, (G(201, alpha) == G(201, beta - 1))) +
+                              G(200, (move_score < -512)) + G(200, !improving)
                         : 0;
 
     i32 score;
