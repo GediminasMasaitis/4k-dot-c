@@ -402,7 +402,7 @@ G(
 
 G(
     50,
-    S(1) void swapu32(G(51, u32 *const lhs), G(51, u32 *const rhs)) {
+    S(1) void swapu32(G(51, u32 *const rhs), G(51, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -1263,7 +1263,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
 
   // TT PROBING
   G(169, stack[ply].best_move = (Move){0};)
-  G(169, stack[ply + 1].killer = (Move){ 0 };)
+  G(169, stack[ply + 1].killer = (Move){0};)
   G(169, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(169, const u16 tt_hash_partial = tt_hash / tt_length;)
   if (G(170, tt_entry->partial_hash) == G(170, tt_hash_partial)) {
