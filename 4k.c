@@ -722,9 +722,23 @@ enum { max_moves = 218 };
         H(101, 3, pos), H(101, 3, movelist),
         H(101, 3,
           north(G(110, G(111, pos->colour[0]) & G(111, pos->pieces[Pawn]))) &
-              G(110, ~all) &
-              G(110, (only_captures ? 0xFF00000000000000ull : ~0ull))),
+              G(110, (only_captures ? 0xFF00000000000000ull : ~0ull)) &
+              G(110, ~all)),
         H(101, 3, -8));)
+  G(106, // PAWN WEST CAPTURES
+    movelist = generate_pawn_moves(
+        H(101, 4, pos), H(101, 4, movelist),
+        H(101, 4,
+          G(115, nw(G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
+              G(115, (G(117, pos->colour[1]) | G(117, pos->ep)))),
+        H(101, 4, -7));)
+  G(106, // PAWN EAST CAPTURES
+    movelist = generate_pawn_moves(
+        H(101, 5, pos), H(101, 5, movelist),
+        H(101, 5,
+          G(121, ne(G(122, pos->colour[0]) & G(122, pos->pieces[Pawn]))) &
+              G(121, (G(123, pos->colour[1]) | G(123, pos->ep)))),
+        H(101, 5, -9));)
   G(
       106, // LONG CASTLE
       if (G(112, !only_captures) && G(112, pos->castling[0]) &&
@@ -734,13 +748,6 @@ enum { max_moves = 218 };
         *movelist++ =
             (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
       })
-  G(106, // PAWN WEST CAPTURES
-    movelist = generate_pawn_moves(
-        H(101, 4, pos), H(101, 4, movelist),
-        H(101, 4,
-          G(115, nw(G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
-              G(115, (G(117, pos->colour[1]) | G(117, pos->ep)))),
-        H(101, 4, -7));)
   G(
       106, // SHORT CASTLE
       if (G(118, !only_captures) && G(118, pos->castling[1]) &&
@@ -750,13 +757,6 @@ enum { max_moves = 218 };
         *movelist++ =
             (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
-  G(106, // PAWN EAST CAPTURES
-    movelist = generate_pawn_moves(
-        H(101, 5, pos), H(101, 5, movelist),
-        H(101, 5,
-          G(121, ne(G(122, pos->colour[0]) & G(122, pos->pieces[Pawn]))) &
-              G(121, (G(123, pos->colour[1]) | G(123, pos->ep)))),
-        H(101, 5, -9));)
   movelist = generate_piece_moves(H(96, 2, to_mask), H(96, 2, movelist),
                                   H(96, 2, pos));
 
@@ -1145,7 +1145,7 @@ S(1) i32 eval(Position *const restrict pos) {
 
   const i32 stronger_side_pawns_missing =
       8 - count(G(157, pos->colour[score < 0]) & G(157, pos->pieces[Pawn]));
-  return ((short)G(158, score) * G(158, phase) +
+  return ((short)G(158, phase) * G(158, score) +
           G(159, ((score + 0x8000) >> 16)) *
               G(159, (128 - stronger_side_pawns_missing *
                                 stronger_side_pawns_missing)) /
@@ -1407,7 +1407,8 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     // LATE MOVE REDUCTION
     i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 5)
                         ? G(200, (G(201, alpha) == G(201, beta - 1))) +
-                              G(200, moves_evaluated / 10) + G(200, !improving) + G(200, (move_score < -512))
+                              G(200, moves_evaluated / 10) +
+                              G(200, !improving) + G(200, (move_score < -512))
                         : 0;
 
     i32 score;
