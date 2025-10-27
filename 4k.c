@@ -487,9 +487,9 @@ G(
                G(69, king(bb)) & G(69, theirs) & G(69, pos->pieces[King])) ||
              G(65, G(70, knight(bb)) & G(70, theirs) &
                        G(70, pos->pieces[Knight])) ||
-             G(65, G(71, rook(H(34, 2, blockers), H(34, 2, bb))) &
-                       G(71, theirs) &
-                       G(71, (pos->pieces[Rook] | pos->pieces[Queen])));
+             G(65, G(71, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(71, rook(H(34, 2, blockers), H(34, 2, bb))) &
+                       G(71, theirs));
     })
 
 G(
@@ -1300,7 +1300,8 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     alpha = static_eval;
   }
 
-  if (G(178, !in_check) && G(178, G(179, alpha) == G(179, beta - 1)) && G(178, do_null)) {
+  if (G(178, !in_check) && G(178, G(179, alpha) == G(179, beta - 1)) &&
+      G(178, do_null)) {
     if (G(180, depth < 8) && G(180, !in_qsearch)) {
 
       G(181, {
