@@ -1081,9 +1081,9 @@ S(1) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(140, const int file = G(141, sq) & G(141, 7);)
-        G(140, const int rank = sq >> 3;)
-        G(140, phase += initial_params.phases[p];)
         G(140, copy &= copy - 1;)
+        G(140, phase += initial_params.phases[p];)
+        G(140, const int rank = sq >> 3;)
 
         G(
             101, // OPEN FILES / DOUBLED PAWNS
@@ -1317,8 +1317,8 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     // NULL MOVE PRUNING
     if (G(184, depth > 2) && G(184, static_eval >= beta) && G(184, do_null)) {
       Position npos = *pos;
-      G(185, flip_pos(&npos);)
       G(185, npos.ep = 0;)
+      G(185, flip_pos(&npos);)
       const i32 score = -search(
           H(164, 2, -alpha), H(164, 2, -beta),
           H(164, 2, depth - G(186, 4) - G(186, depth / 4)), H(164, 2, false),
@@ -1406,9 +1406,9 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
 
     // LATE MOVE REDUCTION
     i32 reduction = G(199, depth > 1) && G(199, moves_evaluated > 5)
-                        ? G(200, moves_evaluated / 10) +
-                              G(200, (G(201, alpha) == G(201, beta - 1))) +
-                              G(200, (move_score < -128)) + G(200, !improving)
+                        ? G(200, (G(201, alpha) == G(201, beta - 1))) +
+                              G(200, !improving) + G(200, (move_score < -128)) +
+                              G(200, moves_evaluated / 10)
                         : 0;
 
     i32 score;
@@ -1749,7 +1749,7 @@ S(1) void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(21, &nodes, H(216, 2, &pos), H(216, 2, stack),
+  iteratively_deepen(23, &nodes, H(216, 2, &pos), H(216, 2, stack),
                      H(216, 2, pos_history_count));
   const u64 end = get_time();
   const i32 elapsed = end - start;
