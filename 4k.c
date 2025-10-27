@@ -1558,23 +1558,34 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     return;
   }
 
-  putl("info ");
+  printf("info depth %i score ", depth);
+
+  // Only use bound on failed search
+  i32 print_score;
+  if (score <= alpha) {
+    print_score = alpha;
+  } else if (score >= beta) {
+    print_score = beta;
+  } else {
+    print_score = score;
+  }
+
+  // Handle mate scores
+  const i32 abs_score = print_score > 0 ? print_score : -print_score;
+  if (abs_score > mate - 1024 && print_score <= mate) {
+    const i32 abs_dist_plies = mate - abs_score;
+    const i32 abs_dist_moves = (abs_dist_plies + 1) / 2;
+    const i32 dist_moves = print_score > 0 ? abs_dist_moves : -abs_dist_moves;
+    printf("mate %i ", dist_moves);
+  } else {
+    printf("cp %i ", print_score);
+  }
+
+  // Handle bounds
   if (score <= alpha) {
     putl("upperbound ");
   } else if (score >= beta) {
     putl("lowerbound ");
-  }
-  printf("depth %i score ", depth);
-
-  // Handle mate scores
-  const i32 abs_score = score > 0 ? score : -score;
-  if (abs_score > mate - 1024 && score <= mate) {
-    const i32 abs_dist_plies = mate - abs_score;
-    const i32 abs_dist_moves = (abs_dist_plies + 1) / 2;
-    const i32 dist_moves = score > 0 ? abs_dist_moves : -abs_dist_moves;
-    printf("mate %i ", dist_moves);
-  } else {
-    printf("cp %i ", score);
   }
 
   printf("time %i nodes %i", elapsed, nodes);
