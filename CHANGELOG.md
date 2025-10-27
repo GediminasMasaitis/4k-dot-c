@@ -7491,10 +7491,19 @@ bestmove e2e4
 ```
 
 ```py
-Elo   | 10.27 +- 6.63 (95%)
+Elo   | 9.41 +- 5.83 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 2.55 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 4872 W: 1463 L: 1319 D: 2090
-Penta | [112, 569, 965, 643, 147]
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6242 W: 1861 L: 1692 D: 2689
+Penta | [146, 724, 1249, 819, 183]
 https://gedas.pythonanywhere.com/test/1342/
+```
+
+```py
+Elo   | 5.33 +- 3.89 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 11530 W: 3037 L: 2860 D: 5633
+Penta | [185, 1296, 2672, 1381, 231]
+https://gedas.pythonanywhere.com/test/1345/
 ```
