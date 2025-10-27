@@ -1300,7 +1300,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     alpha = static_eval;
   }
 
-  if (G(178, !in_check) && G(178, G(179, alpha) == G(179, beta - 1))) {
+  if (G(178, !in_check) && G(178, G(179, alpha) == G(179, beta - 1)) && G(178, do_null)) {
     if (G(180, depth < 8) && G(180, !in_qsearch)) {
 
       G(181, {
@@ -1315,7 +1315,7 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
     }
 
     // NULL MOVE PRUNING
-    if (G(184, depth > 2) && G(184, static_eval >= beta) && G(184, do_null)) {
+    if (G(184, depth > 2) && G(184, static_eval >= beta)) {
       Position npos = *pos;
       G(185, flip_pos(&npos);)
       G(185, npos.ep = 0;)
