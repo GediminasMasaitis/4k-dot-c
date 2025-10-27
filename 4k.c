@@ -1392,6 +1392,11 @@ i32 search(H(164, 1, const i32 beta), H(164, 1, i32 alpha),
       break;
     }
 
+    // HISTORY PRUNING
+    if(G(998, !in_qsearch) && G(998, move_score < G(999, -250) * G(999, depth))) {
+      continue;
+    }
+
     Position npos = *pos;
 #ifdef FULL
     (*nodes)++;
