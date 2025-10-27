@@ -1155,10 +1155,10 @@ S(1) i32 eval(Position *const restrict pos) {
 
 typedef struct [[nodiscard]] {
   G(125, i32 static_eval;)
+  G(125, i32 num_moves;)
   G(125, u64 position_hash;)
   G(125, Move best_move;)
   G(125, Move killer;)
-  G(125, i32 num_moves;)
   G(125, Move moves[max_moves];)
 } SearchStack;
 
