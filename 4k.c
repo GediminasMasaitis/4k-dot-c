@@ -1649,7 +1649,7 @@ void iteratively_deepen(
       G(
           224, if (G(225, (G(226, score > alpha) && G(226, score < beta))) ||
                    G(225, elapsed > max_time)) { break; })
-      G(224, window *= 2;)
+      G(224, window = (G(999, window) * G(999, 3)) / 2;)
     }
 
     if (elapsed > max_time / 16) {
