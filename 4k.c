@@ -1278,8 +1278,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
         G(172, G(174, alpha) == G(174, beta - 1))) {
       return tt_entry->score;
     }
-  } else if (depth > 3) {
-
+  } else if (depth > 2) {
     // INTERNAL ITERATIVE REDUCTION
     depth--;
   }
