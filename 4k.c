@@ -1384,7 +1384,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
               G(197, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(198, depth < 8) &&
+    if (G(198, depth < 8) && G(198, G(999, alpha) == G(999, beta - 1)) &&
         G(198,
           G(199, static_eval) + G(199, G(200, 142) * G(200, depth)) +
                   G(199, initial_params.eg
