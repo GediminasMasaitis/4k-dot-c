@@ -1072,9 +1072,9 @@ S(1) i32 eval(Position *const restrict pos) {
           G(135, se(opp_pawns)) | G(135, sw(opp_pawns));
       const u64 no_passers = G(136, opp_pawns) | G(136, attacked_by_pawns);)
     G(132, const u64 opp_king_zone =
-               king(G(138, pos->colour[1]) & G(138, pos->pieces[King]));)
+               king(G(137, pos->colour[1]) & G(137, pos->pieces[King]));)
     G(132,
-      const u64 own_pawns = G(137, pos->pieces[Pawn]) & G(137, pos->colour[0]);)
+      const u64 own_pawns = G(138, pos->pieces[Pawn]) & G(138, pos->colour[0]);)
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(139, pos->colour[0]) & G(139, pos->pieces[p]);
@@ -1242,11 +1242,11 @@ get_hash(const Position *const pos) {
 S(1)
 i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
            H(165, 1, i32 depth), H(165, 1, const bool do_null),
-           H(165, 1, SearchStack *restrict stack),
+           H(165, 1, Position *const restrict pos),
 #ifdef FULL
            u64 *nodes,
 #endif
-           H(166, 1, Position *const restrict pos),
+           H(166, 1, SearchStack *restrict stack),
            H(166, 1, const i32 pos_history_count), H(166, 1, const i32 ply)) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -1327,11 +1327,11 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
       const i32 score = -search(
           H(165, 2, -alpha), H(165, 2, -beta),
           H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),
-          H(165, 2, stack),
+          H(165, 2, &npos),
 #ifdef FULL
           nodes,
 #endif
-          H(166, 2, &npos), H(166, 2, pos_history_count), H(166, 2, ply + 1));
+          H(166, 2, stack), H(166, 2, pos_history_count), H(166, 2, ply + 1));
       if (score >= beta) {
         return score;
       }
@@ -1420,11 +1420,11 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     while (true) {
       score = -search(H(165, 3, -alpha), H(165, 3, low),
                       H(165, 3, depth - G(204, 1) - G(204, reduction)),
-                      H(165, 3, true), H(165, 3, stack),
+                      H(165, 3, true), H(165, 3, &npos),
 #ifdef FULL
                       nodes,
 #endif
-                      H(166, 3, &npos), H(166, 3, pos_history_count),
+                      H(166, 3, stack), H(166, 3, pos_history_count),
                       H(166, 3, ply + 1));
 
       // EARLY EXITS
@@ -1531,14 +1531,14 @@ S(1) void init() {
         // Technically writes past end of array
         // But since the structs are packed, it works
         const i32 offset = sizeof(initial_params.mg.material);
-        ((i32 *)&eval_params)[G(217,
+        ((i32 *)&eval_params)[G(216,
                                 offset / sizeof(*initial_params.mg.material)) +
-                              G(217, i)] =
+                              G(216, i)] =
             combine_eval_param(
                 H(129, 3,
-                  ((i8 *)&initial_params.mg)[G(218, offset) + G(218, i)]),
+                  ((i8 *)&initial_params.mg)[G(217, offset) + G(217, i)]),
                 H(129, 3,
-                  ((i8 *)&initial_params.eg)[G(219, offset) + G(219, i)]));
+                  ((i8 *)&initial_params.eg)[G(218, offset) + G(218, i)]));
       })
 
   G(83, // CLEAR HISTORY
@@ -1548,9 +1548,9 @@ S(1) void init() {
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] =
-            G(216, ray(H(24, 4, 0), H(24, 4, ~0x8080808080808080ull),
+            G(219, ray(H(24, 4, 0), H(24, 4, ~0x8080808080808080ull),
                        H(24, 4, bb), H(24, 4, -9))) | // Northeast
-            G(216, ray(H(24, 5, 0), H(24, 5, ~0x101010101010101ull),
+            G(219, ray(H(24, 5, 0), H(24, 5, ~0x101010101010101ull),
                        H(24, 5, bb), H(24, 5, 9))); // Southwest
       })
 }
@@ -1637,11 +1637,11 @@ void iteratively_deepen(
       G(223, const i32 beta = G(224, score) + G(224, window);)
       score =
           search(H(165, 4, beta), H(165, 4, alpha), H(165, 4, depth),
-                 H(165, 4, false), H(165, 4, stack),
+                 H(165, 4, false), H(165, 4, pos),
 #ifdef FULL
                  nodes,
 #endif
-                 H(166, 4, pos), H(166, 4, pos_history_count), H(166, 4, 0));
+                 H(166, 4, stack), H(166, 4, pos_history_count), H(166, 4, 0));
 #ifdef FULL
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
