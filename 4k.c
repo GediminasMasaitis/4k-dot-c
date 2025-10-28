@@ -248,8 +248,8 @@ static void putl(const char *const restrict string) {
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
-  G(7, u8 promo;)
   G(7, u8 takes_piece;)
+  G(7, u8 promo;)
   G(7, u8 from; u8 to;)
 } Move;
 
@@ -457,7 +457,7 @@ G(
     })
 
 G(
-    50, [[nodiscard]] S(0)
+    50, [[nodiscard]] S(1)
             i32 piece_on(H(60, 1, const Position *const restrict pos),
                          H(60, 1, const i32 sq)) {
               assert(sq >= 0);
@@ -1150,19 +1150,19 @@ S(1) i32 eval(Position *const restrict pos) {
   const i32 stronger_side_pawns_missing =
       8 - count(G(158, pos->colour[score < 0]) & G(158, pos->pieces[Pawn]));
   return (G(159, (i16)score) * G(159, phase) +
-          G(160, ((score + 0x8000) >> 16)) *
-              G(160, (128 - stronger_side_pawns_missing *
-                                stronger_side_pawns_missing)) /
-              G(161, 128) * G(161, (24 - phase))) /
+          G(160,
+            (128 - stronger_side_pawns_missing * stronger_side_pawns_missing)) *
+              G(160, ((score + 0x8000) >> 16)) / G(161, 128) *
+              G(161, (24 - phase))) /
          24;
 }
 
 typedef struct [[nodiscard]] {
-  G(125, i32 static_eval;)
-  G(125, i32 num_moves;)
-  G(125, u64 position_hash;)
   G(125, Move best_move;)
+  G(125, u64 position_hash;)
+  G(125, i32 static_eval;)
   G(125, Move killer;)
+  G(125, i32 num_moves;)
   G(125, Move moves[max_moves];)
 } SearchStack;
 
@@ -1380,8 +1380,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
       }
     }
 
-    swapmoves(G(197, &stack[ply].moves[move_index]),
-              G(197, &stack[ply].moves[best_index]));
+    swapmoves(G(197, &stack[ply].moves[best_index]),
+              G(197, &stack[ply].moves[move_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(198, depth < 8) &&
@@ -1413,7 +1413,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     i32 reduction = G(201, depth > 1) && G(201, moves_evaluated > 5)
                         ? G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
-                                G(202, !improving) + G(202, (move_score / -256))
+                              G(202, !improving) + G(202, (move_score / -256))
                         : 0;
     reduction *= reduction > 0;
 
@@ -1833,6 +1833,7 @@ S(1) void run() {
     }
 #endif
     G(228, if (G(229, line[0]) == G(229, 'q')) { exit_now(); })
+    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
     else G(228, if (G(230, line[0]) == G(230, 'p')) {
       G(231, pos_history_count = 0;)
         G(231, pos = start_pos;)
@@ -1899,7 +1900,6 @@ S(1) void run() {
         H(219, 5, pos_history_count));
 #endif
     })
-    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
   }
 }
 
