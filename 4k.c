@@ -1416,6 +1416,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
                               G(202, (move_score < -256)) + G(202, !improving)
                         : 0;
 
+    reduction *= reduction < depth;
+
     i32 score;
     while (true) {
       score = -search(H(165, 3, -alpha), H(165, 3, low),
