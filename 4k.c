@@ -1366,9 +1366,9 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
           G(165, // KILLER MOVE
             G(193, move_equal(G(194, &stack[ply].moves[order_index]),
                               G(194, &stack[ply].killer))) *
-                G(193, 836)) +
+                G(193, 1672)) +
           G(165, // MOST VALUABLE VICTIM
-            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 712)) +
+            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 1424)) +
           G(165, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1413,7 +1413,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     i32 reduction = G(201, depth > 1) && G(201, moves_evaluated > 5)
                         ? G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
-                              G(202, (move_score < -256)) + G(202, !improving)
+                              G(202, (move_score < -512)) + G(202, !improving)
                         : 0;
 
     i32 score;
@@ -1471,7 +1471,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
                                         [stack[ply].best_move.to];
 
                   *this_hist +=
-                  bonus - G(208, bonus) * G(208, *this_hist) / 1024;)
+                  bonus - G(208, bonus) * G(208, *this_hist) / 2048;)
                 G(
                     207, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1480,7 +1480,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
-                          bonus + G(209, bonus) * G(209, *prev_hist) / 1024;
+                          bonus + G(209, bonus) * G(209, *prev_hist) / 2048;
                     })
               })
           break;
