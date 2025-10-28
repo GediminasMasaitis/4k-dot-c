@@ -1322,8 +1322,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     // NULL MOVE PRUNING
     if (G(186, depth > 2) && G(186, static_eval >= beta) && G(186, do_null)) {
       Position npos = *pos;
-      G(187, flip_pos(&npos);)
       G(187, npos.ep = 0;)
+      G(187, flip_pos(&npos);)
       const i32 score = -search(
           H(165, 2, -alpha), H(165, 2, -beta),
           H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),
