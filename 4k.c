@@ -1463,7 +1463,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
               })
           G(
               206, if (!in_qsearch) {
-                const i32 bonus = depth * depth;
+                const i32 bonus = G(999, depth * depth) + G(999, 1);
                 G(207, i32 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
