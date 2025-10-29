@@ -1045,7 +1045,7 @@ G(128,
                                                        .bishop_pair = 63,
                                                        .pawn_attacked_penalty =
                                                            {-10, -128},
-                                                       .tempo = 7}};)
+                                                       .tempo = 8}};)
 
 G(
     128,
@@ -1309,14 +1309,14 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
 
       G(182, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(183, 56) * G(183, (depth - improving)) >= beta) {
+        if (static_eval - G(183, 58) * G(183, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(182, // RAZORING
         in_qsearch =
-            G(184, static_eval) + G(184, G(185, 122) * G(185, depth)) <= alpha;)
+            G(184, static_eval) + G(184, G(185, 120) * G(185, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1366,9 +1366,9 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
           G(165, // KILLER MOVE
             G(193, move_equal(G(194, &stack[ply].moves[order_index]),
                               G(194, &stack[ply].killer))) *
-                G(193, 836)) +
+                G(193, 831)) +
           G(165, // MOST VALUABLE VICTIM
-            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 712)) +
+            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 698)) +
           G(165, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1410,10 +1410,10 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(201, depth > 1) && G(201, moves_evaluated > 5)
+    i32 reduction = G(201, depth > 1) && G(201, moves_evaluated > 4)
                         ? G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
-                              G(202, (move_score < -256)) + G(202, !improving)
+                              G(202, (move_score < -248)) + G(202, !improving)
                         : 0;
 
     i32 score;
@@ -1755,7 +1755,7 @@ S(1) void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(21, &nodes, H(219, 2, &pos), H(219, 2, stack),
+  iteratively_deepen(23, &nodes, H(219, 2, &pos), H(219, 2, stack),
                      H(219, 2, pos_history_count));
   const u64 end = get_time();
   const i32 elapsed = end - start;
