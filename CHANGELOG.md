@@ -7158,27 +7158,28 @@ MD5: 05a7ae7da673d4b07e5ebfa7fe3f077e
 * Remove Adjust NMP depth by beta distance to eval
 
 ```py
+info lowerbound depth 1 score cp 26 time 0 nodes 18
 info depth 1 score cp 26 time 0 nodes 38 pv b1c3
-info depth 2 score cp 17 time 1 nodes 107 nps 107000 pv b1c3
-info depth 3 score cp 26 time 1 nodes 236 nps 236000 pv b1c3
-info depth 4 score cp 17 time 2 nodes 618 nps 309000 pv b1c3
-info depth 5 score cp 12 time 4 nodes 1463 nps 365750 pv d2d4
-info depth 6 score cp 17 time 10 nodes 3704 nps 370400 pv d2d4
-info depth 7 score cp 8 time 19 nodes 6142 nps 323263 pv d2d4
-info depth 8 score cp 17 time 36 nodes 12272 nps 340888 pv d2d4
-info depth 9 score cp 10 time 59 nodes 21683 nps 367508 pv d2d4
-info depth 10 score cp 17 time 106 nodes 43372 nps 409169 pv d2d4
-info depth 11 score cp 25 time 175 nodes 87998 nps 502845 pv d2d4
-info depth 12 score cp 22 time 316 nodes 188963 nps 597984 pv d2d4
-info depth 13 score cp 12 time 722 nodes 526866 nps 729731 pv d2d4
-info depth 14 score cp 11 time 1272 nodes 984565 nps 774029 pv d2d4
-info depth 15 score cp 30 time 3844 nodes 2760764 nps 718200 pv e2e4
-info depth 16 score cp 34 time 5751 nodes 4192972 nps 729085 pv e2e4
-info depth 17 score cp 29 time 8088 nodes 6196486 nps 766133 pv e2e4
-info depth 18 score cp 23 time 11647 nodes 9373973 nps 804840 pv e2e4
-info depth 19 score cp 25 time 16089 nodes 13281744 nps 825517 pv e2e4
+info depth 2 score cp 17 time 0 nodes 107 pv b1c3
+info depth 3 score cp 26 time 0 nodes 236 pv b1c3
+info depth 4 score cp 17 time 1 nodes 618 nps 618000 pv b1c3
+info depth 5 score cp 12 time 1 nodes 1463 nps 1463000 pv d2d4
+info depth 6 score cp 17 time 3 nodes 3704 nps 1234666 pv d2d4
+info depth 7 score cp 8 time 6 nodes 6142 nps 1023666 pv d2d4
+info depth 8 score cp 17 time 11 nodes 12272 nps 1115636 pv d2d4
+info depth 9 score cp 10 time 18 nodes 21683 nps 1204611 pv d2d4
+info depth 10 score cp 17 time 34 nodes 43372 nps 1275647 pv d2d4
+info depth 11 score cp 25 time 55 nodes 87998 nps 1599963 pv d2d4
+info depth 12 score cp 22 time 97 nodes 188963 nps 1948072 pv d2d4
+info depth 13 score cp 12 time 224 nodes 526866 nps 2352080 pv d2d4
+info depth 14 score cp 11 time 402 nodes 984565 nps 2449166 pv d2d4
+info depth 15 score cp 30 time 1066 nodes 2760764 nps 2589834 pv e2e4
+info depth 16 score cp 34 time 1607 nodes 4192972 nps 2609192 pv e2e4
+info depth 17 score cp 29 time 2365 nodes 6196486 nps 2620078 pv e2e4
+info depth 18 score cp 23 time 3550 nodes 9373973 nps 2640555 pv e2e4
+info depth 19 score cp 25 time 5008 nodes 13281744 nps 2652105 pv e2e4
 bestmove e2e4
-13281744 nodes 825517 nps
+13281744 nodes 2652105 nps
 ```
 
 ```py
@@ -7209,29 +7210,29 @@ Aspiration window margin 16
 
 ```py
 info lowerbound depth 1 score cp 18 time 0 nodes 5
-info depth 1 score cp 26 time 0 nodes 25 pv b1c3
+info depth 1 score cp 26 time 1 nodes 25 nps 25000 pv b1c3
 info depth 2 score cp 17 time 1 nodes 105 nps 105000 pv b1c3
 info depth 3 score cp 25 time 1 nodes 243 nps 243000 pv b1c3
-info depth 4 score cp 18 time 2 nodes 518 nps 259000 pv b1c3
-info depth 5 score cp 12 time 3 nodes 1050 nps 350000 pv b1c3
-info depth 6 score cp 16 time 5 nodes 2016 nps 403200 pv b1c3
-info depth 7 score cp 12 time 40 nodes 7873 nps 196825 pv d2d4
-info depth 8 score cp 17 time 81 nodes 17581 nps 217049 pv d2d4
-info depth 9 score cp 10 time 171 nodes 39206 nps 229274 pv d2d4
-info depth 10 score cp 17 time 227 nodes 61120 nps 269251 pv d2d4
-info depth 11 score cp 11 time 360 nodes 170746 nps 474294 pv g1f3
-info depth 12 score cp 19 time 540 nodes 318484 nps 589785 pv g1f3
-info depth 13 score cp 12 time 1180 nodes 848197 nps 718811 pv b1c3
-info lowerbound depth 14 score cp 28 time 1779 nodes 1388924 nps 780732
-info depth 14 score cp 21 time 1984 nodes 1572278 nps 792478 pv e2e4
-info depth 15 score cp 22 time 2705 nodes 2191806 nps 810279 pv e2e4
-info depth 16 score cp 30 time 3898 nodes 3249082 nps 833525 pv e2e4
-info upperbound depth 17 score cp 14 time 8285 nodes 6794425 nps 820087
-info depth 17 score cp 28 time 9009 nodes 7306694 nps 811043 pv e2e4
-info depth 18 score cp 28 time 11043 nodes 9099047 nps 823965 pv e2e4
-info depth 19 score cp 28 time 14790 nodes 12254833 nps 828589 pv e2e4
+info depth 4 score cp 18 time 1 nodes 518 nps 518000 pv b1c3
+info depth 5 score cp 12 time 2 nodes 1050 nps 525000 pv b1c3
+info depth 6 score cp 16 time 3 nodes 2016 nps 672000 pv b1c3
+info depth 7 score cp 12 time 8 nodes 7873 nps 984125 pv d2d4
+info depth 8 score cp 17 time 17 nodes 17581 nps 1034176 pv d2d4
+info depth 9 score cp 10 time 32 nodes 39206 nps 1225187 pv d2d4
+info depth 10 score cp 17 time 45 nodes 61120 nps 1358222 pv d2d4
+info depth 11 score cp 11 time 91 nodes 170746 nps 1876329 pv g1f3
+info depth 12 score cp 19 time 153 nodes 318484 nps 2081594 pv g1f3
+info depth 13 score cp 12 time 364 nodes 848197 nps 2330211 pv b1c3
+info lowerbound depth 14 score cp 28 time 571 nodes 1388924 nps 2432441
+info depth 14 score cp 21 time 643 nodes 1572278 nps 2445222 pv e2e4
+info depth 15 score cp 22 time 878 nodes 2191806 nps 2496362 pv e2e4
+info depth 16 score cp 30 time 1283 nodes 3249082 nps 2532409 pv e2e4
+info upperbound depth 17 score cp 14 time 2608 nodes 6794425 nps 2605224
+info depth 17 score cp 28 time 2808 nodes 7306694 nps 2602099 pv e2e4
+info depth 18 score cp 28 time 3517 nodes 9099047 nps 2587161 pv e2e4
+info depth 19 score cp 28 time 4691 nodes 12254833 nps 2612413 pv e2e4
 bestmove e2e4
-12254833 nodes 828589 nps
+12254833 nodes 2612413 nps
 ```
 
 ```py
@@ -7261,31 +7262,31 @@ MD5: f0acee1a7d8a1565ae5f0304ad93fef3
 More RFP if improving
 
 ```py
-info lowerbound depth 1 score cp 18 time 0 nodes 5
-info depth 1 score cp 26 time 0 nodes 25 pv b1c3
+info lowerbound depth 1 score cp 18 time 1 nodes 5 nps 5000
+info depth 1 score cp 26 time 1 nodes 25 nps 25000 pv b1c3
 info depth 2 score cp 17 time 1 nodes 105 nps 105000 pv b1c3
 info depth 3 score cp 25 time 1 nodes 241 nps 241000 pv b1c3
-info depth 4 score cp 18 time 2 nodes 496 nps 248000 pv b1c3
-info depth 5 score cp 12 time 3 nodes 1087 nps 362333 pv b1c3
-info depth 6 score cp 15 time 5 nodes 2067 nps 413400 pv b1c3
-info depth 7 score cp 12 time 16 nodes 6316 nps 394750 pv b1c3
-info depth 8 score cp 17 time 28 nodes 11387 nps 406678 pv b1c3
-info depth 9 score cp 10 time 62 nodes 27765 nps 447822 pv b1c3
-info lowerbound depth 10 score cp 26 time 93 nodes 43264 nps 465204
-info depth 10 score cp 29 time 111 nodes 54159 nps 487918 pv b1c3
-info upperbound depth 11 score cp 13 time 152 nodes 78623 nps 517256
-info depth 11 score cp 22 time 179 nodes 96939 nps 541558 pv b1c3
-info depth 12 score cp 16 time 334 nodes 200587 nps 600559 pv b1c3
-info depth 13 score cp 16 time 788 nodes 557561 nps 707564 pv c2c4
-info depth 14 score cp 17 time 1513 nodes 1037527 nps 685741 pv b1c3
-info depth 15 score cp 28 time 2436 nodes 1726750 nps 708846 pv e2e4
-info depth 16 score cp 25 time 3278 nodes 2433471 nps 742364 pv e2e4
-info depth 17 score cp 29 time 5071 nodes 3959886 nps 780888 pv e2e4
-info depth 18 score cp 29 time 6942 nodes 5563615 nps 801442 pv e2e4
-info upperbound depth 19 score cp 13 time 18078 nodes 14381395 nps 795519
-info depth 19 score cp 21 time 19971 nodes 15911196 nps 796715 pv e2e4
+info depth 4 score cp 18 time 1 nodes 496 nps 496000 pv b1c3
+info depth 5 score cp 12 time 2 nodes 1087 nps 543500 pv b1c3
+info depth 6 score cp 15 time 2 nodes 2067 nps 1033500 pv b1c3
+info depth 7 score cp 12 time 6 nodes 6316 nps 1052666 pv b1c3
+info depth 8 score cp 17 time 10 nodes 11387 nps 1138700 pv b1c3
+info depth 9 score cp 10 time 23 nodes 27765 nps 1207173 pv b1c3
+info lowerbound depth 10 score cp 26 time 32 nodes 43264 nps 1352000
+info depth 10 score cp 29 time 38 nodes 54159 nps 1425236 pv b1c3
+info upperbound depth 11 score cp 13 time 51 nodes 78623 nps 1541627
+info depth 11 score cp 22 time 60 nodes 96939 nps 1615650 pv b1c3
+info depth 12 score cp 16 time 103 nodes 200587 nps 1947446 pv b1c3
+info depth 13 score cp 16 time 246 nodes 557561 nps 2266508 pv c2c4
+info depth 14 score cp 17 time 434 nodes 1037527 nps 2390615 pv b1c3
+info depth 15 score cp 28 time 697 nodes 1726750 nps 2477403 pv e2e4
+info depth 16 score cp 25 time 968 nodes 2433471 nps 2513916 pv e2e4
+info depth 17 score cp 29 time 1527 nodes 3959886 nps 2593245 pv e2e4
+info depth 18 score cp 29 time 2155 nodes 5563615 nps 2581723 pv e2e4
+info upperbound depth 19 score cp 13 time 5559 nodes 14381395 nps 2587047
+info depth 19 score cp 21 time 6144 nodes 15911196 nps 2589712 pv e2e4
 bestmove e2e4
-15911196 nodes 796715 nps
+15911196 nodes 2589712 nps
 ```
 
 ```py
@@ -7319,24 +7320,24 @@ info lowerbound depth 1 score cp 18 time 0 nodes 5
 info depth 1 score cp 26 time 0 nodes 25 pv b1c3
 info depth 2 score cp 17 time 0 nodes 105 pv b1c3
 info depth 3 score cp 25 time 0 nodes 241 pv b1c3
-info depth 4 score cp 18 time 1 nodes 496 nps 496000 pv b1c3
+info depth 4 score cp 18 time 0 nodes 496 pv b1c3
 info depth 5 score cp 12 time 1 nodes 1087 nps 1087000 pv b1c3
 info depth 6 score cp 15 time 2 nodes 2001 nps 1000500 pv b1c3
-info depth 7 score cp 12 time 6 nodes 6137 nps 1022833 pv b1c3
-info depth 8 score cp 17 time 10 nodes 10499 nps 1049900 pv b1c3
-info depth 9 score cp 10 time 22 nodes 25829 nps 1174045 pv b1c3
-info depth 10 score cp 17 time 34 nodes 41182 nps 1211235 pv b1c3
-info depth 11 score cp 25 time 58 nodes 80867 nps 1394258 pv b1c3
-info depth 12 score cp 17 time 134 nodes 228611 nps 1706052 pv c2c4
-info depth 13 score cp 21 time 184 nodes 329495 nps 1790733 pv c2c4
-info depth 14 score cp 20 time 363 nodes 706151 nps 1945319 pv e2e4
-info depth 15 score cp 17 time 691 nodes 1373724 nps 1988023 pv e2e4
-info depth 16 score cp 25 time 980 nodes 1945568 nps 1985273 pv e2e4
-info depth 17 score cp 30 time 1607 nodes 3186430 nps 1982843 pv e2e4
-info depth 18 score cp 34 time 2498 nodes 5183545 nps 2075078 pv e2e4
-info depth 19 score cp 23 time 3583 nodes 7542173 nps 2104988 pv e2e4
+info depth 7 score cp 12 time 5 nodes 6137 nps 1227400 pv b1c3
+info depth 8 score cp 17 time 9 nodes 10499 nps 1166555 pv b1c3
+info depth 9 score cp 10 time 21 nodes 25829 nps 1229952 pv b1c3
+info depth 10 score cp 17 time 31 nodes 41182 nps 1328451 pv b1c3
+info depth 11 score cp 25 time 53 nodes 80867 nps 1525792 pv b1c3
+info depth 12 score cp 17 time 124 nodes 228611 nps 1843637 pv c2c4
+info depth 13 score cp 21 time 172 nodes 329495 nps 1915668 pv c2c4
+info depth 14 score cp 20 time 332 nodes 706151 nps 2126960 pv e2e4
+info depth 15 score cp 17 time 598 nodes 1373724 nps 2297197 pv e2e4
+info depth 16 score cp 25 time 826 nodes 1945568 nps 2355409 pv e2e4
+info depth 17 score cp 30 time 1315 nodes 3186430 nps 2423140 pv e2e4
+info depth 18 score cp 34 time 2104 nodes 5183545 nps 2463662 pv e2e4
+info depth 19 score cp 23 time 3045 nodes 7542173 nps 2476904 pv e2e4
 bestmove e2e4
-7542173 nodes 2104988 nps
+7542173 nodes 2476904 nps
 ```
 
 ```py
@@ -7413,28 +7414,28 @@ Tune search parameters
 info depth 1 score cp 15 lowerbound time 0 nodes 5
 info depth 1 score cp 26 time 0 nodes 25 pv b1c3
 info depth 2 score cp 17 time 0 nodes 104 pv b1c3
-info depth 3 score cp 25 time 1 nodes 237 nps 237000 pv b1c3
+info depth 3 score cp 25 time 0 nodes 237 pv b1c3
 info depth 4 score cp 18 time 1 nodes 480 nps 480000 pv b1c3
-info depth 5 score cp 12 time 2 nodes 1047 nps 523500 pv b1c3
-info depth 6 score cp 15 time 4 nodes 1890 nps 472500 pv b1c3
-info depth 7 score cp 12 time 10 nodes 5251 nps 525100 pv b1c3
-info depth 8 score cp 17 time 37 nodes 8835 nps 238783 pv b1c3
-info depth 9 score cp 10 time 54 nodes 17626 nps 326407 pv b1c3
-info depth 10 score cp 17 time 112 nodes 35562 nps 317517 pv b1c3
-info depth 11 score cp 13 time 228 nodes 71854 nps 315149 pv b1c3
-info depth 12 score cp 10 time 471 nodes 171965 nps 365106 pv b1c3
-info depth 13 score cp 16 time 807 nodes 344297 nps 426638 pv g1f3
-info depth 14 score cp 18 time 976 nodes 484708 nps 496627 pv g1f3
-info depth 15 score cp 11 time 1655 nodes 1082663 nps 654177 pv g1f3
-info depth 16 score cp 26 lowerbound time 2682 nodes 1890589 nps 704917
-info depth 16 score cp 27 time 3017 nodes 2197828 nps 728481 pv e2e4
-info depth 17 score cp 29 time 3887 nodes 2923855 nps 752213 pv e2e4
-info depth 18 score cp 21 time 5292 nodes 4082510 nps 771449 pv e2e4
-info depth 19 score cp 21 time 7216 nodes 5662842 nps 784761 pv e2e4
-info depth 20 score cp 36 lowerbound time 16902 nodes 13771935 nps 814810
-info depth 20 score cp 27 time 17839 nodes 14621729 nps 819649 pv e2e4
+info depth 5 score cp 12 time 1 nodes 1047 nps 1047000 pv b1c3
+info depth 6 score cp 15 time 2 nodes 1890 nps 945000 pv b1c3
+info depth 7 score cp 12 time 5 nodes 5251 nps 1050200 pv b1c3
+info depth 8 score cp 17 time 7 nodes 8835 nps 1262142 pv b1c3
+info depth 9 score cp 10 time 15 nodes 17626 nps 1175066 pv b1c3
+info depth 10 score cp 17 time 26 nodes 35562 nps 1367769 pv b1c3
+info depth 11 score cp 13 time 46 nodes 71854 nps 1562043 pv b1c3
+info depth 12 score cp 10 time 91 nodes 171965 nps 1889725 pv b1c3
+info depth 13 score cp 16 time 159 nodes 344297 nps 2165389 pv g1f3
+info depth 14 score cp 18 time 217 nodes 484708 nps 2233677 pv g1f3
+info depth 15 score cp 11 time 450 nodes 1082663 nps 2405917 pv g1f3
+info depth 16 score cp 26 lowerbound time 758 nodes 1890589 nps 2494180
+info depth 16 score cp 27 time 873 nodes 2197828 nps 2517557 pv e2e4
+info depth 17 score cp 29 time 1154 nodes 2923855 nps 2533669 pv e2e4
+info depth 18 score cp 21 time 1590 nodes 4082510 nps 2567616 pv e2e4
+info depth 19 score cp 21 time 2198 nodes 5662842 nps 2576361 pv e2e4
+info depth 20 score cp 36 lowerbound time 5266 nodes 13771935 nps 2615255
+info depth 20 score cp 27 time 5584 nodes 14621729 nps 2618504 pv e2e4
 bestmove e2e4
-14621729 nodes 819649 nps
+14621729 nodes 2618504 nps
 ```
 
 ```py
@@ -7471,23 +7472,23 @@ info depth 3 score cp 25 time 0 nodes 237 pv b1c3
 info depth 4 score cp 18 time 0 nodes 480 pv b1c3
 info depth 5 score cp 12 time 1 nodes 1047 nps 1047000 pv b1c3
 info depth 6 score cp 15 time 2 nodes 1890 nps 945000 pv b1c3
-info depth 7 score cp 12 time 6 nodes 5251 nps 875166 pv b1c3
-info depth 8 score cp 17 time 10 nodes 8835 nps 883500 pv b1c3
-info depth 9 score cp 10 time 21 nodes 17626 nps 839333 pv b1c3
-info depth 10 score cp 17 time 39 nodes 35562 nps 911846 pv b1c3
-info depth 11 score cp 13 time 72 nodes 71854 nps 997972 pv b1c3
-info depth 12 score cp 10 time 149 nodes 171965 nps 1154127 pv b1c3
-info depth 13 score cp 16 time 268 nodes 344297 nps 1284690 pv g1f3
-info depth 14 score cp 18 time 366 nodes 484707 nps 1324336 pv g1f3
-info depth 15 score cp 16 time 623 nodes 875193 nps 1404804 pv g1f3
-info depth 16 score cp 31 lowerbound time 1245 nodes 1854903 nps 1489881
-info depth 16 score cp 25 time 1362 nodes 2035823 nps 1494730 pv e2e4
-info depth 17 score cp 30 time 1644 nodes 2480131 nps 1508595 pv e2e4
-info depth 18 score cp 28 time 2068 nodes 3170835 nps 1533285 pv e2e4
-info depth 19 score cp 26 time 3964 nodes 6177607 nps 1558427 pv e2e4
-info depth 20 score cp 28 time 5530 nodes 8692738 nps 1571923 pv e2e4
+info depth 7 score cp 12 time 5 nodes 5251 nps 1050200 pv b1c3
+info depth 8 score cp 17 time 8 nodes 8835 nps 1104375 pv b1c3
+info depth 9 score cp 10 time 15 nodes 17626 nps 1175066 pv b1c3
+info depth 10 score cp 17 time 28 nodes 35562 nps 1270071 pv b1c3
+info depth 11 score cp 13 time 49 nodes 71854 nps 1466408 pv b1c3
+info depth 12 score cp 10 time 96 nodes 171965 nps 1791302 pv b1c3
+info depth 13 score cp 16 time 169 nodes 344297 nps 2037260 pv g1f3
+info depth 14 score cp 18 time 230 nodes 484707 nps 2107421 pv g1f3
+info depth 15 score cp 16 time 384 nodes 875193 nps 2279148 pv g1f3
+info depth 16 score cp 31 lowerbound time 759 nodes 1854903 nps 2443877
+info depth 16 score cp 25 time 832 nodes 2035823 nps 2446902 pv e2e4
+info depth 17 score cp 30 time 1003 nodes 2480131 nps 2472712 pv e2e4
+info depth 18 score cp 28 time 1258 nodes 3170835 nps 2520536 pv e2e4
+info depth 19 score cp 26 time 2368 nodes 6177607 nps 2608786 pv e2e4
+info depth 20 score cp 28 time 3315 nodes 8692738 nps 2622243 pv e2e4
 bestmove e2e4
-8692738 nodes 1571923 nps
+8692738 nodes 2622243 nps
 ```
 
 ```py
@@ -7506,4 +7507,61 @@ LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
 Games | N: 11530 W: 3037 L: 2860 D: 5633
 Penta | [185, 1296, 2672, 1381, 231]
 https://gedas.pythonanywhere.com/test/1345/
+```
+
+### 4.66
+
+64 bit: 4094 bytes (=)
+
+MD5: 06835c97083284149fe5a75a94de748e
+
+LMR from 3 evaluated moves
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 5
+info depth 1 score cp 26 time 0 nodes 25 pv b1c3
+info depth 2 score cp 17 time 0 nodes 101 pv b1c3
+info depth 3 score cp 25 time 0 nodes 228 pv b1c3
+info depth 4 score cp 25 time 0 nodes 409 pv b1c3
+info depth 5 score cp 22 time 1 nodes 652 nps 652000 pv b1c3
+info depth 6 score cp 12 time 1 nodes 1701 nps 1701000 pv b1c3
+info depth 7 score cp 12 time 4 nodes 4491 nps 1122750 pv b1c3
+info depth 8 score cp 17 time 6 nodes 6924 nps 1154000 pv b1c3
+info depth 9 score cp 10 time 11 nodes 13261 nps 1205545 pv b1c3
+info depth 10 score cp 17 time 21 nodes 25764 nps 1226857 pv b1c3
+info depth 11 score cp 13 time 39 nodes 56887 nps 1458641 pv b1c3
+info depth 12 score cp 28 lowerbound time 53 nodes 81385 nps 1535566
+info depth 12 score cp 10 time 79 nodes 137437 nps 1739708 pv b1c3
+info depth 13 score cp 19 time 102 nodes 193855 nps 1900539 pv b1c3
+info depth 14 score cp 8 time 227 nodes 507076 nps 2233814 pv b1c3
+info depth 15 score cp 23 lowerbound time 322 nodes 747955 nps 2322841
+info depth 15 score cp 25 time 350 nodes 815953 nps 2331294 pv e2e4
+info depth 16 score cp 21 time 417 nodes 982559 nps 2356256 pv e2e4
+info depth 17 score cp 20 time 528 nodes 1262435 nps 2390975 pv e2e4
+info depth 18 score cp 25 time 909 nodes 2244492 nps 2469188 pv e2e4
+info depth 19 score cp 19 time 1278 nodes 3177151 nps 2486033 pv e2e4
+info depth 20 score cp 34 lowerbound time 1758 nodes 4447385 nps 2529798
+info depth 20 score cp 38 time 2309 nodes 5932238 nps 2569180 pv e2e4
+info depth 21 score cp 38 time 2770 nodes 7147620 nps 2580368 pv e2e4
+info depth 22 score cp 35 time 3934 nodes 10098456 nps 2566968 pv e2e4
+bestmove e2e4
+10098456 nodes 2566968 nps
+```
+
+```py
+Elo   | 5.89 +- 4.26 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 11678 W: 3355 L: 3157 D: 5166
+Penta | [301, 1346, 2369, 1500, 323]
+https://gedas.pythonanywhere.com/test/1369/
+```
+
+```py
+Elo   | 6.00 +- 10.55 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 0.48 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1680 W: 448 L: 419 D: 813
+Penta | [30, 204, 342, 235, 29]
+https://gedas.pythonanywhere.com/test/1371/
 ```
