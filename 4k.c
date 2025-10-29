@@ -1652,7 +1652,7 @@ void iteratively_deepen(
       G(224, window *= 2;)
     }
 
-    if (elapsed > max_time / 16) {
+    if (elapsed > max_time / 14) {
       break;
     }
   }
