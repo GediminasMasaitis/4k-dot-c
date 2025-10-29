@@ -1366,9 +1366,9 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
           G(165, // KILLER MOVE
             G(193, move_equal(G(194, &stack[ply].moves[order_index]),
                               G(194, &stack[ply].killer))) *
-                G(193, 831)) +
+                G(193, 834)) +
           G(165, // MOST VALUABLE VICTIM
-            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 698)) +
+            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 693)) +
           G(165, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1386,7 +1386,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(198, depth < 8) &&
         G(198,
-          G(199, static_eval) + G(199, G(200, 142) * G(200, depth)) +
+          G(199, static_eval) + G(199, G(200, 143) * G(200, depth)) +
                   G(199, initial_params.eg
                              .material[stack[ply].moves[move_index].promo]) +
                   G(199,
@@ -1413,7 +1413,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     i32 reduction = G(201, depth > 1) && G(201, moves_evaluated > 4)
                         ? G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
-                              G(202, (move_score < -248)) + G(202, !improving)
+                              G(202, (move_score < -252)) + G(202, !improving)
                         : 0;
 
     i32 score;
@@ -1630,7 +1630,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(221, i32 window = 15;)
+    G(221, i32 window = 16;)
     G(221, size_t elapsed;)
     while (true) {
       G(222, const i32 alpha = score - window;)
