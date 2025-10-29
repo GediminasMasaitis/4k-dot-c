@@ -1410,7 +1410,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(201, depth > 1) && G(201, moves_evaluated > 5)
+    i32 reduction = G(201, depth > 1) && G(201, moves_evaluated > 3)
                         ? G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
                               G(202, (move_score < -256)) + G(202, !improving)
@@ -1755,7 +1755,7 @@ S(1) void bench() {
   max_time = 99999999999;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(21, &nodes, H(219, 2, &pos), H(219, 2, stack),
+  iteratively_deepen(23, &nodes, H(219, 2, &pos), H(219, 2, stack),
                      H(219, 2, pos_history_count));
   const u64 end = get_time();
   const i32 elapsed = end - start;
