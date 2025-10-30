@@ -1181,9 +1181,9 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i32 move_history[2][6][64][64];)
-G(163, S(0) size_t start_time;)
 G(163, S(0) size_t max_time;)
 G(163, S(1) TTEntry tt[tt_length];)
+G(163, S(0) size_t start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
