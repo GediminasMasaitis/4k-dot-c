@@ -7565,3 +7565,65 @@ Games | N: 1680 W: 448 L: 419 D: 813
 Penta | [30, 204, 342, 235, 29]
 https://gedas.pythonanywhere.com/test/1371/
 ```
+
+### 4.67
+
+64 bit: 4094 bytes (=)
+
+MD5: 3adabc585a7680030beedc88bde2e936
+
+LMR from depth 2
+
+```py
+info depth 1 score cp 15 lowerbound time 1 nodes 5 nps 5000
+info depth 1 score cp 26 time 1 nodes 25 nps 25000 pv b1c3
+info depth 2 score cp 17 time 1 nodes 118 nps 118000 pv b1c3
+info depth 3 score cp 25 time 1 nodes 242 nps 242000 pv b1c3
+info depth 4 score cp 18 time 1 nodes 471 nps 471000 pv b1c3
+info depth 5 score cp 12 time 1 nodes 887 nps 887000 pv b1c3
+info depth 6 score cp 12 time 2 nodes 1508 nps 754000 pv b1c3
+info depth 7 score cp 12 time 5 nodes 4094 nps 818800 pv b1c3
+info depth 8 score cp 17 time 8 nodes 7024 nps 878000 pv b1c3
+info depth 9 score cp 10 time 15 nodes 14809 nps 987266 pv b1c3
+info depth 10 score cp 17 time 22 nodes 23733 nps 1078772 pv b1c3
+info depth 11 score cp 13 time 35 nodes 42106 nps 1203028 pv b1c3
+info depth 12 score cp 22 time 67 nodes 94973 nps 1417507 pv b1c3
+info depth 13 score cp 16 time 208 nodes 366473 nps 1761889 pv c2c4
+info depth 14 score cp 8 time 356 nodes 659230 nps 1851769 pv c2c4
+info depth 15 score cp 14 time 423 nodes 790474 nps 1868732 pv c2c4
+info depth 16 score cp 14 time 632 nodes 1207434 nps 1910496 pv c2c4
+info depth 17 score cp 20 time 936 nodes 1825093 nps 1949885 pv e2e4
+info depth 18 score cp 31 time 1247 nodes 2465249 nps 1976943 pv e2e4
+info depth 19 score cp 29 time 1544 nodes 3097795 nps 2006343 pv e2e4
+info depth 20 score cp 29 time 2032 nodes 4121914 nps 2028500 pv e2e4
+info depth 21 score cp 29 time 3120 nodes 6501647 nps 2083861 pv e2e4
+info depth 22 score cp 25 time 5136 nodes 11007709 nps 2143245 pv e2e4
+bestmove e2e4
+11007709 nodes 2143245 nps
+```
+
+```py
+Elo   | 9.55 +- 5.78 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.04 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 6262 W: 1788 L: 1616 D: 2858
+Penta | [147, 708, 1278, 822, 176]
+https://gedas.pythonanywhere.com/test/1384/
+```
+
+```py
+Elo   | 16.04 +- 7.65 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3078 W: 849 L: 707 D: 1522
+Penta | [46, 319, 693, 409, 72]
+https://gedas.pythonanywhere.com/test/1385/
+```
+
+### 5.0
+
+64 bit: 4094 bytes (=)
+
+MD5: 3adabc585a7680030beedc88bde2e936
+
+Equivalent to 4.67
