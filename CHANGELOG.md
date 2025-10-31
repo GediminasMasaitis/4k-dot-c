@@ -7627,3 +7627,11 @@ https://gedas.pythonanywhere.com/test/1385/
 MD5: 3adabc585a7680030beedc88bde2e936
 
 Equivalent to 4.67
+
+### 5.1
+
+64 bit: 4091 bytes (-3)
+
+MD5: 2e3361192fe1e63c876c689dad2ba000
+
+Smaller PSTs

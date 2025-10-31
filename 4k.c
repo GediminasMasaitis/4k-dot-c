@@ -892,8 +892,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(125, 1, i8 tempo;))
   H(124, 1,
     H(126, 1, i8 king_attacks[5];) H(126, 1, i8 passed_pawns[6];)
-        H(126, 1, i8 bishop_pair;) H(126, 1, i8 pst_file[64];)
-            H(126, 1, i8 pst_rank[64];))
+        H(126, 1, i8 bishop_pair;) H(126, 1, i8 pst_file[48];)
+            H(126, 1, i8 pst_rank[48];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -904,8 +904,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(125, 2, i32 tempo;))
   H(124, 2,
     H(126, 2, i32 king_attacks[5];) H(126, 2, i32 passed_pawns[6];)
-        H(126, 2, i32 bishop_pair;) H(126, 2, i32 pst_file[64];)
-            H(126, 2, i32 pst_rank[64];))
+        H(126, 2, i32 bishop_pair;) H(126, 2, i32 pst_file[48];)
+            H(126, 2, i32 pst_rank[48];))
 
 } EvalParamsMerged;
 
@@ -1181,9 +1181,9 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i32 move_history[2][6][64][64];)
-G(163, S(0) size_t start_time;)
 G(163, S(0) size_t max_time;)
 G(163, S(1) TTEntry tt[tt_length];)
+G(163, S(0) size_t start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
