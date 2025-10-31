@@ -25,25 +25,15 @@ payload_decompressed rb 4096*2
 
 section '.text'
 _start:
-    ; 1 byte smaller than `lea rdi, [payload_decompressed]`
-    push   payload_decompressed
-    pop    rdi
-
-    ; 1 byte smaller than `lea rsi, [payload_compressed]`
-    push   payload_compressed
-    pop    rsi
-
+    mov    edi, payload_decompressed
+    mov    esi, payload_compressed
+    mov    ebp, getbit
     push   START_LOCATION ; must be provided by -d to fasm
+    mov    dl, 0x80
 
     ; Technically UB but because size doesn't exceed 32k
     ; and execution starts with literal, ends up being not needed
     ; xor    ebx, ebx
-
-    mov    dl, 0x80
-
-    ; 1 byte smaller than `lea rbp, [getbit]`
-    push   getbit
-    pop    rbp
 
 literal:
     movsb

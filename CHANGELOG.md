@@ -7635,3 +7635,12 @@ Equivalent to 4.67
 MD5: 2e3361192fe1e63c876c689dad2ba000
 
 Smaller PSTs
+
+
+### 5.2
+
+64 bit: 4088 bytes (-3)
+
+MD5: fc0a53a66f12621bb1a77ae767cc738d
+
+Smaller loader
