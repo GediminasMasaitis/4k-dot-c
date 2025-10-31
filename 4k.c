@@ -1326,7 +1326,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
       G(187, npos.ep = 0;)
       const i32 score = -search(
           H(165, 2, -alpha), H(165, 2, -beta),
-          H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),
+          H(165, 2, depth - G(188, 4) - G(188, depth / 5)), H(165, 2, false),
           H(165, 2, stack),
 #ifdef FULL
           nodes,
