@@ -25,25 +25,15 @@ payload_decompressed rb 4096*2
 
 section '.text'
 _start:
-    ; 1 byte smaller than `lea rdi, [payload_decompressed]`
-    push   payload_decompressed
-    pop    rdi
-
-    ; 1 byte smaller than `lea rsi, [payload_compressed]`
-    push   payload_compressed
-    pop    rsi
-
+    mov    edi, payload_decompressed
+    mov    esi, payload_compressed
+    mov    ebp, getbit
     push   START_LOCATION ; must be provided by -d to fasm
+    mov    dl, 0x80
 
     ; Technically UB but because size doesn't exceed 32k
     ; and execution starts with literal, ends up being not needed
     ; xor    ebx, ebx
-
-    mov    dl, 0x80
-
-    ; 1 byte smaller than `lea rbp, [getbit]`
-    push   getbit
-    pop    rbp
 
 literal:
     movsb
@@ -52,14 +42,14 @@ nexttag:
     call   rbp ; getbit
     jnc    literal
 
-    xor    ecx, ecx
     call   rbp ; getbit
     jnc    codepair
     xor    eax, eax
+    xor    ecx, ecx
+    inc    ecx
     call   rbp ; getbit
     jnc    shortmatch
     mov    bl, 2
-    inc    ecx
     mov    al, 10h
   .getmorebits:
     call   rbp ; getbit
@@ -69,7 +59,7 @@ nexttag:
     stosb
     jmp    nexttag
 codepair:
-    call   getgamma_no_ecx
+    call   getgamma
     sub    ecx, ebx
     jnz    normalcodepair
     call   getgamma
@@ -80,7 +70,7 @@ shortmatch:
     shr    eax, 1
     jz     donedepacking
     adc    ecx, ecx
-    jmp    domatch_with_2inc
+    jmp    domatch_new_lastpos
 
 normalcodepair:
     xchg   eax, ecx
@@ -91,11 +81,11 @@ normalcodepair:
 
     ; Uncomment the following 2 instructions if >32kb
     ; cmp    eax, 32000
-    ; jae    short domatch_with_2inc
+    ; jae    domatch_with_2inc
     cmp    ah, 5
-    jae    short domatch_with_inc
+    jae    domatch_with_inc
     cmp    eax, 7fh
-    ja     short domatch_new_lastpos
+    ja     domatch_new_lastpos
 
 domatch_with_2inc:
     inc    ecx
@@ -128,7 +118,6 @@ getbit:
 
 getgamma:
     xor    ecx, ecx
-getgamma_no_ecx:
     inc    ecx
   .getgammaloop:
     call   rbp ; getbit

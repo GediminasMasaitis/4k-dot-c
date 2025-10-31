@@ -41,3 +41,4 @@ Change `-j 4` to your core count for faster building
 
 ## Thanks
 * **zamfofex** for helping with initial set up of a minimal Hello World executable and helping with 64 bit compilation, reducing code size
+* **sqrmax** for helping optimize the loader
