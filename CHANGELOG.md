@@ -7628,6 +7628,36 @@ MD5: 3adabc585a7680030beedc88bde2e936
 
 Equivalent to 4.67
 
+10+0.01:
+```py
+Score of 4kc-5.0 vs 4ku-3.0: 1835 - 1450 - 1715  [0.538] 5000
+...      4kc-5.0 playing White: 1219 - 443 - 838  [0.655] 2500
+...      4kc-5.0 playing Black: 616 - 1007 - 877  [0.422] 2500
+...      White vs Black: 2226 - 1059 - 1715  [0.617] 5000
+Elo difference: 26.8 +/- 7.8, LOS: 100.0 %, DrawRatio: 34.3 %
+
+Score of 4kc-5.0 vs 4ku-3.1: 1790 - 1647 - 1563  [0.514] 5000
+...      4kc-5.0 playing White: 1196 - 494 - 811  [0.640] 2501
+...      4kc-5.0 playing Black: 594 - 1153 - 752  [0.388] 2499
+...      White vs Black: 2349 - 1088 - 1563  [0.626] 5000
+Elo difference: 9.9 +/- 8.0, LOS: 99.3 %, DrawRatio: 31.3 %
+
+Score of 4kc-5.0 vs 4ku-4.0: 2243 - 6743 - 4014  [0.327] 13000
+...      4kc-5.0 playing White: 1669 - 2459 - 2373  [0.439] 6501
+...      4kc-5.0 playing Black: 574 - 4284 - 1641  [0.215] 6499
+...      White vs Black: 5953 - 3033 - 4014  [0.612] 13000
+Elo difference: -125.4 +/- 5.1, LOS: 0.0 %, DrawRatio: 30.9 %
+```
+
+60+0.06:
+```py
+Score of 4kc-5.0 vs 4ku-3.0: 2455 - 1231 - 2314  [0.602] 6000
+...      4kc-5.0 playing White: 1709 - 271 - 1020  [0.740] 3000
+...      4kc-5.0 playing Black: 746 - 960 - 1294  [0.464] 3000
+...      White vs Black: 2669 - 1017 - 2314  [0.638] 6000
+Elo difference: 71.9 +/- 6.9, LOS: 100.0 %, DrawRatio: 38.6 %
+```
+
 ### 5.1
 
 64 bit: 4091 bytes (-3)
@@ -7635,3 +7665,12 @@ Equivalent to 4.67
 MD5: 2e3361192fe1e63c876c689dad2ba000
 
 Smaller PSTs
+
+
+### 5.2
+
+64 bit: 4088 bytes (-3)
+
+MD5: fc0a53a66f12621bb1a77ae767cc738d
+
+Smaller loader
