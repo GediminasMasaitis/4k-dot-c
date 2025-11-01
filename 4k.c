@@ -192,7 +192,7 @@ typedef struct [[nodiscard]] {
                : "=a"(ret)
                : "0"(228), "D"(1), "S"(&ts)
                : "rcx", "r11", "memory");
-  return G(5, G(6, ts.tv_sec) * G(6, 1000)) + G(5, ts.tv_nsec / 1000000);
+  return G(5, ts.tv_nsec / 1000000) + G(5, G(6, ts.tv_sec) * G(6, 1000));
 }
 
 #else
@@ -471,28 +471,6 @@ G(
             })
 
 G(
-    62,
-    [[nodiscard]] S(1) i32 is_attacked(H(63, 1,
-                                         const Position *const restrict pos),
-                                       H(63, 1, const u64 bb)) {
-      assert(count(bb) == 1);
-      const u64 theirs = pos->colour[1];
-      G(64, const u64 pawns = theirs & pos->pieces[Pawn];)
-      G(64, const u64 blockers = theirs | pos->colour[0];)
-      return G(65, G(66, (G(67, sw(pawns)) | G(67, se(pawns)))) & G(66, bb)) ||
-             G(65, G(68, bishop(H(31, 2, blockers), H(31, 2, bb))) &
-                       G(68, theirs) &
-                       G(68, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
-             G(65,
-               G(69, king(bb)) & G(69, theirs) & G(69, pos->pieces[King])) ||
-             G(65, G(70, knight(bb)) & G(70, theirs) &
-                       G(70, pos->pieces[Knight])) ||
-             G(65, G(71, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(71, rook(H(34, 2, blockers), H(34, 2, bb))) &
-                       G(71, theirs));
-    })
-
-G(
     62, S(0) void flip_pos(Position *const restrict pos) {
       G(72, swapu64(G(73, &pos->colour[0]), G(73, &pos->colour[1]));)
 
@@ -527,6 +505,28 @@ G(
             })
       }
       return moves;
+    })
+
+G(
+    62,
+    [[nodiscard]] S(1) i32 is_attacked(H(63, 1,
+                                         const Position *const restrict pos),
+                                       H(63, 1, const u64 bb)) {
+      assert(count(bb) == 1);
+      const u64 theirs = pos->colour[1];
+      G(64, const u64 pawns = theirs & pos->pieces[Pawn];)
+      G(64, const u64 blockers = theirs | pos->colour[0];)
+      return G(65, G(66, (G(67, sw(pawns)) | G(67, se(pawns)))) & G(66, bb)) ||
+             G(65, G(68, bishop(H(31, 2, blockers), H(31, 2, bb))) &
+                       G(68, theirs) &
+                       G(68, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
+             G(65,
+               G(69, king(bb)) & G(69, theirs) & G(69, pos->pieces[King])) ||
+             G(65, G(70, knight(bb)) & G(70, theirs) &
+                       G(70, pos->pieces[Knight])) ||
+             G(65, G(71, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(71, rook(H(34, 2, blockers), H(34, 2, bb))) &
+                       G(71, theirs));
     })
 
 S(0) i32 find_in_check(const Position *restrict pos) {
