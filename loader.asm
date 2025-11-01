@@ -42,10 +42,10 @@ nexttag:
     call   rbp ; getbit
     jnc    literal
 
-    xor    ecx, ecx
     call   rbp ; getbit
     jnc    codepair
     xor    eax, eax
+    xor    ecx, ecx
     call   rbp ; getbit
     jnc    shortmatch
     mov    bl, 2
@@ -59,7 +59,7 @@ nexttag:
     stosb
     jmp    nexttag
 codepair:
-    call   getgamma_no_ecx
+    call   getgamma
     sub    ecx, ebx
     jnz    normalcodepair
     call   getgamma
@@ -118,7 +118,6 @@ getbit:
 
 getgamma:
     xor    ecx, ecx
-getgamma_no_ecx:
     inc    ecx
   .getgammaloop:
     call   rbp ; getbit
