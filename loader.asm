@@ -46,10 +46,10 @@ nexttag:
     jnc    codepair
     xor    eax, eax
     xor    ecx, ecx
+    inc    ecx
     call   rbp ; getbit
     jnc    shortmatch
     mov    bl, 2
-    inc    ecx
     mov    al, 10h
   .getmorebits:
     call   rbp ; getbit
@@ -70,7 +70,7 @@ shortmatch:
     shr    eax, 1
     jz     donedepacking
     adc    ecx, ecx
-    jmp    domatch_with_2inc
+    jmp    domatch_new_lastpos
 
 normalcodepair:
     xchg   eax, ecx
