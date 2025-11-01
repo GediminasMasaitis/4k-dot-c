@@ -37,7 +37,6 @@ _start:
 
 literal:
     movsb
-    mov    bl, 2
 nexttag:
     call   rbp ; getbit
     jnc    literal
@@ -60,7 +59,7 @@ nexttag:
     jmp    nexttag
 codepair:
     call   getgamma
-    sub    ecx, ebx
+    sub    ecx, 2
     jnz    normalcodepair
     call   getgamma
     jmp    domatch_lastpos
@@ -81,11 +80,11 @@ normalcodepair:
 
     ; Uncomment the following 2 instructions if >32kb
     ; cmp    eax, 32000
-    ; jae    short domatch_with_2inc
+    ; jae    domatch_with_2inc
     cmp    ah, 5
-    jae    short domatch_with_inc
+    jae    domatch_with_inc
     cmp    eax, 7fh
-    ja     short domatch_new_lastpos
+    ja     domatch_new_lastpos
 
 domatch_with_2inc:
     inc    ecx
