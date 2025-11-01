@@ -8,6 +8,7 @@ SECTIONS
 	. = start_address;
 	
 	.data : {
+		*(.start) *(.start.*)
 		*(.rodata) *(.rodata.*)
 		*(.data) *(.data.*)
 		*(.text) *(.text.*)

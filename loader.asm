@@ -28,7 +28,7 @@ _start:
     mov    edi, payload_decompressed
     mov    esi, payload_compressed
     mov    ebp, getbit
-    push   START_LOCATION ; must be provided by -d to fasm
+    push   rdi
     mov    dl, 0x80
 
     ; Technically UB but because size doesn't exceed 32k
