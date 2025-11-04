@@ -1647,8 +1647,7 @@ void iteratively_deepen(
 #endif
       elapsed = get_time() - start_time;
       G(
-          224, if (G(225, (G(226, score > alpha) && G(226, score < beta))) ||
-                   G(225, elapsed > max_time)) { break; })
+          224, if (G(225, (G(226, score > alpha) && G(226, score < beta)))) { break; })
       G(224, window *= 2;)
     }
 
