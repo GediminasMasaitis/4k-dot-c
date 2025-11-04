@@ -321,8 +321,10 @@ G(
 
 G(
     19, [[nodiscard]] S(1) u64 nw(const u64 bb) {
-      G(999, return shift(H(13, 2, 7), H(13, 2, ~0x8080808080808080ull), H(13, 2, bb));)
-      /* G(999, return west(north(bb));) */
+      // clang-format off
+      /* G(999, return shift(H(13, 2, 7), H(13, 2, ~0x8080808080808080ull), H(13, 2, bb));) */
+      G(999, return west(north(bb));)
+      //clang-format on
     })
 
 G(
