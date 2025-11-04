@@ -7674,3 +7674,59 @@ Smaller PSTs
 MD5: 6b4ee2296f123e9dc263534d05a61482
 
 Smaller loader (thanks to sqrmax)
+
+### 5.3
+
+64 bit: 4088 bytes (=)
+
+MD5: 0f6b895ceb311ffce6681c54daf7e7a9
+
+LMR from depth 3
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 5
+info depth 1 score cp 26 time 0 nodes 25 pv b1c3
+info depth 2 score cp 17 time 0 nodes 118 pv b1c3
+info depth 3 score cp 25 time 0 nodes 293 pv b1c3
+info depth 4 score cp 17 time 1 nodes 622 nps 622000 pv b1c3
+info depth 5 score cp 8 time 1 nodes 961 nps 961000 pv b1c3
+info depth 6 score cp 12 time 2 nodes 2307 nps 1153500 pv b1c3
+info depth 7 score cp 12 time 5 nodes 5136 nps 1027200 pv b1c3
+info depth 8 score cp 17 time 8 nodes 7558 nps 944750 pv b1c3
+info depth 9 score cp 18 time 15 nodes 16566 nps 1104400 pv b1c3
+info depth 10 score cp 17 time 32 nodes 38241 nps 1195031 pv b1c3
+info depth 11 score cp 25 time 46 nodes 59158 nps 1286043 pv b1c3
+info depth 12 score cp 27 time 71 nodes 103511 nps 1457901 pv b1c3
+info depth 13 score cp 12 upperbound time 108 nodes 167655 nps 1552361
+info depth 13 score cp 13 time 139 nodes 228555 nps 1644280 pv b1c3
+info depth 14 score cp 11 time 207 nodes 357042 nps 1724840 pv b1c3
+info depth 15 score cp 23 time 360 nodes 659799 nps 1832775 pv e2e4
+info depth 16 score cp 24 time 459 nodes 849980 nps 1851808 pv e2e4
+info depth 17 score cp 29 time 756 nodes 1467556 nps 1941211 pv e2e4
+info depth 18 score cp 14 upperbound time 1448 nodes 2873682 nps 1984587
+info depth 18 score cp 21 time 1536 nodes 3048935 nps 1984983 pv e2e4
+info depth 19 score cp 35 time 2095 nodes 4214595 nps 2011739 pv e2e4
+info depth 20 score cp 35 time 2436 nodes 4902049 nps 2012335 pv e2e4
+info depth 21 score cp 29 time 3026 nodes 6117194 nps 2021544 pv e2e4
+info depth 22 score cp 37 time 6499 nodes 13024915 nps 2004141 pv e2e4
+bestmove e2e4
+13024915 nodes 2003833 nps
+```
+
+```py
+Elo   | -0.00 +- 2.66 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -3.06 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 29576 W: 8019 L: 8019 D: 13538
+Penta | [765, 3624, 6021, 3602, 776]
+https://gedas.pythonanywhere.com/test/1391/
+```
+
+```py
+Elo   | 4.22 +- 3.28 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 16618 W: 4283 L: 4081 D: 8254
+Penta | [287, 1950, 3628, 2162, 282]
+https://gedas.pythonanywhere.com/test/1393/
+```
