@@ -192,7 +192,7 @@ typedef struct [[nodiscard]] {
                : "=a"(ret)
                : "0"(228), "D"(1), "S"(&ts)
                : "rcx", "r11", "memory");
-  return G(5, G(6, ts.tv_sec) * G(6, 1000)) + G(5, ts.tv_nsec / 1000000);
+  return G(5, ts.tv_nsec / 1000000) + G(5, G(6, ts.tv_sec) * G(6, 1000));
 }
 
 #else
@@ -1305,7 +1305,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
   }
 
   if (G(179, !in_check) && G(179, G(180, alpha) == G(180, beta - 1))) {
-    if (G(181, depth < 8) && G(181, !in_qsearch)) {
+    if (G(181, !in_qsearch) && G(181, depth < 8)) {
 
       G(182, {
         // REVERSE FUTILITY PRUNING
@@ -1410,7 +1410,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(201, depth > 3) && G(201, moves_evaluated > 3)
+    i32 reduction = G(201, depth > 3) && G(201, moves_evaluated > 2) &&
+                            G(201, move_score <= 0)
                         ? G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
                               G(202, (move_score < -256)) + G(202, !improving)
