@@ -1338,7 +1338,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     }
   }
 
-  G(189, i32 quiets_evaluated = 0;)
+  G(189, i32 bads_evaluated = 0;)
   G(189, i32 moves_evaluated = 0;)
   G(189,
     stack[ply].num_moves = movegen(H(103, 3, pos), H(103, 3, stack[ply].moves),
@@ -1488,13 +1488,13 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
       }
     }
 
-    if (stack[ply].moves[move_index].takes_piece == None) {
-      quiets_evaluated++;
+    if (move_score < 0) {
+      bads_evaluated++;
     }
 
     // LATE MOVE PRUNING
     if (G(210, !in_check) && G(210, G(211, alpha) == G(211, beta - 1)) &&
-        G(210, quiets_evaluated > (G(212, 1) + G(212, depth * depth)) >>
+        G(210, bads_evaluated > (G(212, 1) + G(212, depth * depth)) >>
                    !improving)) {
       break;
     }
