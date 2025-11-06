@@ -1251,6 +1251,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
   assert(alpha < beta);
   assert(ply >= 0);
 
+  const SearchStack *ply_stack = &stack[ply];
+
   // IN-CHECK EXTENSION
   const bool in_check = find_in_check(pos);
   depth += in_check;
