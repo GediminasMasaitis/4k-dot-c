@@ -752,8 +752,8 @@ enum { max_moves = 218 };
       106, // SHORT CASTLE
       if (G(121, !only_captures) && G(121, pos->castling[1]) &&
           G(121, !(G(122, all) & G(122, 0xEull))) &&
-          G(123, !is_attacked(H(63, 5, pos), H(63, 5, 1ULL << 3))) &&
-          G(123, !is_attacked(H(63, 6, pos), H(63, 6, 1ULL << 4)))) {
+          G(123, !is_attacked(H(63, 6, pos), H(63, 6, 1ULL << 4))) &&
+          G(123, !is_attacked(H(63, 5, pos), H(63, 5, 1ULL << 3)))) {
         *movelist++ =
             (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
@@ -1410,8 +1410,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(201, depth > 3) && G(201, moves_evaluated > 2) &&
-                            G(201, move_score <= 0)
+    i32 reduction = G(201, depth > 3) && G(201, move_score <= 0)
                         ? G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
                               G(202, (move_score < -256)) + G(202, !improving)
