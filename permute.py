@@ -199,6 +199,21 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
 # ---------------------------------------------
 # Helper functions for file operations and builds
 # ---------------------------------------------
+
+def run_make_and_get_bits(cwd=None):
+    proc = subprocess.run(
+        ['make', 'NOSTDLIB=true', 'MINI=true', 'compress'],
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=True
+    )
+    m = re.search(r'Compressed bits:\s*(\d+)\b', proc.stdout)
+    if not m:
+        raise RuntimeError("Failed to parse 'Compressed bits' from make output")
+    return int(m.group(1))
+
 def read_file(path):
     with open(path, 'r') as f:
         return f.read()
@@ -218,23 +233,12 @@ def build_worker_tree(root_nodes, group_id, perm, src_path, worker_id, correlate
     src_dest = os.path.join(workdir, src_path)
     with open(src_dest, 'w') as f:
         f.write(content)
-    subprocess.run(
-        ['make', 'NOSTDLIB=true', 'MINI=true', 'compress'],
-        cwd=workdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-    )
-    built = os.path.join(workdir, 'build', '4kc.ap')
-    size = os.path.getsize(built)
+    size = run_make_and_get_bits(cwd=workdir)
     return size, content, perm
 
 def write_and_build_tree(nodes, src_path):
     content = render_tree(nodes)
-    with open(src_path, 'w') as f:
-        f.write(content)
-    subprocess.run(
-        ['make', 'NOSTDLIB=true', 'MINI=true', 'compress'],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-    )
-    size = os.path.getsize('./build/4kc.ap')
+    size = run_make_and_get_bits(cwd=None)
     return size, content
 
 # ---------------------------------------------
@@ -460,11 +464,7 @@ def build_static_option(baseline, span, new_val, src_path, worker_id):
     dest = os.path.join(workdir, src_path)
     with open(dest, 'w') as f:
         f.write(variant)
-    subprocess.run(
-        ['make', 'NOSTDLIB=true', 'MINI=true', 'compress'],
-        cwd=workdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-    )
-    size = os.path.getsize(os.path.join(workdir, 'build', '4kc.ap'))
+    size = run_make_and_get_bits(cwd=workdir)
     return size, variant, span, new_val
 
 def stage_static(src_path, pass_best, stats_prefix):

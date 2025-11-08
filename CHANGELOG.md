@@ -7842,3 +7842,11 @@ Games | N: 7128 W: 1839 L: 1743 D: 3546
 Penta | [121, 831, 1580, 895, 137]
 https://gedas.pythonanywhere.com/test/1407/
 ```
+
+### 5.6
+
+64 bit: 4084 bytes (-2)
+
+MD5: 45d27097649cf7bd3113746674084565
+
+Bit based blackbox
