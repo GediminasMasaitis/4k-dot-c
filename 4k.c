@@ -52,21 +52,23 @@ enum [[nodiscard]] {
 };
 
 static ssize_t _sys(H(2, 1, ssize_t arg1), H(2, 1, ssize_t arg3),
-                         H(2, 1, ssize_t arg2), H(2, 1, ssize_t call)) {
-      ssize_t ret;
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(call), "D"(arg1), "S"(arg2), "d"(arg3)
-                   : "rcx", "r11", "memory");
-      return ret;
-    }
+                    H(2, 1, ssize_t arg2), H(2, 1, ssize_t call)) {
+  ssize_t ret;
+  asm volatile("syscall"
+               : "=a"(ret)
+               : "0"(call), "D"(arg1), "S"(arg2), "d"(arg3)
+               : "rcx", "r11", "memory");
+  return ret;
+}
 
-G(1, S(1) void exit_now() {
+G(
+    1, S(1) void exit_now() {
       asm volatile("syscall" : : "a"(60));
       __builtin_unreachable();
     })
 
-G(1, // Non-standard, gets but a word instead of a line
+G(
+    1, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
         i32 result;
@@ -74,7 +76,8 @@ G(1, // Non-standard, gets but a word instead of a line
                      : "=a"(result)
                      : "0"(0), "D"(stdin), "S"(string), "d"(1)
                      : "rcx", "r11", "memory");
-        //const int result = _sys(H(2, 2, stdin), H(2, 2, 1), H(2, 2, (ssize_t)string), H(2, 2, 0));
+    // const int result = _sys(H(2, 2, stdin), H(2, 2, 1), H(2, 2,
+    // (ssize_t)string), H(2, 2, 0));
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -93,16 +96,18 @@ G(1, // Non-standard, gets but a word instead of a line
       }
     })
 
-G(1,
+G(
+    1,
     S(1) void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
         i32 ret;
         asm volatile("syscall"
-          : "=a"(ret)
-          : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-          : "rcx", "r11", "memory");
-        //_sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])), H(2, 3, 1));
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        //_sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])),
+        //H(2, 3, 1));
         length++;
       }
     }
@@ -124,7 +129,8 @@ G(1,
   return false;
 }
 
-G(1, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+G(
+    1, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
       // Will break if reads a value over 4294967295
       // This works out to be just over 49 days
 
@@ -137,6 +143,23 @@ G(1, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
         result += *string - '0';
         string++;
       }
+    })
+
+G(
+    1,
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
+
+    [[nodiscard]] S(1) size_t get_time() {
+      timespec ts;
+      ssize_t ret; // Unused
+      asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(5, ts.tv_nsec / 1000000) + G(5, G(6, ts.tv_sec) * G(6, 1000));
     })
 
 #define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
@@ -182,22 +205,6 @@ static void _printf(const char *format, const size_t *args) {
     args++;
   }
 }
-
-G(1, 
-typedef struct [[nodiscard]] {
-  ssize_t tv_sec;  // seconds
-  ssize_t tv_nsec; // nanoseconds
-} timespec;
-
-[[nodiscard]] S(1) size_t get_time() {
-  timespec ts;
-  ssize_t ret; // Unused
-  asm volatile("syscall"
-               : "=a"(ret)
-               : "0"(228), "D"(1), "S"(&ts)
-               : "rcx", "r11", "memory");
-  return G(5, ts.tv_nsec / 1000000) + G(5, G(6, ts.tv_sec) * G(6, 1000));
-})
 
 #else
 #include <stdbool.h>
