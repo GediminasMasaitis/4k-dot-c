@@ -887,11 +887,11 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(124, 1,
-    H(125, 1, u8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
-        H(125, 1, i8 open_files[6];) H(125, 1, i8 passed_blocked_pawns[6];)
+    H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 open_files[6];)
+        H(125, 1, i8 mobilities[5];) H(125, 1, u8 pawn_attacked_penalty[2];)
             H(125, 1, i8 tempo;))
   H(124, 1,
-    H(126, 1, i8 king_attacks[5];) H(126, 1, i8 passed_pawns[6];)
+    H(126, 1, i8 passed_pawns[6];) H(126, 1, i8 king_attacks[5];)
         H(126, 1, i8 bishop_pair;) H(126, 1, i8 pst_file[48];)
             H(126, 1, i8 pst_rank[48];))
 } EvalParams;
@@ -899,11 +899,11 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[7];
   H(124, 2,
-    H(125, 2, i32 pawn_attacked_penalty[2];) H(125, 2, i32 mobilities[5];)
-        H(125, 2, i32 open_files[6];) H(125, 2, i32 passed_blocked_pawns[6];)
+    H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 open_files[6];)
+        H(125, 2, i32 mobilities[5];) H(125, 2, i32 pawn_attacked_penalty[2];)
             H(125, 2, i32 tempo;))
   H(124, 2,
-    H(126, 2, i32 king_attacks[5];) H(126, 2, i32 passed_pawns[6];)
+    H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];)
         H(126, 2, i32 bishop_pair;) H(126, 2, i32 pst_file[48];)
             H(126, 2, i32 pst_rank[48];))
 
@@ -1081,8 +1081,8 @@ S(1) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(140, const int file = G(141, sq) & G(141, 7);)
-        G(140, const int rank = sq >> 3;)
         G(140, phase += initial_params.phases[p];)
+        G(140, const int rank = sq >> 3;)
         G(140, copy &= copy - 1;)
 
         G(
@@ -1167,10 +1167,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(162, i8 depth;)
   G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
+  G(162, i8 depth;)
   G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1305,7 +1305,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
   }
 
   if (G(179, !in_check) && G(179, G(180, alpha) == G(180, beta - 1))) {
-    if (G(181, !in_qsearch) && G(181, depth < 8)) {
+    if (G(181, depth < 8) && G(181, !in_qsearch)) {
 
       G(182, {
         // REVERSE FUTILITY PRUNING
@@ -1338,8 +1338,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     }
   }
 
-  G(189, i32 quiets_evaluated = 0;)
   G(189, i32 moves_evaluated = 0;)
+  G(189, i32 quiets_evaluated = 0;)
   G(189,
     stack[ply].num_moves = movegen(H(103, 3, pos), H(103, 3, stack[ply].moves),
                                    H(103, 3, in_qsearch));)
