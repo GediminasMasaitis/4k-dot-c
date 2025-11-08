@@ -1315,8 +1315,11 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
       })
 
       G(182, // RAZORING
-        in_qsearch =
-            G(184, static_eval) + G(184, G(185, 122) * G(185, depth)) <= alpha;)
+        if (depth < 4) {
+          in_qsearch =
+            G(184, static_eval) + G(184, G(185, 122) * G(185, depth)) <= alpha;
+        }
+          )
     }
 
     // NULL MOVE PRUNING
