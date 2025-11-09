@@ -7850,3 +7850,11 @@ https://gedas.pythonanywhere.com/test/1407/
 MD5: 45d27097649cf7bd3113746674084565
 
 Bit based blackbox
+
+### 5.7
+
+64 bit: 4082 bytes (-2)
+
+MD5: b8c78a8a5eb8814b1c1bdda894c0ac21
+
+Loader size peephole optimization (implemented by sqrmax)

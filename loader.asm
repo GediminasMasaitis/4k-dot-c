@@ -110,8 +110,9 @@ domatch:
 getbit:
     add    dl, dl
     jnz    .stillbitsleft
-    mov    dl, [rsi]
-    inc    rsi
+    xchg eax, edx
+    lodsb
+    xchg eax, edx
     adc    dl, dl
   .stillbitsleft:
     ret
