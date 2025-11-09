@@ -5,6 +5,7 @@
 build
 old
 *.map
+*.s
 *.o
 *.gcda
 *.gcno

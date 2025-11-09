@@ -39,7 +39,8 @@ all:
 
 compress:
 	mkdir -p build
-	$(CC) $(CFLAGS) -c 4k.c
+	$(CC) $(CFLAGS) -S -o 4k.s 4k.c
+	$(CC) $(CFLAGS) -c -o 4k.o 4k.s
 	$(CC) $(LDFLAGS) -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	ls -la $(EXE)
 	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
@@ -75,6 +76,7 @@ format:
 clean:
 	rm -rf build/**
 	rm -f *.map
+	rm -f *.s
 	rm -f *.o
 	rm -f *.gcda
 	rm -f *.gcno
