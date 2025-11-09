@@ -1167,10 +1167,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
+  G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
   G(162, i8 depth;)
-  G(162, u16 partial_hash;)
   G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1181,9 +1181,9 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i16 move_history[2][6][64][64];)
+G(163, S(0) size_t start_time;)
 G(163, S(0) size_t max_time;)
 G(163, S(1) TTEntry tt[tt_length];)
-G(163, S(0) size_t start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
