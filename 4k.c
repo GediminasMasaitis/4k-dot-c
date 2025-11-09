@@ -1366,9 +1366,9 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
           G(165, // KILLER MOVE
             G(193, move_equal(G(194, &stack[ply].moves[order_index]),
                               G(194, &stack[ply].killer))) *
-                G(193, 836)) +
+                G(193, 768)) +
           G(165, // MOST VALUABLE VICTIM
-            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 712)) +
+            G(195, stack[ply].moves[order_index].takes_piece) * G(195, 640)) +
           G(165, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
