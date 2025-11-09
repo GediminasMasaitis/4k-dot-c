@@ -402,7 +402,7 @@ G(
 
 G(
     50,
-    S(1) void swapu32(G(51, u32 *const lhs), G(51, u32 *const rhs)) {
+    S(1) void swapu32(G(51, u32 *const rhs), G(51, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -1081,8 +1081,8 @@ S(1) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(140, const int file = G(141, sq) & G(141, 7);)
-        G(140, phase += initial_params.phases[p];)
         G(140, const int rank = sq >> 3;)
+        G(140, phase += initial_params.phases[p];)
         G(140, copy &= copy - 1;)
 
         G(
@@ -1167,10 +1167,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
   G(162, i8 depth;)
+  G(162, u16 partial_hash;)
   G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1633,8 +1633,8 @@ void iteratively_deepen(
     G(221, i32 window = 15;)
     G(221, size_t elapsed;)
     while (true) {
-      G(222, const i32 alpha = score - window;)
       G(222, const i32 beta = G(223, score) + G(223, window);)
+      G(222, const i32 alpha = score - window;)
       score =
           search(H(165, 4, beta), H(165, 4, alpha), H(165, 4, depth),
                  H(165, 4, false), H(165, 4, stack),
@@ -1646,10 +1646,10 @@ void iteratively_deepen(
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
       elapsed = get_time() - start_time;
+      G(224, window *= 2;)
       G(
           224, if (G(225, (G(226, score > alpha) && G(226, score < beta))) ||
                    G(225, elapsed > max_time)) { break; })
-      G(224, window *= 2;)
     }
 
     if (elapsed > max_time / 16) {
@@ -1831,43 +1831,44 @@ S(1) void run() {
              nps);
     }
 #endif
-    G(228, if (G(229, line[0]) == G(229, 'q')) { exit_now(); })
-    else G(228, if (G(230, line[0]) == G(230, 'p')) {
-      G(231, pos_history_count = 0;)
-        G(231, pos = start_pos;)
-        while (true) {
-          const bool line_continue = getl(line);
+    G(
+        228, if (G(230, line[0]) == G(230, 'p')) {
+          G(231, pos_history_count = 0;)
+          G(231, pos = start_pos;)
+          while (true) {
+            const bool line_continue = getl(line);
 
 #if FULL
-          if (!strcmp(line, "fen")) {
-            getl(line);
-            get_fen(&pos, line);
-          }
+            if (!strcmp(line, "fen")) {
+              getl(line);
+              get_fen(&pos, line);
+            }
 #endif
 
-          const i32 num_moves =
-            movegen(H(103, 4, &pos), H(103, 4, stack[0].moves), H(103, 4, false));
-          for (i32 i = 0; i < num_moves; i++) {
-            char move_name[8];
-            move_str(H(57, 4, move_name), H(57, 4, &stack[0].moves[i]),
-              H(57, 4, pos.flipped));
-            assert(move_string_equal(line, move_name) ==
-              !strcmp(line, move_name));
-            if (move_string_equal(G(232, line), G(232, move_name))) {
-              stack[pos_history_count].position_hash = get_hash(&pos);
-              pos_history_count++;
-              if (stack[0].moves[i].takes_piece != None) {
-                pos_history_count = 0;
+            const i32 num_moves = movegen(
+                H(103, 4, &pos), H(103, 4, stack[0].moves), H(103, 4, false));
+            for (i32 i = 0; i < num_moves; i++) {
+              char move_name[8];
+              move_str(H(57, 4, move_name), H(57, 4, &stack[0].moves[i]),
+                       H(57, 4, pos.flipped));
+              assert(move_string_equal(line, move_name) ==
+                     !strcmp(line, move_name));
+              if (move_string_equal(G(232, line), G(232, move_name))) {
+                stack[pos_history_count].position_hash = get_hash(&pos);
+                pos_history_count++;
+                if (stack[0].moves[i].takes_piece != None) {
+                  pos_history_count = 0;
+                }
+                makemove(H(83, 4, &pos), H(83, 4, &stack[0].moves[i]));
+                break;
               }
-              makemove(H(83, 4, &pos), H(83, 4, &stack[0].moves[i]));
+            }
+            if (!line_continue) {
               break;
             }
           }
-          if (!line_continue) {
-            break;
-          }
-        }
-    })
+        })
+    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
     else G(228, if (G(233, line[0]) == G(233, 'g')) {
 #ifdef FULL
       while (true) {
@@ -1898,7 +1899,7 @@ S(1) void run() {
         H(219, 5, pos_history_count));
 #endif
     })
-    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
+    else G(228, if (G(229, line[0]) == G(229, 'q')) { exit_now(); })
   }
 }
 
