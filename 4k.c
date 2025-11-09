@@ -887,7 +887,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(124, 1,
-    H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 open_files[6];)
+    H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 open_files[2][6];)
         H(125, 1, i8 mobilities[5];) H(125, 1, u8 pawn_attacked_penalty[2];)
             H(125, 1, i8 tempo;))
   H(124, 1,
@@ -899,7 +899,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[7];
   H(124, 2,
-    H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 open_files[6];)
+    H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 open_files[2][6];)
         H(125, 2, i32 mobilities[5];) H(125, 2, i32 pawn_attacked_penalty[2];)
             H(125, 2, i32 tempo;))
   H(124, 2,
@@ -970,9 +970,9 @@ G(128,
                                                        .king_attacks = {0, 15,
                                                                         21, 13,
                                                                         0},
-                                                       .open_files = {22, -10,
+                                                       .open_files = {{22, -10,
                                                                       -10, 20,
-                                                                      -3, -31},
+                                                                      -3, -31}, {0}},
                                                        .passed_pawns =
                                                            {-16, -20, -13, 8,
                                                             31, 90},
@@ -1033,9 +1033,9 @@ G(128,
                                                        .king_attacks = {0, -5,
                                                                         -7, 10,
                                                                         0},
-                                                       .open_files = {35, -5, 7,
+                                                       .open_files = {{35, -5, 7,
                                                                       11, 28,
-                                                                      9},
+                                                                      9},{0}},
                                                        .passed_pawns =
                                                            {0, 5, 31, 58, 105,
                                                             96},
@@ -1085,11 +1085,12 @@ S(1) i32 eval(Position *const restrict pos) {
         G(140, const int rank = sq >> 3;)
         G(140, copy &= copy - 1;)
 
+        const u64 in_front2 = north(0x101010101010101ULL << sq) & own_pawns;
+
         G(
             101, // OPEN FILES / DOUBLED PAWNS
-            if ((G(142, north(0x101010101010101ULL << sq)) &
-                 G(142, own_pawns)) == 0) {
-              score += eval_params.open_files[p - 1];
+            if (in_front2 == 0) {
+              score += eval_params.open_files[!(in_front2 & opp_pawns)][p - 1];
             })
 
         G(101, // SPLIT PIECE-SQUARE TABLES FOR FILE
