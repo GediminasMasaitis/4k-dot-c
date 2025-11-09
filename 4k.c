@@ -1085,12 +1085,12 @@ S(1) i32 eval(Position *const restrict pos) {
         G(140, const int rank = sq >> 3;)
         G(140, copy &= copy - 1;)
 
-        const u64 in_front2 = north(0x101010101010101ULL << sq) & own_pawns;
+        const u64 in_front = north(0x101010101010101ULL) << sq;
 
         G(
             101, // OPEN FILES / DOUBLED PAWNS
-            if (in_front2 == 0) {
-              score += eval_params.open_files[!(in_front2 & opp_pawns)][p - 1];
+            if ((in_front & own_pawns) == 0) {
+              score += eval_params.open_files[!(in_front & opp_pawns)][p - 1];
             })
 
         G(101, // SPLIT PIECE-SQUARE TABLES FOR FILE
