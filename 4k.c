@@ -1480,7 +1480,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
-                          bonus + G(209, bonus) * G(209, *prev_hist) / 1024;
+                          bonus + G(209, bonus) * G(209, *prev_hist) / 2048;
                     })
               })
           break;
