@@ -892,7 +892,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(125, 1, i8 pst_file[6][8];))
   H(124, 1,
     H(126, 1, i8 passed_blocked_pawns[6];) H(126, 1, i8 bishop_pair;)
-        H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[48];)
+        H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[6][8];)
             H(126, 1, i8 passed_pawns[6];) H(126, 1, i8 king_attacks[5];))
 } EvalParams;
 
@@ -904,7 +904,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(125, 2, i32 pst_file[6][8];))
   H(124, 2,
     H(126, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
-        H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
+        H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[6][8];)
             H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
 
 } EvalParamsMerged;
@@ -925,24 +925,24 @@ G(128,
                                                                     774, 0},
                                                        .pst_rank =
                                                            {
-                                                               0,   -8,  -15,
+                                                               {0,   -8,  -15,
                                                                -9,  4,   28,
-                                                               92,  0, // Pawn
-                                                               -22, -11, 2,
+                                                               92,  0}, // Pawn
+                                                               {-22, -11, 2,
                                                                14,  25,  44,
-                                                               24,  -76, // Knight
-                                                               -9,  6,   13,
+                                                               24,  -76}, // Knight
+                                                               {-9,  6,   13,
                                                                13,  16,  17,
-                                                               -2,  -54, // Bishop
-                                                               1,   -11, -16,
+                                                               -2,  -54}, // Bishop
+                                                               {1,   -11, -16,
                                                                -19, 1,   21,
-                                                               10,  14, // Rook
-                                                               15,  17,  9,
+                                                               10,  14}, // Rook
+                                                               {15,  17,  9,
                                                                -2,  -6,  0,
-                                                               -23, -10, // Queen
-                                                               -3,  -1,  -32,
+                                                               -23, -10}, // Queen
+                                                               {-3,  -1,  -32,
                                                                -42, -11, 40,
-                                                               49,  46, // King
+                                                               49,  46}, // King
                                                            },
                                                        .pst_file =
                                                            {
@@ -989,24 +989,24 @@ G(128,
                                                                     1346, 0},
                                                        .pst_rank =
                                                            {
-                                                               0,   -4,  -9,
+                                                               {0,   -4,  -9,
                                                                -7,  0,   20,
-                                                               99,  0, // Pawn
-                                                               -38, -22, -5,
+                                                               99,  0}, // Pawn
+                                                               {-38, -22, -5,
                                                                22,  28,  10,
-                                                               1,   3, // Knight
-                                                               -14, -12, -2,
+                                                               1,   3}, // Knight
+                                                               {-14, -12, -2,
                                                                3,   7,   4,
-                                                               3,   10, // Bishop
-                                                               -24, -24, -15,
+                                                               3,   10}, // Bishop
+                                                               {-24, -24, -15,
                                                                4,   15,  14,
-                                                               21,  9, // Rook
-                                                               -66, -50, -23,
+                                                               21,  9}, // Rook
+                                                               {-66, -50, -23,
                                                                11,  34,  33,
-                                                               41,  20, // Queen
-                                                               -50, -7,  8,
+                                                               41,  20}, // Queen
+                                                               {-50, -7,  8,
                                                                23,  34,  31,
-                                                               16,  -50, // King
+                                                               16,  -50}, // King
                                                            },
                                                        .pst_file =
                                                            {
@@ -1106,7 +1106,7 @@ S(1) i32 eval(Position *const restrict pos) {
         G(101, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
           eval_params
-              .pst_rank[G(144, G(146, (p - 1)) * G(146, 8)) + G(144, rank)];)
+              .pst_rank[p-1][rank];)
 
         G(101, // MATERIAL
           score += eval_params.material[p];)
