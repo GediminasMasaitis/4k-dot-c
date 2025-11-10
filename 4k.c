@@ -903,9 +903,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 2, i32 tempo;) H(125, 2, i32 open_files[6];)
             H(125, 2, i32 pst_file[48];))
   H(124, 2,
-    H(125, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
-        H(125, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
-            H(125, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
+    H(126, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
+        H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
+            H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
 
 } EvalParamsMerged;
 
