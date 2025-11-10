@@ -457,7 +457,7 @@ G(
     })
 
 G(
-    50, [[nodiscard]] S(0)
+    50, [[nodiscard]] S(1)
             i32 piece_on(H(60, 1, const Position *const restrict pos),
                          H(60, 1, const i32 sq)) {
               assert(sq >= 0);
@@ -516,7 +516,7 @@ G(
       const u64 bb = 1ULL << sq;
       G(76, if (piece == King) { moves = king(bb); })
       else G(76, if (piece == Knight) { moves = knight(bb); }) else {
-        const u64 blockers = G(77, pos->colour[0]) | G(77, pos->colour[1]);
+        const u64 blockers = G(77, pos->colour[1]) | G(77, pos->colour[0]);
         G(
             78, if (G(79, piece == Queen) || G(79, piece == Bishop)) {
               moves |= bishop(H(31, 3, blockers), H(31, 3, bb));
@@ -888,10 +888,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(124, 1,
     H(125, 1, u8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
-        H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 open_files[6];)
-            H(125, 1, i8 tempo;))
+        H(125, 1, i8 tempo;) H(125, 1, i8 open_files[6];)
+            H(125, 1, i8 pst_file[48];))
   H(124, 1,
-    H(126, 1, i8 pst_file[48];) H(126, 1, i8 bishop_pair;)
+    H(126, 1, i8 passed_blocked_pawns[6];) H(126, 1, i8 bishop_pair;)
         H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[48];)
             H(126, 1, i8 passed_pawns[6];) H(126, 1, i8 king_attacks[5];))
 } EvalParams;
@@ -900,12 +900,12 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[7];
   H(124, 2,
     H(125, 2, i32 pawn_attacked_penalty[2];) H(125, 2, i32 mobilities[5];)
-        H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 open_files[6];)
-            H(125, 2, i32 tempo;))
+        H(125, 2, i32 tempo;) H(125, 2, i32 open_files[6];)
+            H(125, 2, i32 pst_file[48];))
   H(124, 2,
-    H(126, 2, i32 pst_file[48];) H(126, 2, i32 bishop_pair;)
-        H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
-            H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
+    H(125, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
+        H(125, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
+            H(125, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
 
 } EvalParamsMerged;
 
@@ -1066,10 +1066,10 @@ S(1) i32 eval(Position *const restrict pos) {
       const u64 opp_pawns = G(134, pos->pieces[Pawn]) & G(134, pos->colour[1]);
       const u64 attacked_by_pawns =
           G(135, se(opp_pawns)) | G(135, sw(opp_pawns));
-      G(999, score -=
-             eval_params.protected_pawn * count(opp_pawns & attacked_by_pawns);)
-          G(999, const u64 no_passers =
-                     G(136, opp_pawns) | G(136, attacked_by_pawns);))
+      G(999,
+        const u64 no_passers = G(136, opp_pawns) | G(136, attacked_by_pawns);)
+          G(999, score -= eval_params.protected_pawn *
+                          count(opp_pawns & attacked_by_pawns);))
 
     G(132,
       const u64 own_pawns = G(137, pos->pieces[Pawn]) & G(137, pos->colour[0]);)
@@ -1155,10 +1155,9 @@ S(1) i32 eval(Position *const restrict pos) {
   const i32 stronger_side_pawns_missing =
       8 - count(G(158, pos->colour[score < 0]) & G(158, pos->pieces[Pawn]));
   return (G(159, (i16)score) * G(159, phase) +
-          G(160, ((score + 0x8000) >> 16)) *
-              G(160, (128 - stronger_side_pawns_missing *
-                                stronger_side_pawns_missing)) /
-              128 * (24 - phase)) /
+          G(160,
+            (128 - stronger_side_pawns_missing * stronger_side_pawns_missing)) *
+              G(160, ((score + 0x8000) >> 16)) / 128 * (24 - phase)) /
          24;
 }
 
@@ -1385,8 +1384,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
       }
     }
 
-    swapmoves(G(197, &stack[ply].moves[best_index]),
-              G(197, &stack[ply].moves[move_index]));
+    swapmoves(G(197, &stack[ply].moves[move_index]),
+              G(197, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(198, depth < 8) &&
