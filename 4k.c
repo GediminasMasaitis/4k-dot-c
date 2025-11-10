@@ -1158,7 +1158,7 @@ S(1) i32 eval(Position *const restrict pos) {
           G(160, ((score + 0x8000) >> 16)) *
               G(160, (128 - stronger_side_pawns_missing *
                                 stronger_side_pawns_missing)) /
-              G(161, (24 - phase)) * G(161, 128)) /
+              128 * (24 - phase)) /
          24;
 }
 
