@@ -887,32 +887,32 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(124, 1,
-    H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 open_files[6];)
-        H(125, 1, i8 mobilities[5];) H(125, 1, u8 pawn_attacked_penalty[2];)
+    H(125, 1, u8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
+        H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 open_files[6];)
             H(125, 1, i8 tempo;))
   H(124, 1,
-    H(126, 1, i8 passed_pawns[6];) H(126, 1, i8 king_attacks[5];)
-        H(126, 1, i8 bishop_pair;) H(126, 1, i8 pst_file[48];)
-            H(126, 1, i8 pst_rank[48];) H(126, 1, i8 protected_pawn;))
+    H(126, 1, i8 pst_file[48];) H(126, 1, i8 bishop_pair;)
+        H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[48];)
+            H(126, 1, i8 passed_pawns[6];) H(126, 1, i8 king_attacks[5];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[7];
   H(124, 2,
-    H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 open_files[6];)
-        H(125, 2, i32 mobilities[5];) H(125, 2, i32 pawn_attacked_penalty[2];)
+    H(125, 2, i32 pawn_attacked_penalty[2];) H(125, 2, i32 mobilities[5];)
+        H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 open_files[6];)
             H(125, 2, i32 tempo;))
   H(124, 2,
-    H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];)
-        H(126, 2, i32 bishop_pair;) H(126, 2, i32 pst_file[48];)
-            H(126, 2, i32 pst_rank[48];) H(126, 1, i32 protected_pawn;))
+    H(126, 2, i32 pst_file[48];) H(126, 2, i32 bishop_pair;)
+        H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
+            H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
 
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(127, EvalParams mg;)
   G(127, i8 phases[7];)
   G(127, EvalParams eg;)
+  G(127, EvalParams mg;)
 } EvalParamsInitial;
 
 G(128, S(0) EvalParamsMerged eval_params;)
@@ -1062,23 +1062,24 @@ S(1) i32 eval(Position *const restrict pos) {
 
   for (i32 c = 0; c < 2; c++) {
 
+    G(132,
+      const u64 opp_pawns = G(134, pos->pieces[Pawn]) & G(134, pos->colour[1]);
+      const u64 attacked_by_pawns =
+          G(135, se(opp_pawns)) | G(135, sw(opp_pawns));
+      G(999, score -=
+             eval_params.protected_pawn * count(opp_pawns & attacked_by_pawns);)
+          G(999, const u64 no_passers =
+                     G(136, opp_pawns) | G(136, attacked_by_pawns);))
+
+    G(132,
+      const u64 own_pawns = G(137, pos->pieces[Pawn]) & G(137, pos->colour[0]);)
+    G(132, const u64 opp_king_zone =
+               king(G(138, pos->colour[1]) & G(138, pos->pieces[King]));)
     G(
         132, // BISHOP PAIR
         if (count(G(133, pos->pieces[Bishop]) & G(133, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-
-    G(132,
-      const u64 opp_pawns = G(134, pos->pieces[Pawn]) & G(134, pos->colour[1]);
-      const u64 attacked_by_pawns =
-          G(135, se(opp_pawns)) | G(135, sw(opp_pawns));
-      G(999, const u64 no_passers = G(136, opp_pawns) | G(136, attacked_by_pawns);)
-      G(999, score -=
-      eval_params.protected_pawn * count(opp_pawns & attacked_by_pawns);))
-    G(132,
-      const u64 own_pawns = G(137, pos->pieces[Pawn]) & G(137, pos->colour[0]);)
-    G(132, const u64 opp_king_zone =
-               king(G(138, pos->colour[1]) & G(138, pos->pieces[King]));)
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(139, pos->colour[0]) & G(139, pos->pieces[p]);
@@ -1157,7 +1158,7 @@ S(1) i32 eval(Position *const restrict pos) {
           G(160, ((score + 0x8000) >> 16)) *
               G(160, (128 - stronger_side_pawns_missing *
                                 stronger_side_pawns_missing)) /
-              G(161, 128) * G(161, (24 - phase))) /
+              G(161, (24 - phase)) * G(161, 128)) /
          24;
 }
 
@@ -1171,10 +1172,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
+  G(162, i8 depth;)
   G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
-  G(162, i8 depth;)
   G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1185,9 +1186,9 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i32 move_history[2][6][64][64];)
+G(163, S(0) size_t start_time;)
 G(163, S(0) size_t max_time;)
 G(163, S(1) TTEntry tt[tt_length];)
-G(163, S(0) size_t start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1326,8 +1327,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     // NULL MOVE PRUNING
     if (G(186, depth > 2) && G(186, static_eval >= beta) && G(186, do_null)) {
       Position npos = *pos;
-      G(187, npos.ep = 0;)
       G(187, flip_pos(&npos);)
+      G(187, npos.ep = 0;)
       const i32 score = -search(
           H(165, 2, -alpha), H(165, 2, -beta),
           H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),
@@ -1384,8 +1385,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
       }
     }
 
-    swapmoves(G(197, &stack[ply].moves[move_index]),
-              G(197, &stack[ply].moves[best_index]));
+    swapmoves(G(197, &stack[ply].moves[best_index]),
+              G(197, &stack[ply].moves[move_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(198, depth < 8) &&
@@ -1524,10 +1525,10 @@ S(1) void init() {
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         diag_mask[sq] =
-            G(215, ray(H(24, 4, 0), H(24, 4, ~0x8080808080808080ull),
-                       H(24, 4, bb), H(24, 4, -9))) | // Northeast
             G(215, ray(H(24, 5, 0), H(24, 5, ~0x101010101010101ull),
-                       H(24, 5, bb), H(24, 5, 9))); // Southwest
+                       H(24, 5, bb), H(24, 5, 9))) | // Northeast
+            G(215, ray(H(24, 4, 0), H(24, 4, ~0x8080808080808080ull),
+                       H(24, 4, bb), H(24, 4, -9))); // Southwest
       })
   G(
       83, // MERGE MATERIAL VALUES
