@@ -889,7 +889,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(124, 1,
     H(125, 1, u8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
         H(125, 1, i8 tempo;) H(125, 1, i8 open_files[6];)
-            H(125, 1, i8 pst_file[48];))
+            H(125, 1, i8 pst_file[6][8];))
   H(124, 1,
     H(126, 1, i8 passed_blocked_pawns[6];) H(126, 1, i8 bishop_pair;)
         H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[48];)
@@ -901,7 +901,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(124, 2,
     H(125, 2, i32 pawn_attacked_penalty[2];) H(125, 2, i32 mobilities[5];)
         H(125, 2, i32 tempo;) H(125, 2, i32 open_files[6];)
-            H(125, 2, i32 pst_file[48];))
+            H(125, 2, i32 pst_file[6][8];))
   H(124, 2,
     H(126, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
         H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
@@ -946,24 +946,24 @@ G(128,
                                                            },
                                                        .pst_file =
                                                            {
-                                                               -17, -11, -9,
+                                                               {-17, -11, -9,
                                                                0,   5,   20,
-                                                               20,  -7, // Pawn
-                                                               -25, -10, 0,
+                                                               20,  -7}, // Pawn
+                                                               {-25, -10, 0,
                                                                14,  11,  11,
-                                                               4,   -4, // Knight
-                                                               -11, 3,   5,
+                                                               4,   -4}, // Knight
+                                                               {-11, 3,   5,
                                                                3,   6,   -3,
-                                                               3,   -6, // Bishop
-                                                               -9,  -7,  1,
+                                                               3,   -6}, // Bishop
+                                                               {-9,  -7,  1,
                                                                11,  13,  1,
-                                                               -2,  -9, // Rook
-                                                               -10, -7,  -2,
+                                                               -2,  -9}, // Rook
+                                                               {-10, -7,  -2,
                                                                1,   1,   0,
-                                                               8,   8, // Queen
-                                                               -17, 24,  -4,
+                                                               8,   8}, // Queen
+                                                               {-17, 24,  -4,
                                                                -54, -20, -38,
-                                                               21,  2, // King
+                                                               21,  2}, // King
                                                            },
                                                        .mobilities = {6, 5, 2,
                                                                       3, -10},
@@ -1010,24 +1010,24 @@ G(128,
                                                            },
                                                        .pst_file =
                                                            {
-                                                               11,  12,  0,
+                                                               {11,  12,  0,
                                                                -11, -4,  -3,
-                                                               0,   -6, // Pawn
-                                                               -22, -4,  9,
+                                                               0,   -6}, // Pawn
+                                                               {-22, -4,  9,
                                                                17,  17,  7,
-                                                               -2,  -22, // Knight
-                                                               -9,  -1,  0,
+                                                               -2,  -22}, // Knight
+                                                               {-9,  -1,  0,
                                                                5,   6,   5,
-                                                               1,   -8, // Bishop
-                                                               2,   5,   5,
+                                                               1,   -8}, // Bishop
+                                                               {2,   5,   5,
                                                                -1,  -5,  1,
-                                                               0,   -6, // Rook
-                                                               -23, -6,  4,
+                                                               0,   -6}, // Rook
+                                                               {-23, -6,  4,
                                                                10,  16,  12,
-                                                               -2,  -12, // Queen
-                                                               -30, 1,   17,
+                                                               -2,  -12}, // Queen
+                                                               {-30, 1,   17,
                                                                31,  23,  25,
-                                                               0,   -40, // King
+                                                               0,   -40}, // King
                                                            },
                                                        .mobilities = {2, 5, 4,
                                                                       1, -4},
@@ -1102,7 +1102,7 @@ S(1) i32 eval(Position *const restrict pos) {
         G(101, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score +=
           eval_params
-              .pst_file[G(144, G(145, (p - 1)) * G(145, 8)) + G(144, file)];)
+              .pst_file[p - 1][file];)
         G(101, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
           eval_params
