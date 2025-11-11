@@ -185,7 +185,7 @@ typedef struct [[nodiscard]] {
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-[[nodiscard]] S(1) size_t get_time() {
+[[nodiscard]] S(0) size_t get_time() {
   timespec ts;
   ssize_t ret; // Unused
   asm volatile("syscall"
@@ -426,6 +426,28 @@ G(
     })
 
 G(
+    50, S(1) void swapu16(G(57, u16 *const restrict lhs),
+                          G(57, u16 *const restrict rhs)) {
+      const u16 temp = *lhs;
+      *lhs = *rhs;
+      *rhs = temp;
+    })
+
+G(
+    50, [[nodiscard]] S(1)
+            i32 piece_on(H(60, 1, const Position *const restrict pos),
+                         H(60, 1, const i32 sq)) {
+              assert(sq >= 0);
+              assert(sq < 64);
+              for (i32 i = Pawn; i <= King; ++i) {
+                if (G(61, pos->pieces[i]) & G(61, 1ull << sq)) {
+                  return i;
+                }
+              }
+              return None;
+            })
+
+G(
     50, S(1) void move_str(H(57, 1, char *restrict str),
                            H(57, 1, const Move *restrict move),
                            H(57, 1, const i32 flip)) {
@@ -447,28 +469,6 @@ G(
       G(59, str[5] = '\0';)
       G(59, str[4] = "\0\0nbrq"[move->promo];)
     })
-
-G(
-    50, S(1) void swapbool(G(57, bool *const restrict rhs),
-                           G(57, bool *const restrict lhs)) {
-      const bool temp = *lhs;
-      *lhs = *rhs;
-      *rhs = temp;
-    })
-
-G(
-    50, [[nodiscard]] S(1)
-            i32 piece_on(H(60, 1, const Position *const restrict pos),
-                         H(60, 1, const i32 sq)) {
-              assert(sq >= 0);
-              assert(sq < 64);
-              for (i32 i = Pawn; i <= King; ++i) {
-                if (G(61, pos->pieces[i]) & G(61, 1ull << sq)) {
-                  return i;
-                }
-              }
-              return None;
-            })
 
 G(
     62,
@@ -493,7 +493,7 @@ G(
     })
 
 G(
-    62, S(1) void flip_pos(Position *const restrict pos) {
+    62, S(0) void flip_pos(Position *const restrict pos) {
       G(72, swapu64(G(73, &pos->colour[0]), G(73, &pos->colour[1]));)
 
       G(
@@ -502,10 +502,9 @@ G(
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(72, pos->flipped ^= 1;)
-      G(
-          72, for (i32 i = 0; i < 2; i++) {
-            swapbool(G(74, &pos->castling[i + 2]), G(74, &pos->castling[i]));
-          })
+      G(72, // Swap castling index 0 with 2, 1 with 3
+        swapu16(G(74, &((u16 *)pos->castling)[0]),
+                G(74, &((u16 *)pos->castling)[1]));)
     })
 
 G(
@@ -1068,8 +1067,7 @@ S(1) i32 eval(Position *const restrict pos) {
           G(134, se(opp_pawns)) | G(134, sw(opp_pawns));
       G(135,
         const u64 no_passers = G(136, opp_pawns) | G(136, attacked_by_pawns);)
-          G(135,
-            // PROTECTED PAWNS
+          G(135, // PROTECTED PAWNS
             score -=
             eval_params.protected_pawn * count(opp_pawns & attacked_by_pawns);))
 
@@ -1187,9 +1185,9 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i32 move_history[2][6][64][64];)
-G(163, S(0) size_t start_time;)
-G(163, S(0) size_t max_time;)
 G(163, S(1) TTEntry tt[tt_length];)
+G(163, S(0) size_t max_time;)
+G(163, S(0) size_t start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1328,8 +1326,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     // NULL MOVE PRUNING
     if (G(186, depth > 2) && G(186, static_eval >= beta) && G(186, do_null)) {
       Position npos = *pos;
-      G(187, npos.ep = 0;)
       G(187, flip_pos(&npos);)
+      G(187, npos.ep = 0;)
       const i32 score = -search(
           H(165, 2, -alpha), H(165, 2, -beta),
           H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),

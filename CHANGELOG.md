@@ -7912,3 +7912,39 @@ Games | N: 774 W: 231 L: 195 D: 348
 Penta | [13, 80, 171, 104, 19]
 https://gedas.pythonanywhere.com/test/1430/
 ```
+
+### 5.9
+
+64 bit: 4087 bytes (-8)
+
+MD5: 26c8204fd3e8d818449056c2ef783383
+
+Smaller flip_pos (idea by sqrmax)
+
+```py
+info depth 1 score cp 14 time 0 nodes 13 pv e2e3
+info depth 2 score cp 17 time 0 nodes 118 pv b1c3
+info depth 3 score cp 26 time 0 nodes 263 pv b1c3
+info depth 4 score cp 16 time 1 nodes 493 nps 493000 pv b1c3
+info depth 5 score cp 10 time 1 nodes 878 nps 878000 pv b1c3
+info depth 6 score cp 17 time 2 nodes 1625 nps 812500 pv b1c3
+info depth 7 score cp 15 time 4 nodes 4831 nps 1207750 pv d2d3
+info depth 8 score cp 17 time 7 nodes 7442 nps 1063142 pv d2d3
+info depth 9 score cp 22 time 18 nodes 21518 nps 1195444 pv g1f3
+info depth 10 score cp 15 time 33 nodes 45304 nps 1372848 pv g1f3
+info depth 11 score cp 17 time 70 nodes 110415 nps 1577357 pv d2d4
+info depth 12 score cp 17 time 115 nodes 205789 nps 1789469 pv d2d4
+info depth 13 score cp 10 time 278 nodes 583508 nps 2098949 pv c2c4
+info depth 14 score cp 11 time 333 nodes 711813 nps 2137576 pv c2c4
+info depth 15 score cp 20 time 748 nodes 1715012 nps 2292796 pv e2e4
+info depth 16 score cp 22 time 874 nodes 2020643 nps 2311948 pv e2e4
+info depth 17 score cp 22 time 1063 nodes 2474224 nps 2327586 pv e2e4
+info depth 18 score cp 22 time 1267 nodes 2973716 nps 2347052 pv e2e4
+info depth 19 score cp 33 time 2039 nodes 4837025 nps 2372253 pv e2e4
+info depth 20 score cp 18 upperbound time 3267 nodes 7952978 nps 2434336
+info depth 20 score cp 31 time 4298 nodes 10646595 nps 2477104 pv e2e4
+info depth 21 score cp 26 time 5042 nodes 12465878 nps 2472407 pv e2e4
+info depth 22 score cp 32 time 6370 nodes 15935342 nps 2501623 pv e2e4
+bestmove e2e4
+15935342 nodes 2501623 nps
+```
