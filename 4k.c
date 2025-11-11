@@ -449,9 +449,9 @@ G(
     })
 
 G(
-    50, S(1) void swapbool(G(57, bool *const restrict rhs),
-                           G(57, bool *const restrict lhs)) {
-      const bool temp = *lhs;
+    50, S(1) void swapu16(G(57, u16 *const restrict rhs),
+                          G(57, u16 *const restrict lhs)) {
+      const u16 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
     })
@@ -498,14 +498,13 @@ G(
 
       G(
           72, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
+          // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(72, pos->flipped ^= 1;)
-      G(
-          72, for (i32 i = 0; i < 2; i++) {
-            swapbool(G(74, &pos->castling[i + 2]), G(74, &pos->castling[i]));
-          })
+      G(72,
+        // Swap castling index 0 with 2, 1 with 3
+        swapu16(&((u16 *)pos->castling)[0], &((u16 *)pos->castling)[1]);)
     })
 
 G(
