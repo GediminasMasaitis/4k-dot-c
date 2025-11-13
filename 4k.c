@@ -205,8 +205,8 @@ enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
   G(7, u8 promo;)
-  G(7, u8 from; u8 to;)
   G(7, u8 takes_piece;)
+  G(7, u8 from; u8 to;)
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -866,8 +866,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(127, EvalParams eg;)
   G(127, i8 phases[7];)
+  G(127, EvalParams eg;)
   G(127, EvalParams mg;)
 } EvalParamsInitial;
 
@@ -1286,13 +1286,13 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     }
 
     // NULL MOVE PRUNING
-    if (G(186, do_null) && G(186, static_eval >= beta) && G(186, depth > 2)) {
+    if (G(186, depth > 2) && G(186, static_eval >= beta) && G(186, do_null)) {
       Position npos = *pos;
-      G(187, npos.ep = 0;)
       G(187, flip_pos(&npos);)
+      G(187, npos.ep = 0;)
       const i32 score = -search(
           H(165, 2, -alpha), H(165, 2, -beta),
-          H(165, 2, depth - G(188, depth / 4) - G(188, 4)), H(165, 2, false),
+          H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),
           H(165, 2, stack),
 #ifdef FULL
           nodes,
@@ -1353,11 +1353,11 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, i32 alpha),
     if (G(198, depth < 8) &&
         G(198,
           G(199, static_eval) + G(199, G(200, 142) * G(200, depth)) +
+                  G(199, initial_params.eg
+                             .material[stack[ply].moves[move_index].promo]) +
                   G(199,
                     initial_params.eg
-                        .material[stack[ply].moves[move_index].takes_piece]) +
-                  G(199, initial_params.eg
-                             .material[stack[ply].moves[move_index].promo]) <
+                        .material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
         G(198, !in_check) && G(198, moves_evaluated)) {
       break;
