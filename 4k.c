@@ -454,7 +454,7 @@ G(
 
       G(
           72, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
+          // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(72, pos->flipped ^= 1;)
@@ -1073,12 +1073,16 @@ S(1) i32 eval(Position *const restrict pos) {
 
               G(157, score += eval_params.passed_pawns[rank - 1];)
             })
-        G(101, // SPLIT PIECE-SQUARE TABLES FOR RANK
-          score += eval_params.pst_rank[G(144, G(145, (p - 1)) * G(145, 8)) +
-                                        G(144, G(146, (p - 1)) * G(146, 8))];)
 
         G(101, // SPLIT PIECE-SQUARE TABLES FOR FILE
-          score += eval_params.pst_file[G(144, file) + G(144, rank)];)
+          score +=
+          eval_params
+              .pst_file[G(144, G(145, (p - 1)) * G(145, 8)) + G(144, file)];)
+
+        G(101, // SPLIT PIECE-SQUARE TABLES FOR RANK
+          score +=
+          eval_params
+              .pst_rank[G(800, G(146, (p - 1)) * G(146, 8)) + G(800, rank)];)
 
         G(101, // MATERIAL
           score += eval_params.material[p];)
