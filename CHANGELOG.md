@@ -8039,12 +8039,12 @@ bestmove e2e4
 21230869 nodes 2505847 nps
 ```
 
-```
-Elo   | -4.00 +- 6.36 (95%)
+```py
+Elo   | 0.89 +- 3.30 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | -0.74 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 5032 W: 1349 L: 1407 D: 2276
-Penta | [133, 622, 1043, 606, 112]
+LLR   | 2.98 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 18732 W: 5063 L: 5015 D: 8654
+Penta | [443, 2263, 3961, 2201, 498]
 https://gedas.pythonanywhere.com/test/1437/
 ```
 
@@ -8054,4 +8054,30 @@ https://gedas.pythonanywhere.com/test/1437/
 
 MD5: 6e9404f7fc1ad8504e2a46dda668cd45
 
-King UB material
+King material UB size save
+
+```py
+Elo   | 0.44 +- 2.94 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 22844 W: 6166 L: 6137 D: 10541
+Penta | [536, 2711, 4905, 2728, 542]
+https://gedas.pythonanywhere.com/test/1445/
+```
+
+### 5.13
+
+64 bit: 4065 bytes (-4)
+
+MD5: d5aaf2bf63e0d45696925e1ff10e833b
+
+Smaller max_time
+
+```py
+Elo   | 0.76 +- 3.22 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 19744 W: 5457 L: 5414 D: 8873
+Penta | [485, 2371, 4129, 2390, 497]
+https://gedas.pythonanywhere.com/test/1446/
+```

@@ -1142,8 +1142,8 @@ enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i32 move_history[2][6][64][64];)
 G(163, S(1) TTEntry tt[tt_length];)
-G(163, S(0) u64 max_time;)
 G(163, S(0) u64 start_time;)
+G(163, S(0) u64 max_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1839,12 +1839,12 @@ S(1) void run() {
         getl(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
           getl(line);
-          max_time = (u64)atoi(line) * 500 * 1000;
+          max_time = (u64)atoi(line) << 19; // Roughly /2 time
           break;
         }
         else if (pos.flipped && !strcmp(line, "btime")) {
           getl(line);
-          max_time = (u64)atoi(line) * 500 * 1000;
+          max_time = (u64)atoi(line) << 19; // Roughly /2 time
           break;
         }
         else if (!strcmp(line, "movetime")) {
@@ -1857,7 +1857,7 @@ S(1) void run() {
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
-        max_time = (u64)atoi(line) * 500 * 1000;
+        max_time = (u64)atoi(line) << 19;// Roughly /2 time
       }
       iteratively_deepen(H(219, 5, &pos), H(219, 5, stack),
         H(219, 5, pos_history_count));
