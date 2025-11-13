@@ -1839,12 +1839,12 @@ S(1) void run() {
         getl(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
           getl(line);
-          max_time = (u64)atoi(line) * 500 * 1000;
+          max_time = (u64)atoi(line) << 19;
           break;
         }
         else if (pos.flipped && !strcmp(line, "btime")) {
           getl(line);
-          max_time = (u64)atoi(line) * 500 * 1000;
+          max_time = (u64)atoi(line) << 19;
           break;
         }
         else if (!strcmp(line, "movetime")) {
@@ -1857,7 +1857,7 @@ S(1) void run() {
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
-        max_time = (u64)atoi(line) * 500 * 1000;
+        max_time = (u64)atoi(line) << 19;
       }
       iteratively_deepen(H(219, 5, &pos), H(219, 5, stack),
         H(219, 5, pos_history_count));
