@@ -842,9 +842,8 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(124, 1,
-    H(125, 1, u8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
-        H(125, 1, i8 tempo;) H(125, 1, i8 open_files[6];)
-            H(125, 1, i8 pst_file[48];))
+    H(125, 1, i8 mobilities[5];) H(125, 1, i8 tempo;)
+        H(125, 1, i8 open_files[6];) H(125, 1, i8 pst_file[48];))
   H(124, 1,
     H(126, 1, i8 passed_blocked_pawns[6];) H(126, 1, i8 bishop_pair;)
         H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[48];)
@@ -854,9 +853,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[7];
   H(124, 2,
-    H(125, 2, i32 pawn_attacked_penalty[2];) H(125, 2, i32 mobilities[5];)
-        H(125, 2, i32 tempo;) H(125, 2, i32 open_files[6];)
-            H(125, 2, i32 pst_file[48];))
+    H(125, 2, i32 mobilities[5];) H(125, 2, i32 tempo;)
+        H(125, 2, i32 open_files[6];) H(125, 2, i32 pst_file[48];))
   H(124, 2,
     H(126, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
         H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
@@ -936,8 +934,6 @@ G(128,
                                                             -32},
                                                        .protected_pawn = 10,
                                                        .bishop_pair = 24,
-                                                       .pawn_attacked_penalty =
-                                                           {-16, -128},
                                                        .tempo = 17},
                                                 .eg = {.material = {0, 85, 399,
                                                                     395, 710,
@@ -1000,8 +996,6 @@ G(128,
                                                             -119, -124},
                                                        .protected_pawn = 12,
                                                        .bishop_pair = 63,
-                                                       .pawn_attacked_penalty =
-                                                           {-10, -128},
                                                        .tempo = 7}};)
 
 G(
@@ -1073,19 +1067,13 @@ S(1) i32 eval(Position *const restrict pos) {
         G(101, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
           eval_params
-              .pst_rank[G(144, G(146, (p - 1)) * G(146, 8)) + G(144, rank)];)
+              .pst_rank[G(844, G(146, (p - 1)) * G(146, 8)) + G(844, rank)];)
 
         G(101, // MATERIAL
           score += eval_params.material[p];)
 
         G(
             101, if (p > Pawn) {
-              G(
-                  147, // PIECES ATTACKED BY PAWNS
-                  if (G(148, 1ULL << sq) & G(148, no_passers)) {
-                    score += eval_params.pawn_attacked_penalty[c];
-                  })
-
               G(147, const u64 mobility =
                          G(149, get_mobility(H(75, 3, pos), H(75, 3, sq),
                                              H(75, 3, p))) &
