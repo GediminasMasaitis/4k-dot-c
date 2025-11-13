@@ -872,7 +872,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(126, 2, i32 pst_rank[48];)
     H(126, 2, i32 passed_pawns[6];)
     H(126, 2, i32 king_attacks[5];)
-    H(126, 2, i8 phalanx_pawn;))
+    H(126, 2, i32 phalanx_pawn;))
 
 } EvalParamsMerged;
 
