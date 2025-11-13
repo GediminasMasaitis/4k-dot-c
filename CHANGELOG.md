@@ -8047,3 +8047,11 @@ Games | N: 5032 W: 1349 L: 1407 D: 2276
 Penta | [133, 622, 1043, 606, 112]
 https://gedas.pythonanywhere.com/test/1437/
 ```
+
+### 5.12
+
+64 bit: 4069 bytes (-3)
+
+MD5: 6e9404f7fc1ad8504e2a46dda668cd45
+
+King UB material
