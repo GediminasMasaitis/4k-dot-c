@@ -7993,3 +7993,57 @@ info depth 22 score cp 32 time 18471 nodes 15935342 nps 862721 pv e2e4
 bestmove e2e4
 15935342 nodes 12340607 nps
 ```
+
+```py
+Elo   | 8.02 +- 6.37 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.98 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 4850 W: 1330 L: 1218 D: 2302
+Penta | [99, 546, 1052, 600, 128]
+https://gedas.pythonanywhere.com/test/1436/
+```
+
+### 5.11
+
+64 bit: 4072 bytes (-5)
+
+MD5: cc9035583f8f4d15e472d80db677c3ce
+
+TT length power of 2 (idea by sqrmax)
+
+```py
+info depth 1 score cp 14 time 0 nodes 13 nps 343606 pv e2e3
+info depth 2 score cp 17 time 0 nodes 118 nps 444885 pv b1c3
+info depth 3 score cp 26 time 0 nodes 263 nps 727604 pv b1c3
+info depth 4 score cp 16 time 0 nodes 493 nps 922899 pv b1c3
+info depth 5 score cp 10 time 0 nodes 878 nps 882971 pv b1c3
+info depth 6 score cp 17 time 1 nodes 1625 nps 1030180 pv b1c3
+info depth 7 score cp 15 time 4 nodes 4831 nps 1122357 pv d2d3
+info depth 8 score cp 17 time 6 nodes 7589 nps 1141420 pv d2d3
+info depth 9 score cp 22 time 18 nodes 23492 nps 1269368 pv g1f3
+info depth 10 score cp 7 upperbound time 24 nodes 32079 nps 1331330
+info depth 10 score cp 7 time 27 nodes 36805 nps 1351231 pv g1f3
+info depth 11 score cp 15 time 71 nodes 115161 nps 1605719 pv g1f3
+info depth 12 score cp 13 time 112 nodes 200963 nps 1779919 pv g1f3
+info depth 13 score cp 11 time 234 nodes 479851 nps 2044216 pv g1f3
+info depth 14 score cp 17 time 380 nodes 833084 nps 2189598 pv g1f3
+info depth 15 score cp 22 time 625 nodes 1441701 nps 2304502 pv g1f3
+info depth 16 score cp 18 time 884 nodes 2059426 nps 2328585 pv g1f3
+info depth 17 score cp 29 time 1630 nodes 3874013 nps 2375403 pv e2e4
+info depth 18 score cp 29 time 2019 nodes 4812471 nps 2382879 pv e2e4
+info depth 19 score cp 29 time 2336 nodes 5581204 nps 2389148 pv e2e4
+info depth 20 score cp 22 time 3520 nodes 8633096 nps 2452398 pv e2e4
+info depth 21 score cp 18 time 5400 nodes 13413472 nps 2483814 pv e2e4
+info depth 22 score cp 22 time 8472 nodes 21230869 nps 2505859 pv e2e4
+bestmove e2e4
+21230869 nodes 2505847 nps
+```
+
+```
+Elo   | -4.00 +- 6.36 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -0.74 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 5032 W: 1349 L: 1407 D: 2276
+Penta | [133, 622, 1043, 606, 112]
+https://gedas.pythonanywhere.com/test/1437/
+```
