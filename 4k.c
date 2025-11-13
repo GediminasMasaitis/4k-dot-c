@@ -136,63 +136,19 @@ G(
       }
     })
 
-#define printf(format, ...) _printf(format, (size_t[]){__VA_ARGS__})
-
-S(1) void _printf(const char *format, const size_t *args) {
-  long long value;
-  char buffer[16], *string;
-
-  while (true) {
-    if (!*format) {
-      break;
-    }
-    if (*format != '%') {
-      _sys(H(2, 4, stdout), H(2, 4, 1), H(2, 4, (ssize_t)format), H(2, 4, 1));
-      format++;
-      continue;
-    }
-
-    format++;
-    switch (*format++) {
-    case 's':
-      putl((char *)*args);
-      break;
-    case 'i':
-      value = *args;
-      if (value < 0) {
-        putl("-");
-        value *= -1;
-      }
-      string = buffer + sizeof buffer - 1;
-      *string-- = 0;
-      for (;;) {
-        *string = '0' + value % 10;
-        value /= 10;
-        if (!value) {
-          break;
-        }
-        string--;
-      }
-      putl(string);
-      break;
-    }
-    args++;
-  }
-}
-
 typedef struct [[nodiscard]] {
   ssize_t tv_sec;  // seconds
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-[[nodiscard]] S(0) size_t get_time() {
+[[nodiscard]] S(1) u64 get_time() {
   timespec ts;
   ssize_t ret; // Unused
   asm volatile("syscall"
                : "=a"(ret)
                : "0"(228), "D"(1), "S"(&ts)
                : "rcx", "r11", "memory");
-  return G(5, ts.tv_nsec / 1000000) + G(5, G(6, ts.tv_sec) * G(6, 1000));
+  return G(5, ts.tv_nsec) + G(5, G(6, ts.tv_sec) * G(6, 1000 * 1000 * 1000ULL));
 }
 
 #else
@@ -202,10 +158,10 @@ typedef struct [[nodiscard]] {
 #include <string.h>
 #include <time.h>
 
-[[nodiscard]] static size_t get_time() {
+[[nodiscard]] static u64 get_time() {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+  return ts.tv_sec * 1000 * 1000 * 1000ULL + ts.tv_nsec;
 }
 
 static void exit_now() { exit(0); }
@@ -402,7 +358,7 @@ G(
 
 G(
     50,
-    S(1) void swapu32(G(51, u32 *const lhs), G(51, u32 *const rhs)) {
+    S(1) void swapu32(G(51, u32 *const rhs), G(51, u32 *const lhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -426,28 +382,6 @@ G(
     })
 
 G(
-    50, S(1) void swapu16(G(57, u16 *const restrict lhs),
-                          G(57, u16 *const restrict rhs)) {
-      const u16 temp = *lhs;
-      *lhs = *rhs;
-      *rhs = temp;
-    })
-
-G(
-    50, [[nodiscard]] S(1)
-            i32 piece_on(H(60, 1, const Position *const restrict pos),
-                         H(60, 1, const i32 sq)) {
-              assert(sq >= 0);
-              assert(sq < 64);
-              for (i32 i = Pawn; i <= King; ++i) {
-                if (G(61, pos->pieces[i]) & G(61, 1ull << sq)) {
-                  return i;
-                }
-              }
-              return None;
-            })
-
-G(
     50, S(1) void move_str(H(57, 1, char *restrict str),
                            H(57, 1, const Move *restrict move),
                            H(57, 1, const i32 flip)) {
@@ -468,6 +402,28 @@ G(
 
       G(59, str[5] = '\0';)
       G(59, str[4] = "\0\0nbrq"[move->promo];)
+    })
+
+G(
+    50, [[nodiscard]] S(1)
+            i32 piece_on(H(60, 1, const Position *const restrict pos),
+                         H(60, 1, const i32 sq)) {
+              assert(sq >= 0);
+              assert(sq < 64);
+              for (i32 i = Pawn; i <= King; ++i) {
+                if (G(61, pos->pieces[i]) & G(61, 1ull << sq)) {
+                  return i;
+                }
+              }
+              return None;
+            })
+
+G(
+    50, S(1) void swapu16(G(57, u16 *const restrict lhs),
+                          G(57, u16 *const restrict rhs)) {
+      const u16 temp = *lhs;
+      *lhs = *rhs;
+      *rhs = temp;
     })
 
 G(
@@ -535,6 +491,72 @@ S(0) i32 find_in_check(const Position *restrict pos) {
 }
 
 G(
+    82, S(0) Move *generate_pawn_moves(H(101, 1, const Position *const pos),
+                                       H(101, 1, Move *restrict movelist),
+                                       H(101, 1, u64 to_mask),
+                                       H(101, 1, const i32 offset)) {
+      while (to_mask) {
+        const u8 to = lsb(to_mask);
+        to_mask &= to_mask - 1;
+        const u8 from = G(102, to) + G(102, offset);
+        assert(from >= 0);
+        assert(from < 64);
+        assert(to >= 0);
+        assert(to < 64);
+        assert(piece_on(H(60, 5, pos), H(60, 5, from)) == Pawn);
+        const u8 takes = piece_on(H(60, 6, pos), H(60, 6, to));
+        if (to > 55) {
+          for (u8 piece = Queen; piece >= Knight; piece--) {
+            *movelist++ = ((Move){
+                .from = from, .to = to, .promo = piece, .takes_piece = takes});
+          }
+        } else {
+          *movelist++ = ((Move){
+              .from = from, .to = to, .promo = None, .takes_piece = takes});
+        }
+      }
+
+      return movelist;
+    })
+
+G(
+    82,
+    S(1) Move *generate_piece_moves(H(96, 1, const u64 to_mask),
+                                    H(96, 1, Move *restrict movelist),
+                                    H(96, 1, const Position *restrict pos)) {
+      for (i32 piece = Knight; piece <= King; piece++) {
+        assert(piece == Knight || piece == Bishop || piece == Rook ||
+               piece == Queen || piece == King);
+        u64 copy = G(97, pos->colour[0]) & G(97, pos->pieces[piece]);
+        while (copy) {
+          const u8 from = lsb(copy);
+          assert(from >= 0);
+          assert(from < 64);
+          G(98, copy &= copy - 1;)
+
+          G(98, u64 moves = G(99, to_mask) &
+                            G(99, get_mobility(H(75, 2, pos), H(75, 2, from),
+                                               H(75, 2, piece)));)
+
+          while (moves) {
+            const u8 to = lsb(moves);
+            assert(to >= 0);
+            assert(to < 64);
+
+            G(100, *movelist++ = ((Move){
+                       .from = from,
+                       .to = to,
+                       .promo = None,
+                       .takes_piece = piece_on(H(60, 4, pos), H(60, 4, to))});)
+            G(100, moves &= moves - 1;)
+          }
+        }
+      }
+
+      return movelist;
+    })
+
+G(
     82, S(0) i32 makemove(H(83, 1, Position *const restrict pos),
                           H(83, 1, const Move *const restrict move)) {
       assert(move->from >= 0);
@@ -548,8 +570,8 @@ G(
       assert(move->takes_piece != King);
       assert(move->takes_piece == piece_on(H(60, 2, pos), H(60, 2, move->to)));
 
-      G(84, const u64 from = 1ull << move->from;)
       G(84, const u64 to = 1ull << move->to;)
+      G(84, const u64 from = 1ull << move->from;)
       G(85, const i32 piece = piece_on(H(60, 3, pos), H(60, 3, move->from));
         assert(piece != None);)
       G(85, const u64 mask = G(86, from) | G(86, to);)
@@ -560,8 +582,8 @@ G(
             const u64 bb = move->to - move->from == 2   ? 0xa0
                            : move->from - move->to == 2 ? 0x9
                                                         : 0;
-            G(88, pos->pieces[Rook] ^= bb;)
             G(88, pos->colour[0] ^= bb;)
+            G(88, pos->pieces[Rook] ^= bb;)
           })
 
       G(87, pos->colour[0] ^= mask;)
@@ -626,72 +648,6 @@ G(
 
       // Return move legality
       return true;
-    })
-
-G(
-    82,
-    S(1) Move *generate_piece_moves(H(96, 1, const u64 to_mask),
-                                    H(96, 1, Move *restrict movelist),
-                                    H(96, 1, const Position *restrict pos)) {
-      for (i32 piece = Knight; piece <= King; piece++) {
-        assert(piece == Knight || piece == Bishop || piece == Rook ||
-               piece == Queen || piece == King);
-        u64 copy = G(97, pos->colour[0]) & G(97, pos->pieces[piece]);
-        while (copy) {
-          const u8 from = lsb(copy);
-          assert(from >= 0);
-          assert(from < 64);
-          G(98, copy &= copy - 1;)
-
-          G(98, u64 moves = G(99, to_mask) &
-                            G(99, get_mobility(H(75, 2, pos), H(75, 2, from),
-                                               H(75, 2, piece)));)
-
-          while (moves) {
-            const u8 to = lsb(moves);
-            assert(to >= 0);
-            assert(to < 64);
-
-            G(100, *movelist++ = ((Move){
-                       .from = from,
-                       .to = to,
-                       .promo = None,
-                       .takes_piece = piece_on(H(60, 4, pos), H(60, 4, to))});)
-            G(100, moves &= moves - 1;)
-          }
-        }
-      }
-
-      return movelist;
-    })
-
-G(
-    82, S(0) Move *generate_pawn_moves(H(101, 1, const Position *const pos),
-                                       H(101, 1, Move *restrict movelist),
-                                       H(101, 1, u64 to_mask),
-                                       H(101, 1, const i32 offset)) {
-      while (to_mask) {
-        const u8 to = lsb(to_mask);
-        to_mask &= to_mask - 1;
-        const u8 from = G(102, to) + G(102, offset);
-        assert(from >= 0);
-        assert(from < 64);
-        assert(to >= 0);
-        assert(to < 64);
-        assert(piece_on(H(60, 5, pos), H(60, 5, from)) == Pawn);
-        const u8 takes = piece_on(H(60, 6, pos), H(60, 6, to));
-        if (to > 55) {
-          for (u8 piece = Queen; piece >= Knight; piece--) {
-            *movelist++ = ((Move){
-                .from = from, .to = to, .promo = piece, .takes_piece = takes});
-          }
-        } else {
-          *movelist++ = ((Move){
-              .from = from, .to = to, .promo = None, .takes_piece = takes});
-        }
-      }
-
-      return movelist;
     })
 
 enum { max_moves = 218 };
@@ -890,8 +846,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 1, i8 tempo;) H(125, 1, i8 open_files[6];)
             H(125, 1, i8 pst_file[48];))
   H(124, 1,
-    H(126, 1, i8 passed_blocked_pawns[6];) H(126, 1, i8 bishop_pair;)
-        H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[48];)
+    H(126, 1, i8 bishop_pair;) H(126, 1, i8 protected_pawn;)
+        H(126, 1, i8 pst_rank[48];) H(126, 1, i8 passed_blocked_pawns[6];)
             H(126, 1, i8 passed_pawns[6];) H(126, 1, i8 king_attacks[5];))
 } EvalParams;
 
@@ -902,8 +858,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 2, i32 tempo;) H(125, 2, i32 open_files[6];)
             H(125, 2, i32 pst_file[48];))
   H(124, 2,
-    H(126, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
-        H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
+    H(126, 2, i32 bishop_pair;) H(126, 2, i32 protected_pawn;)
+        H(126, 2, i32 pst_rank[48];) H(126, 2, i32 passed_blocked_pawns[6];)
             H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
 
 } EvalParamsMerged;
@@ -1162,19 +1118,19 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(125, i32 static_eval;)
   G(125, i32 num_moves;)
   G(125, u64 position_hash;)
-  G(125, Move best_move;)
+  G(125, i32 static_eval;)
   G(125, Move killer;)
+  G(125, Move best_move;)
   G(125, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(162, i8 depth;)
   G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
+  G(162, i8 depth;)
   G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1186,8 +1142,8 @@ enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i32 move_history[2][6][64][64];)
 G(163, S(1) TTEntry tt[tt_length];)
-G(163, S(0) size_t max_time;)
-G(163, S(0) size_t start_time;)
+G(163, S(0) u64 max_time;)
+G(163, S(0) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1559,11 +1515,12 @@ S(1) void init() {
       })
 }
 
+#ifdef FULL
 static void print_info(const Position *pos, const i32 depth, const i32 alpha,
                        const i32 beta, const i32 score, const u64 nodes,
                        const Move pv_move) {
   // Do not print unfinished iteration scores
-  size_t elapsed = get_time() - start_time;
+  u64 elapsed = get_time() - start_time;
   if (elapsed > max_time) {
     puts("info string hard time limit exceeded");
     return;
@@ -1599,12 +1556,12 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     putl("lowerbound ");
   }
 
-  printf("time %i nodes %i", elapsed, nodes);
+  printf("time %llu nodes %llu", elapsed / (1000 * 1000), nodes);
 
-  // Only print nps if >1 ms elapsed
+  // Only print nps if >=1 ns elapsed
   if (elapsed > 0) {
-    const u64 nps = nodes * 1000 / elapsed;
-    printf(" nps %i", nps);
+    const u64 nps = nodes * 1000 * 1000 * 1000 / elapsed;
+    printf(" nps %llu", nps);
   }
 
   // Only print pv move if within window
@@ -1617,6 +1574,7 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 
   putl("\n");
 }
+#endif
 
 S(1)
 void iteratively_deepen(
@@ -1637,8 +1595,8 @@ void iteratively_deepen(
     G(221, i32 window = 15;)
     G(221, size_t elapsed;)
     while (true) {
-      G(222, const i32 alpha = score - window;)
       G(222, const i32 beta = G(223, score) + G(223, window);)
+      G(222, const i32 alpha = score - window;)
       score =
           search(H(165, 4, beta), H(165, 4, alpha), H(165, 4, depth),
                  H(165, 4, false), H(165, 4, stack),
@@ -1667,6 +1625,7 @@ void iteratively_deepen(
   puts(move_name);
 }
 
+#ifdef FULL
 S(1) void display_pos(Position *const pos) {
   Position npos = *pos;
   if (npos.flipped) {
@@ -1735,6 +1694,7 @@ S(1) void display_pos(Position *const pos) {
   }
   printf("%d\n", score);
 }
+#endif
 
 S(1)
 const Position start_pos =
@@ -1756,15 +1716,15 @@ S(1) void bench() {
 #endif
   __builtin_memset(move_history, 0, sizeof(move_history));
   pos = start_pos;
-  max_time = 99999999999;
+  max_time = -1ll;
   u64 nodes = 0;
   const u64 start = get_time();
   iteratively_deepen(23, &nodes, H(219, 2, &pos), H(219, 2, stack),
                      H(219, 2, pos_history_count));
   const u64 end = get_time();
-  const i32 elapsed = end - start;
-  const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
-  printf("%i nodes %i nps\n", nodes, nps);
+  const u64 elapsed = end - start;
+  const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
+  printf("%llu nodes %llu nps\n", nodes, nps);
 }
 #endif
 
@@ -1817,7 +1777,7 @@ S(1) void run() {
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
-      max_time = 99999999999;
+      max_time = -1ll;
       iteratively_deepen(max_ply, &nodes, H(219, 3, &pos), H(219, 3, stack),
                          H(219, 3, pos_history_count));
     } else if (!strcmp(line, "d")) {
@@ -1830,12 +1790,13 @@ S(1) void run() {
       nodes = perft(&pos, depth);
       const u64 end = get_time();
       const u64 elapsed = end - start;
-      const u64 nps = elapsed ? 1000 * nodes / elapsed : 0;
-      printf("info depth %i nodes %i time %i nps %i \n", depth, nodes, elapsed,
-             nps);
+      const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000 / elapsed : 0;
+      printf("info depth %i nodes %llu time %llu nps %llu \n", depth, nodes,
+             elapsed, nps);
     }
 #endif
     G(228, if (G(229, line[0]) == G(229, 'q')) { exit_now(); })
+    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
     else G(228, if (G(230, line[0]) == G(230, 'p')) {
       G(231, pos_history_count = 0;)
         G(231, pos = start_pos;)
@@ -1878,16 +1839,16 @@ S(1) void run() {
         getl(line);
         if (!pos.flipped && !strcmp(line, "wtime")) {
           getl(line);
-          max_time = atoi(line) / 2;
+          max_time = (u64)atoi(line) * 500 * 1000;
           break;
         }
         else if (pos.flipped && !strcmp(line, "btime")) {
           getl(line);
-          max_time = atoi(line) / 2;
+          max_time = (u64)atoi(line) * 500 * 1000;
           break;
         }
         else if (!strcmp(line, "movetime")) {
-          max_time = 20000; // Assume Lichess bot
+          max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
           break;
         }
       }
@@ -1896,13 +1857,12 @@ S(1) void run() {
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
-        max_time = atoi(line) / 2;
+        max_time = (u64)atoi(line) * 500 * 1000;
       }
       iteratively_deepen(H(219, 5, &pos), H(219, 5, stack),
         H(219, 5, pos_history_count));
 #endif
     })
-    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
   }
 }
 

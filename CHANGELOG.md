@@ -7948,3 +7948,48 @@ info depth 22 score cp 32 time 6370 nodes 15935342 nps 2501623 pv e2e4
 bestmove e2e4
 15935342 nodes 2501623 nps
 ```
+
+```py
+Elo   | -0.37 +- 2.31 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 37444 W: 10147 L: 10187 D: 17110
+Penta | [898, 4461, 8046, 4417, 900]
+https://gedas.pythonanywhere.com/test/1435/
+```
+
+### 5.10
+
+64 bit: 4077 bytes (-10)
+
+MD5: 004cdab043bfc3fe921a069441e3e32e
+
+Nanosecond time management (idea by sqrmax)
+
+```py
+info depth 1 score cp 14 time 0 nodes 13 nps 168175 pv e2e3
+info depth 2 score cp 17 time 0 nodes 118 nps 202505 pv b1c3
+info depth 3 score cp 26 time 0 nodes 263 nps 331067 pv b1c3
+info depth 4 score cp 16 time 1 nodes 493 nps 411484 pv b1c3
+info depth 5 score cp 10 time 2 nodes 878 nps 435991 pv b1c3
+info depth 6 score cp 17 time 3 nodes 1625 nps 480698 pv b1c3
+info depth 7 score cp 15 time 11 nodes 4831 nps 410718 pv d2d3
+info depth 8 score cp 17 time 23 nodes 7442 nps 315830 pv d2d3
+info depth 9 score cp 22 time 55 nodes 21518 nps 387921 pv g1f3
+info depth 10 score cp 15 time 91 nodes 45304 nps 492900 pv g1f3
+info depth 11 score cp 17 time 180 nodes 110415 nps 612014 pv d2d4
+info depth 12 score cp 17 time 344 nodes 205789 nps 598217 pv d2d4
+info depth 13 score cp 10 time 834 nodes 583508 nps 699548 pv c2c4
+info depth 14 score cp 11 time 992 nodes 711813 nps 717077 pv c2c4
+info depth 15 score cp 20 time 2208 nodes 1715012 nps 776382 pv e2e4
+info depth 16 score cp 22 time 2583 nodes 2020643 nps 782255 pv e2e4
+info depth 17 score cp 22 time 3173 nodes 2474224 nps 779699 pv e2e4
+info depth 18 score cp 22 time 3789 nodes 2973716 nps 784788 pv e2e4
+info depth 19 score cp 33 time 6153 nodes 4837025 nps 786005 pv e2e4
+info depth 20 score cp 18 upperbound time 9827 nodes 7952978 nps 809233
+info depth 20 score cp 31 time 12787 nodes 10646595 nps 832589 pv e2e4
+info depth 21 score cp 26 time 14832 nodes 12465878 nps 840439 pv e2e4
+info depth 22 score cp 32 time 18471 nodes 15935342 nps 862721 pv e2e4
+bestmove e2e4
+15935342 nodes 12340607 nps
+```
