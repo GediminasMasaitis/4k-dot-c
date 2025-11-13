@@ -358,7 +358,7 @@ G(
 
 G(
     50,
-    S(1) void swapu32(G(51, u32 *const rhs), G(51, u32 *const lhs)) {
+    S(1) void swapu32(G(51, u32 *const lhs), G(51, u32 *const rhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -846,8 +846,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 1, i8 tempo;) H(125, 1, i8 open_files[6];)
             H(125, 1, i8 pst_file[48];))
   H(124, 1,
-    H(126, 1, i8 bishop_pair;) H(126, 1, i8 protected_pawn;)
-        H(126, 1, i8 pst_rank[48];) H(126, 1, i8 passed_blocked_pawns[6];)
+    H(126, 1, i8 passed_blocked_pawns[6];) H(126, 1, i8 bishop_pair;)
+        H(126, 1, i8 protected_pawn;) H(126, 1, i8 pst_rank[48];)
             H(126, 1, i8 passed_pawns[6];) H(126, 1, i8 king_attacks[5];))
 } EvalParams;
 
@@ -858,8 +858,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 2, i32 tempo;) H(125, 2, i32 open_files[6];)
             H(125, 2, i32 pst_file[48];))
   H(124, 2,
-    H(126, 2, i32 bishop_pair;) H(126, 2, i32 protected_pawn;)
-        H(126, 2, i32 pst_rank[48];) H(126, 2, i32 passed_blocked_pawns[6];)
+    H(126, 2, i32 passed_blocked_pawns[6];) H(126, 2, i32 bishop_pair;)
+        H(126, 2, i32 protected_pawn;) H(126, 2, i32 pst_rank[48];)
             H(126, 2, i32 passed_pawns[6];) H(126, 2, i32 king_attacks[5];))
 
 } EvalParamsMerged;
@@ -1041,10 +1041,10 @@ S(1) i32 eval(Position *const restrict pos) {
       u64 copy = G(140, pos->colour[0]) & G(140, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(141, const int file = G(142, sq) & G(142, 7);)
         G(141, phase += initial_params.phases[p];)
-        G(141, const int rank = sq >> 3;)
         G(141, copy &= copy - 1;)
+        G(141, const int file = G(142, sq) & G(142, 7);)
+        G(141, const int rank = sq >> 3;)
 
         G(
             101, // OPEN FILES / DOUBLED PAWNS
@@ -1053,10 +1053,23 @@ S(1) i32 eval(Position *const restrict pos) {
               score += eval_params.open_files[p - 1];
             })
 
+        G(
+            101, // PASSED PAWNS
+            if (G(155, p == Pawn) &&
+                G(155, !(G(156, (0x101010101010101ULL << sq)) &
+                         G(156, no_passers)))) {
+              G(
+                  157, if (G(158, north(1ULL << sq)) & G(158, pos->colour[1])) {
+                    score += eval_params.passed_blocked_pawns[rank - 1];
+                  })
+
+              G(157, score += eval_params.passed_pawns[rank - 1];)
+            })
         G(101, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score +=
           eval_params
               .pst_file[G(144, G(145, (p - 1)) * G(145, 8)) + G(144, file)];)
+
         G(101, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
           eval_params
@@ -1088,19 +1101,6 @@ S(1) i32 eval(Position *const restrict pos) {
                       G(153, count(G(154, mobility) & G(154, opp_king_zone))) *
                       G(153, eval_params.king_attacks[p - 2]);))
             })
-
-        G(
-            101, // PASSED PAWNS
-            if (G(155, !(G(156, (0x101010101010101ULL << sq)) &
-                         G(156, no_passers))) &&
-                G(155, p == Pawn)) {
-              G(
-                  157, if (G(158, north(1ULL << sq)) & G(158, pos->colour[1])) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
-                  })
-
-              G(157, score += eval_params.passed_pawns[rank - 1];)
-            })
       }
     }
 
@@ -1118,20 +1118,20 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
+  G(125, Move best_move;)
   G(125, i32 num_moves;)
   G(125, u64 position_hash;)
   G(125, i32 static_eval;)
   G(125, Move killer;)
-  G(125, Move best_move;)
   G(125, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
+  G(162, u8 flag;)
   G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
   G(162, i8 depth;)
-  G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
