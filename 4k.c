@@ -1030,7 +1030,7 @@ S(1) i32 eval(Position *const restrict pos) {
             score -=
             G(900, eval_params.protected_pawn) *
             G(900, count(G(901, opp_pawns) & G(901, attacked_by_pawns));))
-              G(135, // PHALANX PAWNS
+              G(900, // PHALANX PAWNS
                 score -=
                 G(1000, eval_params.phalanx_pawn) *
                 G(1000, count(G(1001, opp_pawns) & G(1001, west(opp_pawns)));)))
