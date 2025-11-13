@@ -141,7 +141,7 @@ typedef struct [[nodiscard]] {
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-[[nodiscard]] S(0) u64 get_time() {
+[[nodiscard]] S(1) u64 get_time() {
   timespec ts;
   ssize_t ret; // Unused
   asm volatile("syscall"
