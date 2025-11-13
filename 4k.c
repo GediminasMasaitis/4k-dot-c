@@ -842,7 +842,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[7];
   H(124, 1,
-    H(125, 1, u8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
+    H(125, 1, i8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
         H(125, 1, i8 tempo;) H(125, 1, i8 open_files[6];)
             H(125, 1, i8 pst_file[48];))
   H(124, 1,
@@ -1073,7 +1073,7 @@ S(1) i32 eval(Position *const restrict pos) {
         G(101, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
           eval_params
-              .pst_rank[G(144, G(146, (p - 1)) * G(146, 8)) + G(144, rank)];)
+              .pst_rank[G(844, G(146, (p - 1)) * G(146, 8)) + G(844, rank)];)
 
         G(101, // MATERIAL
           score += eval_params.material[p];)
