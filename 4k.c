@@ -1135,7 +1135,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
-enum { tt_length = 1 << 23 };
+enum { tt_length = 64 * 1024 * 1024 / sizeof(TTEntry) };
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
