@@ -1270,7 +1270,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
   }
 
   if (G(179, !in_check) && G(179, G(180, alpha) == G(180, beta - 1))) {
-    if (G(181, depth < 8) && G(181, !in_qsearch)) {
+    if (!in_qsearch) {
 
       G(182, {
         // REVERSE FUTILITY PRUNING
