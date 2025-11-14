@@ -1094,7 +1094,7 @@ S(1) i32 eval(Position *const restrict pos) {
               G(147, const u64 mobility =
                          G(149, get_mobility(H(75, 3, p), H(75, 3, sq),
                                              H(75, 3, pos))) &
-                         G(149, G(150, ~attacked_by_pawns));
+                         G(149, ~attacked_by_pawns);
 
                 G(151, // MOBILITY
                   score +=
