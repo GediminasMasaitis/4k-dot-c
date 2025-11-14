@@ -1164,7 +1164,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   hash = __builtin_ia32_aesenc128(hash, hash);
 
   // USE FIRST 64 BITS AS POSITION HASH
-  return hash[0];
+  return hash[0] ^ hash[1] ;
 }
 #elif defined(__aarch64__)
 
@@ -1190,9 +1190,7 @@ get_hash(const Position *const pos) {
   hash = veorq_u8(hash, key);
 
   // USE FIRST 64 BITS AS POSITION HASH
-  u64 result;
-  memcpy(&result, &hash, sizeof(result));
-  return result;
+  return ((u64*)(&hash))[0] ^ ((u64*)(&hash))[1];
 }
 
 #else
