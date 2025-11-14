@@ -8081,3 +8081,60 @@ Games | N: 19744 W: 5457 L: 5414 D: 8873
 Penta | [485, 2371, 4129, 2390, 497]
 https://gedas.pythonanywhere.com/test/1446/
 ```
+
+### 5.14
+
+64 bit: 4081 bytes (+16)
+
+MD5: 17253e37137ed73df8d5caebd40b6999
+
+Phalanx pawn evaluation
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 442760
+info depth 1 score cp 28 time 0 nodes 38 nps 438070 pv b1c3
+info depth 2 score cp 17 time 0 nodes 115 nps 438300 pv b1c3
+info depth 3 score cp 27 time 0 nodes 235 nps 685776 pv b1c3
+info depth 4 score cp 17 time 0 nodes 396 nps 779687 pv b1c3
+info depth 5 score cp 3 time 0 nodes 642 nps 866487 pv b1c3
+info depth 6 score cp 15 time 1 nodes 1117 nps 1028493 pv b1c3
+info depth 7 score cp 15 time 2 nodes 3295 nps 1138565 pv b1c3
+info depth 8 score cp 17 time 5 nodes 6115 nps 1150056 pv b1c3
+info depth 9 score cp 12 time 12 nodes 15300 nps 1190752 pv g1f3
+info depth 10 score cp 23 time 34 nodes 49868 nps 1425896 pv g1f3
+info depth 11 score cp 23 time 64 nodes 107838 nps 1674313 pv g1f3
+info depth 12 score cp 17 time 109 nodes 213176 nps 1939807 pv g1f3
+info depth 13 score cp 23 time 203 nodes 446896 nps 2192076 pv d2d4
+info depth 14 score cp 17 time 283 nodes 651064 nps 2293992 pv d2d4
+info depth 15 score cp 14 time 467 nodes 1143991 nps 2448646 pv d2d4
+info depth 16 score cp 12 time 808 nodes 2064177 nps 2552675 pv d2d4
+info depth 17 score cp 15 time 1207 nodes 3117565 nps 2582184 pv d2d4
+info depth 18 score cp 30 lowerbound time 1902 nodes 4979082 nps 2616945
+info depth 18 score cp 15 time 2302 nodes 6057680 nps 2631146 pv d2d4
+info depth 19 score cp 16 time 3400 nodes 8868087 nps 2607960 pv d2d4
+info depth 20 score cp 31 lowerbound time 5121 nodes 13184820 nps 2574406
+info depth 20 score cp 11 time 6137 nodes 15833184 nps 2579605 pv e2e4
+info depth 21 score cp 26 lowerbound time 6370 nodes 16470929 nps 2585628
+info depth 21 score cp 26 time 6893 nodes 17852176 nps 2589560 pv e2e4
+info depth 22 score cp 26 time 8202 nodes 21293740 nps 2595952 pv e2e4
+bestmove e2e4
+21293740 nodes 2595938 nps
+```
+
+```py
+Elo   | 12.08 +- 6.67 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.04 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4776 W: 1398 L: 1232 D: 2146
+Penta | [107, 538, 976, 616, 151]
+https://gedas.pythonanywhere.com/test/1454/
+```
+
+```py
+Elo   | 18.92 +- 9.78 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=1MB
+LLR   | 2.09 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1728 W: 472 L: 378 D: 878
+Penta | [17, 178, 396, 240, 33]
+https://gedas.pythonanywhere.com/test/1456/
+```
