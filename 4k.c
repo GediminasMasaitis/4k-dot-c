@@ -443,9 +443,9 @@ G(
                G(69, king(bb)) & G(69, theirs) & G(69, pos->pieces[King])) ||
              G(65, G(70, knight(bb)) & G(70, theirs) &
                        G(70, pos->pieces[Knight])) ||
-             G(65, G(71, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(71, rook(H(34, 2, blockers), H(34, 2, bb))) &
-                       G(71, theirs));
+             G(65, G(71, theirs) &
+                       G(71, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(71, rook(H(34, 2, blockers), H(34, 2, bb))));
     })
 
 G(
@@ -589,10 +589,10 @@ G(
           })
 
       G(92, // Update castling permissions
-        G(95, pos->castling[1] &= !(mask & 0x11ull);)
-            G(95, pos->castling[3] &= !(mask & 0x1100000000000000ull);)
-                G(95, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
-                    G(95, pos->castling[0] &= !(mask & 0x90ull);))
+        G(95, pos->castling[0] &= !(mask & 0x90ull);)
+            G(95, pos->castling[1] &= !(mask & 0x11ull);)
+                G(95, pos->castling[3] &= !(mask & 0x1100000000000000ull);)
+                    G(95, pos->castling[2] &= !(mask & 0x9000000000000000ull);))
 
       if (find_in_check(pos)) {
         return false;
@@ -1047,9 +1047,9 @@ S(1) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(141, phase += initial_params.phases[p];)
-        G(141, copy &= copy - 1;)
         G(141, const i32 file = G(142, sq) & G(142, 7);)
         G(141, const i32 rank = sq >> 3;)
+        G(141, copy &= copy - 1;)
 
         G(
             101, // OPEN FILES / DOUBLED PAWNS
@@ -1123,20 +1123,20 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(125, i32 static_eval;)
-  G(125, u64 position_hash;)
-  G(125, i32 num_moves;)
-  G(125, Move killer;)
   G(125, Move best_move;)
+  G(125, i32 num_moves;)
+  G(125, i32 static_eval;)
+  G(125, Move killer;)
   G(125, Move moves[max_moves];)
+  G(125, u64 position_hash;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(162, u8 flag;)
   G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
   G(162, i8 depth;)
+  G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1147,8 +1147,8 @@ enum { mate = 31744, inf = 32256 };
 
 G(163, S(1) i32 move_history[2][6][64][64];)
 G(163, S(1) TTEntry tt[tt_length];)
-G(163, S(0) u64 start_time;)
 G(163, S(0) u64 max_time;)
+G(163, S(0) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1270,7 +1270,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
   }
 
   if (G(179, !in_check) && G(179, G(180, alpha) == G(180, beta - 1))) {
-    if (G(181, depth < 8) && G(181, !in_qsearch)) {
+    if (G(181, !in_qsearch) && G(181, depth < 8)) {
 
       G(182, {
         // REVERSE FUTILITY PRUNING
@@ -1289,14 +1289,16 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
       Position npos = *pos;
       G(187, flip_pos(&npos);)
       G(187, npos.ep = 0;)
-      const i32 score = -search(
-          H(165, 2, -alpha), H(165, 2, stack),
-          H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),
-          H(165, 2, -beta),
+      const i32 score = -search(H(165, 2, -alpha), H(165, 2, stack),
+                                H(165, 2,
+                                  depth - G(188, (static_eval - beta) / 128) -
+                                      G(188, depth / 4) - G(188, 4)),
+                                H(165, 2, false), H(165, 2, -beta),
 #ifdef FULL
-          nodes,
+                                nodes,
 #endif
-          H(166, 2, &npos), H(166, 2, pos_history_count), H(166, 2, ply + 1));
+                                H(166, 2, &npos), H(166, 2, pos_history_count),
+                                H(166, 2, ply + 1));
       if (score >= beta) {
         return score;
       }
@@ -1481,6 +1483,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
 }
 
 S(1) void init() {
+  G(83, // CLEAR HISTORY
+    __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       83, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
@@ -1491,6 +1495,7 @@ S(1) void init() {
             G(215, ray(H(24, 5, 0), H(24, 5, ~0x8080808080808080ull),
                        H(24, 5, bb), H(24, 5, -9))); // Southwest
       })
+
   G(
       83, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(initial_params.mg.material) / sizeof(i16);
@@ -1499,9 +1504,6 @@ S(1) void init() {
             combine_eval_param(H(129, 2, initial_params.mg.material[i]),
                                H(129, 2, initial_params.eg.material[i]));
       })
-
-  G(83, // CLEAR HISTORY
-    __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       83, // MERGE NON-MATERIAL VALUES
       for (i32 i = 0;
@@ -1598,7 +1600,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(221, i32 window = 24;)
+    G(221, i32 window = 15;)
     G(221, size_t elapsed;)
     while (true) {
       G(222, const i32 beta = G(223, score) + G(223, window);)
@@ -1614,10 +1616,10 @@ void iteratively_deepen(
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
       elapsed = get_time() - start_time;
-      G(224, window *= 2;)
       G(
           224, if (G(225, (G(226, score > alpha) && G(226, score < beta))) ||
                    G(225, elapsed > max_time)) { break; })
+      G(224, window *= 2;)
     }
 
     if (elapsed > max_time / 16) {
