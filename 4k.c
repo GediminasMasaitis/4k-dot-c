@@ -215,7 +215,7 @@ typedef struct [[nodiscard]] {
   G(8, u64 colour[2];)
   G(9, bool flipped;)
   G(9, bool castling[4];)
-  G(9, u8 padding[11];)
+  G(9, u8 padding[3];)
 } Position;
 
 #ifdef ASSERTS
@@ -1146,10 +1146,22 @@ G(163, S(0) u64 start_time;)
 G(163, S(0) u64 max_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
+[[nodiscard]] S(1) u64
+get_hash(const Position* const pos) {
+  u64 hash = 0;
+
+  const u64* const data = (const u64*)pos;
+  for (i32 i = 0; i < 11; i++) {
+    hash = __builtin_ia32_crc32di(hash, data[i]);
+  }
+
+  return hash;
+}
+
 typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
-    get_hash(const Position *const pos) {
+    get_hash2(const Position *const pos) {
   i128 hash = {0};
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
