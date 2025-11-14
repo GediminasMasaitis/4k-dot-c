@@ -1150,11 +1150,11 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
     get_hash(const Position *const pos) {
-  i128 hash = {0};
+  i128 hash = ((const i128*)pos)[5];
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 6; i++) {
+  for (i32 i = 0; i < 5; i++) {
     i128 key;
     __builtin_memcpy(&key, data + G(164, i) * G(164, 16), 16);
     hash = __builtin_ia32_aesenc128(hash, key);
@@ -1172,11 +1172,11 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] __attribute__((target("+aes"))) u64
 get_hash(const Position *const pos) {
-  uint8x16_t hash = vdupq_n_u8(0);
+  uint8x16_t hash = ((const uint8x16_t*)pos)[5];
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (i32 i = 0; i < 6; ++i) {
+  for (i32 i = 0; i < 5; ++i) {
     uint8x16_t key;
     memcpy(&key, data + i * 16, 16);
 
