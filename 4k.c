@@ -1270,7 +1270,6 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
   }
 
   if (G(179, !in_check) && G(179, G(180, alpha) == G(180, beta - 1))) {
-    if (!in_qsearch) {
 
       G(182, {
         // REVERSE FUTILITY PRUNING
@@ -1280,9 +1279,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
       })
 
       G(182, // RAZORING
-        in_qsearch =
+        in_qsearch |=
             G(184, static_eval) + G(184, G(185, 122) * G(185, depth)) <= alpha;)
-    }
 
     // NULL MOVE PRUNING
     if (G(186, depth > 2) && G(186, static_eval >= beta) && G(186, do_null)) {
