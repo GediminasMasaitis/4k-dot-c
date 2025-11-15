@@ -6,7 +6,7 @@ LDFLAGS :=
 NOSTDLIBLDFLAGS :=
 
 ifeq ($(NOSTDLIB), true)
-    CFLAGS += -DNOSTDLIB -nostdlib -fno-pic -fno-builtin -fno-stack-protector -march=haswell -Oz
+    CFLAGS += -DNOSTDLIB -nostdlib -fno-pic -fno-builtin -fno-stack-protector -march=haswell -Oz -fweb
 	LDFLAGS += -nostdlib -Wl,-Map=$(EXE).map
 	NOSTDLIBLDFLAGS += -Wl,-T 64bit.ld
 else
