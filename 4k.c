@@ -840,7 +840,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 }
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i16 material[6];
+  i16 material[7];
   H(124, 1,
     H(125, 1, i8 pawn_attacked_penalty[2];) H(125, 1, i8 mobilities[5];)
         H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 tempo;)
@@ -852,7 +852,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i32 material[6];
+  i32 material[7];
   H(124, 2,
     H(125, 2, i32 pawn_attacked_penalty[2];) H(125, 2, i32 mobilities[5];)
         H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 tempo;)
@@ -877,7 +877,7 @@ G(128,
       const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4, 0},
                                                 .mg = {.material = {0, 65, 270,
                                                                     273, 362,
-                                                                    780},
+                                                                    780, 0},
                                                        .pst_rank =
                                                            {
                                                                0,   -11, -16,
@@ -942,7 +942,7 @@ G(128,
                                                        .tempo = 17},
                                                 .eg = {.material = {0, 84, 401,
                                                                     397, 711,
-                                                                    1349},
+                                                                    1349, 0},
                                                        .pst_rank =
                                                            {
                                                                0,   -5,  -8,
