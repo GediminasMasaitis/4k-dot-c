@@ -39,7 +39,7 @@ all:
 
 compress:
 	mkdir -p build
-	$(CC) $(CFLAGS) -S -o 4k.s 4k.c
+	$(CC) $(CFLAGS) -S -masm=intel -o 4k.s 4k.c
 	$(CC) $(CFLAGS) -c -o 4k.o 4k.s
 	$(CC) $(LDFLAGS) -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	ls -la $(EXE)
