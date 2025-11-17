@@ -12,23 +12,25 @@
 ;; http://www.ibsensoftware.com/
 ;;
 
-format ELF64
+BITS 64
+default rel
 
-public _start
+global _start
 
-section '.rodata' align 1
+section .rodata align=1
 payload_compressed:
-    file './build/4kc.ap'
+    incbin './build/4kc.ap'
 
-section '.payload' align 1
-payload_decompressed rb 4096*2
+section .payload align=1
+payload_decompressed:
+    resb 4096*2
 
-section '.text'
+section .text align=1
 _start:
     mov    edi, payload_decompressed
     mov    esi, payload_compressed
     mov    ebp, getbit
-    push   START_LOCATION ; must be provided by -d to fasm
+    push   START_LOCATION ; must be provided by to nasm -DSTART_LOCATION=0x...
     mov    dl, 0x80
 
     ; Technically UB but because size doesn't exceed 32k
