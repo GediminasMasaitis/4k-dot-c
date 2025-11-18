@@ -1053,9 +1053,9 @@ S(1) i32 eval(Position *const restrict pos) {
 
         G(
             101, // OPEN FILES / DOUBLED PAWNS
-            if ((G(143, north(0x101010101010101ULL << sq)) &
-                 G(143, own_pawns)) == 0) {
-              score += eval_params.open_files[p - 1];
+            if (!(G(143, north(0x101010101010101ULL << sq)) & G(143, own_pawns))) {
+              // !(G(143, 0x101010101010101ULL << sq) & G(143, opp_pawns))
+              score += eval_params.open_files[true * 5 + p];
             })
 
         G(
