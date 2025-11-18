@@ -1062,7 +1062,7 @@ S(1) i32 eval(Position *const restrict pos) {
               score +=
                   eval_params.open_files[!(G(843, 0x101010101010101ULL << sq) &
                                            G(843, opp_pawns)) *
-                                             5 +
+                                             6 +
                                          p - 1];
             })
 
