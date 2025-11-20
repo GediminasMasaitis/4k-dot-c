@@ -1382,7 +1382,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
                               G(202, !improving)
                         : 0;
     // DO NOT ALLOW REDUCTION TO QSEARCH
-    if (G(765, reduction) && G(765, reduction >= depth)) {
+    if (G(765, reduction) && G(765, reduction >= depth - 1)) {
       reduction = depth - 2;
     }
 
