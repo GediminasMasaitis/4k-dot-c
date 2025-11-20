@@ -846,8 +846,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 tempo;)
             H(125, 1, i8 open_files[6];) H(125, 1, i8 pst_file[48];))
   H(124, 1,
-    H(126, 1, i8 bishop_pair;) H(126, 1, i8 protected_pawn;)
-        H(126, 1, i8 phalanx_pawn;) H(126, 1, i8 passed_pawns[6];)
+    H(126, 1, i8 bishop_pair;) H(126, 1, i8 phalanx_pawn;)
+        H(126, 1, i8 protected_pawn;) H(126, 1, i8 passed_pawns[6];)
             H(126, 1, i8 king_attacks[5];) H(126, 1, i8 pst_rank[48];))
 } EvalParams;
 
@@ -858,23 +858,23 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 tempo;)
             H(125, 2, i32 open_files[6];) H(125, 2, i32 pst_file[48];))
   H(124, 2,
-    H(126, 2, i32 bishop_pair;) H(126, 2, i32 protected_pawn;)
-        H(126, 2, i32 phalanx_pawn;) H(126, 2, i32 passed_pawns[6];)
+    H(126, 2, i32 bishop_pair;) H(126, 2, i32 phalanx_pawn;)
+        H(126, 2, i32 protected_pawn;) H(126, 2, i32 passed_pawns[6];)
             H(126, 2, i32 king_attacks[5];) H(126, 2, i32 pst_rank[48];))
 
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(127, EvalParams eg;)
-  G(127, i8 phases[7];)
+  i8 phases[6];
   G(127, EvalParams mg;)
+  G(127, EvalParams eg;)
 } EvalParamsInitial;
 
 G(128, S(0) EvalParamsMerged eval_params;)
 
 G(128,
   __attribute__((aligned(8))) S(1)
-      const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4, 0},
+      const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4},
                                                 .mg = {.material = {0, 65, 270,
                                                                     273, 362,
                                                                     780},
@@ -1481,6 +1481,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
 }
 
 S(1) void init() {
+  G(83, // CLEAR HISTORY
+    __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       83, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
@@ -1491,6 +1493,7 @@ S(1) void init() {
             G(215, ray(H(24, 5, 0), H(24, 5, ~0x8080808080808080ull),
                        H(24, 5, bb), H(24, 5, -9))); // Southwest
       })
+
   G(
       83, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(initial_params.mg.material) / sizeof(i16);
@@ -1499,9 +1502,6 @@ S(1) void init() {
             combine_eval_param(H(129, 2, initial_params.mg.material[i]),
                                H(129, 2, initial_params.eg.material[i]));
       })
-
-  G(83, // CLEAR HISTORY
-    __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       83, // MERGE NON-MATERIAL VALUES
       for (i32 i = 0;
@@ -1801,29 +1801,26 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(228, if (G(229, line[0]) == G(229, 'q')) { exit_now(); })
-    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
-    else G(228, if (G(233, line[0]) == G(233, 'g')) {
+    G(
+        228, if (G(233, line[0]) == G(233, 'g')) {
 #ifdef FULL
-      while (true) {
-        getl(line);
-        if (!pos.flipped && !strcmp(line, "wtime")) {
-          getl(line);
-          max_time = (u64)atoi(line) << 19; // Roughly /2 time
-          break;
-        }
-        else if (pos.flipped && !strcmp(line, "btime")) {
-          getl(line);
-          max_time = (u64)atoi(line) << 19; // Roughly /2 time
-          break;
-        }
-        else if (!strcmp(line, "movetime")) {
-          max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
-          break;
-        }
-      }
-      iteratively_deepen(max_ply, &nodes, H(219, 4, &pos), H(219, 4, stack),
-        H(219, 4, pos_history_count));
+          while (true) {
+            getl(line);
+            if (!pos.flipped && !strcmp(line, "wtime")) {
+              getl(line);
+              max_time = (u64)atoi(line) << 19; // Roughly /2 time
+              break;
+            } else if (pos.flipped && !strcmp(line, "btime")) {
+              getl(line);
+              max_time = (u64)atoi(line) << 19; // Roughly /2 time
+              break;
+            } else if (!strcmp(line, "movetime")) {
+              max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
+              break;
+            }
+          }
+          iteratively_deepen(max_ply, &nodes, H(219, 4, &pos), H(219, 4, stack),
+                             H(219, 4, pos_history_count));
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
@@ -1832,7 +1829,9 @@ S(1) void run() {
       iteratively_deepen(H(219, 5, &pos), H(219, 5, stack),
         H(219, 5, pos_history_count));
 #endif
-    })
+        })
+    else G(228, if (G(234, line[0]) == G(234, 'i')) { puts("readyok"); })
+    else G(228, if (G(229, line[0]) == G(229, 'q')) { exit_now(); })
     else G(228, if (G(230, line[0]) == G(230, 'p')) {
       G(231, pos_history_count = 0;)
         G(231, pos = start_pos;)
