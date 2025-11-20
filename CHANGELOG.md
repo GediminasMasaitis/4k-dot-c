@@ -8138,3 +8138,11 @@ Games | N: 1728 W: 472 L: 378 D: 878
 Penta | [17, 178, 396, 240, 33]
 https://gedas.pythonanywhere.com/test/1456/
 ```
+
+### 5.15
+
+64 bit: 4079 bytes (-2)
+
+MD5: 7e57991d4f56592a69fff2b7fd13dd64
+
+Phase UB size save
