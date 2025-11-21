@@ -1307,7 +1307,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
   G(189, i32 quiets_evaluated = 0;)
   G(189,
     stack[ply].num_moves = movegen(H(103, 3, pos), H(103, 3, stack[ply].moves),
-                                   H(103, 3, in_qsearch));)
+                                   H(103, 3, in_qsearch && !in_check));)
   G(189, u8 tt_flag = Upper;)
   G(189, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(189,
