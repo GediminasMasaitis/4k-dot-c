@@ -846,7 +846,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 1, i8 passed_blocked_pawns[6];) H(125, 1, i8 tempo;)
             H(125, 1, i8 open_files[6];) H(125, 1, i8 pst_file[48];))
   H(124, 1,
-    H(126, 1, i8 bishop_pair;) H(126, 1, i8 phalanx_pawn;)
+    H(126, 1, i8 phalanx_pawn;) H(126, 1, i8 bishop_pair;)
         H(126, 1, i8 protected_pawn;) H(126, 1, i8 passed_pawns[6];)
             H(126, 1, i8 king_attacks[5];) H(126, 1, i8 pst_rank[48];))
 } EvalParams;
@@ -858,7 +858,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(125, 2, i32 passed_blocked_pawns[6];) H(125, 2, i32 tempo;)
             H(125, 2, i32 open_files[6];) H(125, 2, i32 pst_file[48];))
   H(124, 2,
-    H(126, 2, i32 bishop_pair;) H(126, 2, i32 phalanx_pawn;)
+    H(126, 2, i32 phalanx_pawn;) H(126, 2, i32 bishop_pair;)
         H(126, 2, i32 protected_pawn;) H(126, 2, i32 passed_pawns[6];)
             H(126, 2, i32 king_attacks[5];) H(126, 2, i32 pst_rank[48];))
 
@@ -1023,6 +1023,8 @@ S(1) i32 eval(Position *const restrict pos) {
                king(G(138, pos->colour[1]) & G(138, pos->pieces[King]));)
 
     G(132,
+      const u64 own_pawns = G(137, pos->pieces[Pawn]) & G(137, pos->colour[0]);)
+    G(132,
       const u64 opp_pawns = G(133, pos->pieces[Pawn]) & G(133, pos->colour[1]);
       const u64 attacked_by_pawns =
           G(134, se(opp_pawns)) | G(134, sw(opp_pawns));
@@ -1039,8 +1041,6 @@ S(1) i32 eval(Position *const restrict pos) {
         if (count(G(139, pos->pieces[Bishop]) & G(139, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-    G(132,
-      const u64 own_pawns = G(137, pos->pieces[Pawn]) & G(137, pos->colour[0]);)
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(140, pos->colour[0]) & G(140, pos->pieces[p]);
@@ -1123,20 +1123,20 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(125, i32 static_eval;)
-  G(125, u64 position_hash;)
-  G(125, i32 num_moves;)
-  G(125, Move killer;)
   G(125, Move best_move;)
+  G(125, Move killer;)
+  G(125, u64 position_hash;)
+  G(125, i32 static_eval;)
   G(125, Move moves[max_moves];)
+  G(125, i32 num_moves;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(162, u8 flag;)
   G(162, u16 partial_hash;)
   G(162, i16 score;)
   G(162, Move move;)
   G(162, i8 depth;)
+  G(162, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1153,7 +1153,7 @@ G(163, S(0) u64 max_time;)
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
 
-[[nodiscard]] __attribute__((target("aes"))) S(1) u64
+[[nodiscard]] __attribute__((target("aes"))) S(0) u64
     get_hash(const Position *const pos) {
   i128 hash = {0};
 
@@ -1205,9 +1205,9 @@ get_hash(const Position *const pos) {
 #endif
 
 S(1)
-i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
-           H(165, 1, i32 depth), H(165, 1, const bool do_null),
-           H(165, 1, i32 alpha),
+i32 search(H(165, 1, i32 depth), H(165, 1, i32 alpha),
+           H(165, 1, const bool do_null), H(165, 1, const i32 beta),
+           H(165, 1, SearchStack *restrict stack),
 #ifdef FULL
            u64 *nodes,
 #endif
@@ -1270,7 +1270,7 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
   }
 
   if (G(179, !in_check) && G(179, G(180, alpha) == G(180, beta - 1))) {
-    if (G(181, depth < 8) && G(181, !in_qsearch)) {
+    if (G(181, !in_qsearch) && G(181, depth < 8)) {
 
       G(182, {
         // REVERSE FUTILITY PRUNING
@@ -1290,9 +1290,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
       G(187, flip_pos(&npos);)
       G(187, npos.ep = 0;)
       const i32 score = -search(
-          H(165, 2, -alpha), H(165, 2, stack),
-          H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, false),
-          H(165, 2, -beta),
+          H(165, 2, depth - G(188, 4) - G(188, depth / 4)), H(165, 2, -beta),
+          H(165, 2, false), H(165, 2, -alpha), H(165, 2, stack),
 #ifdef FULL
           nodes,
 #endif
@@ -1324,10 +1323,6 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
           stack[ply].moves[order_index].takes_piece ==
           piece_on(H(60, 7, pos), H(60, 7, stack[ply].moves[order_index].to)));
       const i32 order_move_score =
-          G(165, // KILLER MOVE
-            G(193, move_equal(G(194, &stack[ply].moves[order_index]),
-                              G(194, &stack[ply].killer))) *
-                G(193, 836)) +
           G(165, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(192, &stack[ply].best_move),
                         G(192, &stack[ply].moves[order_index]))
@@ -1338,15 +1333,19 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
                         [stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]);
+                        [stack[ply].moves[order_index].to]) +
+          G(165, // KILLER MOVE
+            G(193, move_equal(G(194, &stack[ply].moves[order_index]),
+                              G(194, &stack[ply].killer))) *
+                G(193, 836));
       if (order_move_score > move_score) {
         G(196, best_index = order_index;)
         G(196, move_score = order_move_score;)
       }
     }
 
-    swapmoves(G(197, &stack[ply].moves[move_index]),
-              G(197, &stack[ply].moves[best_index]));
+    swapmoves(G(197, &stack[ply].moves[best_index]),
+              G(197, &stack[ply].moves[move_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(198, depth < 8) &&
@@ -1377,9 +1376,8 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
     // LATE MOVE REDUCTION
     i32 reduction = G(201, depth > 3) && G(201, move_score <= 0)
                         ? G(202, (move_score < -256)) +
-                              G(202, moves_evaluated / 10) +
                               G(202, (G(203, alpha) == G(203, beta - 1))) +
-                              G(202, !improving)
+                              G(202, !improving) + G(202, moves_evaluated / 10)
                         : 0;
     // DO NOT ALLOW REDUCTION TO QSEARCH
     if (G(765, reduction) && G(765, reduction >= depth - 1)) {
@@ -1388,14 +1386,13 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
 
     i32 score;
     while (true) {
-      score = -search(H(165, 3, -alpha), H(165, 3, stack),
-                      H(165, 3, depth - G(204, 1) - G(204, reduction)),
-                      H(165, 3, true), H(165, 3, low),
+      score = -search(
+          H(165, 3, depth - G(204, 1) - G(204, reduction)), H(165, 3, low),
+          H(165, 3, true), H(165, 3, -alpha), H(165, 3, stack),
 #ifdef FULL
-                      nodes,
+          nodes,
 #endif
-                      H(166, 3, &npos), H(166, 3, pos_history_count),
-                      H(166, 3, ply + 1));
+          H(166, 3, &npos), H(166, 3, pos_history_count), H(166, 3, ply + 1));
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
@@ -1485,8 +1482,6 @@ i32 search(H(165, 1, const i32 beta), H(165, 1, SearchStack *restrict stack),
 }
 
 S(1) void init() {
-  G(83, // CLEAR HISTORY
-    __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       83, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
@@ -1497,7 +1492,6 @@ S(1) void init() {
             G(215, ray(H(24, 5, 0), H(24, 5, ~0x8080808080808080ull),
                        H(24, 5, bb), H(24, 5, -9))); // Southwest
       })
-
   G(
       83, // MERGE MATERIAL VALUES
       for (i32 i = 0; i < sizeof(initial_params.mg.material) / sizeof(i16);
@@ -1506,6 +1500,9 @@ S(1) void init() {
             combine_eval_param(H(129, 2, initial_params.mg.material[i]),
                                H(129, 2, initial_params.eg.material[i]));
       })
+
+  G(83, // CLEAR HISTORY
+    __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       83, // MERGE NON-MATERIAL VALUES
       for (i32 i = 0;
@@ -1605,11 +1602,11 @@ void iteratively_deepen(
     G(221, i32 window = 15;)
     G(221, size_t elapsed;)
     while (true) {
-      G(222, const i32 beta = G(223, score) + G(223, window);)
       G(222, const i32 alpha = score - window;)
+      G(222, const i32 beta = G(223, score) + G(223, window);)
       score =
-          search(H(165, 4, beta), H(165, 4, stack), H(165, 4, depth),
-                 H(165, 4, false), H(165, 4, alpha),
+          search(H(165, 4, depth), H(165, 4, alpha), H(165, 4, false),
+                 H(165, 4, beta), H(165, 4, stack),
 #ifdef FULL
                  nodes,
 #endif
@@ -1620,7 +1617,7 @@ void iteratively_deepen(
       elapsed = get_time() - start_time;
       G(224, window *= 2;)
       G(
-          224, if (G(225, (G(226, score > alpha) && G(226, score < beta))) ||
+          224, if (G(225, (G(226, score < beta) && G(226, score > alpha))) ||
                    G(225, elapsed > max_time)) { break; })
     }
 
