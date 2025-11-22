@@ -1233,7 +1233,7 @@ i32 search(H(170, 1, const i32 beta), H(170, 1, SearchStack *restrict stack),
   }
 
   // TT PROBING
-  G(175, stack[ply].best_move = (Move){0};)
+  G(175, if (ply) stack[ply].best_move = (Move){0};)
   G(175, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(175, const u16 tt_hash_partial = tt_hash / tt_length;)
   if (G(176, tt_entry->partial_hash) == G(176, tt_hash_partial)) {
