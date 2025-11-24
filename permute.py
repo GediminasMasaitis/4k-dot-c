@@ -25,6 +25,8 @@ random_seed = None
 # Increase if you want more attempts to escape local minima.
 num_runs = 999
 
+num_initial_candidates = 1000
+
 # List of files needed for each worker's directory
 files_to_copy = [
     'Makefile',
@@ -629,8 +631,6 @@ def main():
 
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
     setup_workers()
-
-    num_initial_candidates = 100
 
     for run in range(1, num_runs + 1):
         # Base text for this run (before initial shuffles)
