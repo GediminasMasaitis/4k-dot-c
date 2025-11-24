@@ -11,11 +11,12 @@ import threading
 import random
 
 # Maximum number of parallel builds in each pass
-max_parallelism = 12
+max_parallelism = 22
 
-# When True, each pass begins with a random shuffle of all groups,
-# and members of each group also get shuffled within the group.
-enable_random_shuffle = False
+# When True, each run starts by doing many random shuffles
+# and picking the best as the starting point.
+# When False, we just build the base source once and start from that.
+enable_random_shuffle = True
 
 # Random seed for reproducibility. Set to an integer or None.
 random_seed = None
@@ -638,43 +639,59 @@ def main():
         smallest_initial = float('inf')
         smallest_content = None
 
-        # Build argument list for the process pool
-        tasks = []
-        for initial_index in range(num_initial_candidates):
-            if random_seed is not None:
-                seed = random_seed + run * 100000 + initial_index
-            else:
-                seed = random.randrange(1 << 30)
-            tasks.append((base_text, src_filename, seed, initial_index))
+        if enable_random_shuffle:
+            # === PARALLEL SHUFFLES ===
+            tasks = []
+            for initial_index in range(num_initial_candidates):
+                if random_seed is not None:
+                    seed = random_seed + run * 100000 + initial_index
+                else:
+                    seed = random.randrange(1 << 30)
+                tasks.append((base_text, src_filename, seed, initial_index))
 
-        # Parallel initial shuffles with multiple processes
-        with ProcessPoolExecutor(max_workers=max_parallelism) as execr:
-            futures = [execr.submit(build_initial_candidate, t) for t in tasks]
+            with ProcessPoolExecutor(max_workers=max_parallelism) as execr:
+                futures = [execr.submit(build_initial_candidate, t) for t in tasks]
 
-            pbar = tqdm(
-                total=len(futures),
-                desc=f'Run {run} initial shuffles',
-                unit='it',
-                position=0,
-                leave=True
-            )
-
-            for future in as_completed(futures):
-                size, content = future.result()
-                is_new_best = size < smallest_initial
-                if is_new_best:
-                    smallest_initial = size
-                    smallest_content = content
-
-                tag = "  NEW RUN BEST" if is_new_best else ""
-                tqdm.write(
-                    f"[Run {run}] initial candidate size: {size}B   "
-                    f"(best so far: {smallest_initial}B){tag}"
+                pbar = tqdm(
+                    total=len(futures),
+                    desc=f'Run {run} initial shuffles',
+                    unit='it',
+                    position=0,
+                    leave=True
                 )
 
-                pbar.update(1)
+                for future in as_completed(futures):
+                    size, content = future.result()
+                    is_new_best = size < smallest_initial
+                    if is_new_best:
+                        smallest_initial = size
+                        smallest_content = content
 
-            pbar.close()
+                    tag = "  NEW RUN BEST" if is_new_best else ""
+                    tqdm.write(
+                        f"[Run {run}] initial candidate size: {size}B   "
+                        f"(best so far: {smallest_initial}B){tag}"
+                    )
+
+                    pbar.update(1)
+
+                pbar.close()
+        else:
+            # === NO SHUFFLING: just build base once ===
+            print(f"Skipping initial shuffles for run {run} (enable_random_shuffle=False)")
+            workdir = f"worker_init_single_run_{run}"
+            if os.path.exists(workdir):
+                shutil.rmtree(workdir)
+            os.makedirs(workdir)
+            for fname in files_to_copy:
+                shutil.copy(fname, os.path.join(workdir, fname))
+            dest = os.path.join(workdir, src_filename)
+            with open(dest, "w") as f:
+                f.write(base_text)
+            size = run_make_and_get_bits(cwd=workdir)
+            smallest_initial = size
+            smallest_content = base_text
+            print(f"[Run {run}] initial size: {size}B")
 
         # Use the best initial candidate as the starting point for this run
         if smallest_content is not None:
@@ -716,7 +733,7 @@ def main():
     if global_best_src is not None:
         with open('global_best.c', 'w') as gf:
             gf.write(global_best_src)
-        print('Final best source in \"global_best.c\".')
+        print('Final best source in "global_best.c".')
     else:
         print('No improvements found; original source is best.')
 
