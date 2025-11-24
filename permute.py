@@ -651,18 +651,30 @@ def main():
         with ProcessPoolExecutor(max_workers=max_parallelism) as execr:
             futures = [execr.submit(build_initial_candidate, t) for t in tasks]
 
-            for future in tqdm(
-                as_completed(futures),
+            pbar = tqdm(
                 total=len(futures),
                 desc=f'Run {run} initial shuffles',
                 unit='it',
                 position=0,
                 leave=True
-            ):
+            )
+
+            for future in as_completed(futures):
                 size, content = future.result()
-                if size < smallest_initial:
+                is_new_best = size < smallest_initial
+                if is_new_best:
                     smallest_initial = size
                     smallest_content = content
+
+                tag = "  NEW RUN BEST" if is_new_best else ""
+                tqdm.write(
+                    f"[Run {run}] initial candidate size: {size}B   "
+                    f"(best so far: {smallest_initial}B){tag}"
+                )
+
+                pbar.update(1)
+
+            pbar.close()
 
         # Use the best initial candidate as the starting point for this run
         if smallest_content is not None:
@@ -704,7 +716,7 @@ def main():
     if global_best_src is not None:
         with open('global_best.c', 'w') as gf:
             gf.write(global_best_src)
-        print('Final best source in "global_best.c".')
+        print('Final best source in \"global_best.c\".')
     else:
         print('No improvements found; original source is best.')
 
