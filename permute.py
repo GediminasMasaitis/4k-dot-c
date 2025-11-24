@@ -6,7 +6,7 @@ import subprocess
 import os
 import shutil
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import threading
 import random
 
@@ -219,6 +219,7 @@ def read_file(path):
         return f.read()
 
 def setup_workers():
+    # These are used by stage_one and stage_static
     for wid in range(max_parallelism):
         workdir = f'worker_{wid}'
         if os.path.exists(workdir):
@@ -524,6 +525,96 @@ def stage_static(src_path, pass_best, stats_prefix):
     return any_improved
 
 # ---------------------------------------------
+# Initial random shuffle helpers (parallelized)
+# ---------------------------------------------
+def generate_random_shuffle_content(base_text, rng):
+    """
+    Given the base source text and a random.Random instance,
+    reproduce the initial G/H shuffle logic, returning the shuffled source.
+    """
+    global _uid_counter
+
+    _uid_counter = 0
+    root_nodes, _ = parse_nodes(base_text)
+
+    # Build initial groups map
+    groups = {}
+    collect_groups(root_nodes, groups)
+
+    # Identify correlated H keys
+    h_base_to_ids = {}
+    for identifier in groups:
+        if identifier.startswith('H_'):
+            parts_split = identifier.split('_', 2)
+            key = parts_split[1]
+            base = 'H_' + key
+            h_base_to_ids.setdefault(base, []).append(identifier)
+
+    # Shuffle H groups first
+    h_bases = list(h_base_to_ids.keys())
+    rng.shuffle(h_bases)
+    for base in h_bases:
+        groups = {}
+        collect_groups(root_nodes, groups)
+        ids = h_base_to_ids[base]
+        length = len(groups[ids[0]])
+        if length > 1:
+            perm = list(range(length))
+            rng.shuffle(perm)
+            content = render_tree(root_nodes, base, ids, tuple(perm), groups)
+            _uid_counter = 0
+            root_nodes, _ = parse_nodes(content)
+
+    # Shuffle G groups
+    groups = {}
+    collect_groups(root_nodes, groups)
+    g_identifiers = [identifier for identifier in groups if identifier.startswith('G_')]
+    rng.shuffle(g_identifiers)
+    for identifier in g_identifiers:
+        groups = {}
+        collect_groups(root_nodes, groups)
+        group_nodes = groups.get(identifier, [])
+        n = len(group_nodes)
+        if n > 1:
+            perm = list(range(n))
+            rng.shuffle(perm)
+            content = render_tree(root_nodes, identifier, None, tuple(perm), groups)
+            _uid_counter = 0
+            root_nodes, _ = parse_nodes(content)
+
+    # Final rendering of the shuffled tree
+    shuffled_content = render_tree(root_nodes)
+    return shuffled_content
+
+def build_initial_candidate(args):
+    """
+    Perform one random initial shuffle + build in a fresh directory.
+    Returns (size, shuffled_content).
+    Using a single arg tuple makes it easier to pickle for ProcessPoolExecutor.
+    """
+    base_text, src_path, seed, candidate_idx = args
+
+    rng = random.Random(seed)
+    shuffled_content = generate_random_shuffle_content(base_text, rng)
+
+    # Each candidate gets its own directory, avoids races
+    workdir = f'worker_init_{candidate_idx}'
+    if os.path.exists(workdir):
+        shutil.rmtree(workdir)
+    os.makedirs(workdir)
+
+    # Copy files we need into this worker dir
+    for fname in files_to_copy:
+        shutil.copy(fname, os.path.join(workdir, fname))
+
+    dest = os.path.join(workdir, src_path)
+    with open(dest, 'w') as f:
+        f.write(shuffled_content)
+
+    size = run_make_and_get_bits(cwd=workdir)
+    return size, shuffled_content
+
+# ---------------------------------------------
 # Main logic with multiple runs and repeated static toggles
 # ---------------------------------------------
 def main():
@@ -538,68 +629,55 @@ def main():
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
     setup_workers()
 
+    num_initial_candidates = 100
+
     for run in range(1, num_runs + 1):
-        text = read_file(src_filename)
-        _uid_counter = 0
-        root_nodes, _ = parse_nodes(text)
+        # Base text for this run (before initial shuffles)
+        base_text = read_file(src_filename)
 
-        if enable_random_shuffle:
-            # Initial shuffle of all groups' members before starting this run
-            groups = {}
-            collect_groups(root_nodes, groups)
+        smallest_initial = float('inf')
+        smallest_content = None
 
-            # Identify correlated H keys
-            h_base_to_ids = {}
-            for identifier in groups:
-                if identifier.startswith('H_'):
-                    parts_split = identifier.split('_', 2)
-                    key = parts_split[1]
-                    base = 'H_' + key
-                    h_base_to_ids.setdefault(base, []).append(identifier)
+        # Build argument list for the process pool
+        tasks = []
+        for initial_index in range(num_initial_candidates):
+            if random_seed is not None:
+                seed = random_seed + run * 100000 + initial_index
+            else:
+                seed = random.randrange(1 << 30)
+            tasks.append((base_text, src_filename, seed, initial_index))
 
-            # Shuffle H groups first
-            h_bases = list(h_base_to_ids.keys())
-            random.shuffle(h_bases)
-            for base in h_bases:
-                groups = {}
-                collect_groups(root_nodes, groups)
-                ids = h_base_to_ids[base]
-                length = len(groups[ids[0]])
-                if length > 1:
-                    perm = list(range(length))
-                    random.shuffle(perm)
-                    content = render_tree(root_nodes, base, ids, tuple(perm), groups)
-                    _uid_counter = 0
-                    root_nodes, _ = parse_nodes(content)
+        # Parallel initial shuffles with multiple processes
+        with ProcessPoolExecutor(max_workers=max_parallelism) as execr:
+            futures = [execr.submit(build_initial_candidate, t) for t in tasks]
 
-            # Shuffle G groups
-            groups = {}
-            collect_groups(root_nodes, groups)
-            g_identifiers = [identifier for identifier in groups if identifier.startswith('G_')]
-            random.shuffle(g_identifiers)
-            for identifier in g_identifiers:
-                groups = {}
-                collect_groups(root_nodes, groups)
-                group_nodes = groups.get(identifier, [])
-                n = len(group_nodes)
-                if n > 1:
-                    perm = list(range(n))
-                    random.shuffle(perm)
-                    content = render_tree(root_nodes, identifier, None, tuple(perm), groups)
-                    _uid_counter = 0
-                    root_nodes, _ = parse_nodes(content)
+            for future in tqdm(
+                as_completed(futures),
+                total=len(futures),
+                desc=f'Run {run} initial shuffles',
+                unit='it',
+                position=0,
+                leave=True
+            ):
+                size, content = future.result()
+                if size < smallest_initial:
+                    smallest_initial = size
+                    smallest_content = content
 
-            # After shuffling, write the shuffled content back to file
-            shuffled_content = render_tree(root_nodes)
+        # Use the best initial candidate as the starting point for this run
+        if smallest_content is not None:
             with open(src_filename, 'w') as f:
-                f.write(shuffled_content)
-            text = shuffled_content
+                f.write(smallest_content)
 
-        size, content = write_and_build_tree(root_nodes, src_filename)
-        pass_best = {'initial': size, 'best': size, 'best_content': content}
+        # Initialize pass_best correctly
+        pass_best = {
+            'initial': smallest_initial,
+            'best': smallest_initial,
+            'best_content': smallest_content
+        }
 
         print(f'\n=== Starting run {run}/{num_runs} ===')
-        print(f'Run {run} initial size: {size}B')
+        print(f'Run {run} initial best size: {smallest_initial}B')
         print(f'Global best so far: {global_best_size if global_best_size < float("inf") else "N/A"}B')
 
         iteration = 1
