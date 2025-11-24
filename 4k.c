@@ -1366,7 +1366,7 @@ i32 search(H(170, 1, const i32 beta), H(170, 1, SearchStack *restrict stack),
 
     // HISTORY PRUNING
     if (G(998, moves_evaluated) && G(998, move_score < G(999, -256) * G(999, depth))) {
-      continue;
+      break;
     }
 
     Position npos = *pos;
