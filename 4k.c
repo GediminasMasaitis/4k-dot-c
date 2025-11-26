@@ -1335,7 +1335,8 @@ i32 search(H(170, 1, const i32 beta), H(170, 1, SearchStack *restrict stack),
                         G(199, &stack[ply].moves[order_index]))
              << 30)) +
           G(170, // MOST VALUABLE VICTIM
-            G(200, stack[ply].moves[order_index].takes_piece) * G(200, 712)) +
+            G(200, initial_params.eg
+              .material[stack[ply].moves[order_index].takes_piece]) * G(200, 8)) +
           G(170, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
