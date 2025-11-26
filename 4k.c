@@ -1347,26 +1347,28 @@ i32 search(H(170, 1, const i32 beta), H(170, 1, SearchStack *restrict stack),
       }
     }
 
+    // MOVE SCORE PRUNING
+    if (G(998, moves_evaluated) &&
+        G(998, move_score < G(999, -256) * G(999, depth))) {
+      break;
+    }
+
     swapmoves(G(202, &stack[ply].moves[move_index]),
               G(202, &stack[ply].moves[best_index]));
 
-    G(
-        997, // MOVE SCORE PRUNING
-        if (G(998, moves_evaluated) &&
-            G(998, move_score < G(999, -256) * G(999, depth))) { break; })
-
-    G(
-        997, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(203, depth < 8) &&
-            G(203,
-              G(204, static_eval) + G(204, G(205, 142) * G(205, depth)) +
-                      G(204,
-                        initial_params.eg
-                            .material[stack[ply].moves[move_index].promo]) +
-                      G(204, initial_params.eg.material
-                                 [stack[ply].moves[move_index].takes_piece]) <
-                  alpha) &&
-            G(203, moves_evaluated) && G(203, !in_check)) { break; })
+    // FORWARD FUTILITY PRUNING / DELTA PRUNING
+    if (G(203, depth < 8) &&
+        G(203,
+          G(204, static_eval) + G(204, G(205, 142) * G(205, depth)) +
+                  G(204, initial_params.eg
+                             .material[stack[ply].moves[move_index].promo]) +
+                  G(204,
+                    initial_params.eg
+                        .material[stack[ply].moves[move_index].takes_piece]) <
+              alpha) &&
+        G(203, moves_evaluated) && G(203, !in_check)) {
+      break;
+    }
 
     Position npos = *pos;
 #ifdef FULL
