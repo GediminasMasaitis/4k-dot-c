@@ -1379,7 +1379,6 @@ i32 search(H(170, 1, const i32 beta), H(170, 1, SearchStack *restrict stack),
     // LATE MOVE REDUCTION
     i32 reduction = G(206, depth > 3) && G(206, move_score <= 0)
                         ? G(207, (move_score < -256)) +
-                              G(207, moves_evaluated / 10) +
                               G(207, (G(208, alpha) == G(208, beta - 1))) +
                               G(207, !improving)
                         : 0;
