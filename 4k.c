@@ -1272,7 +1272,7 @@ i32 search(H(170, 1, const i32 beta), H(170, 1, SearchStack *restrict stack),
   }
 
   if (G(184, !in_check) && G(184, G(185, alpha) == G(185, beta - 1))) {
-    if (G(186, !in_qsearch) && G(186, depth < 8)) {
+    if (G(186, depth < 8) && G(186, !in_qsearch)) {
 
       G(187, {
         // REVERSE FUTILITY PRUNING
@@ -1838,7 +1838,6 @@ S(1) void run() {
 #endif
         })
     else G(233, if (G(235, line[0]) == G(235, 'i')) { puts("readyok"); })
-    else G(233, if (G(236, line[0]) == G(236, 'q')) { exit_now(); })
     else G(233, if (G(237, line[0]) == G(237, 'p')) {
       G(238, pos_history_count = 0;)
         G(238, pos = start_pos;)
