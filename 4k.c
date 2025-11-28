@@ -416,11 +416,11 @@ G(
 
 G(
     55, [[nodiscard]] S(1)
-            i32 piece_on(H(65, 1, const Position *const restrict pos),
+            u8 piece_on(H(65, 1, const Position *const restrict pos),
                          H(65, 1, const i32 sq)) {
               assert(sq >= 0);
               assert(sq < 64);
-              for (i32 i = Pawn; i <= King; ++i) {
+              for (u8 i = Pawn; i <= King; ++i) {
                 if (G(66, pos->pieces[i]) & G(66, 1ull << sq)) {
                   return i;
                 }
@@ -474,7 +474,7 @@ G(
     })
 
 G(
-    67, [[nodiscard]] S(1) u64 get_mobility(H(80, 1, const i32 piece),
+    67, [[nodiscard]] S(1) u64 get_mobility(H(80, 1, const u8 piece),
                                             H(80, 1, const i32 sq),
                                             H(80, 1, const Position *pos)) {
       u64 moves = 0;
@@ -505,7 +505,7 @@ G(
     S(1) Move *generate_piece_moves(H(88, 1, const u64 to_mask),
                                     H(88, 1, Move *restrict movelist),
                                     H(88, 1, const Position *restrict pos)) {
-      for (i32 piece = Knight; piece <= King; piece++) {
+      for (u8 piece = Knight; piece <= King; piece++) {
         assert(piece == Knight || piece == Bishop || piece == Rook ||
                piece == Queen || piece == King);
         u64 copy = G(89, pos->colour[0]) & G(89, pos->pieces[piece]);
@@ -553,7 +553,7 @@ G(
 
       G(94, const u64 from = 1ull << move->from;)
       G(94, const u64 to = 1ull << move->to;)
-      G(95, const i32 piece = piece_on(H(65, 4, pos), H(65, 4, move->from));
+      G(95, const u8 piece = piece_on(H(65, 4, pos), H(65, 4, move->from));
         assert(piece != None);)
       G(95, const u64 mask = G(96, from) | G(96, to);)
 
@@ -1054,7 +1054,7 @@ S(1) i32 eval(Position *const restrict pos) {
     G(137,
       const u64 own_pawns = G(148, pos->pieces[Pawn]) & G(148, pos->colour[0]);)
 
-    for (i32 p = Pawn; p <= King; p++) {
+    for (u8 p = Pawn; p <= King; p++) {
       u64 copy = G(149, pos->colour[0]) & G(149, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
@@ -1653,7 +1653,7 @@ S(1) void display_pos(Position *const pos) {
     for (i32 file = 0; file < 8; file++) {
       i32 sq = rank * 8 + file;
       u64 bb = 1ULL << sq;
-      i32 piece = piece_on(H(65, 9, &npos), H(65, 9, sq));
+      u8 piece = piece_on(H(65, 9, &npos), H(65, 9, sq));
       if (bb & npos.colour[0]) {
         if (piece == Pawn) {
           putl("P");
