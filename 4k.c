@@ -269,21 +269,35 @@ G(
 
 G(
     19, [[nodiscard]] S(1)
-            u64 se(const u64 bb) { return G(20, east)(G(20, south)(bb)); })
+            u64 se(const u64 bb)
+{
+  return G(996, G(20, east)(G(20, south)(bb)));
+  return G(996, shift(H(13, 2, -7), H(13, 2, ~0x101010101010101ull),
+    H(13, 2, bb)));
+})
 
 G(
-    19, [[nodiscard]] S(1)
-            u64 ne(const u64 bb) { return G(21, east)(G(21, north)(bb)); })
+    19, [[nodiscard]] S(1) u64 ne(const u64 bb) {
+      return G(997, G(21, east)(G(21, north)(bb)));
+      return G(997, shift(H(13, 2, 9), H(13, 2, ~0x101010101010101ull),
+                          H(13, 2, bb)));
+    })
 
 G(
     19, [[nodiscard]] S(1) u64 nw(const u64 bb) {
-      return shift(H(13, 2, 7), H(13, 2, ~0x8080808080808080ull), H(13, 2, bb));
-      // return west(north(bb));
+      return G(999, shift(H(13, 2, 7), H(13, 2, ~0x8080808080808080ull),
+                          H(13, 2, bb)));
+      return G(999, G(998, west)(G(998, north)(bb)));
     })
 
 G(
     19, [[nodiscard]] S(1)
-            u64 sw(const u64 bb) { return G(22, west)(G(22, south)(bb)); })
+            u64 sw(const u64 bb)
+{
+  return G(995, G(22, west)(G(22, south)(bb)));
+  return G(995, shift(H(13, 2, -9), H(13, 2, ~0x8080808080808080ull),
+    H(13, 2, bb)));
+})
 
 G(23, S(0) u64 diag_mask[64];)
 
