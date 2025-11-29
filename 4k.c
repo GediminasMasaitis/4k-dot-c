@@ -230,7 +230,7 @@ G(10, [[nodiscard]] S(1) bool move_string_equal(G(11, const char* restrict lhs),
 
 G(10, [[nodiscard]] S(1)
   u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); })
-  G(10, [[nodiscard]] S(1) i32 lsb(u64 bb) { return __builtin_ctzll(bb); })
+  G(10, [[nodiscard]] S(1) u8 lsb(u64 bb) { return __builtin_ctzll(bb); })
 
   G(10, [[nodiscard]] S(1)
     u64 shift(H(13, 1, const i32 shift), H(13, 1, const u64 mask),
@@ -304,7 +304,7 @@ G(28, [[nodiscard]] S(0) u64 xattack(H(30, 1, const u64 dir_mask),
 G(35, [[nodiscard]] S(0) u64 bishop(H(36, 1, const u64 blockers),
   H(36, 1, const u64 bb)) {
   assert(count(bb) == 1);
-  const i32 sq = lsb(bb);
+  const u8 sq = lsb(bb);
   return G(37, xattack(H(30, 2, diag_mask[sq]), H(30, 2, bb),
     H(30, 2, blockers))) |
     G(37, xattack(H(30, 3, flip_bb(diag_mask[G(38, sq) ^ G(38, 56)])),
@@ -388,7 +388,7 @@ G(55, S(1) void move_str(H(62, 1, char* restrict str),
 
 G(55, [[nodiscard]] S(1)
   u8 piece_on(H(65, 1, const Position* const restrict pos),
-    H(65, 1, const i32 sq)) {
+    H(65, 1, const u8 sq)) {
   assert(sq >= 0);
   assert(sq < 64);
   for (u8 i = Pawn; i <= King; ++i) {
@@ -438,7 +438,7 @@ G(67, S(0) void flip_pos(Position* const restrict pos) {
 })
 
 G(67, [[nodiscard]] S(1) u64 get_mobility(H(80, 1, const Position* pos),
-  H(80, 1, const i32 sq),
+  H(80, 1, const u8 sq),
   H(80, 1, const u8 piece)) {
   u64 moves = 0;
   const u64 bb = 1ULL << sq;
@@ -714,7 +714,7 @@ static void get_fen(Position* restrict pos, char* restrict fen) {
   const char* p = fen;
 
   // PIECES
-  i32 sq = 56;
+  u8 sq = 56;
   while (*p && *p != ' ') {
     const char c = *p;
     if (c == '/') {
@@ -998,7 +998,7 @@ S(1) i32 eval(Position* const restrict pos) {
         for (u8 p = Pawn; p <= King; p++) {
           u64 copy = G(149, pos->colour[0]) & G(149, pos->pieces[p]);
           while (copy) {
-            const i32 sq = lsb(copy);
+            const u8 sq = lsb(copy);
             G(150, phase += initial_params.phases[p];)
               G(150, copy &= copy - 1;)
               G(150, const i32 file = G(151, sq) & G(151, 7);)
@@ -1579,7 +1579,7 @@ S(1) void display_pos(Position* const pos) {
   }
   for (i32 rank = 7; rank >= 0; rank--) {
     for (i32 file = 0; file < 8; file++) {
-      i32 sq = rank * 8 + file;
+      u8 sq = rank * 8 + file;
       u64 bb = 1ULL << sq;
       u8 piece = piece_on(H(65, 9, &npos), H(65, 9, sq));
       if (bb & npos.colour[0]) {
