@@ -1436,12 +1436,12 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
                  piece_on(H(65, 8, pos), H(65, 8, stack[ply].best_move.to)));
           G(216, tt_flag = Lower;)
           G(
-              216, if (stack[ply].best_move.takes_piece == None) {
-                stack[ply].killer = stack[ply].best_move;
-              })
-          G(
               216, if (!in_qsearch) {
                 const i32 bonus = depth * depth;
+                G(
+                    217, if (stack[ply].best_move.takes_piece == None) {
+                      stack[ply].killer = stack[ply].best_move;
+                    })
                 G(217, i32 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
