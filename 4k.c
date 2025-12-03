@@ -1316,15 +1316,38 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
   }
 
   G(199, i32 moves_evaluated = 0;)
-  G(199, i32 quiets_evaluated = 0;)
-  G(199,
-    stack[ply].num_moves = movegen(H(108, 3, pos), H(108, 3, stack[ply].moves),
-                                   H(108, 3, in_qsearch));)
-  G(199, u8 tt_flag = Upper;)
-  G(199, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(199,
-    stack[G(200, pos_history_count) + G(200, ply) + G(200, 2)].position_hash =
-        tt_hash;)
+    G(199, i32 quiets_evaluated = 0;)
+    G(199,
+      stack[ply].num_moves = movegen(H(108, 3, pos), H(108, 3, stack[ply].moves),
+        H(108, 3, in_qsearch));)
+    G(199, u8 tt_flag = Upper;)
+    G(199, i32 best_score = in_qsearch ? static_eval : -inf;)
+    G(199,
+      stack[G(200, pos_history_count) + G(200, ply) + G(200, 2)].position_hash =
+      tt_hash;)
+
+    i32 move_scores[max_moves];
+  for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
+    assert(
+      stack[ply].moves[move_index].takes_piece ==
+      piece_on(H(65, 7, pos), H(65, 7, stack[ply].moves[move_index].to)));
+    move_scores[move_index] =
+      G(175, // KILLER MOVE
+        G(202, move_equal(G(203, &stack[ply].moves[move_index]),
+          G(203, &stack[ply].killer))) *
+        G(202, 836)) +
+      G(175, // PREVIOUS BEST MOVE FIRST
+        (move_equal(G(204, &stack[ply].best_move),
+          G(204, &stack[ply].moves[move_index]))
+          << 30)) +
+      G(175, // MOST VALUABLE VICTIM
+        G(205, stack[ply].moves[move_index].takes_piece) * G(205, 712)) +
+      G(175, // HISTORY HEURISTIC
+        move_history[pos->flipped]
+        [stack[ply].moves[move_index].takes_piece]
+        [stack[ply].moves[move_index].from]
+        [stack[ply].moves[move_index].to]);
+  }
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1332,25 +1355,8 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     G(201, i32 best_index = 0;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
-      assert(
-          stack[ply].moves[order_index].takes_piece ==
-          piece_on(H(65, 7, pos), H(65, 7, stack[ply].moves[order_index].to)));
-      const i32 order_move_score =
-          G(175, // KILLER MOVE
-            G(202, move_equal(G(203, &stack[ply].moves[order_index]),
-                              G(203, &stack[ply].killer))) *
-                G(202, 836)) +
-          G(175, // PREVIOUS BEST MOVE FIRST
-            (move_equal(G(204, &stack[ply].best_move),
-                        G(204, &stack[ply].moves[order_index]))
-             << 30)) +
-          G(175, // MOST VALUABLE VICTIM
-            G(205, stack[ply].moves[order_index].takes_piece) * G(205, 712)) +
-          G(175, // HISTORY HEURISTIC
-            move_history[pos->flipped]
-                        [stack[ply].moves[order_index].takes_piece]
-                        [stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]);
+      const i32 order_move_score = move_scores[order_index];
+
       if (order_move_score > move_score) {
         G(206, best_index = order_index;)
         G(206, move_score = order_move_score;)
@@ -1359,6 +1365,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
     swapmoves(G(207, &stack[ply].moves[move_index]),
               G(207, &stack[ply].moves[best_index]));
+    swapu32(G(999, &move_scores[move_index]), G(999, &move_scores[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(208, depth < 8) &&
