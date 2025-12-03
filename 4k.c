@@ -296,6 +296,7 @@ G(
     })
 
 G(28, S(0) u64 diag_mask[64];)
+G(28, S(0) u64 antidiag_mask[64];)
 
 G(
     28, [[nodiscard]] S(1)
@@ -327,7 +328,7 @@ G(
       const i32 sq = lsb(bb);
       return G(37, xattack(H(30, 2, diag_mask[sq]), H(30, 2, bb),
                            H(30, 2, blockers))) |
-             G(37, xattack(H(30, 3, flip_bb(diag_mask[G(38, sq) ^ G(38, 56)])),
+             G(37, xattack(H(30, 3, antidiag_mask[sq]),
                            H(30, 3, bb), H(30, 3, blockers)));
     })
 
@@ -1504,6 +1505,7 @@ S(1) void init() {
                        H(29, 4, bb), H(29, 4, 9))) | // Northeast
             G(225, ray(H(29, 5, 0), H(29, 5, ~0x8080808080808080ull),
                        H(29, 5, bb), H(29, 5, -9))); // Southwest
+        antidiag_mask[sq ^ 56] = flip_bb(diag_mask[sq]);
       })
 
   G(
