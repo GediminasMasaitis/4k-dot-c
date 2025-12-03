@@ -1351,15 +1351,11 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(201, i32 move_score = ~0x1010101LL;)
     G(201, i32 best_index = 0;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
-      const i32 order_move_score = move_scores[order_index];
-
-      if (order_move_score > move_score) {
-        G(206, best_index = order_index;)
-        G(206, move_score = order_move_score;)
+      if (move_scores[order_index] > move_scores[move_index]) {
+        best_index = order_index;
       }
     }
 
@@ -1394,8 +1390,8 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(211, depth > 3) && G(211, move_score <= 0)
-                        ? G(212, (move_score < -256)) +
+    i32 reduction = G(211, depth > 3) && G(211, move_scores[move_index] <= 0)
+                        ? G(212, (move_scores[move_index] < -256)) +
                               G(212, moves_evaluated / 10) +
                               G(212, (G(213, alpha) == G(213, beta - 1))) +
                               G(212, !improving)
