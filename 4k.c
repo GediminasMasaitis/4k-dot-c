@@ -295,8 +295,7 @@ G(
                          H(13, 5, bb)));
     })
 
-G(28, S(0) u64 diag_mask[64];)
-G(28, S(0) u64 antidiag_mask[64];)
+G(28, S(0) u64 diag_mask[2][64];)
 
 G(
     28, [[nodiscard]] S(1)
@@ -325,11 +324,12 @@ G(
     35, [[nodiscard]] S(0) u64 bishop(H(36, 1, const u64 blockers),
                                       H(36, 1, const u64 bb)) {
       assert(count(bb) == 1);
-      const i32 sq = lsb(bb);
-      return G(37, xattack(H(30, 2, diag_mask[sq]), H(30, 2, bb),
-                           H(30, 2, blockers))) |
-             G(37, xattack(H(30, 3, antidiag_mask[sq]),
-                           H(30, 3, bb), H(30, 3, blockers)));
+      G(37, const i32 sq = lsb(bb);)
+      G(37, u64 attack = 0;)
+      for (i32 i = 0; i < 2; i++) {
+        attack |= xattack(H(30, 2, diag_mask[i][sq]), H(30, 2, bb), H(30, 2, blockers));
+      }
+      return attack;
     })
 
 G(
@@ -1500,12 +1500,12 @@ S(1) void init() {
       93, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
-        diag_mask[sq] =
+        diag_mask[0][sq] =
             G(225, ray(H(29, 4, 0), H(29, 4, ~0x101010101010101ull),
                        H(29, 4, bb), H(29, 4, 9))) | // Northeast
             G(225, ray(H(29, 5, 0), H(29, 5, ~0x8080808080808080ull),
                        H(29, 5, bb), H(29, 5, -9))); // Southwest
-        antidiag_mask[sq ^ 56] = flip_bb(diag_mask[sq]);
+        diag_mask[1][sq ^ 56] = flip_bb(diag_mask[0][sq]);
       })
 
   G(
