@@ -1234,7 +1234,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
-  bool in_qsearch = depth <= 0;
+  bool in_qsearch = depth <= 0 && !in_check;
   for (i32 i = G(177, ply) + G(177, pos_history_count);
        G(178, i > 0) && G(178, do_null); i -= 2) {
     if (G(179, tt_hash) == G(179, stack[i].position_hash)) {
