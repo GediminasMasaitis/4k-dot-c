@@ -141,7 +141,7 @@ typedef struct [[nodiscard]] {
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-[[nodiscard]] S(1) u64 get_time() {
+[[nodiscard]] S(0) u64 get_time() {
   timespec ts;
   ssize_t ret; // Unused
   asm volatile("syscall"
@@ -368,7 +368,7 @@ G(
 
 G(
     55,
-    S(1) void swapu32(G(56, u32 *const rhs), G(56, u32 *const lhs)) {
+    S(1) void swapu32(G(56, u32 *const lhs), G(56, u32 *const rhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -464,7 +464,7 @@ G(
 
       G(
           77, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(77, pos->flipped ^= 1;)
@@ -1033,15 +1033,16 @@ S(1) i32 eval(Position *const restrict pos) {
                king(G(138, pos->colour[1]) & G(138, pos->pieces[King]));)
 
     G(137,
+      const u64 own_pawns = G(148, pos->pieces[Pawn]) & G(148, pos->colour[0]);)
+    G(137,
       const u64 opp_pawns = G(139, pos->pieces[Pawn]) & G(139, pos->colour[1]);
       const u64 attacked_by_pawns =
           G(140, se(opp_pawns)) | G(140, sw(opp_pawns));
-      G(141,
-        const u64 no_passers = G(142, opp_pawns) | G(142, attacked_by_pawns);)
-          G(141, // PROTECTED PAWNS
-            score -=
-            G(143, eval_params.protected_pawn) *
-            G(143, count(G(144, opp_pawns) & G(144, attacked_by_pawns)));)
+      G(141, // PROTECTED PAWNS
+        score -= G(143, eval_params.protected_pawn) *
+                 G(143, count(G(144, opp_pawns) & G(144, attacked_by_pawns)));)
+          G(141, const u64 no_passers =
+                     G(142, opp_pawns) | G(142, attacked_by_pawns);)
               G(141, // PHALANX PAWNS
                 score -=
                 G(145, eval_params.phalanx_pawn) *
@@ -1051,8 +1052,6 @@ S(1) i32 eval(Position *const restrict pos) {
         if (count(G(147, pos->pieces[Bishop]) & G(147, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-    G(137,
-      const u64 own_pawns = G(148, pos->pieces[Pawn]) & G(148, pos->colour[0]);)
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(149, pos->colour[0]) & G(149, pos->pieces[p]);
@@ -1135,20 +1134,20 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
+  G(130, i32 num_moves;)
   G(130, i32 static_eval;)
   G(130, u64 position_hash;)
-  G(130, i32 num_moves;)
-  G(130, Move killer;)
   G(130, Move best_move;)
+  G(130, Move killer;)
   G(130, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(172, u8 flag;)
   G(172, u16 partial_hash;)
   G(172, i16 score;)
   G(172, Move move;)
   G(172, i8 depth;)
+  G(172, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1159,8 +1158,8 @@ enum { mate = 31744, inf = 32256 };
 
 G(173, S(1) i32 move_history[2][6][64][64];)
 G(173, S(1) TTEntry tt[tt_length];)
-G(173, S(0) u64 start_time;)
 G(173, S(0) u64 max_time;)
+G(173, S(0) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1217,9 +1216,9 @@ get_hash(const Position *const pos) {
 #endif
 
 S(1)
-i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
-           H(175, 1, i32 depth), H(175, 1, const bool do_null),
-           H(175, 1, i32 alpha),
+i32 search(H(175, 1, i32 depth), H(175, 1, i32 alpha),
+           H(175, 1, const bool do_null), H(175, 1, const i32 beta),
+           H(175, 1, SearchStack *restrict stack),
 #ifdef FULL
            u64 *nodes,
 #endif
@@ -1282,7 +1281,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
   }
 
   if (G(189, !in_check) && G(189, G(190, alpha) == G(190, beta - 1))) {
-    if (G(191, depth < 8) && G(191, !in_qsearch)) {
+    if (G(191, !in_qsearch) && G(191, depth < 8)) {
 
       G(192, {
         // REVERSE FUTILITY PRUNING
@@ -1302,9 +1301,8 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
       G(197, flip_pos(&npos);)
       G(197, npos.ep = 0;)
       const i32 score = -search(
-          H(175, 2, -alpha), H(175, 2, stack),
-          H(175, 2, depth - G(198, 4) - G(198, depth / 4)), H(175, 2, false),
-          H(175, 2, -beta),
+          H(175, 2, depth - G(198, 4) - G(198, depth / 4)), H(175, 2, -beta),
+          H(175, 2, false), H(175, 2, -alpha), H(175, 2, stack),
 #ifdef FULL
           nodes,
 #endif
@@ -1328,8 +1326,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(201, i32 move_score = ~0x1010101LL;)
-    G(201, i32 best_index = 0;)
+    i32 move_score = ~0x1010101LL;
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
@@ -1340,39 +1337,41 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
             G(202, move_equal(G(203, &stack[ply].moves[order_index]),
                               G(203, &stack[ply].killer))) *
                 G(202, 836)) +
-          G(175, // PREVIOUS BEST MOVE FIRST
-            (move_equal(G(204, &stack[ply].best_move),
-                        G(204, &stack[ply].moves[order_index]))
-             << 30)) +
           G(175, // MOST VALUABLE VICTIM
             G(205, stack[ply].moves[order_index].takes_piece) * G(205, 712)) +
           G(175, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
                         [stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]);
+                        [stack[ply].moves[order_index].to]) +
+          G(175, // PREVIOUS BEST MOVE FIRST
+            (move_equal(G(204, &stack[ply].best_move),
+                        G(204, &stack[ply].moves[order_index]))
+             << 30));
       if (order_move_score > move_score) {
-        G(206, best_index = order_index;)
+        G(206, swapmoves(G(207, &stack[ply].moves[order_index]),
+                         G(207, &stack[ply].moves[move_index]));)
         G(206, move_score = order_move_score;)
       }
     }
 
-    swapmoves(G(207, &stack[ply].moves[move_index]),
-              G(207, &stack[ply].moves[best_index]));
+    G(
+        997, // FORWARD FUTILITY PRUNING / DELTA PRUNING
+        if (G(208, depth < 8) &&
+            G(208,
+              G(209, G(210, 142) * G(210, depth)) + G(209, static_eval) +
+                      G(209, initial_params.eg.material
+                                 [stack[ply].moves[move_index].takes_piece]) +
+                      G(209,
+                        initial_params.eg
+                            .material[stack[ply].moves[move_index].promo]) <
+                  alpha) &&
+            G(208, moves_evaluated) && G(208, !in_check)) { break; })
 
-    // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(208, depth < 8) &&
-        G(208,
-          G(209, static_eval) + G(209, G(210, 142) * G(210, depth)) +
-                  G(209,
-                    initial_params.eg
-                        .material[stack[ply].moves[move_index].takes_piece]) +
-                  G(209, initial_params.eg
-                             .material[stack[ply].moves[move_index].promo]) <
-              alpha) &&
-        G(208, !in_check) && G(208, moves_evaluated)) {
-      break;
-    }
+    G(
+        997, // MOVE SCORE PRUNING
+        if (G(998, moves_evaluated) &&
+            G(998, move_score < G(999, -256) * G(999, depth))) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1388,22 +1387,21 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
     // LATE MOVE REDUCTION
     i32 reduction = G(211, depth > 3) && G(211, move_score <= 0)
-                        ? G(212, (move_score < -256)) +
-                              G(212, moves_evaluated / 10) +
+                        ? G(212, moves_evaluated / 10) +
+                              G(212, (move_score < -256)) +
                               G(212, (G(213, alpha) == G(213, beta - 1))) +
                               G(212, !improving)
                         : 0;
 
     i32 score;
     while (true) {
-      score = -search(H(175, 3, -alpha), H(175, 3, stack),
-                      H(175, 3, depth - G(214, 1) - G(214, reduction)),
-                      H(175, 3, true), H(175, 3, low),
+      score = -search(
+          H(175, 3, depth - G(214, 1) - G(214, reduction)), H(175, 3, low),
+          H(175, 3, true), H(175, 3, -alpha), H(175, 3, stack),
 #ifdef FULL
-                      nodes,
+          nodes,
 #endif
-                      H(176, 3, &npos), H(176, 3, pos_history_count),
-                      H(176, 3, ply + 1));
+          H(176, 3, &npos), H(176, 3, pos_history_count), H(176, 3, ply + 1));
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
@@ -1471,9 +1469,10 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     }
 
     // LATE MOVE PRUNING
-    if (G(220, !in_check) && G(220, G(221, alpha) == G(221, beta - 1)) &&
+    if (G(220, G(221, alpha) == G(221, beta - 1)) &&
         G(220, quiets_evaluated > (G(222, 1) + G(222, depth * depth)) >>
-                   !improving)) {
+                   !improving) &&
+        G(220, !in_check)) {
       break;
     }
   }
@@ -1613,11 +1612,11 @@ void iteratively_deepen(
     G(231, i32 window = 15;)
     G(231, size_t elapsed;)
     while (true) {
-      G(232, const i32 beta = G(233, score) + G(233, window);)
       G(232, const i32 alpha = score - window;)
+      G(232, const i32 beta = G(233, score) + G(233, window);)
       score =
-          search(H(175, 4, beta), H(175, 4, stack), H(175, 4, depth),
-                 H(175, 4, false), H(175, 4, alpha),
+          search(H(175, 4, depth), H(175, 4, alpha), H(175, 4, false),
+                 H(175, 4, beta), H(175, 4, stack),
 #ifdef FULL
                  nodes,
 #endif
@@ -1628,7 +1627,7 @@ void iteratively_deepen(
       elapsed = get_time() - start_time;
       G(234, window *= 2;)
       G(
-          234, if (G(235, (G(236, score > alpha) && G(236, score < beta))) ||
+          234, if (G(235, (G(236, score < beta) && G(236, score > alpha))) ||
                    G(235, elapsed > max_time)) { break; })
     }
 
@@ -1842,9 +1841,7 @@ S(1) void run() {
         H(229, 5, pos_history_count));
 #endif
         })
-    else G(238, if (G(240, line[0]) == G(240, 'i')) { puts("readyok"); })
-      else G(238, if (G(241, line[0]) == G(241, 'q')) { exit_now(); })
-      else G(238, if (G(242, line[0]) == G(242, 'p')) {
+    else G(238, if (G(242, line[0]) == G(242, 'p')) {
       G(243, pos_history_count = 0;)
         G(243, pos = start_pos;)
         while (true) {
@@ -1880,6 +1877,8 @@ S(1) void run() {
           }
         }
     })
+    else G(238, if (G(241, line[0]) == G(241, 'q')) { exit_now(); })
+    else G(238, if (G(240, line[0]) == G(240, 'i')) { puts("readyok"); })
   }
 }
 
