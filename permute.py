@@ -201,14 +201,20 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
 # ---------------------------------------------
 
 def run_make_and_get_bits(cwd=None):
-    proc = subprocess.run(
-        ['make', 'NOSTDLIB=true', 'MINI=true', 'compress'],
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        check=True
-    )
+    try:
+        proc = subprocess.run(
+            ['make', 'NOSTDLIB=true', 'MINI=true', 'compress'],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        print("Make command failed with output:")
+        print(e.output)
+        print("cwd:", cwd)
+        raise
     m = re.search(r'Compressed bits:\s*(\d+)\b', proc.stdout)
     if not m:
         raise RuntimeError("Failed to parse 'Compressed bits' from make output")
