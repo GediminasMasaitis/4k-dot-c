@@ -1328,8 +1328,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(201, i32 move_score = ~0x1010101LL;)
-    G(201, i32 best_index = 0;)
+    i32 move_score = ~0x1010101LL;
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
@@ -1352,13 +1351,12 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
                         [stack[ply].moves[order_index].from]
                         [stack[ply].moves[order_index].to]);
       if (order_move_score > move_score) {
-        G(206, best_index = order_index;)
+        G(206, swapmoves(G(207, &stack[ply].moves[move_index]), G(207, &stack[ply].moves[order_index]));)
         G(206, move_score = order_move_score;)
       }
     }
 
-    swapmoves(G(207, &stack[ply].moves[move_index]),
-              G(207, &stack[ply].moves[best_index]));
+
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(208, depth < 8) &&
