@@ -1329,8 +1329,8 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
     G(201, i32 move_score = ~0x1010101LL;)
-    G(201, i32 best_index = 0;)
-    for (i32 order_index = move_index; order_index < stack[ply].num_moves;
+    G(201, i32 best_index = move_index;)
+    for (i32 order_index = move_index+1; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
           stack[ply].moves[order_index].takes_piece ==
