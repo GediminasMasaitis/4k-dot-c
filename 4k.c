@@ -884,7 +884,7 @@ G(133, S(0) EvalParamsMerged eval_params;)
 
 G(133,
   __attribute__((aligned(8))) S(1)
-      const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4},
+      EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4},
                                                 .mg = {.material = {0, 65, 270,
                                                                     273, 362,
                                                                     780},
@@ -1216,6 +1216,41 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
+#define TUNE_PARAMETER(name, initial, min, max, step)                          \
+  int name = initial;                                                          \
+  int name##_min = min;                                                        \
+  int name##_max = max;                                                        \
+  float name##_step = step;
+
+#define PRINT_TUNE_OPTION(name)                                                \
+  printf("option name " #name " type spin default %i min -32768 max 32767\n",  \
+         name)
+
+#define READ_TUNE_OPTION(name)                                                 \
+  else if (!strcmp(line, #name)) {                                             \
+    getl(line);                                                                \
+    getl(line);                                                                \
+    name = atoi(line);                                                         \
+    init();                                                                    \
+  }
+
+#define PRINT_TUNE_INPUT(name)                                                 \
+  printf(#name ", int, %i, %i, %i, %f, 0.002\n", name, name##_min, name##_max, \
+         name##_step)
+
+TUNE_PARAMETER(tempo_mg, 17, 0, 32, 1)
+TUNE_PARAMETER(tempo_eg, 7, 0, 32, 1)
+TUNE_PARAMETER(rfp_depth, 8, 6, 11, 0.5)
+TUNE_PARAMETER(rfp_margin, 56, 32, 96, 3)
+TUNE_PARAMETER(razor_margin, 122, 64, 256, 9)
+TUNE_PARAMETER(mvv_weight, 712, 512, 1024, 32)
+TUNE_PARAMETER(killer_weight, 836, 512, 1024, 32)
+TUNE_PARAMETER(lmr_move_divisor, 10, 8, 14, 0.5)
+TUNE_PARAMETER(lmr_history_divisor, -256, -768, 0, 32)
+TUNE_PARAMETER(ffp_depth, 8, 5, 12, 0.5)
+TUNE_PARAMETER(ffp_margin, 142, 72, 192, 6)
+TUNE_PARAMETER(aw_margin, 15, 10, 36, 1)
+
 S(1)
 i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
            H(175, 1, i32 depth), H(175, 1, const bool do_null),
@@ -1282,18 +1317,18 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
   }
 
   if (G(189, !in_check) && G(189, G(190, alpha) == G(190, beta - 1))) {
-    if (G(191, depth < 8) && G(191, !in_qsearch)) {
+    if (G(191, depth < rfp_depth) && G(191, !in_qsearch)) {
 
       G(192, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(193, 56) * G(193, (depth - improving)) >= beta) {
+        if (static_eval - G(193, rfp_margin) * G(193, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(192, // RAZORING
         in_qsearch =
-            G(194, static_eval) + G(194, G(195, 122) * G(195, depth)) <= alpha;)
+            G(194, static_eval) + G(194, G(195, razor_margin) * G(195, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1339,13 +1374,13 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
           G(175, // KILLER MOVE
             G(202, move_equal(G(203, &stack[ply].moves[order_index]),
                               G(203, &stack[ply].killer))) *
-                G(202, 836)) +
+                G(202, killer_weight)) +
           G(175, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(204, &stack[ply].best_move),
                         G(204, &stack[ply].moves[order_index]))
              << 30)) +
           G(175, // MOST VALUABLE VICTIM
-            G(205, stack[ply].moves[order_index].takes_piece) * G(205, 712)) +
+            G(205, stack[ply].moves[order_index].takes_piece) * G(205, mvv_weight)) +
           G(175, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1361,9 +1396,9 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
               G(207, &stack[ply].moves[best_index]));
 
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
-    if (G(208, depth < 8) &&
+    if (G(208, depth < ffp_depth) &&
         G(208,
-          G(209, static_eval) + G(209, G(210, 142) * G(210, depth)) +
+          G(209, static_eval) + G(209, G(210, ffp_margin) * G(210, depth)) +
                   G(209,
                     initial_params.eg
                         .material[stack[ply].moves[move_index].takes_piece]) +
@@ -1388,8 +1423,8 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
     // LATE MOVE REDUCTION
     i32 reduction = G(211, depth > 3) && G(211, move_score <= 0)
-                        ? G(212, (move_score < -256)) +
-                              G(212, moves_evaluated / 10) +
+                        ? G(212, (move_score < lmr_history_divisor)) +
+                              G(212, moves_evaluated / lmr_move_divisor) +
                               G(212, (G(213, alpha) == G(213, beta - 1))) +
                               G(212, !improving)
                         : 0;
@@ -1493,6 +1528,8 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 }
 
 S(1) void init() {
+  initial_params.mg.tempo = (i8)tempo_mg;
+  initial_params.eg.tempo = (i8)tempo_eg;
   G(93, // CLEAR HISTORY
     __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
@@ -1788,7 +1825,50 @@ S(1) void run() {
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
       puts("option name Threads type spin default 1 min 1 max 1");
+      PRINT_TUNE_OPTION(tempo_mg);
+      PRINT_TUNE_OPTION(tempo_eg);
+      PRINT_TUNE_OPTION(rfp_depth);
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(lmr_move_divisor);
+      PRINT_TUNE_OPTION(lmr_history_divisor);
+      PRINT_TUNE_OPTION(ffp_depth);
+      PRINT_TUNE_OPTION(ffp_margin);
+      PRINT_TUNE_OPTION(aw_margin);
       puts("uciok");
+    } else if (!strcmp(line, "setoption")) {
+      getl(line);
+      getl(line);
+      if (false) {}
+      READ_TUNE_OPTION(tempo_mg)
+        READ_TUNE_OPTION(tempo_eg)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_depth)
+        READ_TUNE_OPTION(rfp_margin)
+        READ_TUNE_OPTION(razor_margin)
+        READ_TUNE_OPTION(mvv_weight)
+        READ_TUNE_OPTION(killer_weight)
+        READ_TUNE_OPTION(lmr_move_divisor)
+        READ_TUNE_OPTION(lmr_history_divisor)
+        READ_TUNE_OPTION(ffp_depth)
+        READ_TUNE_OPTION(ffp_margin)
+        READ_TUNE_OPTION(aw_margin)
+    }
+    else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(tempo_mg);
+      PRINT_TUNE_INPUT(tempo_eg);
+      PRINT_TUNE_INPUT(rfp_depth);
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(lmr_move_divisor);
+      PRINT_TUNE_INPUT(lmr_history_divisor);
+      PRINT_TUNE_INPUT(ffp_depth);
+      PRINT_TUNE_INPUT(ffp_margin);
+      PRINT_TUNE_INPUT(aw_margin);
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
       __builtin_memset(move_history, 0, sizeof(move_history));
