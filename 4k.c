@@ -1224,7 +1224,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
            u64 *nodes,
 #endif
            H(176, 1, Position *const restrict pos),
-           H(176, 1, const i32 pos_history_count), H(176, 1, const i32 ply)) {
+           H(176, 1, const i32 pos_history_count), H(176, 1, const i32 ply), const bool in_pv) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1252,7 +1252,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     // TT PRUNING
     if (G(182, G(183, tt_entry->flag) != G(183, tt_entry->score <= alpha)) &&
         G(182, tt_entry->depth >= depth) &&
-        G(182, G(184, alpha) == G(184, beta - 1))) {
+        G(182, !in_pv)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1281,7 +1281,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     alpha = static_eval;
   }
 
-  if (G(189, !in_check) && G(189, G(190, alpha) == G(190, beta - 1))) {
+  if (G(189, !in_check) && G(189, !in_pv)) {
     if (G(191, depth < 8) && G(191, !in_qsearch)) {
 
       G(192, {
@@ -1308,7 +1308,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 #ifdef FULL
           nodes,
 #endif
-          H(176, 2, &npos), H(176, 2, pos_history_count), H(176, 2, ply + 1));
+          H(176, 2, &npos), H(176, 2, pos_history_count), H(176, 2, ply + 1), in_pv);
       if (score >= beta) {
         return score;
       }
@@ -1383,14 +1383,22 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     }
 
     // PRINCIPAL VARIATION SEARCH
-    i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
+    i32 low;
+    i32 new_pv;
+    if (moves_evaluated == 0) {
+      low = -beta;
+      new_pv = in_pv;
+    } else {
+      low = -alpha - 1;
+      new_pv = false;
+    }
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
     i32 reduction = G(211, depth > 3) && G(211, move_score <= 0)
                         ? G(212, (move_score < -256)) +
                               G(212, moves_evaluated / 10) +
-                              G(212, (G(213, alpha) == G(213, beta - 1))) +
+                              G(212, !in_pv) +
                               G(212, !improving)
                         : 0;
 
@@ -1403,7 +1411,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
                       nodes,
 #endif
                       H(176, 3, &npos), H(176, 3, pos_history_count),
-                      H(176, 3, ply + 1));
+                      H(176, 3, ply + 1), new_pv);
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
@@ -1418,6 +1426,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
         if (low != -beta) {
           low = -beta;
+          new_pv = in_pv;
           continue;
         }
       }
@@ -1471,7 +1480,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     }
 
     // LATE MOVE PRUNING
-    if (G(220, !in_check) && G(220, G(221, alpha) == G(221, beta - 1)) &&
+    if (G(220, !in_check) && G(220, !in_pv) &&
         G(220, quiets_evaluated > (G(222, 1) + G(222, depth * depth)) >>
                    !improving)) {
       break;
@@ -1621,7 +1630,7 @@ void iteratively_deepen(
 #ifdef FULL
                  nodes,
 #endif
-                 H(176, 4, pos), H(176, 4, pos_history_count), H(176, 4, 0));
+                 H(176, 4, pos), H(176, 4, pos_history_count), H(176, 4, 0), true);
 #ifdef FULL
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
