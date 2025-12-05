@@ -464,7 +464,7 @@ G(
 
       G(
           77, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(77, pos->flipped ^= 1;)
@@ -876,8 +876,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i8 phases[6];
-  G(132, EvalParams mg;)
   G(132, EvalParams eg;)
+  G(132, EvalParams mg;)
 } EvalParamsInitial;
 
 G(133, S(0) EvalParamsMerged eval_params;)
@@ -1843,8 +1843,8 @@ S(1) void run() {
 #endif
         })
     else G(238, if (G(240, line[0]) == G(240, 'i')) { puts("readyok"); })
-      else G(238, if (G(241, line[0]) == G(241, 'q')) { exit_now(); })
-      else G(238, if (G(242, line[0]) == G(242, 'p')) {
+    else G(238, if (G(241, line[0]) == G(241, 'q')) { exit_now(); })
+    else G(238, if (G(242, line[0]) == G(242, 'p')) {
       G(243, pos_history_count = 0;)
         G(243, pos = start_pos;)
         while (true) {
