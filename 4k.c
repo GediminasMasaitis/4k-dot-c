@@ -1234,7 +1234,6 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
-  bool in_qsearch = depth <= 0;
   for (i32 i = G(177, ply) + G(177, pos_history_count);
        G(178, i > 0) && G(178, do_null); i -= 2) {
     if (G(179, tt_hash) == G(179, stack[i].position_hash)) {
@@ -1274,7 +1273,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
   }
 
   // QUIESCENCE
-  if (G(188, static_eval > alpha) && G(188, in_qsearch)) {
+  if (G(188, static_eval > alpha) && G(188, depth <= 0)) {
     if (static_eval >= beta) {
       return static_eval;
     }
@@ -1282,7 +1281,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
   }
 
   if (G(189, !in_check) && G(189, G(190, alpha) == G(190, beta - 1))) {
-    if (G(191, depth < 8) && G(191, !in_qsearch)) {
+    if (G(191, depth < 8) && G(191, depth > 0)) {
 
       G(192, {
         // REVERSE FUTILITY PRUNING
@@ -1291,9 +1290,10 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
         }
       })
 
-      G(192, // RAZORING
-        in_qsearch =
-            G(194, static_eval) + G(194, G(195, 122) * G(195, depth)) <= alpha;)
+      G(
+          192, // RAZORING
+          if (G(194, static_eval) + G(194, G(195, 122) * G(195, depth)) <=
+              alpha) { depth = 0; })
     }
 
     // NULL MOVE PRUNING
@@ -1319,9 +1319,9 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
   G(199, i32 quiets_evaluated = 0;)
   G(199,
     stack[ply].num_moves = movegen(H(108, 3, pos), H(108, 3, stack[ply].moves),
-                                   H(108, 3, in_qsearch));)
+                                   H(108, 3, depth <= 0));)
   G(199, u8 tt_flag = Upper;)
-  G(199, i32 best_score = in_qsearch ? static_eval : -inf;)
+  G(199, i32 best_score = depth <= 0 ? static_eval : -inf;)
   G(199,
     stack[G(200, pos_history_count) + G(200, ply) + G(200, 2)].position_hash =
         tt_hash;)
@@ -1440,7 +1440,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
                 stack[ply].killer = stack[ply].best_move;
               })
           G(
-              216, if (!in_qsearch) {
+              216, if (depth > 0) {
                 const i32 bonus = depth * depth;
                 G(217, i32 *const this_hist =
                            &move_history[pos->flipped]
