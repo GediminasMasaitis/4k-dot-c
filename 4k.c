@@ -1297,7 +1297,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     }
 
     // NULL MOVE PRUNING
-    if (G(196, depth > 2) && G(196, static_eval >= beta) && G(196, do_null)) {
+    if (G(196, depth > 2) && G(196, static_eval >= beta) && G(196, do_null) && G(196, G(999, pos->colour[0]) & G(999, ~pos->pieces[Pawn]) & G(999, ~pos->pieces[King]))) {
       Position npos = *pos;
       G(197, flip_pos(&npos);)
       G(197, npos.ep = 0;)
