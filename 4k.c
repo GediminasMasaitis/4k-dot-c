@@ -58,14 +58,14 @@ G(
     })
 
 G(
-    3, // Non-standard, gets but a word instead of a line
+    1, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
         int result;
         asm volatile("syscall"
-          : "=a"(result)
-          : "0"(0), "D"(stdin), "S"((ssize_t)string), "d"(1)
-          : "rcx", "r11", "memory");
+                     : "=a"(result)
+                     : "0"(0), "D"(stdin), "S"((ssize_t)string), "d"(1)
+                     : "rcx", "r11", "memory");
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -85,15 +85,16 @@ G(
     })
 
 G(
-    3,
+    1,
     S(1) void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
         int result;
         asm volatile("syscall"
-          : "=a"(result)
-          : "0"(1), "D"(stdout), "S"((ssize_t)(&string[length])), "d"(1)
-          : "rcx", "r11", "memory");
+                     : "=a"(result)
+                     : "0"(1), "D"(stdout), "S"((ssize_t)(&string[length])),
+                       "d"(1)
+                     : "rcx", "r11", "memory");
         length++;
       }
     }
@@ -116,7 +117,7 @@ G(
 }
 
 G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+    1, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
       // Will break if reads a value over 4294967295
       // This works out to be just over 49 days
 
@@ -131,20 +132,24 @@ G(
       }
     })
 
-typedef struct [[nodiscard]] {
-  ssize_t tv_sec;  // seconds
-  ssize_t tv_nsec; // nanoseconds
-} timespec;
+G(
+    1,
 
-[[nodiscard]] S(1) u64 get_time() {
-  timespec ts;
-  ssize_t ret; // Unused
-  asm volatile("syscall"
-               : "=a"(ret)
-               : "0"(228), "D"(1), "S"(&ts)
-               : "rcx", "r11", "memory");
-  return G(5, ts.tv_nsec) + G(5, G(6, ts.tv_sec) * G(6, 1000 * 1000 * 1000ULL));
-}
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
+
+    [[nodiscard]] S(1) u64 get_time() {
+      timespec ts;
+      ssize_t ret; // Unused
+      asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(5, ts.tv_nsec) +
+             G(5, G(6, ts.tv_sec) * G(6, 1000 * 1000 * 1000ULL));
+    })
 
 #else
 #include <stdbool.h>
