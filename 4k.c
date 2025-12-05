@@ -1365,9 +1365,9 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
         G(208,
           G(209, static_eval) + G(209, G(210, 142) * G(210, depth)) +
                   G(209,
-                    initial_params.eg
+                    initial_params.mg
                         .material[stack[ply].moves[move_index].takes_piece]) +
-                  G(209, initial_params.eg
+                  G(209, initial_params.mg
                              .material[stack[ply].moves[move_index].promo]) <
               alpha) &&
         G(208, !in_check) && G(208, moves_evaluated)) {
