@@ -1070,18 +1070,6 @@ S(1) i32 eval(Position *const restrict pos) {
               score += eval_params.open_files[p - 1];
             })
 
-        G(
-            106, // PASSED PAWNS
-            if (G(153, p == Pawn) &&
-                G(153, !(G(154, (0x101010101010101ULL << sq)) &
-                         G(154, no_passers)))) {
-              G(
-                  155, if (G(156, north(1ULL << sq)) & G(156, pos->colour[1])) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
-                  })
-
-              G(155, score += eval_params.passed_pawns[rank - 1];)
-            })
         G(106, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score +=
           eval_params
@@ -1096,7 +1084,17 @@ S(1) i32 eval(Position *const restrict pos) {
           score += eval_params.material[p];)
 
         G(
-            106, if (p > Pawn) {
+            106, // PASSED PAWNS
+            if (G(153, p == Pawn) &&
+                G(153, !(G(154, (0x101010101010101ULL << sq)) &
+                         G(154, no_passers)))) {
+              G(
+                  155, if (G(156, north(1ULL << sq)) & G(156, pos->colour[1])) {
+                    score += eval_params.passed_blocked_pawns[rank - 1];
+                  })
+
+              G(155, score += eval_params.passed_pawns[rank - 1];)
+            } else {
               G(
                   161, // PIECES ATTACKED BY PAWNS
                   if (G(162, 1ULL << sq) & G(162, no_passers)) {
