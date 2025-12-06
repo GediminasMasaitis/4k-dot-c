@@ -1361,6 +1361,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     swapmoves(G(207, &stack[ply].moves[move_index]),
               G(207, &stack[ply].moves[best_index]));
 
+    G(997,
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(208, depth < 8) &&
         G(208,
@@ -1373,12 +1374,13 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
               alpha) &&
         G(208, !in_check) && G(208, moves_evaluated)) {
       break;
-    }
+    })
 
-    // HISTORY PRUNING
+    G(997, 
+    // MOVE SCORE PRUNING
     if (G(998, moves_evaluated) && G(998, move_score < G(999, -256) * G(999, depth))) {
       break;
-    }
+    })
 
     Position npos = *pos;
 #ifdef FULL
