@@ -303,7 +303,7 @@ G(
                     H(29, 1, const u64 bb), H(29, 1, const i32 shift_by)) {
               u64 result =
                   shift(H(13, 6, shift_by), H(13, 6, mask), H(13, 6, bb));
-              for (i32 i = 0; i < 6; i++) {
+              for (i32 i = 5; i >= 0; i--) {
                 result |= shift(H(13, 7, shift_by), H(13, 7, mask),
                                 H(13, 7, result & ~blockers));
               }
@@ -404,11 +404,12 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
+      G(64,
       // Hack to save bytes, technically UB but works on GCC 14.2
-      for (i32 i = 0; i < 2; i++) {
+      for (i32 i = 1; i >= 0; i--) {
         G(63, str[i * 2] = 'a' + (&move->from)[i] % 8;)
         G(63, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
-      }
+      })
 
       G(64, str[5] = '\0';)
       G(64, str[4] = "\0\0nbrq"[move->promo];)
