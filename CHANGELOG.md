@@ -8146,3 +8146,11 @@ https://gedas.pythonanywhere.com/test/1456/
 MD5: 7e57991d4f56592a69fff2b7fd13dd64
 
 Phase UB size save
+
+### 5.15
+
+64 bit: 4078 bytes (-1)
+
+MD5: 3ca0af41be71884df02512a145ceed55
+
+Reverse loop size save
