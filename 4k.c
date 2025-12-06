@@ -62,9 +62,10 @@ G(
     S(1) void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
+        int ret;
         asm volatile("syscall"
-                     :
-                     : "a"(1), "D"(stdout), "S"((ssize_t)(&string[length])),
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"((ssize_t)(&string[length])),
                        "d"(1)
                      : "rcx", "r11", "memory");
         length++;
@@ -85,9 +86,10 @@ G(
 
     [[nodiscard]] S(1) u64 get_time() {
       timespec ts;
+      int ret;
       asm volatile("syscall"
-                   :
-                   : "a"(228), "D"(1), "S"(&ts)
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
                    : "rcx", "r11", "memory");
       return G(5, ts.tv_nsec) +
              G(5, G(6, ts.tv_sec) * G(6, 1000 * 1000 * 1000ULL));
