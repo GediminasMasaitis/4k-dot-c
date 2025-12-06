@@ -303,7 +303,7 @@ G(
                     H(29, 1, const u64 bb), H(29, 1, const i32 shift_by)) {
               u64 result =
                   shift(H(13, 6, shift_by), H(13, 6, mask), H(13, 6, bb));
-              for (i32 i = 0; i < 6; i++) {
+              for (i32 i = 5; i >= 0; i--) {
                 result |= shift(H(13, 7, shift_by), H(13, 7, mask),
                                 H(13, 7, result & ~blockers));
               }
@@ -404,11 +404,12 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      // Hack to save bytes, technically UB but works on GCC 14.2
-      for (i32 i = 0; i < 2; i++) {
-        G(63, str[i * 2] = 'a' + (&move->from)[i] % 8;)
-        G(63, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
-      }
+      G(
+          64, // Hack to save bytes, technically UB but works on GCC 14.2
+          for (i32 i = 1; i >= 0; i--) {
+            G(63, str[i * 2] = 'a' + (&move->from)[i] % 8;)
+            G(63, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
+          })
 
       G(64, str[5] = '\0';)
       G(64, str[4] = "\0\0nbrq"[move->promo];)
@@ -464,7 +465,7 @@ G(
 
       G(
           77, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(77, pos->flipped ^= 1;)
@@ -1364,11 +1365,11 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     if (G(208, depth < 8) &&
         G(208,
           G(209, static_eval) + G(209, G(210, 142) * G(210, depth)) +
+                  G(209, initial_params.eg
+                             .material[stack[ply].moves[move_index].promo]) +
                   G(209,
                     initial_params.eg
-                        .material[stack[ply].moves[move_index].takes_piece]) +
-                  G(209, initial_params.eg
-                             .material[stack[ply].moves[move_index].promo]) <
+                        .material[stack[ply].moves[move_index].takes_piece]) <
               alpha) &&
         G(208, !in_check) && G(208, moves_evaluated)) {
       break;
@@ -1843,8 +1844,8 @@ S(1) void run() {
 #endif
         })
     else G(238, if (G(240, line[0]) == G(240, 'i')) { puts("readyok"); })
-      else G(238, if (G(241, line[0]) == G(241, 'q')) { exit_now(); })
-      else G(238, if (G(242, line[0]) == G(242, 'p')) {
+    else G(238, if (G(241, line[0]) == G(241, 'q')) { exit_now(); })
+    else G(238, if (G(242, line[0]) == G(242, 'p')) {
       G(243, pos_history_count = 0;)
         G(243, pos = start_pos;)
         while (true) {
