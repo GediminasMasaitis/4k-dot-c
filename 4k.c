@@ -52,28 +52,68 @@ enum [[nodiscard]] {
 };
 
 G(
-    1, S(1) ssize_t _sys(H(2, 1, ssize_t arg1), H(2, 1, ssize_t arg3),
-                         H(2, 1, ssize_t arg2), H(2, 1, ssize_t call)) {
-      ssize_t ret;
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(call), "D"(arg1), "S"(arg2), "d"(arg3)
-                   : "rcx", "r11", "memory");
-      return ret;
-    })
-
-G(
     1, S(1) void exit_now() {
       asm volatile("syscall" : : "a"(60));
       __builtin_unreachable();
     })
 
 G(
-    3, // Non-standard, gets but a word instead of a line
+    1,
+    S(1) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        asm volatile("syscall"
+                     :
+                     : "a"(1), "D"(stdout), "S"((ssize_t)(&string[length])),
+                       "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+G(
+    1,
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
+
+    [[nodiscard]] S(1) u64 get_time() {
+      timespec ts;
+      asm volatile("syscall"
+                   :
+                   : "a"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(5, ts.tv_nsec) +
+             G(5, G(6, ts.tv_sec) * G(6, 1000 * 1000 * 1000ULL));
+    })
+
+[[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                 const char *restrict rhs) {
+  while (*lhs || *rhs) {
+    if (*lhs != *rhs) {
+      return true;
+    }
+    lhs++;
+    rhs++;
+  }
+  return false;
+}
+
+G(
+    1, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
-        const int result = _sys(H(2, 2, stdin), H(2, 2, 1),
-                                H(2, 2, (ssize_t)string), H(2, 2, 0));
+        int result;
+        asm volatile("syscall"
+                     : "=a"(result)
+                     : "0"(0), "D"(stdin), "S"((ssize_t)string), "d"(1)
+                     : "rcx", "r11", "memory");
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -93,35 +133,7 @@ G(
     })
 
 G(
-    3,
-    S(1) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        _sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])),
-             H(2, 3, 1));
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-[[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                 const char *restrict rhs) {
-  while (*lhs || *rhs) {
-    if (*lhs != *rhs) {
-      return true;
-    }
-    lhs++;
-    rhs++;
-  }
-  return false;
-}
-
-G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+    1, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
       // Will break if reads a value over 4294967295
       // This works out to be just over 49 days
 
@@ -135,21 +147,6 @@ G(
         string++;
       }
     })
-
-typedef struct [[nodiscard]] {
-  ssize_t tv_sec;  // seconds
-  ssize_t tv_nsec; // nanoseconds
-} timespec;
-
-[[nodiscard]] S(1) u64 get_time() {
-  timespec ts;
-  ssize_t ret; // Unused
-  asm volatile("syscall"
-               : "=a"(ret)
-               : "0"(228), "D"(1), "S"(&ts)
-               : "rcx", "r11", "memory");
-  return G(5, ts.tv_nsec) + G(5, G(6, ts.tv_sec) * G(6, 1000 * 1000 * 1000ULL));
-}
 
 #else
 #include <stdbool.h>
@@ -416,7 +413,7 @@ G(
     })
 
 G(
-    55, [[nodiscard]] S(1)
+    55, [[nodiscard]] S(0)
             i32 piece_on(H(65, 1, const Position *const restrict pos),
                          H(65, 1, const i32 sq)) {
               assert(sq >= 0);
@@ -450,13 +447,13 @@ G(
              G(70, G(73, bishop(H(36, 2, blockers), H(36, 2, bb))) &
                        G(73, theirs) &
                        G(73, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
-             G(70,
-               G(74, king(bb)) & G(74, theirs) & G(74, pos->pieces[King])) ||
              G(70, G(75, knight(bb)) & G(75, theirs) &
                        G(75, pos->pieces[Knight])) ||
+             G(70,
+               G(74, king(bb)) & G(74, theirs) & G(74, pos->pieces[King])) ||
              G(70, G(76, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(76, rook(H(39, 2, blockers), H(39, 2, bb))) &
-                       G(76, theirs));
+                       G(76, theirs) &
+                       G(76, rook(H(39, 2, blockers), H(39, 2, bb))));
     })
 
 G(
@@ -482,7 +479,7 @@ G(
       const u64 bb = 1ULL << sq;
       G(81, if (piece == King) { moves = king(bb); })
       else G(81, if (piece == Knight) { moves = knight(bb); }) else {
-        const u64 blockers = G(82, pos->colour[1]) | G(82, pos->colour[0]);
+        const u64 blockers = G(82, pos->colour[0]) | G(82, pos->colour[1]);
         G(
             83, if (G(84, piece == Queen) || G(84, piece == Bishop)) {
               moves |= bishop(H(36, 3, blockers), H(36, 3, bb));
@@ -1614,8 +1611,8 @@ void iteratively_deepen(
     G(231, i32 window = 15;)
     G(231, size_t elapsed;)
     while (true) {
-      G(232, const i32 beta = G(233, score) + G(233, window);)
       G(232, const i32 alpha = score - window;)
+      G(232, const i32 beta = G(233, score) + G(233, window);)
       score =
           search(H(175, 4, beta), H(175, 4, stack), H(175, 4, depth),
                  H(175, 4, false), H(175, 4, alpha),
@@ -1627,10 +1624,10 @@ void iteratively_deepen(
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
       elapsed = get_time() - start_time;
-      G(234, window *= 2;)
       G(
-          234, if (G(235, (G(236, score > alpha) && G(236, score < beta))) ||
+          234, if (G(235, (G(236, score < beta) && G(236, score > alpha))) ||
                    G(235, elapsed > max_time)) { break; })
+      G(234, window *= 2;)
     }
 
     if (elapsed > max_time / 16) {
