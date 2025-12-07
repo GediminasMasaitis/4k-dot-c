@@ -1015,7 +1015,7 @@ G(133,
                                                        .bishop_pair = 63,
                                                        .pawn_attacked_penalty =
                                                            {-10, -128},
-                                                       .tempo = 7}};)
+                                                       .tempo = 8}};)
 
 G(
     133,
@@ -1287,14 +1287,14 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
       G(192, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(193, 56) * G(193, (depth - improving)) >= beta) {
+        if (static_eval - G(193, 57) * G(193, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(192, // RAZORING
         in_qsearch =
-            G(194, static_eval) + G(194, G(195, 122) * G(195, depth)) <= alpha;)
+            G(194, static_eval) + G(194, G(195, 114) * G(195, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1340,13 +1340,13 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
           G(175, // KILLER MOVE
             G(202, move_equal(G(203, &stack[ply].moves[order_index]),
                               G(203, &stack[ply].killer))) *
-                G(202, 836)) +
+                G(202, 814)) +
           G(175, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(204, &stack[ply].best_move),
                         G(204, &stack[ply].moves[order_index]))
              << 30)) +
           G(175, // MOST VALUABLE VICTIM
-            G(205, stack[ply].moves[order_index].takes_piece) * G(205, 712)) +
+            G(205, stack[ply].moves[order_index].takes_piece) * G(205, 695)) +
           G(175, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1364,7 +1364,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     // FORWARD FUTILITY PRUNING / DELTA PRUNING
     if (G(208, depth < 8) &&
         G(208,
-          G(209, static_eval) + G(209, G(210, 142) * G(210, depth)) +
+          G(209, static_eval) + G(209, G(210, 140) * G(210, depth)) +
                   G(209, initial_params.eg
                              .material[stack[ply].moves[move_index].promo]) +
                   G(209,
