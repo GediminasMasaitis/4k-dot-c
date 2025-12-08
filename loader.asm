@@ -23,7 +23,8 @@ section .text align=1
 _start:
     mov    edi, payload_decompressed
     mov    esi, payload_compressed
-    lea    ebp, [rsi + getbit - payload_compressed]  ; Compute getbit from esi
+    lea    ebp, [rsi + getbit - payload_compressed]
+    lea    r12d, [rbp + getgamma - getbit]   ; Compute getgamma from getbit
     push   START_LOCATION
     mov    dl, 0x80
 
@@ -51,10 +52,10 @@ nexttag:
     stosb
     jmp    nexttag
 codepair:
-    call   getgamma
+    call   r12
     sub    ecx, ebx
     jnz    normalcodepair
-    call   getgamma
+    call   r12
     jmp    domatch_lastpos
 
 shortmatch:
@@ -69,11 +70,7 @@ normalcodepair:
     dec    eax
     shl    eax, 8
     lodsb
-    call   getgamma
-
-    ; Uncomment the following 2 instructions if >32kb
-    ; cmp    eax, 32000
-    ; jae    domatch_with_2inc
+    call   r12
     cmp    ah, 5
     jae    domatch_with_inc
     cmp    eax, 7fh
@@ -113,13 +110,11 @@ getgamma:
     push   1
     pop    rcx
   .getgammaloop:
-    call   rbp ; getbit
+    call   rbp
     adc    ecx, ecx
-    call   rbp ; getbit
+    call   rbp
     jc     .getgammaloop
 donedepacking:
     ret
-
-; Put payload_compressed in .text section so we can compute offset
 payload_compressed:
     incbin './build/4kc.ap'

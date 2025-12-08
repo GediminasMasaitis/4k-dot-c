@@ -8174,3 +8174,11 @@ MD5: 0c87778b8544a8e245dedd2a453332a0
 Decrease loader size
 * Put payload_compressed in .text section so we can compute offset
 * Use `lea ebp, [rsi + getbit - payload_compressed]` instead of `mov ebp, getbit`
+
+### 5.18
+
+64 bit: 4070 bytes (-2)
+
+MD5: d8c43ff83602ee63ec6b60bacff615fb
+
+Decrease loader size
