@@ -8164,3 +8164,13 @@ MD5: b65f60256f3f7e884bf0ed036eb4da42
 Decrease loader size
 * Push 1 pop X is 1 byte smaller than xor X, X + inc X
 * Replacing rdi and rax to edi and eax because the addresses are all within 32 bit range
+
+### 5.18
+
+64 bit: 4072 bytes (-2)
+
+MD5: 0c87778b8544a8e245dedd2a453332a0
+
+Decrease loader size
+* Put payload_compressed in .text section so we can compute offset
+* Use `lea ebp, [rsi + getbit - payload_compressed]` instead of `mov ebp, getbit`

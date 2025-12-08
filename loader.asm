@@ -13,12 +13,7 @@
 ;;
 
 bits 64
-
 global _start
-
-section .rodata align=1
-payload_compressed:
-    incbin './build/4kc.ap'
 
 section .payload align=1
 payload_decompressed:
@@ -28,8 +23,8 @@ section .text align=1
 _start:
     mov    edi, payload_decompressed
     mov    esi, payload_compressed
-    mov    ebp, getbit
-    push   START_LOCATION ; must be provided by to nasm -DSTART_LOCATION=0x...
+    lea    ebp, [rsi + getbit - payload_compressed]  ; Compute getbit from esi
+    push   START_LOCATION
     mov    dl, 0x80
 
 literal:
@@ -124,3 +119,7 @@ getgamma:
     jc     .getgammaloop
 donedepacking:
     ret
+
+; Put payload_compressed in .text section so we can compute offset
+payload_compressed:
+    incbin './build/4kc.ap'
