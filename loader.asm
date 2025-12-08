@@ -32,10 +32,6 @@ _start:
     push   START_LOCATION ; must be provided by to nasm -DSTART_LOCATION=0x...
     mov    dl, 0x80
 
-    ; Technically UB but because size doesn't exceed 32k
-    ; and execution starts with literal, ends up being not needed
-    ; xor    ebx, ebx
-
 literal:
     movsb
     mov    bl, 2
@@ -46,9 +42,9 @@ nexttag:
     call   rbp ; getbit
     jnc    codepair
     xor    eax, eax
-    xor    ecx, ecx
-    inc    ecx
-    call   rbp ; getbit
+    push   1
+    pop    rcx
+    call   rbp
     jnc    shortmatch
     mov    bl, 2
     mov    al, 10h
@@ -102,8 +98,8 @@ domatch_lastpos:
 
 domatch:
     push   rsi
-    mov    rsi, rdi
-    sub    rsi, rax
+    mov    esi, edi
+    sub    esi, eax
     rep    movsb
     pop    rsi
     jmp    nexttag
@@ -111,16 +107,16 @@ domatch:
 getbit:
     add    dl, dl
     jnz    .stillbitsleft
-    xchg eax, edx
+    xchg   eax, edx
     lodsb
-    xchg eax, edx
+    xchg   eax, edx
     adc    dl, dl
   .stillbitsleft:
     ret
 
 getgamma:
-    xor    ecx, ecx
-    inc    ecx
+    push   1
+    pop    rcx
   .getgammaloop:
     call   rbp ; getbit
     adc    ecx, ecx

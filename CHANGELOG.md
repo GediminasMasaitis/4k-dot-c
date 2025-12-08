@@ -8153,4 +8153,14 @@ Phase UB size save
 
 MD5: 3ca0af41be71884df02512a145ceed55
 
-Reverse loop size save
+Reverse loop size save (idea by sqrmax)
+
+### 5.17
+
+64 bit: 4074 bytes (-4)
+
+MD5: b65f60256f3f7e884bf0ed036eb4da42
+
+Decrease loader size
+* Push 1 pop X is 1 byte smaller than xor X, X + inc X
+* Replacing rdi and rax to edi and eax because the addresses are all within 32 bit range
