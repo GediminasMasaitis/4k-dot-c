@@ -858,8 +858,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(130, 1, i8 open_files[6];) H(130, 1, i8 pst_file[48];))
   H(129, 1,
     H(131, 1, i8 protected_pawn;) H(131, 1, i8 bishop_pair;)
-        H(131, 1, i8 phalanx_pawn;) H(131, 1, i8 passed_pawns[6];)
-            H(131, 1, i8 king_attacks[5];) H(131, 1, i8 pst_rank[48];))
+        H(131, 1, i8 phalanx_pawn;) H(131, 1, i8 king_attacks[4];)
+            H(131, 1, i8 passed_pawns[6];) H(131, 1, i8 pst_rank[48];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -870,8 +870,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(130, 2, i32 open_files[6];) H(130, 2, i32 pst_file[48];))
   H(129, 2,
     H(131, 2, i32 protected_pawn;) H(131, 2, i32 bishop_pair;)
-        H(131, 2, i32 phalanx_pawn;) H(131, 2, i32 passed_pawns[6];)
-            H(131, 2, i32 king_attacks[5];) H(131, 2, i32 pst_rank[48];))
+        H(131, 2, i32 phalanx_pawn;) H(131, 2, i32 king_attacks[4];)
+            H(131, 2, i32 passed_pawns[6];) H(131, 2, i32 pst_rank[48];))
 
 } EvalParamsMerged;
 
@@ -934,8 +934,7 @@ G(133,
                                                        .mobilities = {6, 6, 2,
                                                                       3, -9},
                                                        .king_attacks = {0, 15,
-                                                                        21, 13,
-                                                                        0},
+                                                                        21, 13},
                                                        .open_files = {13, -9,
                                                                       -9, 20,
                                                                       -3, -30},
@@ -999,8 +998,7 @@ G(133,
                                                        .mobilities = {3, 5, 4,
                                                                       1, -4},
                                                        .king_attacks = {0, -4,
-                                                                        -7, 10,
-                                                                        0},
+                                                                        -7, 10},
                                                        .open_files = {23, -5, 7,
                                                                       10, 27,
                                                                       10},
@@ -1818,26 +1816,29 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(
-        241, if (G(242, line[0]) == G(242, 'g')) {
+    G(241, if (G(244, line[0]) == G(244, 'q')) { exit_now(); })
+    else G(241, if (G(243, line[0]) == G(243, 'i')) { puts("readyok"); })
+    else G(241, if (G(242, line[0]) == G(242, 'g')) {
 #ifdef FULL
-          while (true) {
-            getl(line);
-            if (!pos.flipped && !strcmp(line, "wtime")) {
-              getl(line);
-              max_time = (u64)atoi(line) << 19; // Roughly /2 time
-              break;
-            } else if (pos.flipped && !strcmp(line, "btime")) {
-              getl(line);
-              max_time = (u64)atoi(line) << 19; // Roughly /2 time
-              break;
-            } else if (!strcmp(line, "movetime")) {
-              max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
-              break;
-            }
-          }
-          iteratively_deepen(max_ply, &nodes, H(232, 4, &pos), H(232, 4, stack),
-                             H(232, 4, pos_history_count));
+      while (true) {
+        getl(line);
+        if (!pos.flipped && !strcmp(line, "wtime")) {
+          getl(line);
+          max_time = (u64)atoi(line) << 19; // Roughly /2 time
+          break;
+        }
+        else if (pos.flipped && !strcmp(line, "btime")) {
+          getl(line);
+          max_time = (u64)atoi(line) << 19; // Roughly /2 time
+          break;
+        }
+        else if (!strcmp(line, "movetime")) {
+          max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
+          break;
+        }
+      }
+      iteratively_deepen(max_ply, &nodes, H(232, 4, &pos), H(232, 4, stack),
+        H(232, 4, pos_history_count));
 #else
       for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
         getl(line);
@@ -1846,9 +1847,7 @@ S(1) void run() {
       iteratively_deepen(H(232, 5, &pos), H(232, 5, stack),
         H(232, 5, pos_history_count));
 #endif
-        })
-    else G(241, if (G(243, line[0]) == G(243, 'i')) { puts("readyok"); })
-    else G(241, if (G(244, line[0]) == G(244, 'q')) { exit_now(); })
+    })
     else G(241, if (G(245, line[0]) == G(245, 'p')) {
       G(246, pos_history_count = 0;)
         G(246, pos = start_pos;)
