@@ -1,30 +1,71 @@
-;; Contains a modified version of the original aPLib decompressor
-;; Below is the original copyright notice
-
-;;
-;; aPLib compression library  -  the smaller the better :)
-;;
-;; fasm 64-bit assembler depacker
-;;
-;; Copyright (c) 1998-2014 Joergen Ibsen
-;; All Rights Reserved
-;;
-;; http://www.ibsensoftware.com/
-;;
-
 bits 64
-global _start
+org 0x300000
 
-section .payload align=1
-payload_decompressed:
-    resb 4096*2
+%ifndef START_LOCATION
+%error "START_LOCATION must be defined"
+%endif
 
-section .text align=1
-_start:
-    mov    edi, payload_decompressed
+%define PAYLOAD_DEST 0x400000
+
+ehdr:
+    db 0x7F, "ELF", 2, 1, 1, 0
+
+getbit:
+    add    dl, dl
+    jnz    getbit_ret
+    xchg   eax, edx
+    lodsb
+    jmp short getbit_part2
+    
+    dw 2
+    dw 0x3E
+    
+getbit_part2:
+    xchg   eax, edx
+    adc    dl, dl
+getbit_ret:
+    ret
+    
+    dq start_in_paddr
+    dq phdr - ehdr
+    
+getgamma:
+    push   1
+    pop    rcx
+.loop:
+    call   rbp
+    adc    ecx, ecx
+    nop
+    
+    call   rbp
+    jc     .loop
+donedepacking:    
+    jmp short getbit_ret
+    
+    dw 56
+    dw 1
+    dw 0
+    dw 0
+    dw 0
+
+phdr:
+    dd 1
+    dd 7
+    dq 0
+    dq 0x300000
+    
+start_in_paddr:
+    mov    edi, PAYLOAD_DEST
+    jmp short start_in_palign
+    db 0
+    
+    dq filesize
+    dq 0x10000000
+
+start_in_palign:
     mov    esi, payload_compressed
-    lea    ebp, [rsi + getbit - payload_compressed]
-    lea    r12d, [rbp + getgamma - getbit]   ; Compute getgamma from getbit
+    mov    ebp, getbit
+    lea    r12d, [rbp + getgamma - getbit]
     push   START_LOCATION
     mov    dl, 0x80
 
@@ -32,10 +73,10 @@ literal:
     movsb
     mov    bl, 2
 nexttag:
-    call   rbp ; getbit
+    call   rbp
     jnc    literal
 
-    call   rbp ; getbit
+    call   rbp
     jnc    codepair
     xor    eax, eax
     push   1
@@ -44,19 +85,13 @@ nexttag:
     jnc    shortmatch
     mov    bl, 2
     mov    al, 10h
-  .getmorebits:
-    call   rbp ; getbit
+.getmorebits:
+    call   rbp
     adc    al, al
     jnc    .getmorebits
     jnz    domatch
     stosb
     jmp    nexttag
-codepair:
-    call   r12
-    sub    ecx, ebx
-    jnz    normalcodepair
-    call   r12
-    jmp    domatch_lastpos
 
 shortmatch:
     lodsb
@@ -64,6 +99,13 @@ shortmatch:
     jz     donedepacking
     adc    ecx, ecx
     jmp    domatch_new_lastpos
+
+codepair:
+    call   r12
+    sub    ecx, ebx
+    jnz    normalcodepair
+    call   r12
+    jmp    domatch_lastpos
 
 normalcodepair:
     xchg   eax, ecx
@@ -96,25 +138,7 @@ domatch:
     pop    rsi
     jmp    nexttag
 
-getbit:
-    add    dl, dl
-    jnz    .stillbitsleft
-    xchg   eax, edx
-    lodsb
-    xchg   eax, edx
-    adc    dl, dl
-  .stillbitsleft:
-    ret
-
-getgamma:
-    push   1
-    pop    rcx
-  .getgammaloop:
-    call   rbp
-    adc    ecx, ecx
-    call   rbp
-    jc     .getgammaloop
-donedepacking:
-    ret
 payload_compressed:
     incbin './build/4kc.ap'
+
+filesize equ $ - ehdr

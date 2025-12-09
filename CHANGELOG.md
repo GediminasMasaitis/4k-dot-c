@@ -8244,3 +8244,11 @@ https://gedas.pythonanywhere.com/test/1494/
 MD5: 972d77dd7665b3226ae8ff821dfec939
 
 Decrease loader size
+
+### 5.21
+
+64 bit: 4052 bytes (-33)
+
+MD5: 1682485d0e416f663d31e5834facc092
+
+Loader ELF header smashing

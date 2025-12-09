@@ -47,8 +47,7 @@ compress:
 	apultra -stats -v $(EXE) $(EXE).ap
 
 loader: compress
-	nasm -felf64 -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') loader.asm -o loader.o
-	$(CC) -nostdlib -Wl,-T 64bit-loader.ld -Wl,-Map=./build/loader.map -o $(EXE) loader.o
+	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
 	ls -la $(EXE)
 	md5sum $(EXE)
 
