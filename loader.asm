@@ -39,14 +39,10 @@ getgamma:
     
     call   rbp
     jc     .loop
-donedepacking:    
+donedepacking:
     jmp short getbit_ret
     
     dw 56
-    dw 1
-    dw 0
-    dw 0
-    dw 0
 
 phdr:
     dd 1

@@ -8252,3 +8252,11 @@ Decrease loader size
 MD5: 1682485d0e416f663d31e5834facc092
 
 Loader ELF header smashing
+
+### 5.22
+
+64 bit: 4052 bytes (-33)
+
+MD5: 1682485d0e416f663d31e5834facc092
+
+ELF / PHDR header overlapping
