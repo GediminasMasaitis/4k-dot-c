@@ -1627,12 +1627,12 @@ void iteratively_deepen(
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
       elapsed = get_time() - start_time;
-      G(237, window *= 2;)
       G(
           237, if (G(238, elapsed > max_time) ||
                    G(238, (G(239, score > alpha) && G(239, score < beta)))) {
             break;
           })
+      G(237, window *= 2;)
     }
 
     if (elapsed > max_time / 16) {
