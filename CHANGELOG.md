@@ -8236,3 +8236,11 @@ Games | N: 3362 W: 890 L: 754 D: 1718
 Penta | [40, 341, 806, 431, 63]
 https://gedas.pythonanywhere.com/test/1494/
 ```
+
+### 5.20
+
+64 bit: 4085 bytes (-1)
+
+MD5: 972d77dd7665b3226ae8ff821dfec939
+
+Decrease loader size

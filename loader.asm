@@ -68,7 +68,7 @@ shortmatch:
 normalcodepair:
     xchg   eax, ecx
     dec    eax
-    shl    eax, 8
+    xchg   al, ah
     lodsb
     call   r12
     cmp    ah, 5
