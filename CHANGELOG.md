@@ -8260,3 +8260,20 @@ Loader ELF header smashing
 MD5: 72c9a9e8693ac7e87f170b318054b2b3
 
 ELF / PHDR header overlapping
+
+### 5.23
+
+64 bit: 3994 bytes (-50)
+
+MD5: cc77f5736fec1ac402cefb653e4bbe12
+
+Disable second instruction scheduling pass
+
+```py
+Elo   | -3.22 +- 9.41 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -0.23 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 2264 W: 618 L: 639 D: 1007
+Penta | [53, 279, 496, 244, 60]
+https://gedas.pythonanywhere.com/test/1545/
+```
