@@ -853,24 +853,24 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(129, 1,
-    H(130, 1, i8 tempo;) H(130, 1, i8 pawn_attacked_penalty[2];)
-        H(130, 1, i8 mobilities[5];) H(130, 1, i8 passed_blocked_pawns[6];)
+    H(130, 1, i8 pawn_attacked_penalty[2];) H(130, 1, i8 mobilities[5];)
+        H(130, 1, i8 passed_blocked_pawns[6];) H(130, 1, i8 tempo;)
             H(130, 1, i8 open_files[6];) H(130, 1, i8 pst_file[48];))
   H(129, 1,
-    H(131, 1, i8 protected_pawn;) H(131, 1, i8 bishop_pair;)
-        H(131, 1, i8 phalanx_pawn;) H(131, 1, i8 passed_pawns[6];)
+    H(131, 1, i8 bishop_pair;) H(131, 1, i8 phalanx_pawn;)
+        H(131, 1, i8 protected_pawn;) H(131, 1, i8 passed_pawns[6];)
             H(131, 1, i8 king_attacks[5];) H(131, 1, i8 pst_rank[48];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(129, 2,
-    H(130, 2, i32 tempo;) H(130, 2, i32 pawn_attacked_penalty[2];)
-        H(130, 2, i32 mobilities[5];) H(130, 2, i32 passed_blocked_pawns[6];)
+    H(130, 2, i32 pawn_attacked_penalty[2];) H(130, 2, i32 mobilities[5];)
+        H(130, 2, i32 passed_blocked_pawns[6];) H(130, 2, i32 tempo;)
             H(130, 2, i32 open_files[6];) H(130, 2, i32 pst_file[48];))
   H(129, 2,
-    H(131, 2, i32 protected_pawn;) H(131, 2, i32 bishop_pair;)
-        H(131, 2, i32 phalanx_pawn;) H(131, 2, i32 passed_pawns[6];)
+    H(131, 2, i32 bishop_pair;) H(131, 2, i32 phalanx_pawn;)
+        H(131, 2, i32 protected_pawn;) H(131, 2, i32 passed_pawns[6];)
             H(131, 2, i32 king_attacks[5];) H(131, 2, i32 pst_rank[48];))
 
 } EvalParamsMerged;
