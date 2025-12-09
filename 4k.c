@@ -1377,7 +1377,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
     G(
         997, // MOVE SCORE PRUNING
         if (G(998, move_score < G(999, -256) * G(999, depth)) &&
-            G(998, moves_evaluated)) { break; })
+            G(998, moves_evaluated) && G(998, !in_qsearch)) { break; })
 
     Position npos = *pos;
 #ifdef FULL
