@@ -8278,7 +8278,7 @@ Penta | [53, 279, 496, 244, 60]
 https://gedas.pythonanywhere.com/test/1545/
 ```
 
-### 5.23
+### 5.24
 
 64 bit: 3994 bytes (=)
 
@@ -8331,3 +8331,11 @@ Games | N: 2482 W: 692 L: 567 D: 1223
 Penta | [41, 264, 529, 343, 64]
 https://gedas.pythonanywhere.com/test/1555/
 ```
+
+### 5.25
+
+64 bit: 3988 bytes (-6)
+
+MD5: 0db203b3223fa8c4ac9ae14a8394f685
+
+Unify eval value calculation
