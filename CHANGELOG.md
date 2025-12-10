@@ -595,6 +595,9 @@ info depth 10 score 16 time 77434 nodes 166044509 nps 2144335 pv b1c3
 
 Fix UCI time parsing bug
 
+This bug caused black to play almost instantly,
+causing a wild white vs black win rate imalance.
+
 32 bit: 5312 bytes (-12)
 64 bit: 3842 bytes (-16)
 
@@ -8175,7 +8178,7 @@ Decrease loader size
 * Put payload_compressed in .text section so we can compute offset
 * Use `lea ebp, [rsi + getbit - payload_compressed]` instead of `mov ebp, getbit`
 
-### 5.18
+### 5.19
 
 64 bit: 4070 bytes (-2)
 
@@ -8183,7 +8186,7 @@ MD5: d8c43ff83602ee63ec6b60bacff615fb
 
 Decrease loader size
 
-### 5.19
+### 5.20
 
 64 bit: 4086 bytes (+16)
 
@@ -8237,7 +8240,7 @@ Penta | [40, 341, 806, 431, 63]
 https://gedas.pythonanywhere.com/test/1494/
 ```
 
-### 5.20
+### 5.21
 
 64 bit: 4085 bytes (-1)
 
@@ -8245,7 +8248,7 @@ MD5: 972d77dd7665b3226ae8ff821dfec939
 
 Decrease loader size
 
-### 5.21
+### 5.22
 
 64 bit: 4052 bytes (-33)
 
@@ -8253,7 +8256,7 @@ MD5: 1682485d0e416f663d31e5834facc092
 
 Loader ELF header smashing
 
-### 5.22
+### 5.23
 
 64 bit: 4044 bytes (-8)
 
@@ -8261,7 +8264,7 @@ MD5: 72c9a9e8693ac7e87f170b318054b2b3
 
 ELF / PHDR header overlapping
 
-### 5.23
+### 5.24
 
 64 bit: 3994 bytes (-50)
 
@@ -8270,15 +8273,15 @@ MD5: cc77f5736fec1ac402cefb653e4bbe12
 Disable second instruction scheduling pass
 
 ```py
-Elo   | -3.22 +- 9.41 (95%)
+Elo   | -1.51 +- 1.97 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | -0.23 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 2264 W: 618 L: 639 D: 1007
-Penta | [53, 279, 496, 244, 60]
+LLR   | 0.44 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 51586 W: 13999 L: 14223 D: 23364
+Penta | [1321, 6110, 11049, 6098, 1215]
 https://gedas.pythonanywhere.com/test/1545/
 ```
 
-### 5.23
+### 5.25
 
 64 bit: 3994 bytes (=)
 
@@ -8323,11 +8326,19 @@ Penta | [156, 817, 1411, 928, 187]
 https://gedas.pythonanywhere.com/test/1553/
 ```
 
-```
-Elo   | 17.51 +- 8.78 (95%)
+```py
+Elo   | 16.93 +- 7.96 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 2.54 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 2482 W: 692 L: 567 D: 1223
-Penta | [41, 264, 529, 343, 64]
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2978 W: 836 L: 691 D: 1451
+Penta | [45, 325, 634, 410, 75]
 https://gedas.pythonanywhere.com/test/1555/
 ```
+
+### 5.26
+
+64 bit: 3988 bytes (-6)
+
+MD5: 0db203b3223fa8c4ac9ae14a8394f685
+
+Unify eval value calculation
