@@ -1375,7 +1375,7 @@ i32 search(H(175, 1, const i32 beta), H(175, 1, SearchStack *restrict stack),
 
     G(
         208, // MOVE SCORE PRUNING
-        if (G(212, move_score < G(213, -128) * G(213, depth)) &&
+        if (G(212, move_score < G(213, -144) * G(213, depth)) &&
             G(212, moves_evaluated)) { break; })
 
     Position npos = *pos;
