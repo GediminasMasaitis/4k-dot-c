@@ -86,18 +86,10 @@ G(
 
 G(
     3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
-      // Will break if reads a value over 4294967295
-      // This works out to be just over 49 days
-
       u32 result = 0;
-      while (true) {
-        if (!*string) {
-          return result;
-        }
-        result *= 10;
-        result += *string - '0';
-        string++;
-      }
+      while (*string)
+        result = result * 10 + *string++ - '0';
+      return result;
     })
 
 [[nodiscard]] static bool strcmp(const char *restrict lhs,
@@ -634,9 +626,9 @@ G(
 
 G(
     87, S(0) Move *generate_pawn_moves(H(106, 1, const i32 offset),
-                                       H(106, 1, Move *restrict movelist),
+                                       H(106, 1, const Position *const pos),
                                        H(106, 1, u64 to_mask),
-                                       H(106, 1, const Position *const pos)) {
+                                       H(106, 1, Move *restrict movelist)) {
       while (to_mask) {
         const u8 to = lsb(to_mask);
         to_mask &= to_mask - 1;
@@ -674,37 +666,37 @@ enum { max_moves = 218 };
       111, // PAWN PROMOTIONS
       if (!only_captures) {
         movelist = generate_pawn_moves(
-            H(106, 2, -16), H(106, 2, movelist),
+            H(106, 2, -16), H(106, 2, pos),
             H(106, 2,
               G(112, north(G(113, north(G(114, pos->colour[0]) &
                                         G(114, pos->pieces[Pawn]) &
                                         G(114, 0xFF00))) &
                            G(113, ~all))) &
                   G(112, ~all)),
-            H(106, 2, pos));
+            H(106, 2, movelist));
       })
   G(111, // PAWN DOUBLE MOVES
     movelist = generate_pawn_moves(
-        H(106, 3, -8), H(106, 3, movelist),
+        H(106, 3, -8), H(106, 3, pos),
         H(106, 3,
           north(G(115, G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
               G(115, ~all) &
               G(115, (only_captures ? 0xFF00000000000000ull : ~0ull))),
-        H(106, 3, pos));)
+        H(106, 3, movelist));)
   G(111, // PAWN WEST CAPTURES
     movelist = generate_pawn_moves(
-        H(106, 4, -7), H(106, 4, movelist),
+        H(106, 4, -7), H(106, 4, pos),
         H(106, 4,
           G(117, nw(G(118, pos->colour[0]) & G(118, pos->pieces[Pawn]))) &
               G(117, (G(119, pos->colour[1]) | G(119, pos->ep)))),
-        H(106, 4, pos));)
+        H(106, 4, movelist));)
   G(111, // PAWN EAST CAPTURES
     movelist = generate_pawn_moves(
-        H(106, 5, -9), H(106, 5, movelist),
+        H(106, 5, -9), H(106, 5, pos),
         H(106, 5,
           G(120, ne(G(121, pos->colour[0]) & G(121, pos->pieces[Pawn]))) &
               G(120, (G(122, pos->colour[1]) | G(122, pos->ep)))),
-        H(106, 5, pos));)
+        H(106, 5, movelist));)
   G(
       111, // LONG CASTLE
       if (G(123, !only_captures) && G(123, pos->castling[0]) &&
@@ -881,7 +873,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   G(132, EvalParams eg;)
 } EvalParamsInitial;
 
-G(133, S(0) EvalParamsMerged eval_params;)
+G(133, S(1) EvalParamsMerged eval_params;)
 
 G(133,
   __attribute__((aligned(8))) S(1)
@@ -1136,11 +1128,11 @@ S(1) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
+  G(130, i32 num_moves;)
   G(130, Move best_move;)
-  G(130, Move killer;)
   G(130, u64 position_hash;)
   G(130, i32 static_eval;)
-  G(130, i32 num_moves;)
+  G(130, Move killer;)
   G(130, Move moves[max_moves];)
 } SearchStack;
 
@@ -1601,8 +1593,8 @@ void iteratively_deepen(
     G(231, i32 window = 15;)
     G(231, size_t elapsed;)
     while (true) {
-      G(232, const i32 beta = G(233, score) + G(233, window);)
       G(232, const i32 alpha = score - window;)
+      G(232, const i32 beta = G(233, score) + G(233, window);)
       score =
           search(H(175, 4, beta), H(175, 4, stack), H(175, 4, false),
                  H(175, 4, depth), H(175, 4, alpha),
@@ -1824,16 +1816,16 @@ S(1) void run() {
           iteratively_deepen(max_ply, &nodes, H(229, 4, &pos), H(229, 4, stack),
                              H(229, 4, pos_history_count));
 #else
-      for (i32 i = 0; i < (pos.flipped ? 4 : 2); i++) {
+      for (i32 i = 2 << pos.flipped; i > 0; i--) {
         getl(line);
-        max_time = (u64)atoi(line) << 19;// Roughly /2 time
+        max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
       iteratively_deepen(H(229, 5, &pos), H(229, 5, stack),
         H(229, 5, pos_history_count));
 #endif
         })
-    else G(238, if (G(240, line[0]) == G(240, 'i')) { puts("readyok"); })
     else G(238, if (G(241, line[0]) == G(241, 'q')) { exit_now(); })
+    else G(238, if (G(240, line[0]) == G(240, 'i')) { puts("readyok"); })
     else G(238, if (G(242, line[0]) == G(242, 'p')) {
       G(243, pos_history_count = 0;)
         G(243, pos = start_pos;)
@@ -1858,7 +1850,7 @@ S(1) void run() {
             if (move_string_equal(G(244, move_name), G(244, line))) {
               stack[pos_history_count].position_hash = get_hash(&pos);
               pos_history_count++;
-              if (stack[0].moves[i].takes_piece != None) {
+              if (stack[0].moves[i].takes_piece) {
                 pos_history_count = 0;
               }
               makemove(H(93, 4, &pos), H(93, 4, &stack[0].moves[i]));
