@@ -8339,3 +8339,19 @@ https://gedas.pythonanywhere.com/test/1555/
 MD5: 0db203b3223fa8c4ac9ae14a8394f685
 
 Unify eval value calculation
+
+### 5.26
+
+64 bit: 3982 bytes (-6)
+
+MD5: e6b9bc5c42f72a07b92db745d42e4e27
+
+Smaller atoi and go
+
+### 5.27
+
+64 bit: 3974 bytes (-8)
+
+MD5: 0a85a595eefa67a864c1f8b4f600475a
+
+Smaller castling

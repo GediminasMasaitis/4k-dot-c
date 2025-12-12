@@ -401,7 +401,7 @@ G(
       G(65, str[4] = "\0\0nbrq"[move->promo];)
       G(
           65, // Hack to save bytes, technically UB but works on GCC 14.2
-          for (i32 i = 1; i >= 0; i--) {
+          for (i32 i = 0; i < 2; i++) {
             G(66, str[i * 2] = 'a' + (&move->from)[i] % 8;)
             G(66, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
           })
@@ -422,8 +422,8 @@ G(
             })
 
 G(
-    55, S(1) void swapu16(G(64, u16 *const restrict lhs),
-                          G(64, u16 *const restrict rhs)) {
+    55, S(1) void swapu16(G(64, u16 *const restrict rhs),
+                          G(64, u16 *const restrict lhs)) {
       const u16 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -592,10 +592,11 @@ G(
           })
 
       G(102, // Update castling permissions
-        G(105, pos->castling[1] &= !(mask & 0x11ull);)
-            G(105, pos->castling[3] &= !(mask & 0x1100000000000000ull);)
-                G(105, pos->castling[2] &= !(mask & 0x9000000000000000ull);)
-                    G(105, pos->castling[0] &= !(mask & 0x90ull);))
+        const u64 oppMask = mask >> 56;
+        G(105, pos->castling[3] &= !(oppMask & 0x11);)
+            G(105, pos->castling[1] &= !(mask & 0x11);)
+                G(105, pos->castling[0] &= !(mask & 0x90);)
+                    G(105, pos->castling[2] &= !(oppMask & 0x90);))
 
       if (find_in_check(pos)) {
         return false;
@@ -626,9 +627,9 @@ G(
 
 G(
     87, S(0) Move *generate_pawn_moves(H(106, 1, const i32 offset),
-                                       H(106, 1, const Position *const pos),
+                                       H(106, 1, Move *restrict movelist),
                                        H(106, 1, u64 to_mask),
-                                       H(106, 1, Move *restrict movelist)) {
+                                       H(106, 1, const Position *const pos)) {
       while (to_mask) {
         const u8 to = lsb(to_mask);
         to_mask &= to_mask - 1;
@@ -666,37 +667,37 @@ enum { max_moves = 218 };
       111, // PAWN PROMOTIONS
       if (!only_captures) {
         movelist = generate_pawn_moves(
-            H(106, 2, -16), H(106, 2, pos),
+            H(106, 2, -16), H(106, 2, movelist),
             H(106, 2,
               G(112, north(G(113, north(G(114, pos->colour[0]) &
                                         G(114, pos->pieces[Pawn]) &
                                         G(114, 0xFF00))) &
                            G(113, ~all))) &
                   G(112, ~all)),
-            H(106, 2, movelist));
+            H(106, 2, pos));
       })
   G(111, // PAWN DOUBLE MOVES
     movelist = generate_pawn_moves(
-        H(106, 3, -8), H(106, 3, pos),
+        H(106, 3, -8), H(106, 3, movelist),
         H(106, 3,
           north(G(115, G(116, pos->colour[0]) & G(116, pos->pieces[Pawn]))) &
               G(115, ~all) &
               G(115, (only_captures ? 0xFF00000000000000ull : ~0ull))),
-        H(106, 3, movelist));)
+        H(106, 3, pos));)
   G(111, // PAWN WEST CAPTURES
     movelist = generate_pawn_moves(
-        H(106, 4, -7), H(106, 4, pos),
+        H(106, 4, -7), H(106, 4, movelist),
         H(106, 4,
           G(117, nw(G(118, pos->colour[0]) & G(118, pos->pieces[Pawn]))) &
               G(117, (G(119, pos->colour[1]) | G(119, pos->ep)))),
-        H(106, 4, movelist));)
+        H(106, 4, pos));)
   G(111, // PAWN EAST CAPTURES
     movelist = generate_pawn_moves(
-        H(106, 5, -9), H(106, 5, pos),
+        H(106, 5, -9), H(106, 5, movelist),
         H(106, 5,
           G(120, ne(G(121, pos->colour[0]) & G(121, pos->pieces[Pawn]))) &
               G(120, (G(122, pos->colour[1]) | G(122, pos->ep)))),
-        H(106, 5, movelist));)
+        H(106, 5, pos));)
   G(
       111, // LONG CASTLE
       if (G(123, !only_captures) && G(123, pos->castling[0]) &&
@@ -873,7 +874,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   G(132, EvalParams eg;)
 } EvalParamsInitial;
 
-G(133, S(1) EvalParamsMerged eval_params;)
+G(133, S(0) EvalParamsMerged eval_params;)
 
 G(133,
   __attribute__((aligned(8))) S(1)
@@ -1139,9 +1140,9 @@ typedef struct [[nodiscard]] {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(172, u16 partial_hash;)
   G(172, i16 score;)
-  G(172, i8 depth;)
   G(172, Move move;)
   G(172, u8 flag;)
+  G(172, i8 depth;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
