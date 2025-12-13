@@ -1134,7 +1134,6 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
-G(165, S(1) i32 move_history[2][6][64][64];)
 G(165, S(1) TTEntry tt[tt_length];)
 G(165, S(0) u64 start_time;)
 G(165, S(0) u64 max_time;)
@@ -1201,7 +1200,8 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
            u64 *nodes,
 #endif
            H(168, 1, Position *const restrict pos),
-           H(168, 1, const i32 pos_history_count), H(168, 1, const i32 ply)) {
+           H(168, 1, const i32 pos_history_count), H(168, 1, const i32 ply,
+             i32 move_history[2][6][64][64])) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1285,7 +1285,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 #ifdef FULL
           nodes,
 #endif
-          H(168, 2, &npos), H(168, 2, pos_history_count), H(168, 2, ply + 1));
+          H(168, 2, &npos), H(168, 2, pos_history_count), H(168, 2, ply + 1), move_history);
       if (score >= beta) {
         return score;
       }
@@ -1383,7 +1383,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
                       nodes,
 #endif
                       H(168, 3, &npos), H(168, 3, pos_history_count),
-                      H(168, 3, ply + 1));
+                      H(168, 3, ply + 1), move_history);
 
       // EARLY EXITS
       if (depth > 4 && get_time() - start_time > max_time) {
@@ -1485,8 +1485,6 @@ S(1) void init() {
                                  i < 6 ? initial_params.eg.material[i]
                                        : ((i8 *)&initial_params.eg)[6 + i]));
       })
-  G(85, // CLEAR HISTORY
-    __builtin_memset(move_history, 0, sizeof(move_history));)
   G(
       85, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
@@ -1569,7 +1567,8 @@ void iteratively_deepen(
 #endif
     H(223, 1, Position *const restrict pos),
     H(223, 1, SearchStack *restrict stack),
-    H(223, 1, const i32 pos_history_count)) {
+    H(223, 1, const i32 pos_history_count,
+      i32 move_history[2][6][64][64])) {
   G(224, start_time = get_time();)
   G(224, i32 score = 0;)
 #ifdef FULL
@@ -1589,7 +1588,7 @@ void iteratively_deepen(
 #ifdef FULL
                  nodes,
 #endif
-                 H(168, 4, pos), H(168, 4, pos_history_count), H(168, 4, 0));
+                 H(168, 4, pos), H(168, 4, pos_history_count), H(168, 4, 0), move_history);
 #ifdef FULL
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
@@ -1618,13 +1617,14 @@ typedef struct [[nodiscard]] {
   Position pos;
   SearchStack stack[1024];
   i32 pos_history_count;
+  i32 move_history[2][6][64][64];
 } ThreadData;
 
 S(1) void* thread_fun(void* param)
 {
   ThreadData* data = param;
   //printf("%d\n", data->pos_history_count);
-  iteratively_deepen(max_ply, &data->nodes, &data->pos, data->stack, data->pos_history_count);
+  iteratively_deepen(max_ply, &data->nodes, &data->pos, data->stack, data->pos_history_count, data->move_history);
   return NULL;
 }
 
@@ -1634,12 +1634,15 @@ S(1) void run_smp(
   u64* nodes,
   Position* const restrict pos,
   SearchStack* restrict stack,
-  const i32 pos_history_count)
+  const i32 pos_history_count,
+  i32 move_history[2][6][64][64]
+  )
 {
   ThreadData* data = malloc(sizeof(ThreadData));
   data->pos = *pos;
   memcpy(data->stack, stack, sizeof(SearchStack) * 1024);
   data->pos_history_count = pos_history_count;
+  memcpy(data->move_history, move_history, sizeof(i32) * 2 * 6 * 64 * 64);
 
   pthread_t thread;
   pthread_create(&thread, NULL, thread_fun, data);
@@ -1730,18 +1733,15 @@ const Position start_pos =
 S(1) void bench() {
   Position pos;
   i32 pos_history_count = 0;
-#ifdef LOWSTACK
-  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
-#else
+  i32 move_history[2][6][64][64];
   SearchStack stack[1024];
-#endif
   __builtin_memset(move_history, 0, sizeof(move_history));
   pos = start_pos;
   max_time = -1ll;
   u64 nodes = 0;
   const u64 start = get_time();
   iteratively_deepen(23, &nodes, H(223, 2, &pos), H(223, 2, stack),
-                     H(223, 2, pos_history_count));
+                     H(223, 2, pos_history_count, move_history));
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
@@ -1761,13 +1761,11 @@ S(1) void run() {
   G(231, char line[4096];)
   G(231, Position pos;)
   G(231, i32 pos_history_count;)
-  G(231, // #ifdef LOWSTACK
-         //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
-         // #else
-    SearchStack stack[1024];
-    // #endif
-  )
+  G(231, i32 move_history[2][6][64][64];)
+  G(231, SearchStack stack[1024];)
   G(231, init();)
+
+    __builtin_memset(move_history, 0, sizeof(move_history));
 
 #ifdef FULL
   pos = start_pos;
@@ -1800,7 +1798,7 @@ S(1) void run() {
     } else if (!strcmp(line, "gi")) {
       max_time = -1ll;
       iteratively_deepen(max_ply, &nodes, H(223, 3, &pos), H(223, 3, stack),
-                         H(223, 3, pos_history_count));
+                         H(223, 3, pos_history_count, move_history));
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
@@ -1834,7 +1832,7 @@ S(1) void run() {
               break;
             }
           }
-          run_smp(&nodes, &pos, stack, pos_history_count);
+          run_smp(&nodes, &pos, stack, pos_history_count, move_history);
           //iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack), H(223, 4, pos_history_count));
 #else
       for (i32 i = 2 << pos.flipped; i > 0; i--) {
