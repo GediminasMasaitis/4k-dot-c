@@ -8355,3 +8355,19 @@ Smaller atoi and go
 MD5: 0a85a595eefa67a864c1f8b4f600475a
 
 Smaller castling
+
+### 5.28
+
+64 bit: 3973 bytes (-1)
+
+MD5: bf43dd4006235e8074f90dfe999daaa4
+
+Smaller diagonal mask compute
+
+### 5.29
+
+64 bit: 3964 bytes (-9)
+
+MD5: 839140c325485da2e64d130c9f18413a
+
+Inline comparisons

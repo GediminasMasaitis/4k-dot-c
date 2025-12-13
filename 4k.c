@@ -377,11 +377,18 @@ G(
     })
 
 G(
-    55, S(1) void swapu64(G(61, u64 *const rhs), G(61, u64 *const lhs)) {
-      const u64 temp = *lhs;
-      *lhs = *rhs;
-      *rhs = temp;
-    })
+    55, [[nodiscard]] S(1)
+            i32 piece_on(H(65, 1, const Position *const restrict pos),
+                         H(65, 1, const i32 sq)) {
+              assert(sq >= 0);
+              assert(sq < 64);
+              for (i32 i = Pawn; i <= King; ++i) {
+                if (G(66, pos->pieces[i]) & G(66, 1ull << sq)) {
+                  return i;
+                }
+              }
+              return None;
+            })
 
 G(
     55, S(1) void move_str(H(62, 1, char *restrict str),
@@ -408,28 +415,6 @@ G(
     })
 
 G(
-    55, [[nodiscard]] S(1)
-            i32 piece_on(H(65, 1, const Position *const restrict pos),
-                         H(65, 1, const i32 sq)) {
-              assert(sq >= 0);
-              assert(sq < 64);
-              for (i32 i = Pawn; i <= King; ++i) {
-                if (G(66, pos->pieces[i]) & G(66, 1ull << sq)) {
-                  return i;
-                }
-              }
-              return None;
-            })
-
-G(
-    55, S(1) void swapu16(G(62, u16 *const restrict rhs),
-                          G(62, u16 *const restrict lhs)) {
-      const u16 temp = *lhs;
-      *lhs = *rhs;
-      *rhs = temp;
-    })
-
-G(
     67,
     [[nodiscard]] S(1) i32 is_attacked(H(68, 1,
                                          const Position *const restrict pos),
@@ -453,27 +438,27 @@ G(
 
 G(
     67, S(0) void flip_pos(Position *const restrict pos) {
-      G(77, swapu64(G(78, &pos->colour[0]), G(78, &pos->colour[1]));)
-
       G(
           77, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-      G(77, // Swap castling index 0 with 2, 1 with 3
-        swapu16(G(79, &((u16 *)pos->castling)[0]),
-                G(79, &((u16 *)pos->castling)[1]));)
+      G(77, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
+
+      G(77, u32 *c = (u32 *)pos->castling;
+        *c = G(999, (*c >> 16)) | G(999, (*c << 16));)
       G(77, pos->flipped ^= 1;)
     })
 
 G(
     67, [[nodiscard]] S(1) u64 get_mobility(H(80, 1, const Position *pos),
-                                            H(80, 1, const i32 sq),
-                                            H(80, 1, const i32 piece)) {
+                                            H(80, 1, const i32 piece),
+                                            H(80, 1, const i32 sq)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(81, if (piece == King) { moves = king(bb); })
-      else G(81, if (piece == Knight) { moves = knight(bb); }) else {
+      G(81, if (piece == Knight) { moves = knight(bb); })
+      else G(81, if (piece == King) { moves = king(bb); }) else {
         const u64 blockers = G(82, pos->colour[1]) | G(82, pos->colour[0]);
         G(
             83, if (G(84, piece == Queen) || G(84, piece == Bishop)) {
@@ -509,8 +494,8 @@ G(
           G(90, copy &= copy - 1;)
 
           G(90, u64 moves = G(91, to_mask) &
-                            G(91, get_mobility(H(80, 2, pos), H(80, 2, from),
-                                               H(80, 2, piece)));)
+                            G(91, get_mobility(H(80, 2, pos), H(80, 2, piece),
+                                               H(80, 2, from)));)
 
           while (moves) {
             const u8 to = lsb(moves);
@@ -1098,8 +1083,8 @@ S(1) i32 eval(Position *const restrict pos) {
                   })
 
               G(161, const u64 mobility =
-                         G(163, get_mobility(H(80, 3, pos), H(80, 3, sq),
-                                             H(80, 3, p))) &
+                         G(163, get_mobility(H(80, 3, pos), H(80, 3, p),
+                                             H(80, 3, sq))) &
                          G(163, ~attacked_by_pawns);
 
                 G(164, // MOBILITY
