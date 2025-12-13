@@ -8379,3 +8379,11 @@ Inline comparisons
 MD5: 10192d454debe922fc4c6c5ac59c9c26
 
 Reduce size of king and knight
+
+### 5.31
+
+64 bit: 3958 bytes (-3)
+
+MD5: 2b04563fd2726e03164a5837c3fa0933
+
+Smaller getl
