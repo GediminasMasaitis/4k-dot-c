@@ -8371,3 +8371,11 @@ Smaller diagonal mask compute
 MD5: 839140c325485da2e64d130c9f18413a
 
 Inline comparisons
+
+### 5.30
+
+64 bit: 3961 bytes (-3)
+
+MD5: 10192d454debe922fc4c6c5ac59c9c26
+
+Reduce size of king and knight
