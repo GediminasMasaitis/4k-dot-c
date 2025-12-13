@@ -1613,6 +1613,39 @@ void iteratively_deepen(
   puts(move_name);
 }
 
+typedef struct [[nodiscard]] {
+  u64 nodes;
+  Position pos;
+  SearchStack stack[1024];
+  i32 pos_history_count;
+} ThreadData;
+
+S(1) void* thread_fun(void* param)
+{
+  ThreadData* data = param;
+  //printf("%d\n", data->pos_history_count);
+  iteratively_deepen(max_ply, &data->nodes, &data->pos, data->stack, data->pos_history_count);
+  return NULL;
+}
+
+#include <pthread.h>
+
+S(1) void run_smp(
+  u64* nodes,
+  Position* const restrict pos,
+  SearchStack* restrict stack,
+  const i32 pos_history_count)
+{
+  ThreadData* data = malloc(sizeof(ThreadData));
+  data->pos = *pos;
+  memcpy(data->stack, stack, sizeof(SearchStack) * 1024);
+  data->pos_history_count = pos_history_count;
+
+  pthread_t thread;
+  pthread_create(&thread, NULL, thread_fun, data);
+  pthread_join(thread, NULL);
+}
+
 #ifdef FULL
 S(1) void display_pos(Position *const pos) {
   Position npos = *pos;
@@ -1801,8 +1834,8 @@ S(1) void run() {
               break;
             }
           }
-          iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
-                             H(223, 4, pos_history_count));
+          run_smp(&nodes, &pos, stack, pos_history_count);
+          //iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack), H(223, 4, pos_history_count));
 #else
       for (i32 i = 2 << pos.flipped; i > 0; i--) {
         getl(line);
