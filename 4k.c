@@ -351,11 +351,11 @@ G(
 
 G(
     35, [[nodiscard]] S(1) u64 king(const u64 bb) {
-      return G(50, bb << 8) | G(50, bb >> 8) |
-             G(50, G(51, (G(52, bb << 9) | G(52, bb >> 7) | G(52, bb << 1))) &
-                       G(51, ~0x101010101010101ull)) |
-             G(50, G(53, (G(54, bb << 7) | G(54, bb >> 9) | G(54, bb >> 1))) &
-                       G(53, ~0x8080808080808080ull));
+      const u64 vert = (bb << 8) | (bb >> 8);
+      const u64 all3 = bb | vert;
+      return G(50, vert) |
+             G(50, G(51, (all3 << 1)) & G(51, ~0x101010101010101ull)) |
+             G(50, G(53, (all3 >> 1)) & G(53, ~0x8080808080808080ull));
     })
 
 G(
