@@ -782,9 +782,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(129, 1, H(130, 1, i8 tempo;) H(130, 1, i8 pawn_attacked_penalty[2];)
     H(130, 1, i8 mobilities[5];) H(130, 1, i8 passed_blocked_pawns[6];)
     H(130, 1, i8 open_files[6];) H(130, 1, i8 pst_file[48];))
-    H(129, 1, H(131, 1, i8 protected_pawn;) H(131, 1, i8 bishop_pair;)
-      H(131, 1, i8 phalanx_pawn;) H(131, 1, i8 passed_pawns[6];)
-      H(131, 1, i8 king_attacks[5];) H(131, 1, i8 pst_rank[48];))
+    H(129, 1, H(131, 1, i8 passed_pawns[6];) H(131, 1, i8 king_attacks[5];)
+      H(131, 1, i8 pst_rank[48];) H(131, 1, i8 protected_pawn;)
+      H(131, 1, i8 phalanx_pawn;) H(131, 1, i8 bishop_pair;))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -792,9 +792,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(129, 2, H(130, 2, i32 tempo;) H(130, 2, i32 pawn_attacked_penalty[2];)
     H(130, 2, i32 mobilities[5];) H(130, 2, i32 passed_blocked_pawns[6];)
     H(130, 2, i32 open_files[6];) H(130, 2, i32 pst_file[48];))
-    H(129, 2, H(131, 2, i32 protected_pawn;) H(131, 2, i32 bishop_pair;)
-      H(131, 2, i32 phalanx_pawn;) H(131, 2, i32 passed_pawns[6];)
-      H(131, 2, i32 king_attacks[5];) H(131, 2, i32 pst_rank[48];))
+    H(129, 2, H(131, 2, i32 passed_pawns[6];) H(131, 2, i32 king_attacks[5];)
+      H(131, 2, i32 pst_rank[48];) H(131, 2, i32 protected_pawn;)
+      H(131, 2, i32 phalanx_pawn;) H(131, 2, i32 bishop_pair;))
 
 } EvalParamsMerged;
 
@@ -1055,11 +1055,11 @@ typedef struct [[nodiscard]] {
   } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(172, u16 partial_hash;)
-    G(172, i16 score;)
+  G(172, i16 score;)
+    G(172, i8 depth;)
+    G(172, u16 partial_hash;)
     G(172, Move move;)
     G(172, u8 flag;)
-    G(172, i8 depth;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1727,7 +1727,8 @@ S(1) void run() {
         elapsed, nps);
     }
 #endif
-    G(240, if (G(241, line[0]) == G(241, 'g')) {
+    G(240, if (G(243, line[0]) == G(243, 'i')) { puts("readyok"); })
+    else G(240, if (G(241, line[0]) == G(241, 'g')) {
 #ifdef FULL
       while (true) {
         getl(line);
@@ -1758,7 +1759,6 @@ S(1) void run() {
 #endif
     })
     else G(240, if (G(242, line[0]) == G(242, 'q')) { exit_now(); })
-    else G(240, if (G(243, line[0]) == G(243, 'i')) { puts("readyok"); })
     else G(240, if (G(244, line[0]) == G(244, 'p')) {
       G(245, pos_history_count = 0;)
         G(245, pos = start_pos;)
