@@ -337,26 +337,22 @@ G(
                    H(29, 3, bb), H(29, 3, -1)));
     })
 
-G(
+    G(
     35, [[nodiscard]] S(1) u64 knight(const u64 bb) {
-      return G(41, G(42, (G(43, bb << 6) | G(43, bb >> 10))) &
-                       G(42, 0x3F3F3F3F3F3F3F3Full)) |
-             G(41, G(44, (G(45, bb >> 6) | G(45, bb << 10))) &
-                       G(44, 0xFCFCFCFCFCFCFCFCull)) |
-             G(41, G(46, (G(47, bb << 17) | G(47, bb >> 15))) &
-                       G(46, ~0x101010101010101ull)) |
-             G(41, G(48, (G(49, bb << 15 | G(49, bb >> 17)))) &
-                       G(48, ~0x8080808080808080ull));
+      G(800, const u64 r1 = east(bb);)
+      G(800, const u64 l1 = west(bb);)
+        G(801, const u64 h1 = G(804, l1) | G(804, r1);)
+        G(801, const u64 h2 = G(805, east(r1)) | G(805, west(l1));)
+      return G(802, h2 << 8) | G(802, h2 >> 8) | G(802, h1 << 16) | G(802, h1 >> 16);
     })
 
-G(
+    G(
     35, [[nodiscard]] S(1) u64 king(const u64 bb) {
-      return G(50, bb << 8) | G(50, bb >> 8) |
-             G(50, G(51, (G(52, bb << 9) | G(52, bb >> 7) | G(52, bb << 1))) &
-                       G(51, ~0x101010101010101ull)) |
-             G(50, G(53, (G(54, bb << 7) | G(54, bb >> 9) | G(54, bb >> 1))) &
-                       G(53, ~0x8080808080808080ull));
+      const u64 v = G(803, north(bb)) | G(803, south(bb));
+      const u64 a = G(806, bb) | G(806, v);
+      return G(807, v) | G(807, east(a)) | G(807, west(a));
     })
+
 
 G(
     55,
