@@ -1567,7 +1567,7 @@ void iteratively_deepen(
 #endif
     H(223, 1, Position *const restrict pos),
     H(223, 1, SearchStack *restrict stack),
-    H(223, 1, const i32 pos_history_count,
+    H(223, 1, const i32 pos_history_count, i32 thread_id,
       i32 move_history[2][6][64][64])) {
   G(224, start_time = get_time();)
   G(224, i32 score = 0;)
@@ -1579,18 +1579,20 @@ void iteratively_deepen(
     // ASPIRATION WINDOWS
     G(225, i32 window = 15;)
     G(225, size_t elapsed;)
-    while (true) {
-      G(226, const i32 alpha = score - window;)
-      G(226, const i32 beta = G(227, score) + G(227, window);)
-      score =
+      while (true) {
+        G(226, const i32 alpha = score - window;)
+          G(226, const i32 beta = G(227, score) + G(227, window);)
+          score =
           search(H(167, 4, beta), H(167, 4, stack), H(167, 4, depth),
-                 H(167, 4, false), H(167, 4, alpha),
+            H(167, 4, false), H(167, 4, alpha),
 #ifdef FULL
-                 nodes,
+            nodes,
 #endif
-                 H(168, 4, pos), H(168, 4, pos_history_count), H(168, 4, 0), move_history);
+            H(168, 4, pos), H(168, 4, pos_history_count), H(168, 4, 0), move_history);
 #ifdef FULL
-      print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
+        if (thread_id == 0) {
+          print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
+      }
 #endif
       elapsed = get_time() - start_time;
       G(228, window *= 2;)
@@ -1605,14 +1607,10 @@ void iteratively_deepen(
       break;
     }
   }
-  char move_name[8];
-  move_str(H(57, 3, move_name), H(57, 3, &stack[0].best_move),
-           H(57, 3, pos->flipped));
-  putl("bestmove ");
-  puts(move_name);
 }
 
 typedef struct [[nodiscard]] {
+  i32 thread_id;
   u64 nodes;
   Position pos;
   SearchStack stack[1024];
@@ -1624,29 +1622,64 @@ S(1) void* thread_fun(void* param)
 {
   ThreadData* data = param;
   //printf("%d\n", data->pos_history_count);
-  iteratively_deepen(max_ply, &data->nodes, &data->pos, data->stack, data->pos_history_count, data->move_history);
+  iteratively_deepen(max_ply, &data->nodes, &data->pos, data->stack, data->pos_history_count, data->thread_id, data->move_history);
   return NULL;
 }
 
 #include <pthread.h>
 
+enum { thread_count = 4 };
 S(1) void run_smp(
   u64* nodes,
   Position* const restrict pos,
   SearchStack* restrict stack,
   const i32 pos_history_count,
   i32 move_history[2][6][64][64]
-  )
+)
 {
-  ThreadData* data = malloc(sizeof(ThreadData));
-  data->pos = *pos;
-  memcpy(data->stack, stack, sizeof(SearchStack) * 1024);
-  data->pos_history_count = pos_history_count;
-  memcpy(data->move_history, move_history, sizeof(i32) * 2 * 6 * 64 * 64);
+  ThreadData* main_data = malloc(sizeof(ThreadData));
+  main_data->pos = *pos;
+  main_data->thread_id = 0;
+  memcpy(main_data->stack, stack, sizeof(SearchStack) * 1024);
+  main_data->pos_history_count = pos_history_count;
+  memcpy(main_data->move_history, move_history, sizeof(i32) * 2 * 6 * 64 * 64);
 
+  pthread_t helpers[thread_count - 1];
+  ThreadData* helper_datas[thread_count - 1];
+
+  // Create and launch helper threads
+  for (i32 i = 0; i < thread_count - 1; i++)
+  {
+    helper_datas[i] = malloc(sizeof(ThreadData));
+    helper_datas[i]->thread_id = i + 1;
+    helper_datas[i]->pos = *pos;
+    memcpy(helper_datas[i]->stack, stack, sizeof(SearchStack) * 1024);
+    helper_datas[i]->pos_history_count = pos_history_count;
+    memcpy(helper_datas[i]->move_history, move_history, sizeof(i32) * 2 * 6 * 64 * 64);
+    pthread_create(&helpers[i], NULL, thread_fun, helper_datas[i]);
+  }
+
+  // Run main thread
   pthread_t thread;
-  pthread_create(&thread, NULL, thread_fun, data);
+  pthread_create(&thread, NULL, thread_fun, main_data);
   pthread_join(thread, NULL);
+
+  // Join helpers and aggregate node count
+  *nodes = main_data->nodes;
+  for (i32 i = 0; i < thread_count - 1; i++)
+  {
+    pthread_join(helpers[i], NULL);
+    *nodes += helper_datas[i]->nodes;
+    free(helper_datas[i]);
+  }
+
+  char move_name[8];
+  move_str(H(57, 3, move_name), H(57, 3, &main_data->stack[0].best_move),
+    H(57, 3, pos->flipped));
+  putl("bestmove ");
+  puts(move_name);
+
+  free(main_data);
 }
 
 #ifdef FULL
@@ -1741,7 +1774,7 @@ S(1) void bench() {
   u64 nodes = 0;
   const u64 start = get_time();
   iteratively_deepen(23, &nodes, H(223, 2, &pos), H(223, 2, stack),
-                     H(223, 2, pos_history_count, move_history));
+                     H(223, 2, pos_history_count, 0, move_history));
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
@@ -1798,7 +1831,7 @@ S(1) void run() {
     } else if (!strcmp(line, "gi")) {
       max_time = -1ll;
       iteratively_deepen(max_ply, &nodes, H(223, 3, &pos), H(223, 3, stack),
-                         H(223, 3, pos_history_count, move_history));
+                         H(223, 3, pos_history_count, 0, move_history));
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
