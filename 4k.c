@@ -1263,14 +1263,14 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 
       G(184, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(185, 56) * G(185, (depth - improving)) >= beta) {
+        if (static_eval - G(185, 58) * G(185, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(184, // RAZORING
         in_qsearch =
-            G(186, static_eval) + G(186, G(187, 122) * G(187, depth)) <= alpha;)
+            G(186, static_eval) + G(186, G(187, 116) * G(187, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1316,13 +1316,13 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
           G(167, // KILLER MOVE
             G(194, move_equal(G(195, &stack[ply].moves[order_index]),
                               G(195, &stack[ply].killer))) *
-                G(194, 836)) +
+                G(194, 822)) +
           G(167, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(196, &stack[ply].best_move),
                         G(196, &stack[ply].moves[order_index]))
              << 30)) +
           G(167, // MOST VALUABLE VICTIM
-            G(197, stack[ply].moves[order_index].takes_piece) * G(197, 712)) +
+            G(197, stack[ply].moves[order_index].takes_piece) * G(197, 691)) +
           G(167, // HISTORY HEURISTIC
             move_history[pos->flipped]
                         [stack[ply].moves[order_index].takes_piece]
@@ -1339,9 +1339,9 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 
     G(
         200, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(201, depth < 8) &&
+        if (G(201, depth < 7) &&
             G(201,
-              G(202, static_eval) + G(202, G(203, 142) * G(203, depth)) +
+              G(202, static_eval) + G(202, G(203, 143) * G(203, depth)) +
                       G(202, initial_params.eg.material
                                  [stack[ply].moves[move_index].takes_piece]) +
                       G(202,
@@ -1352,7 +1352,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 
     G(
         200, // MOVE SCORE PRUNING
-        if (G(204, move_score < G(205, -128) * G(205, depth)) &&
+        if (G(204, move_score < G(205, -122) * G(205, depth)) &&
             G(204, moves_evaluated)) { break; })
 
     Position npos = *pos;
@@ -1369,7 +1369,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 
     // LATE MOVE REDUCTION
     i32 reduction = G(206, depth > 3) && G(206, move_score <= 0)
-                        ? G(207, (move_score < -256)) +
+                        ? G(207, (move_score < -262)) +
                               G(207, (G(208, alpha) == G(208, beta - 1))) +
                               G(207, !improving) + G(207, moves_evaluated / 10)
                         : 0;
