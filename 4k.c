@@ -1646,14 +1646,22 @@ S(1) void run_smp(
   // Create and launch helper threads
   for (i32 i = 0; i < thread_count - 1; i++)
   {
+    //const u64 start_time = get_time() / 1000;
     helper_datas[i] = malloc(sizeof(ThreadData));
+    //const u64 malloc_time = get_time() / 1000;
+    memcpy(helper_datas[i]->stack, stack, sizeof(SearchStack) * 1024); // * pos_history_count?
+    //const u64 stack_time = get_time() / 1000;
+    memcpy(helper_datas[i]->move_history, move_history, sizeof(i32) * 2 * 6 * 64 * 64);
+    //const u64 hist_time = get_time() / 1000;
     helper_datas[i]->thread_id = i + 1;
     helper_datas[i]->pos = *pos;
-    memcpy(helper_datas[i]->stack, stack, sizeof(SearchStack) * 1024);
     helper_datas[i]->pos_history_count = pos_history_count;
-    memcpy(helper_datas[i]->move_history, move_history, sizeof(i32) * 2 * 6 * 64 * 64);
     helper_datas[i]->max_time = -1LL;
+    //const u64 etc_time = get_time() / 1000;
     pthread_create(&helpers[i], NULL, thread_fun, helper_datas[i]);
+    //const u64 thread_time = get_time() / 1000;
+
+    //printf("malloc: %llu, stack: %llu, hist: %llu, etc: %llu, thread: %llu\n", malloc_time - start_time, stack_time - malloc_time, hist_time - stack_time, etc_time - hist_time, thread_time - etc_time);
   }
 
   // Run main thread
