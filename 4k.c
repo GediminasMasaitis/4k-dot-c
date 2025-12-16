@@ -1200,8 +1200,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 #ifdef FULL
            u64 *nodes,
 #endif
-           H(168, 1, Position *const restrict pos),
-           H(168, 1, const i32 pos_history_count), H(168, 1, const i32 ply)) {
+           H(168, 1, Position *const restrict pos), H(168, 1, const i32 ply)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1212,7 +1211,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(169, ply) + G(169, pos_history_count);
+  for (i32 i = G(169, ply);
        G(170, i > 0) && G(170, do_null); i -= 2) {
     if (G(171, tt_hash) == G(171, stack[i].position_hash)) {
       return 0;
@@ -1285,7 +1284,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 #ifdef FULL
           nodes,
 #endif
-          H(168, 2, &npos), H(168, 2, pos_history_count), H(168, 2, ply + 1));
+          H(168, 2, &npos), H(168, 2, ply + 1));
       if (score >= beta) {
         return score;
       }
@@ -1300,7 +1299,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
   G(191, u8 tt_flag = Upper;)
   G(191, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(191,
-    stack[G(192, pos_history_count) + G(192, ply) + G(192, 2)].position_hash =
+    stack[G(192, ply) + G(192, 2)].position_hash =
         tt_hash;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
@@ -1382,7 +1381,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 #ifdef FULL
                       nodes,
 #endif
-                      H(168, 3, &npos), H(168, 3, pos_history_count),
+                      H(168, 3, &npos),
                       H(168, 3, ply + 1));
 
       // EARLY EXITS
@@ -1568,8 +1567,7 @@ void iteratively_deepen(
     i32 maxdepth, u64 *nodes,
 #endif
     H(223, 1, Position *const restrict pos),
-    H(223, 1, SearchStack *restrict stack),
-    H(223, 1, const i32 pos_history_count)) {
+    H(223, 1, SearchStack *restrict stack)) {
   G(224, start_time = get_time();)
   G(224, i32 score = 0;)
 #ifdef FULL
@@ -1589,7 +1587,7 @@ void iteratively_deepen(
 #ifdef FULL
                  nodes,
 #endif
-                 H(168, 4, pos), H(168, 4, pos_history_count), H(168, 4, 0));
+                 H(168, 4, pos), H(168, 4, 0));
 #ifdef FULL
       print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
 #endif
@@ -1696,7 +1694,6 @@ const Position start_pos =
 #ifdef FULL
 S(1) void bench() {
   Position pos;
-  i32 pos_history_count = 0;
 #ifdef LOWSTACK
   SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
 #else
@@ -1707,8 +1704,7 @@ S(1) void bench() {
   max_time = -1ll;
   u64 nodes = 0;
   const u64 start = get_time();
-  iteratively_deepen(23, &nodes, H(223, 2, &pos), H(223, 2, stack),
-                     H(223, 2, pos_history_count));
+  iteratively_deepen(23, &nodes, H(223, 2, &pos), H(223, 2, stack));
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
@@ -1727,7 +1723,6 @@ S(1) void run() {
 
   G(231, char line[4096];)
   G(231, Position pos;)
-  G(231, i32 pos_history_count;)
   G(231, // #ifdef LOWSTACK
          //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
          // #else
@@ -1738,7 +1733,6 @@ S(1) void run() {
 
 #ifdef FULL
   pos = start_pos;
-  pos_history_count = 0;
 #endif
 
 #ifndef FULL
@@ -1766,8 +1760,7 @@ S(1) void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       max_time = -1ll;
-      iteratively_deepen(max_ply, &nodes, H(223, 3, &pos), H(223, 3, stack),
-                         H(223, 3, pos_history_count));
+      iteratively_deepen(max_ply, &nodes, H(223, 3, &pos), H(223, 3, stack));
     } else if (!strcmp(line, "d")) {
       display_pos(&pos);
     } else if (!strcmp(line, "perft")) {
@@ -1801,22 +1794,19 @@ S(1) void run() {
               break;
             }
           }
-          iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
-                             H(223, 4, pos_history_count));
+          iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack));
 #else
       for (i32 i = 2 << pos.flipped; i > 0; i--) {
         getl(line);
         max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
-      iteratively_deepen(H(223, 5, &pos), H(223, 5, stack),
-        H(223, 5, pos_history_count));
+      iteratively_deepen(H(223, 5, &pos), H(223, 5, stack));
 #endif
         })
     else G(232, if (G(235, line[0]) == G(235, 'q')) { exit_now(); })
     else G(232, if (G(233, line[0]) == G(233, 'i')) { puts("readyok"); })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
-      G(237, pos_history_count = 0;)
-        G(237, pos = start_pos;)
+        pos = start_pos;
         while (true) {
           const bool line_continue = getl(line);
 
@@ -1836,11 +1826,6 @@ S(1) void run() {
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(G(238, move_name), G(238, line))) {
-              stack[pos_history_count].position_hash = get_hash(&pos);
-              pos_history_count++;
-              if (stack[0].moves[i].takes_piece) {
-                pos_history_count = 0;
-              }
               makemove(H(85, 4, &pos), H(85, 4, &stack[0].moves[i]));
               break;
             }
