@@ -1117,7 +1117,6 @@ typedef struct [[nodiscard]] {
   G(122, u64 position_hash;)
   G(122, i32 static_eval;)
   G(122, Move killer;)
-  G(122, Move moves[max_moves];)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1295,7 +1294,8 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
   G(191, i32 moves_evaluated = 0;)
   G(191, i32 quiets_evaluated = 0;)
   G(191,
-    stack[ply].num_moves = movegen(H(100, 3, pos), H(100, 3, stack[ply].moves),
+    Move moves[max_moves];
+    stack[ply].num_moves = movegen(H(100, 3, pos), H(100, 3, moves),
                                    H(100, 3, in_qsearch));)
   G(191, u8 tt_flag = Upper;)
   G(191, i32 best_score = in_qsearch ? static_eval : -inf;)
@@ -1314,28 +1314,28 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
           piece_on(H(55, 7, pos), H(55, 7, stack[ply].moves[order_index].to)));
       const i32 order_move_score =
           G(167, // KILLER MOVE
-            G(194, move_equal(G(195, &stack[ply].moves[order_index]),
+            G(194, move_equal(G(195, &moves[order_index]),
                               G(195, &stack[ply].killer))) *
                 G(194, 836)) +
           G(167, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(196, &stack[ply].best_move),
-                        G(196, &stack[ply].moves[order_index]))
+                        G(196, &moves[order_index]))
              << 30)) +
           G(167, // MOST VALUABLE VICTIM
-            G(197, stack[ply].moves[order_index].takes_piece) * G(197, 712)) +
+            G(197, moves[order_index].takes_piece) * G(197, 712)) +
           G(167, // HISTORY HEURISTIC
             move_history[pos->flipped]
-                        [stack[ply].moves[order_index].takes_piece]
-                        [stack[ply].moves[order_index].from]
-                        [stack[ply].moves[order_index].to]);
+                        [moves[order_index].takes_piece]
+                        [moves[order_index].from]
+                        [moves[order_index].to]);
       if (order_move_score > move_score) {
         G(198, best_index = order_index;)
         G(198, move_score = order_move_score;)
       }
     }
 
-    swapmoves(G(199, &stack[ply].moves[move_index]),
-              G(199, &stack[ply].moves[best_index]));
+    swapmoves(G(199, &moves[move_index]),
+              G(199, &moves[best_index]));
 
     G(
         200, // FORWARD FUTILITY PRUNING / DELTA PRUNING
@@ -1343,10 +1343,10 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
             G(201,
               G(202, static_eval) + G(202, G(203, 142) * G(203, depth)) +
                       G(202, initial_params.eg.material
-                                 [stack[ply].moves[move_index].takes_piece]) +
+                                 [moves[move_index].takes_piece]) +
                       G(202,
                         initial_params.eg
-                            .material[stack[ply].moves[move_index].promo]) <
+                            .material[moves[move_index].promo]) <
                   alpha) &&
             G(201, !in_check) && G(201, moves_evaluated)) { break; })
 
@@ -1359,7 +1359,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 #ifdef FULL
     (*nodes)++;
 #endif
-    if (!makemove(H(85, 3, &npos), H(85, 3, &stack[ply].moves[move_index]))) {
+    if (!makemove(H(85, 3, &npos), H(85, 3, &moves[move_index]))) {
       continue;
     }
 
@@ -1409,7 +1409,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
 
       if (score > alpha) {
         G(210, tt_flag = Exact;)
-        G(210, stack[ply].best_move = stack[ply].moves[move_index];)
+        G(210, stack[ply].best_move = moves[move_index];)
         G(210, alpha = score;)
         if (score >= beta) {
           assert(stack[ply].best_move.takes_piece ==
@@ -1433,7 +1433,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
                 G(
                     212, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
-                      const Move prev = stack[ply].moves[prev_index];
+                      const Move prev = moves[prev_index];
                       i32 *const prev_hist =
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
@@ -1446,7 +1446,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
       }
     }
 
-    if (stack[ply].moves[move_index].takes_piece == None) {
+    if (moves[move_index].takes_piece == None) {
       quiets_evaluated++;
     }
 
@@ -1697,11 +1697,7 @@ const Position start_pos =
 S(1) void bench() {
   Position pos;
   i32 pos_history_count = 0;
-#ifdef LOWSTACK
-  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
-#else
   SearchStack stack[1024];
-#endif
   __builtin_memset(move_history, 0, sizeof(move_history));
   pos = start_pos;
   max_time = -1ll;
@@ -1728,12 +1724,7 @@ S(1) void run() {
   G(231, char line[4096];)
   G(231, Position pos;)
   G(231, i32 pos_history_count;)
-  G(231, // #ifdef LOWSTACK
-         //  SearchStack *stack = malloc(sizeof(SearchStack) * 1024);
-         // #else
-    SearchStack stack[1024];
-    // #endif
-  )
+  G(231, SearchStack stack[1024];)
   G(231, init();)
 
 #ifdef FULL
@@ -1826,22 +1817,22 @@ S(1) void run() {
             get_fen(&pos, line);
           }
 #endif
-
+          Move moves[max_moves];
           const i32 num_moves =
-            movegen(H(100, 4, &pos), H(100, 4, stack[0].moves), H(100, 4, false));
+            movegen(H(100, 4, &pos), H(100, 4, moves), H(100, 4, false));
           for (i32 i = 0; i < num_moves; i++) {
             char move_name[8];
-            move_str(H(57, 4, move_name), H(57, 4, &stack[0].moves[i]),
+            move_str(H(57, 4, move_name), H(57, 4, &moves[i]),
               H(57, 4, pos.flipped));
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(G(238, move_name), G(238, line))) {
               stack[pos_history_count].position_hash = get_hash(&pos);
               pos_history_count++;
-              if (stack[0].moves[i].takes_piece) {
+              if (moves[i].takes_piece) {
                 pos_history_count = 0;
               }
-              makemove(H(85, 4, &pos), H(85, 4, &stack[0].moves[i]));
+              makemove(H(85, 4, &pos), H(85, 4, &moves[i]));
               break;
             }
           }
