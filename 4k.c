@@ -1640,15 +1640,6 @@ S(1) void run_smp(
   const u64 max_time
 )
 {
-  ThreadData* main_data = malloc(sizeof(ThreadData));
-  main_data->pos = *pos;
-  main_data->thread_id = 0;
-  memcpy(main_data->stack, stack, sizeof(SearchStack) * 1024);
-  main_data->pos_history_count = pos_history_count;
-  memcpy(main_data->move_history, move_history, sizeof(i32) * 2 * 6 * 64 * 64);
-  main_data->max_time = max_time;
-
-
   pthread_t helpers[thread_count - 1];
   ThreadData* helper_datas[thread_count - 1];
 
@@ -1666,13 +1657,10 @@ S(1) void run_smp(
   }
 
   // Run main thread
-  pthread_t thread;
-  pthread_create(&thread, NULL, thread_fun, main_data);
-  pthread_join(thread, NULL);
+  iteratively_deepen(max_ply, nodes, pos, stack, pos_history_count, 0, move_history, max_time);
   stop = true;
 
   // Join helpers and aggregate node count
-  *nodes = main_data->nodes;
   for (i32 i = 0; i < thread_count - 1; i++)
   {
     pthread_join(helpers[i], NULL);
@@ -1681,12 +1669,10 @@ S(1) void run_smp(
   }
 
   char move_name[8];
-  move_str(H(57, 3, move_name), H(57, 3, &main_data->stack[0].best_move),
+  move_str(H(57, 3, move_name), H(57, 3, &stack[0].best_move),
     H(57, 3, pos->flipped));
   putl("bestmove ");
   puts(move_name);
-
-  free(main_data);
 }
 
 #ifdef FULL
