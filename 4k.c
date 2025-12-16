@@ -1131,7 +1131,7 @@ _Static_assert(sizeof(TTEntry) == 10);
 
 enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
-enum { max_ply = 96 };
+enum { max_ply = 2 };
 enum { mate = 31744, inf = 32256 };
 
 G(165, S(1) i32 move_history[2][6][64][64];)
@@ -1213,7 +1213,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
   for (i32 i = G(169, ply) + G(169, pos_history_count);
-       G(170, i > 0) && G(170, do_null); i -= 2) {
+       G(170, i >= 0) && G(170, do_null); i -= 2) {
     if (G(171, tt_hash) == G(171, stack[i].position_hash)) {
       return 0;
     }
@@ -1404,6 +1404,10 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
       break;
     }
 
+    char mstr[8];
+    move_str(mstr, &stack[ply].moves[move_index], pos->flipped);
+    printf("%s: %d\n", mstr, score);
+
     if (score > best_score) {
       best_score = score;
 
@@ -1578,7 +1582,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(225, i32 window = 15;)
+    G(225, i32 window = 150;)
     G(225, size_t elapsed;)
     while (true) {
       G(226, const i32 alpha = score - window;)
