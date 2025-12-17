@@ -1212,7 +1212,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
   for (i32 i = G(169, ply);
-       G(170, i > 0) && G(170, do_null); i -= 2) {
+       G(170, i >= 0) && G(170, do_null); i -= 2) {
     if (G(171, tt_hash) == G(171, stack[i].position_hash)) {
       return 0;
     }
