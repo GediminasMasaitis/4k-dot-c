@@ -834,8 +834,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(122, 1, i8 open_files[6];) H(122, 1, i8 pst_file[48];))
   H(121, 1,
     H(123, 1, i8 passed_pawns[6];) H(123, 1, i8 king_attacks[5];)
-        H(123, 1, i8 pst_rank[48];) H(123, 1, i8 phalanx_pawn;)
-            H(123, 1, i8 bishop_pair;) H(123, 1, i8 protected_pawn;))
+        H(123, 1, i8 pst_rank[48];) H(123, 1, i8 protected_pawn;)
+            H(123, 1, i8 phalanx_pawn;) H(123, 1, i8 bishop_pair;))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -846,8 +846,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(122, 2, i32 open_files[6];) H(122, 2, i32 pst_file[48];))
   H(121, 2,
     H(123, 2, i32 passed_pawns[6];) H(123, 2, i32 king_attacks[5];)
-        H(123, 2, i32 pst_rank[48];) H(123, 2, i32 phalanx_pawn;)
-            H(123, 2, i32 bishop_pair;) H(123, 2, i32 protected_pawn;))
+        H(123, 2, i32 pst_rank[48];) H(123, 2, i32 protected_pawn;)
+            H(123, 2, i32 phalanx_pawn;) H(123, 2, i32 bishop_pair;))
 
 } EvalParamsMerged;
 
@@ -1213,7 +1213,7 @@ i32 search(H(167, 1, const i32 beta), H(167, 1, SearchStack *restrict stack),
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
   for (i32 i = G(169, ply) + G(169, pos_history_count);
-       G(170, i > 0) && G(170, do_null); i -= 2) {
+       G(170, i >= 0) && G(170, do_null); i -= 2) {
     if (G(171, tt_hash) == G(171, stack[i].position_hash)) {
       return 0;
     }

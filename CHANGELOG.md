@@ -7905,11 +7905,11 @@ https://gedas.pythonanywhere.com/test/1429/
 ```
 
 ```py
-Elo   | 16.17 +- 15.58 (95%)
+Elo   | 14.03 +- 7.13 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 0.73 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 774 W: 231 L: 195 D: 348
-Penta | [13, 80, 171, 104, 19]
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3618 W: 1030 L: 884 D: 1704
+Penta | [56, 398, 779, 496, 80]
 https://gedas.pythonanywhere.com/test/1430/
 ```
 
@@ -8131,11 +8131,11 @@ https://gedas.pythonanywhere.com/test/1454/
 ```
 
 ```py
-Elo   | 18.92 +- 9.78 (95%)
+Elo   | 17.86 +- 7.98 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 2.09 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 1728 W: 472 L: 378 D: 878
-Penta | [17, 178, 396, 240, 33]
+LLR   | 2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2628 W: 717 L: 582 D: 1329
+Penta | [29, 272, 598, 365, 50]
 https://gedas.pythonanywhere.com/test/1456/
 ```
 
@@ -8270,11 +8270,11 @@ MD5: cc77f5736fec1ac402cefb653e4bbe12
 Disable second instruction scheduling pass
 
 ```py
-Elo   | -3.22 +- 9.41 (95%)
+Elo   | -1.50 +- 1.93 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | -0.23 (-2.94, 2.94) [-5.00, 0.00]
-Games | N: 2264 W: 618 L: 639 D: 1007
-Penta | [53, 279, 496, 244, 60]
+LLR   | 0.50 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 53778 W: 14613 L: 14845 D: 24320
+Penta | [1375, 6378, 11515, 6346, 1275]
 https://gedas.pythonanywhere.com/test/1545/
 ```
 
@@ -8324,11 +8324,11 @@ https://gedas.pythonanywhere.com/test/1553/
 ```
 
 ```
-Elo   | 17.51 +- 8.78 (95%)
+Elo   | 16.93 +- 7.96 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 2.54 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 2482 W: 692 L: 567 D: 1223
-Penta | [41, 264, 529, 343, 64]
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2978 W: 836 L: 691 D: 1451
+Penta | [45, 325, 634, 410, 75]
 https://gedas.pythonanywhere.com/test/1555/
 ```
 
@@ -8380,6 +8380,16 @@ MD5: 10192d454debe922fc4c6c5ac59c9c26
 
 Reduce size of king and knight
 
+Test vs 5.25:
+```py
+Elo   | 2.23 +- 4.07 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.07 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 12760 W: 3604 L: 3522 D: 5634
+Penta | [316, 1551, 2617, 1527, 369]
+https://gedas.pythonanywhere.com/test/1572/
+```
+
 ### 5.31
 
 64 bit: 3958 bytes (-3)
@@ -8387,3 +8397,21 @@ Reduce size of king and knight
 MD5: 2b04563fd2726e03164a5837c3fa0933
 
 Smaller getl
+
+### 5.32
+
+64 bit: 3960 bytes (+2)
+
+MD5: 7c47631f5e6dd3d71f2e7581858eb435
+
+Repetition detection fix
+Previously it wouldn't detect repetition to startpos or the first move after capture
+
+```py
+Elo   | 0.83 +- 3.24 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 3.00 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 19344 W: 5390 L: 5344 D: 8610
+Penta | [486, 2269, 4107, 2333, 477]
+https://gedas.pythonanywhere.com/test/1581/
+```
