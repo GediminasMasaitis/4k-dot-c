@@ -375,20 +375,6 @@ G(
     })
 
 G(
-    49, [[nodiscard]] S(1)
-            i32 piece_on(H(55, 1, const Position *const restrict pos),
-                         H(55, 1, const i32 sq)) {
-              assert(sq >= 0);
-              assert(sq < 64);
-              for (i32 i = Pawn; i <= King; ++i) {
-                if (G(56, pos->pieces[i]) & G(56, 1ull << sq)) {
-                  return i;
-                }
-              }
-              return None;
-            })
-
-G(
     49, S(1) void move_str(H(57, 1, char *restrict str),
                            H(57, 1, const Move *restrict move),
                            H(57, 1, const i32 flip)) {
@@ -411,6 +397,20 @@ G(
             G(59, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
           })
     })
+
+G(
+    49, [[nodiscard]] S(1)
+            i32 piece_on(H(55, 1, const Position *const restrict pos),
+                         H(55, 1, const i32 sq)) {
+              assert(sq >= 0);
+              assert(sq < 64);
+              for (i32 i = Pawn; i <= King; ++i) {
+                if (G(56, pos->pieces[i]) & G(56, 1ull << sq)) {
+                  return i;
+                }
+              }
+              return None;
+            })
 
 G(
     60,
@@ -1138,8 +1138,8 @@ enum { mate = 31744, inf = 32256 };
 
 G(165, S(1) i32 move_history[2][6][64][64];)
 G(165, S(1) TTEntry tt[tt_length];)
-G(165, S(0) u64 max_time;)
 G(165, S(0) u64 start_time;)
+G(165, S(0) u64 max_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1776,23 +1776,25 @@ S(1) void run() {
     else G(232, if (G(235, line[0]) == G(235, 'q')) { exit_now(); })
     else G(232, if (G(234, line[0]) == G(234, 'g')) {
 #ifdef FULL
-          while (true) {
-            getl(line);
-            if (!pos.flipped && !strcmp(line, "wtime")) {
-              getl(line);
-              max_time = (u64)atoi(line) << 19; // Roughly /2 time
-              break;
-            } else if (pos.flipped && !strcmp(line, "btime")) {
-              getl(line);
-              max_time = (u64)atoi(line) << 19; // Roughly /2 time
-              break;
-            } else if (!strcmp(line, "movetime")) {
-              max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
-              break;
-            }
-          }
-          iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
-                             H(223, 4, pos_history_count));
+      while (true) {
+        getl(line);
+        if (!pos.flipped && !strcmp(line, "wtime")) {
+          getl(line);
+          max_time = (u64)atoi(line) << 19; // Roughly /2 time
+          break;
+        }
+        else if (pos.flipped && !strcmp(line, "btime")) {
+          getl(line);
+          max_time = (u64)atoi(line) << 19; // Roughly /2 time
+          break;
+        }
+        else if (!strcmp(line, "movetime")) {
+          max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
+          break;
+        }
+      }
+      iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
+        H(223, 4, pos_history_count));
 #else
       for (i32 i = 2 << pos.flipped; i > 0; i--) {
         getl(line);
@@ -1801,7 +1803,7 @@ S(1) void run() {
       iteratively_deepen(H(223, 5, &pos), H(223, 5, stack),
         H(223, 5, pos_history_count));
 #endif
-        })
+    })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
       G(237, pos_history_count = 0;)
         G(237, pos = start_pos;)
