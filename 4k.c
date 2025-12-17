@@ -835,8 +835,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(121, 1,
     H(123, 1, i8 passed_pawns[6];) H(123, 1, i8 king_attacks[5];)
         H(123, 1, i8 pst_rank[48];) H(123, 1, i8 phalanx_pawn;)
-            H(123, 1, i8 bishop_pair;) H(123, 1, i8 protected_pawn;))
-  i8 king_shield[2];
+            H(123, 1, i8 bishop_pair;) H(123, 1, i8 protected_pawn;)
+                H(123, 1, i8 king_shield[2];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -848,8 +848,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(121, 2,
     H(123, 2, i32 passed_pawns[6];) H(123, 2, i32 king_attacks[5];)
         H(123, 2, i32 pst_rank[48];) H(123, 2, i32 phalanx_pawn;)
-            H(123, 2, i32 bishop_pair;) H(123, 2, i32 protected_pawn;))
-  i32 king_shield[2];
+            H(123, 2, i32 bishop_pair;) H(123, 2, i32 protected_pawn;)
+                H(123, 2, i32 king_shield[2];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1099,14 +1099,17 @@ S(1) i32 eval(Position *const restrict pos) {
                       G(159, eval_params.king_attacks[p - 2]);))
             })
 
-        if (p == King && (1ULL << sq) & 0xC3D7) {
-          u64 shield = 0x700 << ((file > 2) * 5);
-          for (i32 shield_row = 0; shield_row < 2; shield_row++)
-          {
-            score += count(shield & own_pawns) * eval_params.king_shield[shield_row];
-            shield = north(shield);
-          }
-        }
+        G(
+            98,
+            // KING SHIELD
+            if (p == King && (1ULL << sq) & 0xC3D7) {
+              u64 shield = 0x700 << ((file > 2) * 5);
+              for (i32 shield_row = 0; shield_row < 2; shield_row++) {
+                score += count(shield & own_pawns) *
+                         eval_params.king_shield[shield_row];
+                shield = north(shield);
+              }
+            })
       }
     }
 
