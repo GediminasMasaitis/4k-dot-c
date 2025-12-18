@@ -1814,7 +1814,7 @@ S(1) void run() {
       puts("id author Gediminas Masaitis");
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
-      puts("option name Threads type spin default 4 min 4 max 1");
+      puts("option name Threads type spin default 4 min 1 max 4");
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_datas, 0, sizeof(thread_datas));
