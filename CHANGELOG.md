@@ -8405,6 +8405,7 @@ Smaller getl
 MD5: 7c47631f5e6dd3d71f2e7581858eb435
 
 Repetition detection fix
+
 Previously it wouldn't detect repetition to startpos or the first move after capture
 
 ```py
@@ -8414,4 +8415,24 @@ LLR   | 3.00 (-2.94, 2.94) [-5.00, 0.00]
 Games | N: 19344 W: 5390 L: 5344 D: 8610
 Penta | [486, 2269, 4107, 2333, 477]
 https://gedas.pythonanywhere.com/test/1581/
+```
+
+### 5.33
+
+64 bit: 3961 bytes (+1)
+
+MD5: d70c18ba5fa1aaa4604ae04b870b3958
+
+Moves not in stack
+
+Even though no gains and one byte larger, it saves stack size and removes the need
+for special handling for Windows builds
+
+```py
+Elo   | -0.50 +- 2.21 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 2.99 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 41302 W: 11344 L: 11403 D: 18555
+Penta | [1052, 4848, 8853, 4903, 995]
+https://gedas.pythonanywhere.com/test/1587/
 ```
