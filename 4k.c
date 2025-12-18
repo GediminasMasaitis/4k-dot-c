@@ -1635,50 +1635,44 @@ S(1) void *thread_fun(void *param) {
 
 enum { thread_count = 4 };
 S(1)
-void run_smp(u64 *nodes, Position *const restrict pos,
-             SearchStack *restrict stack, const i32 pos_history_count,
-             i32 move_history[2][6][64][64], const u64 max_time) {
+void run_smp(u64 *nodes, ThreadData thread_datas[thread_count], const u64 max_time) {
   pthread_t helpers[thread_count - 1];
-  ThreadData *helper_datas[thread_count - 1];
 
-  for (i32 i = 0; i < thread_count - 1; i++) {
-    const u64 start_time = get_time() / 1000;
-    helper_datas[i] = malloc(sizeof(ThreadData));
-    const u64 malloc_time = get_time() / 1000;
-    memcpy(helper_datas[i]->stack, stack,
-           sizeof(SearchStack) * 1024); // * pos_history_count?
-    const u64 stack_time = get_time() / 1000;
-    memcpy(helper_datas[i]->move_history, move_history,
-           sizeof(i32) * 2 * 6 * 64 * 64);
-    const u64 hist_time = get_time() / 1000;
-    helper_datas[i]->thread_id = i + 1;
-    helper_datas[i]->pos = *pos;
-    helper_datas[i]->pos_history_count = pos_history_count;
-    helper_datas[i]->max_time = -1LL;
-    const u64 etc_time = get_time() / 1000;
-    pthread_create(&helpers[i], NULL, thread_fun, helper_datas[i]);
-    const u64 thread_time = get_time() / 1000;
+  for (i32 i = 1; i < thread_count; i++) {
+    //const u64 start_time = get_time() / 1000;
+    memcpy(&thread_datas[i].stack, &thread_datas[0].stack, sizeof(SearchStack) * 1024); // * pos_history_count?
+    //const u64 stack_time = get_time() / 1000;
+    //memcpy(thread_datas[i].move_history, thread_datas[0].stack, sizeof(i32) * 2 * 6 * 64 * 64);
+    //const u64 hist_time = get_time() / 1000;
+    thread_datas[i].thread_id = i;
+    thread_datas[i].pos = thread_datas[0].pos;
+    thread_datas[i].pos_history_count = thread_datas[0].pos_history_count;
+    thread_datas[i].max_time = -1LL;
+    //const u64 etc_time = get_time() / 1000;
+    pthread_create(&helpers[i], NULL, thread_fun, &thread_datas[i]);
+    //const u64 thread_time = get_time() / 1000;
 
-    printf("malloc: %llu, stack: %llu, hist: %llu, etc: %llu, thread: %llu\n",
-      malloc_time - start_time, stack_time - malloc_time, hist_time - stack_time, etc_time - hist_time, thread_time - etc_time
-    );
+    //printf("stack: %llu, hist: %llu, etc: %llu, thread: %llu\n", stack_time - start_time, hist_time - stack_time, etc_time - hist_time, thread_time - etc_time);
   }
 
   // Run main thread
-  iteratively_deepen(max_ply, nodes, pos, stack, pos_history_count, 0,
-                     move_history, max_time);
+  iteratively_deepen(max_ply, nodes, &thread_datas[0].pos, thread_datas[0].stack, thread_datas[0].pos_history_count, 0, thread_datas[0].move_history, max_time);
   stop = true;
+
+  //const u64 stop_time = get_time() / 1000;
 
   // Join helpers and aggregate node count
   for (i32 i = 0; i < thread_count - 1; i++) {
     pthread_join(helpers[i], NULL);
-    *nodes += helper_datas[i]->nodes;
-    free(helper_datas[i]);
+    //*nodes += thread_datas[i].nodes;
   }
 
+  //const u64 join_time = get_time() / 1000;
+  //printf("joins: %llu\n", join_time - stop_time);
+
   char move_name[8];
-  move_str(H(57, 3, move_name), H(57, 3, &stack[0].best_move),
-           H(57, 3, pos->flipped));
+  move_str(H(57, 3, move_name), H(57, 3, &thread_datas[0].stack[0].best_move),
+           H(57, 3, thread_datas[0].pos.flipped));
   putl("bestmove ");
   puts(move_name);
 }
@@ -1872,7 +1866,7 @@ S(1) void run() {
           break;
         }
       }
-      run_smp(&nodes, &thread_datas[0].pos, thread_datas[0].stack, thread_datas[0].pos_history_count, thread_datas[0].move_history, max_time);
+      run_smp(&nodes, thread_datas, max_time);
       //iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
       //  H(223, 4, pos_history_count));
 #else
