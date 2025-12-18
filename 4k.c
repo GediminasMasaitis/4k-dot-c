@@ -1570,8 +1570,7 @@ void iteratively_deepen(
     H(223, 1, SearchStack *restrict stack),
     H(223, 1, const i32 pos_history_count, i32 thread_id,
       i32 move_history[2][6][64][64], const u64 max_time)) {
-  G(224, start_time = get_time();)
-  G(224, i32 score = 0;)
+  i32 score = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1636,6 +1635,7 @@ S(1) void *thread_fun(void *param) {
 enum { thread_count = 4 };
 S(1)
 void run_smp(u64 *nodes, ThreadData thread_datas[thread_count], const u64 max_time) {
+  start_time = get_time();
   pthread_t helpers[thread_count - 1];
 
   for (i32 i = 1; i < thread_count; i++) {
@@ -1768,6 +1768,7 @@ S(1) void bench() {
   u64 nodes = 0;
   stop = false;
   const u64 start = get_time();
+  start_time = start;
   iteratively_deepen(23, &nodes, H(223, 2, &pos), H(223, 2, stack),
                      H(223, 2, pos_history_count, 0, move_history, -1LL));
   const u64 end = get_time();
@@ -1826,6 +1827,7 @@ S(1) void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       stop = false;
+      start_time = get_time();
       iteratively_deepen(max_ply, &nodes, H(223, 3, &thread_datas[0].pos), H(223, 3, thread_datas[0].stack),
                          H(223, 3, thread_datas[0].pos_history_count, 0, thread_datas[0].move_history, -1LL));
     } else if (!strcmp(line, "d")) {
@@ -1874,6 +1876,7 @@ S(1) void run() {
         getl(line);
         max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
+      start_time = get_time();
       iteratively_deepen(H(223, 5, &thread_datas[0].pos), H(223, 5, stack),
         H(223, 5, thread_datas[0].pos_history_count), max_time);
 #endif
