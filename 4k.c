@@ -1788,12 +1788,7 @@ S(1) void run() {
 #endif
 
   G(231, char line[4096];)
-  //G(231, Position pos;)
-  //G(231, i32 pos_history_count;)
-  //G(231, i32 move_history[2][6][64][64];)
-  //G(231, SearchStack stack[1024];)
-  ThreadData thread_datas[thread_count];
-  u64 a = sizeof(thread_datas);
+  G(231, ThreadData thread_datas[thread_count];)
   G(231, init();)
 
   __builtin_memset(thread_datas, 0, sizeof(thread_datas));
@@ -1819,7 +1814,7 @@ S(1) void run() {
       puts("id author Gediminas Masaitis");
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
-      puts("option name Threads type spin default 1 min 1 max 1");
+      puts("option name Threads type spin default 4 min 4 max 1");
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_datas, 0, sizeof(thread_datas));
