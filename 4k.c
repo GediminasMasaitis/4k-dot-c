@@ -1649,7 +1649,7 @@ void run_smp(u64 *nodes, ThreadData thread_datas[thread_count], const u64 max_ti
     thread_datas[i].pos_history_count = thread_datas[0].pos_history_count;
     thread_datas[i].max_time = -1LL;
     //const u64 etc_time = get_time() / 1000;
-    pthread_create(&helpers[i], NULL, thread_fun, &thread_datas[i]);
+    pthread_create(&helpers[i - 1], NULL, thread_fun, &thread_datas[i]);
     //const u64 thread_time = get_time() / 1000;
 
     //printf("stack: %llu, hist: %llu, etc: %llu, thread: %llu\n", stack_time - start_time, hist_time - stack_time, etc_time - hist_time, thread_time - etc_time);
