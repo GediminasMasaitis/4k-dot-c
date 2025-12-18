@@ -1633,7 +1633,7 @@ S(1) void *thread_fun(void *param) {
 
 #include <pthread.h>
 
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 S(1)
 void run_smp(u64 *nodes, Position *const restrict pos,
              SearchStack *restrict stack, const i32 pos_history_count,
@@ -1641,28 +1641,27 @@ void run_smp(u64 *nodes, Position *const restrict pos,
   pthread_t helpers[thread_count - 1];
   ThreadData *helper_datas[thread_count - 1];
 
-  // Create and launch helper threads
   for (i32 i = 0; i < thread_count - 1; i++) {
-    // const u64 start_time = get_time() / 1000;
+    const u64 start_time = get_time() / 1000;
     helper_datas[i] = malloc(sizeof(ThreadData));
-    // const u64 malloc_time = get_time() / 1000;
+    const u64 malloc_time = get_time() / 1000;
     memcpy(helper_datas[i]->stack, stack,
            sizeof(SearchStack) * 1024); // * pos_history_count?
-    // const u64 stack_time = get_time() / 1000;
+    const u64 stack_time = get_time() / 1000;
     memcpy(helper_datas[i]->move_history, move_history,
            sizeof(i32) * 2 * 6 * 64 * 64);
-    // const u64 hist_time = get_time() / 1000;
+    const u64 hist_time = get_time() / 1000;
     helper_datas[i]->thread_id = i + 1;
     helper_datas[i]->pos = *pos;
     helper_datas[i]->pos_history_count = pos_history_count;
     helper_datas[i]->max_time = -1LL;
-    // const u64 etc_time = get_time() / 1000;
+    const u64 etc_time = get_time() / 1000;
     pthread_create(&helpers[i], NULL, thread_fun, helper_datas[i]);
-    // const u64 thread_time = get_time() / 1000;
+    const u64 thread_time = get_time() / 1000;
 
-    // printf("malloc: %llu, stack: %llu, hist: %llu, etc: %llu, thread:
-    // %llu\n", malloc_time - start_time, stack_time - malloc_time, hist_time -
-    // stack_time, etc_time - hist_time, thread_time - etc_time);
+    printf("malloc: %llu, stack: %llu, hist: %llu, etc: %llu, thread: %llu\n",
+      malloc_time - start_time, stack_time - malloc_time, hist_time - stack_time, etc_time - hist_time, thread_time - etc_time
+    );
   }
 
   // Run main thread
@@ -1794,17 +1793,19 @@ S(1) void run() {
 #endif
 
   G(231, char line[4096];)
-  G(231, Position pos;)
-  G(231, i32 pos_history_count;)
-  G(231, i32 move_history[2][6][64][64];)
-  G(231, SearchStack stack[1024];)
+  //G(231, Position pos;)
+  //G(231, i32 pos_history_count;)
+  //G(231, i32 move_history[2][6][64][64];)
+  //G(231, SearchStack stack[1024];)
+  ThreadData thread_datas[thread_count];
+  u64 a = sizeof(thread_datas);
   G(231, init();)
 
-  __builtin_memset(move_history, 0, sizeof(move_history));
+  __builtin_memset(thread_datas, 0, sizeof(thread_datas));
 
 #ifdef FULL
-  pos = start_pos;
-  pos_history_count = 0;
+  thread_datas[0].pos = start_pos;
+  thread_datas[0].pos_history_count = 0;
 #endif
 
 #ifndef FULL
@@ -1826,22 +1827,21 @@ S(1) void run() {
       puts("option name Threads type spin default 1 min 1 max 1");
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
-      __builtin_memset(tt, 0, sizeof(tt));
-      __builtin_memset(move_history, 0, sizeof(move_history));
+      __builtin_memset(thread_datas, 0, sizeof(thread_datas));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
       stop = false;
-      iteratively_deepen(max_ply, &nodes, H(223, 3, &pos), H(223, 3, stack),
-                         H(223, 3, pos_history_count, 0, move_history, -1LL));
+      iteratively_deepen(max_ply, &nodes, H(223, 3, &thread_datas[0].pos), H(223, 3, thread_datas[0].stack),
+                         H(223, 3, thread_datas[0].pos_history_count, 0, thread_datas[0].move_history, -1LL));
     } else if (!strcmp(line, "d")) {
-      display_pos(&pos);
+      display_pos(&thread_datas[0].pos);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       getl(depth_str);
       const i32 depth = atoi(depth_str);
       const u64 start = get_time();
-      nodes = perft(&pos, depth);
+      nodes = perft(&thread_datas[0].pos, depth);
       const u64 end = get_time();
       const u64 elapsed = end - start;
       const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000 / elapsed : 0;
@@ -1857,12 +1857,12 @@ S(1) void run() {
 #ifdef FULL
       while (true) {
         getl(line);
-        if (!pos.flipped && !strcmp(line, "wtime")) {
+        if (!thread_datas[0].pos.flipped && !strcmp(line, "wtime")) {
           getl(line);
           max_time = (u64)atoi(line) << 19; // Roughly /2 time
           break;
         }
-        else if (pos.flipped && !strcmp(line, "btime")) {
+        else if (thread_datas[0].pos.flipped && !strcmp(line, "btime")) {
           getl(line);
           max_time = (u64)atoi(line) << 19; // Roughly /2 time
           break;
@@ -1872,47 +1872,46 @@ S(1) void run() {
           break;
         }
       }
-      run_smp(&nodes, &pos, stack, pos_history_count, move_history,
-        max_time);
+      run_smp(&nodes, &thread_datas[0].pos, thread_datas[0].stack, thread_datas[0].pos_history_count, thread_datas[0].move_history, max_time);
       //iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
       //  H(223, 4, pos_history_count));
 #else
-      for (i32 i = 2 << pos.flipped; i > 0; i--) {
+      for (i32 i = 2 << thread_datas[0].pos.flipped; i > 0; i--) {
         getl(line);
         max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
-      iteratively_deepen(H(223, 5, &pos), H(223, 5, stack),
-        H(223, 5, pos_history_count), max_time);
+      iteratively_deepen(H(223, 5, &thread_datas[0].pos), H(223, 5, stack),
+        H(223, 5, thread_datas[0].pos_history_count), max_time);
 #endif
     })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
-      G(237, pos_history_count = 0;)
-        G(237, pos = start_pos;)
+      G(237, thread_datas[0].pos_history_count = 0;)
+        G(237, thread_datas[0].pos = start_pos;)
         while (true) {
           const bool line_continue = getl(line);
 
 #if FULL
           if (!strcmp(line, "fen")) {
             getl(line);
-            get_fen(&pos, line);
+            get_fen(&thread_datas[0].pos, line);
           }
 #endif
           Move moves[max_moves];
           const i32 num_moves =
-            movegen(H(100, 4, &pos), H(100, 4, moves), H(100, 4, false));
+            movegen(H(100, 4, &thread_datas[0].pos), H(100, 4, moves), H(100, 4, false));
           for (i32 i = 0; i < num_moves; i++) {
             char move_name[8];
             move_str(H(57, 4, move_name), H(57, 4, &moves[i]),
-              H(57, 4, pos.flipped));
+              H(57, 4, thread_datas[0].pos.flipped));
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(G(238, move_name), G(238, line))) {
-              stack[pos_history_count].position_hash = get_hash(&pos);
-              pos_history_count++;
+              thread_datas[0].stack[thread_datas[0].pos_history_count].position_hash = get_hash(&thread_datas[0].pos);
+              thread_datas[0].pos_history_count++;
               if (moves[i].takes_piece) {
-                pos_history_count = 0;
+                thread_datas[0].pos_history_count = 0;
               }
-              makemove(H(85, 4, &pos), H(85, 4, &moves[i]));
+              makemove(H(85, 4, &thread_datas[0].pos), H(85, 4, &moves[i]));
               break;
             }
           }
