@@ -1136,7 +1136,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 
-G(165, S(1) i32 move_history[2][6][64][64];)
+G(165, S(1) i16 move_history[2][6][64][64];)
 G(165, S(1) TTEntry tt[tt_length];)
 G(165, S(0) u64 start_time;)
 G(165, S(0) u64 max_time;)
@@ -1420,7 +1420,7 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
           G(
               211, if (!in_qsearch) {
                 const i32 bonus = depth * depth;
-                G(212, i32 *const this_hist =
+                G(212, i16 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
                                         [stack[ply].best_move.from]
@@ -1432,7 +1432,7 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
                     212, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
                       const Move prev = moves[prev_index];
-                      i32 *const prev_hist =
+                      i16 *const prev_hist =
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
