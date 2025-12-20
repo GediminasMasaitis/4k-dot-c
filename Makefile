@@ -1,9 +1,28 @@
 ARCH ?= 64
-EXE ?= ./build/4kc
 CC := gcc
 CFLAGS := -std=gnu2x -Wno-deprecated-declarations -Wno-format
 LDFLAGS :=
 NOSTDLIBLDFLAGS :=
+
+ifeq ($(OS),Windows_NT)
+    ifdef EXE
+        ifeq ($(suffix $(EXE)),)
+            override EXE := $(EXE).exe
+        endif
+    else
+        EXE := .\build\4kc.exe
+    endif
+    MKDIR = if not exist build mkdir build
+    LS = dir
+    MD5 = certutil -hashfile $(EXE) MD5
+    MAP_CHECK = if exist $(EXE).map findstr fill $(EXE).map
+else
+    EXE ?= ./build/4kc
+    MKDIR = mkdir -p build
+    LS = ls -la
+    MD5 = md5sum $(EXE)
+    MAP_CHECK = if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
+endif
 
 ifeq ($(NOSTDLIB), true)
     CFLAGS += -DNOSTDLIB -nostdlib -fno-pic -fno-builtin -fno-stack-protector -fno-schedule-insns2 -march=haswell -Oz
@@ -28,43 +47,37 @@ else
 endif
 
 all:
-	mkdir -p build
+	$(MKDIR)
 	$(CC) $(CFLAGS) -c 4k.c
 	$(CC) $(LDFLAGS) $(NOSTDLIBLDFLAGS) -o $(EXE) 4k.o
-	ls -la $(EXE)
-	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
-	md5sum $(EXE)
-
-.PHONY: compress loader
+	$(LS) $(EXE)
+	@$(MAP_CHECK)
+	$(MD5)
 
 compress:
-	mkdir -p build
+	$(MKDIR)
 	$(CC) $(CFLAGS) -S -masm=intel -o 4k.s 4k.c
 	$(CC) $(CFLAGS) -c -o 4k.o 4k.s
-	$(CC) $(LDFLAGS) -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
-	ls -la $(EXE)
-	@if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
+	$(CC) $(LDFLAGS) -Wl,-Map=$(EXE).map -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
+	$(LS) $(EXE)
+	@$(MAP_CHECK)
 	apultra -stats -v $(EXE) $(EXE).ap
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
-	ls -la $(EXE)
-	md5sum $(EXE)
-
-win:
-	if not exist build mkdir build
-	$(CC) $(CFLAGS) -o $(EXE) 4k.c
+	$(LS) $(EXE)
+	$(MD5)
 
 pgo:
-	mkdir -p build
+	$(MKDIR)
 	$(CC) $(CFLAGS) -fprofile-generate -ftest-coverage -fprofile-update=atomic -c 4k.c
 	$(CC) $(LDFLAGS) -fprofile-generate -o $(EXE) 4k.o
 	$(EXE) bench
 	$(CC) $(CFLAGS) -fprofile-use -fprofile-correction -c 4k.c
 	$(CC) $(LDFLAGS) -fprofile-use -o $(EXE) 4k.o
 	rm *.o
-	ls -la $(EXE)
-	md5sum $(EXE)
+	$(LS) $(EXE)
+	$(MD5)
 
 format:
 	dos2unix ./*.asm
