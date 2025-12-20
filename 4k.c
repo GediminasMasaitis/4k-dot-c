@@ -149,6 +149,7 @@ typedef struct [[nodiscard]] {
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 
 [[nodiscard]] static u64 get_time() {
   struct timespec ts;
@@ -1624,23 +1625,27 @@ typedef struct [[nodiscard]] {
 S(1) void *thread_fun(void *param) {
   ThreadData *data = param;
   // printf("%d\n", data->pos_history_count);
-  iteratively_deepen(max_ply, &data->nodes, &data->pos, data->stack,
+  iteratively_deepen(
+#ifdef FULL
+    max_ply, &data->nodes,
+#endif
+    &data->pos, data->stack,
                      data->pos_history_count, data->thread_id,
                      data->move_history, data->max_time);
   return NULL;
 }
 
-#include <pthread.h>
-
 enum { thread_count = 4 };
 S(1)
 void run_smp(u64 *nodes, ThreadData thread_datas[thread_count], const u64 max_time) {
   start_time = get_time();
+#ifdef FULL
   pthread_t helpers[thread_count - 1];
+#endif
 
   for (i32 i = 1; i < thread_count; i++) {
     //const u64 start_time = get_time() / 1000;
-    memcpy(&thread_datas[i].stack, &thread_datas[0].stack, sizeof(SearchStack) * 1024); // * pos_history_count?
+    __builtin_memcpy(&thread_datas[i].stack, &thread_datas[0].stack, sizeof(SearchStack) * 1024); // * pos_history_count?
     //const u64 stack_time = get_time() / 1000;
     //memcpy(thread_datas[i].move_history, thread_datas[0].stack, sizeof(i32) * 2 * 6 * 64 * 64);
     //const u64 hist_time = get_time() / 1000;
@@ -1649,21 +1654,29 @@ void run_smp(u64 *nodes, ThreadData thread_datas[thread_count], const u64 max_ti
     thread_datas[i].pos_history_count = thread_datas[0].pos_history_count;
     thread_datas[i].max_time = -1LL;
     //const u64 etc_time = get_time() / 1000;
+#ifdef FULL
     pthread_create(&helpers[i - 1], NULL, thread_fun, &thread_datas[i]);
+#endif
     //const u64 thread_time = get_time() / 1000;
 
     //printf("stack: %llu, hist: %llu, etc: %llu, thread: %llu\n", stack_time - start_time, hist_time - stack_time, etc_time - hist_time, thread_time - etc_time);
   }
 
   // Run main thread
-  iteratively_deepen(max_ply, nodes, &thread_datas[0].pos, thread_datas[0].stack, thread_datas[0].pos_history_count, 0, thread_datas[0].move_history, max_time);
+  iteratively_deepen(
+#ifdef FULL
+    max_ply, nodes,
+#endif
+    &thread_datas[0].pos, thread_datas[0].stack, thread_datas[0].pos_history_count, 0, thread_datas[0].move_history, max_time);
   stop = true;
 
   //const u64 stop_time = get_time() / 1000;
 
   // Join helpers and aggregate node count
   for (i32 i = 0; i < thread_count - 1; i++) {
+#ifdef FULL
     pthread_join(helpers[i], NULL);
+#endif
     //*nodes += thread_datas[i].nodes;
   }
 
@@ -1872,8 +1885,8 @@ S(1) void run() {
         max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
       start_time = get_time();
-      iteratively_deepen(H(223, 5, &thread_datas[0].pos), H(223, 5, stack),
-        H(223, 5, thread_datas[0].pos_history_count), max_time);
+      iteratively_deepen(H(223, 5, &thread_datas[0].pos), H(223, 5, thread_datas[0].stack),
+        H(223, 5, thread_datas[0].pos_history_count), 0, thread_datas[0].move_history, max_time);
 #endif
     })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
