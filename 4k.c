@@ -1387,7 +1387,7 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
                       H(168, 3, ply + 1), move_history, max_time);
 
       // EARLY EXITS
-      if (stop || depth > 4 && get_time() - start_time > max_time) {
+      if (stop || (depth > 4 && get_time() - start_time > max_time)) {
         return best_score;
       }
 
