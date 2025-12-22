@@ -1612,7 +1612,8 @@ void iteratively_deepen(
   }
 }
 
-typedef struct [[nodiscard]] {
+typedef struct __attribute__((aligned(16))) ThreadDataStruct {
+  void (*entry)(struct ThreadDataStruct*);
   i32 thread_id;
   u64 nodes;
   Position pos;
@@ -1621,6 +1622,11 @@ typedef struct [[nodiscard]] {
   i32 move_history[2][6][64][64];
   u64 max_time;
 } ThreadData;
+
+//struct __attribute__((aligned(16))) stack_head {
+//  void (*entry)(struct stack_head*);
+//  ThreadData data;
+//};
 
 S(1) void *thread_fun(void *param) {
   ThreadData *data = param;
@@ -1635,12 +1641,43 @@ S(1) void *thread_fun(void *param) {
   return NULL;
 }
 
+S(1) void threadentry(void* param) {
+  ThreadData* data = param;
+  // printf("%d\n", data->pos_history_count);
+  iteratively_deepen(
+#ifdef FULL
+    max_ply, &data->nodes,
+#endif
+    &data->pos, data->stack,
+    data->pos_history_count, data->thread_id,
+    data->move_history, data->max_time);
+}
+
+__attribute__((naked)) static long newthread(struct stack_head* stack)
+{
+  __asm volatile (
+  "mov  %%rdi, %%rsi\n"     // arg2 = stack
+    "mov  $0x50f00, %%edi\n"  // arg1 = clone flags
+    "mov  $56, %%eax\n"       // SYS_clone
+    "syscall\n"
+    "mov  %%rsp, %%rdi\n"     // entry point argument
+    "ret\n"
+    : : : "rax", "rcx", "rsi", "rdi", "r11", "memory"
+    );
+}
+
 enum { thread_count = 4 };
 S(1)
-void run_smp(u64 *nodes, ThreadData thread_datas[thread_count], const u64 max_time) {
+void run_smp(
+#ifdef FULL
+  u64 *nodes,
+#endif
+  ThreadData thread_datas[thread_count], const u64 max_time) {
   start_time = get_time();
 #ifdef FULL
   pthread_t helpers[thread_count - 1];
+#else
+
 #endif
 
   for (i32 i = 1; i < thread_count; i++) {
@@ -1656,6 +1693,8 @@ void run_smp(u64 *nodes, ThreadData thread_datas[thread_count], const u64 max_ti
     //const u64 etc_time = get_time() / 1000;
 #ifdef FULL
     pthread_create(&helpers[i - 1], NULL, thread_fun, &thread_datas[i]);
+#else
+    thread_datas[i].entry = threadentry;
 #endif
     //const u64 thread_time = get_time() / 1000;
 
@@ -1885,8 +1924,8 @@ S(1) void run() {
         max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
       start_time = get_time();
-      iteratively_deepen(H(223, 5, &thread_datas[0].pos), H(223, 5, thread_datas[0].stack),
-        H(223, 5, thread_datas[0].pos_history_count), 0, thread_datas[0].move_history, max_time);
+      run_smp(thread_datas, max_time);
+      //iteratively_deepen(H(223, 5, &thread_datas[0].pos), H(223, 5, thread_datas[0].stack), H(223, 5, thread_datas[0].pos_history_count), 0, thread_datas[0].move_history, max_time);
 #endif
     })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
