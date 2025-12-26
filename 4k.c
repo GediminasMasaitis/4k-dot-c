@@ -1697,8 +1697,9 @@ void run_smp(
     //const u64 etc_time = get_time() / 1000;
 #ifdef FULL
     pthread_create(&helpers[i - 1], NULL, thread_fun, helper_data);
+    //printf("Created %d\n", i);
 #else
-    helper_data->entry = threadentry;
+    //helper_data->entry = threadentry; // TODO: fix entries
 #endif
     //const u64 thread_time = get_time() / 1000;
 
@@ -1727,8 +1728,7 @@ void run_smp(
   //printf("joins: %llu\n", join_time - stop_time);
 
   char move_name[8];
-  move_str(H(57, 3, move_name), H(57, 3, &main_data->stack[0].best_move),
-           H(57, 3, main_data->pos.flipped));
+  move_str(H(57, 3, move_name), H(57, 3, &main_data->stack[0].best_move), H(57, 3, main_data->pos.flipped));
   putl("bestmove ");
   puts(move_name);
 }
