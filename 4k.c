@@ -1825,10 +1825,9 @@ S(1) void run() {
 #endif
 
   G(231, char line[4096];)
-  //G(231, ThreadData thread_datas[thread_count];)
   G(231, init();)
-  __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
-  ThreadData* main_data = (ThreadData*)&thread_stacks[1][0];
+  G(231, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
+  G(231, ThreadData* main_data = (ThreadData*)&thread_stacks[1][0];)
 
 #ifdef FULL
   main_data->pos = start_pos;
