@@ -1790,7 +1790,6 @@ S(1) void bench() {
     .max_time = -1LL,
     .pos = start_pos,
   };
-  __builtin_memset(&data, 0, sizeof(data));
   const u64 start = get_time();
   start_time = start;
   iteratively_deepen(23, &data);
