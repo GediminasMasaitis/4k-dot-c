@@ -1707,29 +1707,19 @@ void run_smp(
 
   for (i32 i = 1; i < thread_count; i++) {
     ThreadData* helper_data = (ThreadData*)&thread_stacks[i+1][0];
-    //const u64 start_time = get_time() / 1000;
     __builtin_memcpy(helper_data->stack, main_data->stack, sizeof(SearchStack) * 1024); // * pos_history_count?
-    //const u64 stack_time = get_time() / 1000;
-    //memcpy(thread_datas[i].move_history, thread_datas[0].stack, sizeof(i32) * 2 * 6 * 64 * 64);
-    //const u64 hist_time = get_time() / 1000;
     helper_data->thread_id = i;
     helper_data->pos = main_data->pos;
     helper_data->pos_history_count = main_data->pos_history_count;
     helper_data->max_time = -1LL;
-    //const u64 etc_time = get_time() / 1000;
 #ifdef FULL
     pthread_create(&helpers[i - 1], NULL, thread_fun, helper_data);
-    //printf("Created %d\n", i);
 #else
     helper_data->entry = threadentry;
     newthread(helper_data);
 #endif
-    //const u64 thread_time = get_time() / 1000;
-
-    //printf("stack: %llu, hist: %llu, etc: %llu, thread: %llu\n", stack_time - start_time, hist_time - stack_time, etc_time - hist_time, thread_time - etc_time);
   }
 
-  // Run main thread
   iteratively_deepen(
 #ifdef FULL
     max_ply, nodes,
@@ -1737,18 +1727,11 @@ void run_smp(
     &main_data->pos, main_data->stack, main_data->pos_history_count, 0, main_data->move_history, max_time);
   stop = true;
 
-  //const u64 stop_time = get_time() / 1000;
-
-  // Join helpers and aggregate node count
   for (i32 i = 0; i < thread_count - 1; i++) {
 #ifdef FULL
     pthread_join(helpers[i], NULL);
 #endif
-    //*nodes += thread_datas[i].nodes;
   }
-
-  //const u64 join_time = get_time() / 1000;
-  //printf("joins: %llu\n", join_time - stop_time);
 
   char move_name[8];
   move_str(H(57, 3, move_name), H(57, 3, &main_data->stack[0].best_move), H(57, 3, main_data->pos.flipped));
