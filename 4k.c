@@ -1139,7 +1139,6 @@ enum { mate = 31744, inf = 32256 };
 
 G(165, S(1) TTEntry tt[tt_length];)
 G(165, S(0) u64 start_time;)
-// G(165, S(0) u64 max_time;)
 G(165, S(1) volatile bool stop;)
 
 #if defined(__x86_64__) || defined(_M_X64)
