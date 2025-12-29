@@ -1644,7 +1644,7 @@ S(1) void *thread_fun(void *param) {
 S(1) void threadentry(ThreadData* data) {
   // printf("%d\n", data->pos_history_count);
 
-  putl("enter\n");
+  //putl("enter\n");
 
   iteratively_deepen(
 #ifdef FULL
@@ -1654,7 +1654,7 @@ S(1) void threadentry(ThreadData* data) {
   data->pos_history_count, data->thread_id,
   data->move_history, data->max_time);
 
-  putl("exit\n");
+  //putl("exit\n");
 
   exit_now();
 }
@@ -1730,6 +1730,8 @@ void run_smp(
   for (i32 i = 0; i < thread_count - 1; i++) {
 #ifdef FULL
     pthread_join(helpers[i], NULL);
+#else
+    // TODO sync ?
 #endif
   }
 
