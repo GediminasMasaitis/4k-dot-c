@@ -1204,8 +1204,8 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
 #endif
            H(168, 1, Position *const restrict pos),
            H(168, 1, const i32 pos_history_count),
-           H(168, 1, const i32 ply, i32 move_history[2][6][64][64]),
-           const u64 max_time) {
+           H(168, 1, const i32 ply), H(168, 1, i32 move_history[2][6][64][64]),
+           H(168, 1, const u64 max_time)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1384,7 +1384,7 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
                       nodes,
 #endif
                       H(168, 3, &npos), H(168, 3, pos_history_count),
-                      H(168, 3, ply + 1), move_history, max_time);
+                      H(168, 3, ply + 1), H(168, 3, move_history), H(168, 3, max_time));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > max_time)) {
@@ -1589,7 +1589,7 @@ void iteratively_deepen(
                      nodes,
 #endif
                      H(168, 4, pos), H(168, 4, pos_history_count), H(168, 4, 0),
-                     move_history, max_time);
+                     H(168, 4, move_history), H(168, 4, max_time));
 #ifdef FULL
       if (thread_id == 0) {
         print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move,
