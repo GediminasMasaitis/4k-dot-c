@@ -1724,8 +1724,8 @@ S(1) void bench() {
   stop = false;
   const u64 start = get_time();
   start_time = start;
-  iteratively_deepen(23, &nodes, 0, H(223, 5, -1LL), H(223, 5, pos_history_count, H(223, 5, move_history), H(223, 5, &pos)),
-                     H(223, 5, stack));
+  iteratively_deepen(23, &nodes, 0, H(223, 5, -1LL), H(223, 5, pos_history_count), H(223, 5, move_history), H(223, 5, &pos),
+    H(223, 5, stack));
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
