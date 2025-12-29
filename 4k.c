@@ -1623,14 +1623,8 @@ typedef struct __attribute__((aligned(16))) ThreadDataStruct {
   u64 max_time;
 } ThreadData;
 
-//struct __attribute__((aligned(16))) stack_head {
-//  void (*entry)(struct stack_head*);
-//  ThreadData data;
-//};
-
 S(1) void *thread_fun(void *param) {
   ThreadData *data = param;
-  // printf("%d\n", data->pos_history_count);
   iteratively_deepen(
 #ifdef FULL
     max_ply, &data->nodes,
@@ -1642,9 +1636,6 @@ S(1) void *thread_fun(void *param) {
 }
 
 S(1) void threadentry(ThreadData* data) {
-  // printf("%d\n", data->pos_history_count);
-
-  //putl("enter\n");
 
   iteratively_deepen(
 #ifdef FULL
