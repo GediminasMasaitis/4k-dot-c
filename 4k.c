@@ -1065,10 +1065,13 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
+enum { thread_count = 4 };
+enum { thread_stack_size = 8 * 1024 * 1024 };
 
 G(165, S(1) TTEntry tt[tt_length];)
 G(165, S(1) u64 start_time;)
 G(165, S(1) volatile bool stop;)
+G(165, __attribute__((aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1579,12 +1582,7 @@ __attribute__((naked)) S(1) long newthread(ThreadData* stack)
 
 }
 
-enum { thread_count = 4 };
-enum { thread_stack_size = 8 * 1024 * 1024 };
-
 _Static_assert(sizeof(ThreadData) < thread_stack_size);
-
-__attribute__((aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
 
 S(1)
 void run_smp(const u64 max_time) {
