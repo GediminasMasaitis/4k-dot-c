@@ -1135,8 +1135,7 @@ i32 search(H(167, 1, const bool do_null), H(167, 1, const i32 beta),
            u64 *nodes,
 #endif
            H(168, 1, Position *const restrict pos),
-           H(168, 1, i32 move_history[2][6][64][64]),
-           H(168, 1, const i32 pos_history_count), H(168, 1, const u64 max_time),
+           H(168, 1, i32 move_history[2][6][64][64]), H(168, 1, const u64 max_time),
            H(168, 1, const i32 ply)) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -1148,8 +1147,7 @@ i32 search(H(167, 1, const bool do_null), H(167, 1, const i32 beta),
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(169, ply) + G(169, pos_history_count);
-       G(170, i >= 0) && G(170, do_null); i -= 2) {
+  for (i32 i = G(169, ply); G(170, i >= 0) && G(170, do_null); i -= 2) {
     if (G(171, tt_hash) == G(171, stack[i].position_hash)) {
       return 0;
     }
@@ -1221,8 +1219,7 @@ i32 search(H(167, 1, const bool do_null), H(167, 1, const i32 beta),
 #ifdef FULL
                   nodes,
 #endif
-                  H(168, 2, &npos), H(168, 2, move_history),
-                  H(168, 2, pos_history_count), H(168, 2, max_time), H(168, 2, ply + 1));
+                  H(168, 2, &npos), H(168, 2, move_history), H(168, 2, max_time), H(168, 2, ply + 1));
       if (score >= beta) {
         return score;
       }
@@ -1234,8 +1231,7 @@ i32 search(H(167, 1, const bool do_null), H(167, 1, const i32 beta),
         movegen(H(100, 3, pos), H(100, 3, moves), H(100, 3, in_qsearch));)
   G(191, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(191, u8 tt_flag = Upper;)
-  G(191, stack[G(192, pos_history_count) + G(192, ply) + G(192, 2)].position_hash =
-        tt_hash;)
+  G(191, stack[G(192, ply) + G(192, 2)].position_hash = tt_hash;)
   G(191, i32 moves_evaluated = 0;)
   G(191, i32 quiets_evaluated = 0;)
 
@@ -1310,8 +1306,7 @@ i32 search(H(167, 1, const bool do_null), H(167, 1, const i32 beta),
 #ifdef FULL
                       nodes,
 #endif
-                      H(168, 3, &npos), H(168, 3, move_history),
-                      H(168, 3, pos_history_count), H(168, 3, max_time), H(168, 3, ply + 1));
+                      H(168, 3, &npos), H(168, 3, move_history), H(168, 3, max_time), H(168, 3, ply + 1));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > max_time)) {
@@ -1489,7 +1484,7 @@ void iteratively_deepen(
     H(223, 1, i32 move_history[2][6][64][64]),
     H(223, 1, SearchStack *restrict stack),
     H(223, 1, const u64 max_time),
-  H(223, 1, Position *const restrict pos), H(223, 1, const i32 pos_history_count)) {
+  H(223, 1, Position *const restrict pos)) {
   i32 score = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -1508,8 +1503,7 @@ void iteratively_deepen(
 #ifdef FULL
                      nodes,
 #endif
-                     H(168, 4, pos), H(168, 4, move_history), H(168, 4, pos_history_count),
-                     H(168, 4, max_time), H(168, 4, 0));
+                     H(168, 4, pos), H(168, 4, move_history), H(168, 4, max_time), H(168, 4, 0));
 #ifdef FULL
       if (thread_id == 0) {
         print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move,
@@ -1536,7 +1530,6 @@ typedef struct __attribute__((aligned(16))) ThreadDataStruct {
   i32 thread_id;
   u64 nodes;
 #endif
-  G(998, i32 pos_history_count;)
   G(998, u64 max_time;)
   G(998, Position pos;)
   G(998, SearchStack stack[1024];)
@@ -1551,7 +1544,7 @@ S(1) void *thread_fun(void *param) {
 #endif
     H(223, 2, data->move_history), H(223, 2, data->stack),
     H(223, 2, data->max_time),
-    H(223, 2, &data->pos), H(223, 2, data->pos_history_count));
+    H(223, 2, &data->pos));
   return NULL;
 }
 
@@ -1563,7 +1556,7 @@ S(1) void threadentry(ThreadData* data) {
 #endif
     H(223, 3, data->move_history), H(223, 3, data->stack),
     H(223, 3, data->max_time),
-    H(223, 3, &data->pos), H(223, 3, data->pos_history_count));
+    H(223, 3, &data->pos));
 
   exit_now();
 }
@@ -1596,11 +1589,8 @@ void run_smp(const u64 max_time) {
 
   for (i32 i = 1; i < thread_count; i++) {
     ThreadData* helper_data = (ThreadData*)&thread_stacks[i][0];
-    G(999, helper_data->pos_history_count = main_data->pos_history_count;)
     G(999, helper_data->pos = main_data->pos;)
     G(999, helper_data->max_time = -1LL;)
-    G(999, // * pos_history_count?
-      __builtin_memcpy(helper_data->stack, main_data->stack, sizeof(SearchStack) * 1024);)
 #ifdef FULL
     helper_data->thread_id = i;
     pthread_create(&helpers[i - 1], NULL, thread_fun, helper_data);
@@ -1614,7 +1604,7 @@ void run_smp(const u64 max_time) {
 #ifdef FULL
     max_ply, &nodes, 0,
 #endif
-    H(223, 4, main_data->move_history), H(223, 4, main_data->stack), H(223, 4, max_time), H(223, 4, &main_data->pos), H(223, 4, main_data->pos_history_count));
+    H(223, 4, main_data->move_history), H(223, 4, main_data->stack), H(223, 4, max_time), H(223, 4, &main_data->pos));
   stop = true;
 
   for (i32 i = 0; i < thread_count - 1; i++) {
@@ -1714,7 +1704,6 @@ const Position start_pos =
 #ifdef FULL
 S(1) void bench() {
   Position pos;
-  i32 pos_history_count = 0;
   i32 move_history[2][6][64][64];
   SearchStack stack[1024];
   __builtin_memset(move_history, 0, sizeof(move_history));
@@ -1723,8 +1712,7 @@ S(1) void bench() {
   stop = false;
   const u64 start = get_time();
   start_time = start;
-  iteratively_deepen(23, &nodes, 0, H(223, 5, move_history), H(223, 5, stack), H(223, 5, -1LL), H(223, 5, &pos),
-    H(223, 5, pos_history_count));
+  iteratively_deepen(23, &nodes, 0, H(223, 5, move_history), H(223, 5, stack), H(223, 5, -1LL), H(223, 5, &pos));
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
@@ -1748,7 +1736,6 @@ S(1) void run() {
 
 #ifdef FULL
   main_data->pos = start_pos;
-  main_data->pos_history_count = 0;
 #endif
 
 #ifndef FULL
@@ -1794,7 +1781,6 @@ S(1) void run() {
     G(232, if (G(235, line[0]) == G(235, 'q')) { exit_now(); })
     else G(232, if (G(233, line[0]) == G(233, 'i')) { puts("readyok"); })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
-      G(237, main_data->pos_history_count = 0;)
         G(237, main_data->pos = start_pos;)
         while (true) {
           const bool line_continue = getl(line);
@@ -1815,11 +1801,6 @@ S(1) void run() {
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(G(238, move_name), G(238, line))) {
-              main_data->stack[main_data->pos_history_count].position_hash = get_hash(&main_data->pos);
-              main_data->pos_history_count++;
-              if (moves[i].takes_piece) {
-                main_data->pos_history_count = 0;
-              }
               makemove(H(85, 4, &main_data->pos), H(85, 4, &moves[i]));
               break;
             }
