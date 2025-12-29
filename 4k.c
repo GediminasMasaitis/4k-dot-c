@@ -1140,7 +1140,7 @@ enum { mate = 31744, inf = 32256 };
 G(165, S(1) TTEntry tt[tt_length];)
 G(165, S(0) u64 start_time;)
 // G(165, S(0) u64 max_time;)
-G(165, S(1) bool stop;)
+G(165, S(1) volatile bool stop;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1643,26 +1643,44 @@ S(1) void *thread_fun(void *param) {
 
 S(1) void threadentry(ThreadData* data) {
   // printf("%d\n", data->pos_history_count);
+
+  putl("enter\n");
+
   iteratively_deepen(
 #ifdef FULL
-    max_ply, &data->nodes,
+  max_ply, &data->nodes,
 #endif
-    &data->pos, data->stack,
-    data->pos_history_count, data->thread_id,
-    data->move_history, data->max_time);
+  &data->pos, data->stack,
+  data->pos_history_count, data->thread_id,
+  data->move_history, data->max_time);
+
+  putl("exit\n");
+
+  exit_now();
 }
 
 __attribute__((naked)) static long newthread(ThreadData* stack)
 {
-  __asm volatile (
-  "mov  %%rdi, %%rsi\n"     // arg2 = stack
-    "mov  $0x50f00, %%edi\n"  // arg1 = clone flags
-    "mov  $56, %%eax\n"       // SYS_clone
+  //__asm volatile (
+  //"mov  %%rdi, %%rsi\n"     // arg2 = stack
+  //  "mov  $0x50f00, %%edi\n"  // arg1 = clone flags
+  //  "mov  $56, %%eax\n"       // SYS_clone
+  //  "syscall\n"
+  //  "mov  %%rsp, %%rdi\n"     // entry point argument
+  //  "ret\n"
+  //  : : : "rax", "rcx", "rsi", "rdi", "r11", "memory"
+  //  );
+
+  asm volatile (
+    "mov  rsi, rdi\n"         // arg2 = stack
+    "mov  edi, 0x50f00\n"     // arg1 = clone flags
+    "mov  eax, 56\n"          // SYS_clone
     "syscall\n"
-    "mov  %%rsp, %%rdi\n"     // entry point argument
+    "mov  rdi, rsp\n"         // entry point argument
     "ret\n"
     : : : "rax", "rcx", "rsi", "rdi", "r11", "memory"
     );
+
 }
 
 enum { thread_count = 4 };
@@ -1704,6 +1722,7 @@ void run_smp(
     //printf("Created %d\n", i);
 #else
     helper_data->entry = threadentry;
+    newthread(helper_data);
 #endif
     //const u64 thread_time = get_time() / 1000;
 
