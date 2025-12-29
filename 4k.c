@@ -1529,13 +1529,15 @@ void iteratively_deepen(
 
 typedef struct __attribute__((aligned(16))) ThreadDataStruct {
   void (*entry)(struct ThreadDataStruct*);
+#ifdef FULL
   i32 thread_id;
   u64 nodes;
-  Position pos;
-  SearchStack stack[1024];
-  i32 pos_history_count;
-  i32 move_history[2][6][64][64];
-  u64 max_time;
+#endif
+  G(998, Position pos;)
+  G(998, SearchStack stack[1024];)
+  G(998, i32 pos_history_count;)
+  G(998, i32 move_history[2][6][64][64];)
+  G(998, u64 max_time;)
 } ThreadData;
 
 S(1) void *thread_fun(void *param) {
@@ -1563,7 +1565,7 @@ S(1) void threadentry(ThreadData* data) {
   exit_now();
 }
 
-__attribute__((naked)) static long newthread(ThreadData* stack)
+__attribute__((naked)) S(1) long newthread(ThreadData* stack)
 {
   asm volatile (
     "mov  rsi, rdi\n"         // arg2 = stack
@@ -1596,12 +1598,14 @@ void run_smp(const u64 max_time) {
 
   for (i32 i = 1; i < thread_count; i++) {
     ThreadData* helper_data = (ThreadData*)&thread_stacks[i][0];
-    __builtin_memcpy(helper_data->stack, main_data->stack, sizeof(SearchStack) * 1024); // * pos_history_count?
-    helper_data->thread_id = i;
-    helper_data->pos = main_data->pos;
-    helper_data->pos_history_count = main_data->pos_history_count;
-    helper_data->max_time = -1LL;
+    G(999,
+      // * pos_history_count?
+      __builtin_memcpy(helper_data->stack, main_data->stack, sizeof(SearchStack) * 1024);)
+    G(999, helper_data->pos = main_data->pos;)
+    G(999, helper_data->pos_history_count = main_data->pos_history_count;)
+    G(999, helper_data->max_time = -1LL;)
 #ifdef FULL
+    helper_data->thread_id = i;
     pthread_create(&helpers[i - 1], NULL, thread_fun, helper_data);
 #else
     helper_data->entry = threadentry;
