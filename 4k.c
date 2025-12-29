@@ -1645,23 +1645,11 @@ S(1) void threadentry(ThreadData* data) {
   data->pos_history_count, data->thread_id,
   data->move_history, data->max_time);
 
-  //putl("exit\n");
-
   exit_now();
 }
 
 __attribute__((naked)) static long newthread(ThreadData* stack)
 {
-  //__asm volatile (
-  //"mov  %%rdi, %%rsi\n"     // arg2 = stack
-  //  "mov  $0x50f00, %%edi\n"  // arg1 = clone flags
-  //  "mov  $56, %%eax\n"       // SYS_clone
-  //  "syscall\n"
-  //  "mov  %%rsp, %%rdi\n"     // entry point argument
-  //  "ret\n"
-  //  : : : "rax", "rcx", "rsi", "rdi", "r11", "memory"
-  //  );
-
   asm volatile (
     "mov  rsi, rdi\n"         // arg2 = stack
     "mov  edi, 0x50f00\n"     // arg1 = clone flags
@@ -1682,16 +1670,11 @@ _Static_assert(sizeof(ThreadData) < thread_stack_size);
 __attribute__((aligned(4096))) u8 thread_stacks[thread_count + 1][thread_stack_size];
 
 S(1)
-void run_smp(
-#ifdef FULL
-  u64 *nodes,
-#endif
-  const u64 max_time) {
+void run_smp(const u64 max_time) {
   start_time = get_time();
 #ifdef FULL
   pthread_t helpers[thread_count - 1];
-#else
-
+  u64 nodes = 0;
 #endif
 
   ThreadData* main_data = (ThreadData*)&thread_stacks[1][0];
@@ -1713,7 +1696,7 @@ void run_smp(
 
   iteratively_deepen(
 #ifdef FULL
-    max_ply, nodes,
+    max_ply, &nodes,
 #endif
     &main_data->pos, main_data->stack, main_data->pos_history_count, 0, main_data->move_history, max_time);
   stop = true;
@@ -1722,7 +1705,7 @@ void run_smp(
 #ifdef FULL
     pthread_join(helpers[i], NULL);
 #else
-    // TODO sync ?
+    // TODO: sync ?
 #endif
   }
 
@@ -1863,7 +1846,6 @@ S(1) void run() {
   while (true) {
     getl(line);
 #ifdef FULL
-    u64 nodes = 0;
     if (!strcmp(line, "uci")) {
       puts("id name 4k.c");
       puts("id author Gediminas Masaitis");
@@ -1878,7 +1860,7 @@ S(1) void run() {
     } else if (!strcmp(line, "gi")) {
       stop = false;
       start_time = get_time();
-      run_smp(&nodes, -1LL);
+      run_smp(-1LL);
     } else if (!strcmp(line, "d")) {
       display_pos(&main_data->pos);
     } else if (!strcmp(line, "perft")) {
@@ -1886,7 +1868,7 @@ S(1) void run() {
       getl(depth_str);
       const i32 depth = atoi(depth_str);
       const u64 start = get_time();
-      nodes = perft(&main_data->pos, depth);
+      const u64 nodes = perft(&main_data->pos, depth);
       const u64 end = get_time();
       const u64 elapsed = end - start;
       const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000 / elapsed : 0;
@@ -1917,7 +1899,7 @@ S(1) void run() {
           break;
         }
       }
-      run_smp(&nodes, max_time);
+      run_smp(max_time);
       //iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
       //  H(223, 4, pos_history_count));
 #else
