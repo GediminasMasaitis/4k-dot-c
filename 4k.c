@@ -1565,11 +1565,11 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 S(1)
 void iteratively_deepen(
 #ifdef FULL
-    i32 maxdepth, u64 *nodes,
+    i32 maxdepth, u64 *nodes, i32 thread_id,
 #endif
     H(223, 1, Position *const restrict pos),
     H(223, 1, SearchStack *restrict stack),
-    H(223, 1, const i32 pos_history_count, i32 thread_id,
+    H(223, 1, const i32 pos_history_count,
       i32 move_history[2][6][64][64], const u64 max_time)) {
   i32 score = 0;
 #ifdef FULL
@@ -1627,11 +1627,11 @@ S(1) void *thread_fun(void *param) {
   ThreadData *data = param;
   iteratively_deepen(
 #ifdef FULL
-    max_ply, &data->nodes,
+    max_ply, &data->nodes, data->thread_id,
 #endif
-    &data->pos, data->stack,
-                     data->pos_history_count, data->thread_id,
-                     data->move_history, data->max_time);
+    H(223, 2, &data->pos), H(223, 2, data->stack),
+    H(223, 2, data->pos_history_count),
+    H(223, 2, data->move_history), H(223, 2, data->max_time));
   return NULL;
 }
 
@@ -1639,11 +1639,11 @@ S(1) void threadentry(ThreadData* data) {
 
   iteratively_deepen(
 #ifdef FULL
-  max_ply, &data->nodes,
+  max_ply, &data->nodes, data->thread_id,
 #endif
-  &data->pos, data->stack,
-  data->pos_history_count, data->thread_id,
-  data->move_history, data->max_time);
+    H(223, 3, &data->pos), H(223, 3, data->stack),
+    H(223, 3, data->pos_history_count),
+    H(223, 3, data->move_history), H(223, 3, data->max_time));
 
   exit_now();
 }
@@ -1696,9 +1696,9 @@ void run_smp(const u64 max_time) {
 
   iteratively_deepen(
 #ifdef FULL
-    max_ply, &nodes,
+    max_ply, &nodes, 0,
 #endif
-    &main_data->pos, main_data->stack, main_data->pos_history_count, 0, main_data->move_history, max_time);
+    H(223, 4, &main_data->pos), H(223, 4, main_data->stack), H(223, 4, main_data->pos_history_count), H(223, 4, main_data->move_history), H(223, 4, max_time));
   stop = true;
 
   for (i32 i = 0; i < thread_count - 1; i++) {
@@ -1807,8 +1807,8 @@ S(1) void bench() {
   stop = false;
   const u64 start = get_time();
   start_time = start;
-  iteratively_deepen(23, &nodes, H(223, 2, &pos), H(223, 2, stack),
-                     H(223, 2, pos_history_count, 0, move_history, -1LL));
+  iteratively_deepen(23, &nodes, 0, H(223, 5, &pos), H(223, 5, stack),
+                     H(223, 5, pos_history_count, H(223, 5, move_history), H(223, 5, -1LL)));
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
@@ -1900,8 +1900,6 @@ S(1) void run() {
         }
       }
       run_smp(max_time);
-      //iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
-      //  H(223, 4, pos_history_count));
 #else
       for (i32 i = 2 << main_data->pos.flipped; i > 0; i--) {
         getl(line);
@@ -1909,7 +1907,6 @@ S(1) void run() {
       }
       start_time = get_time();
       run_smp(max_time);
-      //iteratively_deepen(H(223, 5, &thread_datas[0].pos), H(223, 5, thread_datas[0].stack), H(223, 5, thread_datas[0].pos_history_count), 0, thread_datas[0].move_history, max_time);
 #endif
     })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
