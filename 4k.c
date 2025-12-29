@@ -261,28 +261,28 @@ G(
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 se(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 southeast(const u64 bb) {
       return G(20, shift(H(13, 2, -7), H(13, 2, ~0x101010101010101ull),
                          H(13, 2, bb)));
       return G(20, G(21, east)(G(21, south)(bb)));
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 ne(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 northeast(const u64 bb) {
       return G(22, G(23, east)(G(23, north)(bb)));
       return G(22, shift(H(13, 3, 9), H(13, 3, ~0x101010101010101ull),
                          H(13, 3, bb)));
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 nw(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 northwest(const u64 bb) {
       return G(24, shift(H(13, 4, 7), H(13, 4, ~0x8080808080808080ull),
                          H(13, 4, bb)));
       return G(24, G(25, west)(G(25, north)(bb)));
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 sw(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 southwest(const u64 bb) {
       return G(26, G(27, west)(G(27, south)(bb)));
       return G(26, shift(H(13, 5, -9), H(13, 5, ~0x8080808080808080ull),
                          H(13, 5, bb)));
@@ -422,7 +422,7 @@ G(
       const u64 theirs = pos->colour[1];
       G(62, const u64 pawns = theirs & pos->pieces[Pawn];)
       G(62, const u64 blockers = theirs | pos->colour[0];)
-      return G(63, G(64, (G(65, sw(pawns)) | G(65, se(pawns)))) & G(64, bb)) ||
+      return G(63, G(64, (G(65, southwest(pawns)) | G(65, southeast(pawns)))) & G(64, bb)) ||
              G(63, G(66, bishop(H(36, 2, blockers), H(36, 2, bb))) &
                        G(66, theirs) &
                        G(66, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
@@ -672,14 +672,14 @@ enum { max_moves = 218 };
     movelist = generate_pawn_moves(
         H(98, 4, -7), H(98, 4, movelist),
         H(98, 4,
-          G(109, nw(G(110, pos->colour[0]) & G(110, pos->pieces[Pawn]))) &
+          G(109, northwest(G(110, pos->colour[0]) & G(110, pos->pieces[Pawn]))) &
               G(109, (G(111, pos->colour[1]) | G(111, pos->ep)))),
         H(98, 4, pos));)
   G(103, // PAWN EAST CAPTURES
     movelist = generate_pawn_moves(
         H(98, 5, -9), H(98, 5, movelist),
         H(98, 5,
-          G(112, ne(G(113, pos->colour[0]) & G(113, pos->pieces[Pawn]))) &
+          G(112, northeast(G(113, pos->colour[0]) & G(113, pos->pieces[Pawn]))) &
               G(112, (G(114, pos->colour[1]) | G(114, pos->ep)))),
         H(98, 5, pos));)
   G(
@@ -1017,7 +1017,7 @@ S(0) i32 eval(Position *const restrict pos) {
     G(129,
       const u64 opp_pawns = G(132, pos->pieces[Pawn]) & G(132, pos->colour[1]);
       const u64 attacked_by_pawns =
-          G(133, se(opp_pawns)) | G(133, sw(opp_pawns));
+          G(133, southeast(opp_pawns)) | G(133, southwest(opp_pawns));
       G(134,
         const u64 no_passers = G(135, opp_pawns) | G(135, attacked_by_pawns);)
           G(134, // PROTECTED PAWNS
@@ -1490,11 +1490,11 @@ S(1) void init() {
       85, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
-        G(220, u64 sw_bb = sw(bb);)
-        G(220, u64 ne_bb = ne(bb);)
+        G(220, u64 sw_bb = southwest(bb);)
+        G(220, u64 ne_bb = northeast(bb);)
         for (i32 i = 6; i > 0; i--) {
-          G(221, sw_bb |= sw(sw_bb);)
-          G(221, ne_bb |= ne(ne_bb);)
+          G(221, sw_bb |= southwest(sw_bb);)
+          G(221, ne_bb |= northeast(ne_bb);)
         }
         diag_mask[sq] = G(222, sw_bb) | G(222, ne_bb);
       })
