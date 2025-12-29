@@ -1290,7 +1290,7 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
                   nodes,
 #endif
                   H(168, 2, &npos), H(168, 2, pos_history_count),
-                  H(168, 2, ply + 1), move_history, max_time);
+                  H(168, 2, ply + 1), H(168, 2, move_history), H(168, 2, max_time));
       if (score >= beta) {
         return score;
       }
