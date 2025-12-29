@@ -1641,8 +1641,7 @@ S(1) void *thread_fun(void *param) {
   return NULL;
 }
 
-S(1) void threadentry(void* param) {
-  ThreadData* data = param;
+S(1) void threadentry(ThreadData* data) {
   // printf("%d\n", data->pos_history_count);
   iteratively_deepen(
 #ifdef FULL
@@ -1704,7 +1703,7 @@ void run_smp(
     pthread_create(&helpers[i - 1], NULL, thread_fun, helper_data);
     //printf("Created %d\n", i);
 #else
-    //helper_data->entry = threadentry; // TODO: fix entries
+    helper_data->entry = threadentry;
 #endif
     //const u64 thread_time = get_time() / 1000;
 
