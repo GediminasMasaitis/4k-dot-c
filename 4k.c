@@ -1568,8 +1568,8 @@ void iteratively_deepen(
 #endif
     H(223, 1, Position *const restrict pos),
     H(223, 1, SearchStack *restrict stack),
-    H(223, 1, const i32 pos_history_count,
-      i32 move_history[2][6][64][64], const u64 max_time)) {
+    H(223, 1, const i32 pos_history_count),
+  H(223, 1, i32 move_history[2][6][64][64]), H(223, 1, const u64 max_time)) {
   i32 score = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
