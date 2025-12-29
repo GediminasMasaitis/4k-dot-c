@@ -431,9 +431,9 @@ G(
                G(68, king(bb)) & G(68, theirs) & G(68, pos->pieces[King])) ||
              G(63, G(69, knight(bb)) & G(69, theirs) &
                        G(69, pos->pieces[Knight])) ||
-             G(63, G(67, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(67, rook(H(39, 2, blockers), H(39, 2, bb))) &
-                       G(67, theirs));
+             G(63, G(67, theirs) &
+                       G(67, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(67, rook(H(39, 2, blockers), H(39, 2, bb))));
     })
 
 G(
@@ -1202,15 +1202,15 @@ get_hash(const Position *const pos) {
 #endif
 
 S(1)
-i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
-           H(167, 1, i32 depth), H(167, 1, const bool do_null),
+i32 search(H(167, 1, const bool do_null), H(167, 1, const i32 beta),
+           H(167, 1, i32 depth), H(167, 1, SearchStack *restrict stack),
            H(167, 1, i32 alpha),
 #ifdef FULL
            u64 *nodes,
 #endif
            H(168, 1, Position *const restrict pos), H(168, 1, const i32 ply),
-           H(168, 1, const u64 max_time),
-           H(168, 1, i32 move_history[2][6][64][64])) {
+           H(168, 1, i32 move_history[2][6][64][64]),
+           H(168, 1, const u64 max_time)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1287,14 +1287,14 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
       G(189, flip_pos(&npos);)
       G(189, npos.ep = 0;)
       const i32 score =
-          -search(H(167, 2, stack), H(167, 2, -alpha),
+          -search(H(167, 2, false), H(167, 2, -alpha),
                   H(167, 2, depth - G(190, 4) - G(190, depth / 4)),
-                  H(167, 2, false), H(167, 2, -beta),
+                  H(167, 2, stack), H(167, 2, -beta),
 #ifdef FULL
                   nodes,
 #endif
-                  H(168, 2, &npos), H(168, 2, ply + 1), H(168, 2, max_time),
-                  H(168, 2, move_history));
+                  H(168, 2, &npos), H(168, 2, ply + 1), H(168, 2, move_history),
+                  H(168, 2, max_time));
       if (score >= beta) {
         return score;
       }
@@ -1379,14 +1379,14 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
 
     i32 score;
     while (true) {
-      score = -search(H(167, 3, stack), H(167, 3, -alpha),
+      score = -search(H(167, 3, true), H(167, 3, -alpha),
                       H(167, 3, depth - G(209, 1) - G(209, reduction)),
-                      H(167, 3, true), H(167, 3, low),
+                      H(167, 3, stack), H(167, 3, low),
 #ifdef FULL
                       nodes,
 #endif
-                      H(168, 3, &npos), H(168, 3, ply + 1), H(168, 3, max_time),
-                      H(168, 3, move_history));
+                      H(168, 3, &npos), H(168, 3, ply + 1),
+                      H(168, 3, move_history), H(168, 3, max_time));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > max_time)) {
@@ -1564,23 +1564,23 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 #endif
 
 typedef struct __attribute__((aligned(16))) ThreadDataStruct {
-  void (*entry)(struct ThreadDataStruct*);
-//#ifdef FULL
+  void (*entry)(struct ThreadDataStruct *);
+  // #ifdef FULL
   i32 thread_id;
   u64 nodes;
-//#endif
+  // #endif
+  G(998, Position pos;)
   G(998, u64 max_time;)
-    G(998, Position pos;)
-    G(998, SearchStack stack[1024];)
-    G(998, i32 move_history[2][6][64][64];)
+  G(998, SearchStack stack[1024];)
+  G(998, i32 move_history[2][6][64][64];)
 } ThreadData;
 
 S(1)
 void iteratively_deepen(
 #ifdef FULL
-  i32 maxdepth,
+    i32 maxdepth,
 #endif
-  ThreadData* data) {
+    ThreadData *data) {
   i32 score = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
@@ -1591,25 +1591,26 @@ void iteratively_deepen(
     G(225, i32 window = 15;)
     G(225, size_t elapsed;)
     while (true) {
-      G(226, const i32 alpha = score - window;)
       G(226, const i32 beta = G(227, score) + G(227, window);)
-      score = search(H(167, 4, data->stack), H(167, 4, beta), H(167, 4, depth),
-                     H(167, 4, false), H(167, 4, alpha),
+      G(226, const i32 alpha = score - window;)
+      score = search(H(167, 4, false), H(167, 4, beta), H(167, 4, depth),
+                     H(167, 4, data->stack), H(167, 4, alpha),
 #ifdef FULL
                      &data->nodes,
 #endif
-                     H(168, 4, &data->pos), H(168, 4, 0), H(168, 4, data->max_time),
-                     H(168, 4, data->move_history));
+                     H(168, 4, &data->pos), H(168, 4, 0),
+                     H(168, 4, data->move_history), H(168, 4, data->max_time));
 #ifdef FULL
       if (data->thread_id == 0) {
-        print_info(&data->pos, depth, alpha, beta, score, data->nodes, data->stack[0].best_move, data->max_time);
+        print_info(&data->pos, depth, alpha, beta, score, data->nodes,
+                   data->stack[0].best_move, data->max_time);
       }
 #endif
       elapsed = get_time() - start_time;
       G(228, window *= 2;)
       G(
           228, if (G(229, elapsed > data->max_time) ||
-                   G(229, (G(230, score > alpha) && G(230, score < beta)))) {
+                   G(229, (G(230, score < beta) && G(230, score > alpha)))) {
             break;
           })
     }
@@ -1626,29 +1627,29 @@ S(1) void *entry_full(void *param) {
 #ifdef FULL
       max_ply,
 #endif
-    data);
+      data);
   return NULL;
 }
 
 S(1) void entry_mini(ThreadData *data) {
   iteratively_deepen(
 #ifdef FULL
-    max_ply,
+      max_ply,
 #endif
-    data);
+      data);
   exit_now();
 }
 
 __attribute__((naked)) S(1) long newthread(ThreadData *stack) {
   __asm__ volatile("mov  rsi, rdi\n"     // arg2 = stack
-               "mov  edi, 0x50f00\n" // arg1 = clone flags
-               "mov  eax, 56\n"      // SYS_clone
-               "syscall\n"
-               "mov  rdi, rsp\n" // entry point argument
-               "ret\n"
-               :
-               :
-               : "rax", "rcx", "rsi", "rdi", "r11", "memory");
+                   "mov  edi, 0x50f00\n" // arg1 = clone flags
+                   "mov  eax, 56\n"      // SYS_clone
+                   "syscall\n"
+                   "mov  rdi, rsp\n" // entry point argument
+                   "ret\n"
+                   :
+                   :
+                   : "rax", "rcx", "rsi", "rdi", "r11", "memory");
 }
 
 _Static_assert(sizeof(ThreadData) < thread_stack_size);
@@ -1665,8 +1666,8 @@ void run_smp() {
 
   for (i32 i = 1; i < thread_count; i++) {
     ThreadData *helper_data = (ThreadData *)&thread_stacks[i][0];
-    G(999, helper_data->max_time = -1LL;)
     G(999, helper_data->pos = main_data->pos;)
+    G(999, helper_data->max_time = -1LL;)
 #ifdef FULL
     helper_data->thread_id = i;
     pthread_create(&helpers[i - 1], NULL, entry_full, helper_data);
@@ -1785,10 +1786,10 @@ S(1) void bench() {
   SearchStack stack[1024];
   stop = false;
   ThreadData data = {
-    .thread_id = 0,
-    .nodes = 0,
-    .max_time = -1LL,
-    .pos = start_pos,
+      .thread_id = 0,
+      .nodes = 0,
+      .max_time = -1LL,
+      .pos = start_pos,
   };
   const u64 start = get_time();
   start_time = start;
