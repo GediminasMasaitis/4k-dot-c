@@ -1666,7 +1666,7 @@ enum { thread_stack_size = 8 * 1024 * 1024 };
 
 _Static_assert(sizeof(ThreadData) < thread_stack_size);
 
-__attribute__((aligned(4096))) u8 thread_stacks[thread_count + 1][thread_stack_size];
+__attribute__((aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
 
 S(1)
 void run_smp(const u64 max_time) {
@@ -1676,10 +1676,10 @@ void run_smp(const u64 max_time) {
   u64 nodes = 0;
 #endif
 
-  ThreadData* main_data = (ThreadData*)&thread_stacks[1][0];
+  ThreadData* main_data = (ThreadData*)&thread_stacks[0][0];
 
   for (i32 i = 1; i < thread_count; i++) {
-    ThreadData* helper_data = (ThreadData*)&thread_stacks[i+1][0];
+    ThreadData* helper_data = (ThreadData*)&thread_stacks[i][0];
     __builtin_memcpy(helper_data->stack, main_data->stack, sizeof(SearchStack) * 1024); // * pos_history_count?
     helper_data->thread_id = i;
     helper_data->pos = main_data->pos;
@@ -1827,7 +1827,7 @@ S(1) void run() {
   G(231, char line[4096];)
   G(231, init();)
   G(231, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
-  G(231, ThreadData* main_data = (ThreadData*)&thread_stacks[1][0];)
+  G(231, ThreadData* main_data = (ThreadData*)&thread_stacks[0][0];)
 
 #ifdef FULL
   main_data->pos = start_pos;
