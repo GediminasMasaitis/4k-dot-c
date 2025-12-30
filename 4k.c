@@ -1665,7 +1665,7 @@ void run_smp() {
   ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];
 
   for (i32 i = 1; i < thread_count; i++) {
-    ThreadData *helper_data = (ThreadData *)&thread_stacks[i][0];
+    ThreadData* helper_data = (ThreadData*)&thread_stacks[i][thread_stack_size - sizeof(ThreadData)];
     G(999, helper_data->pos = main_data->pos;)
     G(999, helper_data->max_time = -1LL;)
 #ifdef FULL
