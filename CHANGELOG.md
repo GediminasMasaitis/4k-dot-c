@@ -8436,3 +8436,126 @@ Games | N: 41302 W: 11344 L: 11403 D: 18555
 Penta | [1052, 4848, 8853, 4903, 995]
 https://gedas.pythonanywhere.com/test/1587/
 ```
+
+### 5.34
+
+1 thread: 4009 bytes
+MD5: 1f4bef9c77a532ce0be81900390df1f2
+
+4 threads: 4079 bytes
+MD5: cf9ca8af00440fa1b18059a1c9ac72b9
+
+* Lazy SMP
+* Remove full repetition detection
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 429215
+info depth 1 score cp 28 time 0 nodes 38 nps 405428 pv b1c3
+info depth 2 score cp 17 time 0 nodes 115 nps 435714 pv b1c3
+info depth 3 score cp 27 time 0 nodes 235 nps 677946 pv b1c3
+info depth 4 score cp 17 time 0 nodes 396 nps 798333 pv b1c3
+info depth 5 score cp 3 time 0 nodes 642 nps 888285 pv b1c3
+info depth 6 score cp 15 time 1 nodes 1117 nps 1023623 pv b1c3
+info depth 7 score cp 15 time 2 nodes 3295 nps 1128595 pv b1c3
+info depth 8 score cp 17 time 5 nodes 6115 nps 1140574 pv b1c3
+info depth 9 score cp 12 time 13 nodes 15300 nps 1162317 pv g1f3
+info depth 10 score cp 23 time 36 nodes 49868 nps 1384535 pv g1f3
+info depth 11 score cp 23 time 67 nodes 107837 nps 1600450 pv g1f3
+info depth 12 score cp 17 time 115 nodes 212456 nps 1838186 pv g1f3
+info depth 13 score cp 11 time 211 nodes 427911 nps 2024799 pv g1f3
+info depth 14 score cp 14 time 374 nodes 812329 nps 2171432 pv b1c3
+info depth 15 score cp 21 time 611 nodes 1372980 nps 2244626 pv d2d4
+info depth 16 score cp 25 time 1012 nodes 2304583 nps 2276928 pv e2e4
+info depth 17 score cp 24 time 1149 nodes 2603632 nps 2264675 pv e2e4
+info depth 18 score cp 24 time 1509 nodes 3438587 nps 2278399 pv e2e4
+info depth 19 score cp 24 time 1816 nodes 4144751 nps 2281440 pv e2e4
+info depth 20 score cp 17 time 3113 nodes 7114318 nps 2284987 pv e2e4
+info depth 21 score cp 21 time 3932 nodes 8968036 nps 2280389 pv e2e4
+info depth 22 score cp 15 time 8515 nodes 19165661 nps 2250579 pv g1f3
+19165661 nodes 2250567 nps
+```
+
+1 thread vs 5.33:
+```py
+Elo   | 2.31 +- 15.72 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.19 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 752 W: 207 L: 202 D: 343
+Penta | [18, 79, 173, 92, 14]
+https://gedas.pythonanywhere.com/test/1602/
+```
+
+2v1 10+0.1
+```py
+Score of 4kc-2t vs 4kc-main: 181 - 59 - 180  [0.645] 420
+...      4kc-2t playing White: 133 - 8 - 69  [0.798] 210
+...      4kc-2t playing Black: 48 - 51 - 111  [0.493] 210
+...      White vs Black: 184 - 56 - 180  [0.652] 420
+Elo difference: 103.9 +/- 25.3, LOS: 100.0 %, DrawRatio: 42.9 %
+```
+
+4v1 10+0.1
+```py
+Score of 4kc-4t vs 4kc-main: 118 - 14 - 68  [0.760] 200
+...      4kc-4t playing White: 76 - 2 - 22  [0.870] 100
+...      4kc-4t playing Black: 42 - 12 - 46  [0.650] 100
+...      White vs Black: 88 - 44 - 68  [0.610] 200
+Elo difference: 200.2 +/- 41.5, LOS: 100.0 %, DrawRatio: 34.0 %
+```
+
+8v1 10+0.1
+```py
+Score of 4kc-8t vs 4kc-main: 135 - 7 - 58  [0.820] 200
+...      4kc-8t playing White: 84 - 0 - 16  [0.920] 100
+...      4kc-8t playing Black: 51 - 7 - 42  [0.720] 100
+...      White vs Black: 91 - 51 - 58  [0.600] 200
+Elo difference: 263.4 +/- 45.2, LOS: 100.0 %, DrawRatio: 29.0 %
+```
+
+8moves book 4v1 10+0.1:
+```py
+Score of 4kc-4t vs 4kc-main: 166 - 16 - 118  [0.750] 300
+...      4kc-4t playing White: 84 - 8 - 58  [0.753] 150
+...      4kc-4t playing Black: 82 - 8 - 60  [0.747] 150
+...      White vs Black: 92 - 90 - 118  [0.503] 300
+Elo difference: 190.8 +/- 31.4, LOS: 100.0 %, DrawRatio: 39.3 %
+```
+
+8moves book 8v1 10+0.1:
+```py
+Score of 4kc-8t vs 4kc-main: 197 - 6 - 97  [0.818] 300
+...      4kc-8t playing White: 97 - 3 - 50  [0.813] 150
+...      4kc-8t playing Black: 100 - 3 - 47  [0.823] 150
+...      White vs Black: 100 - 103 - 97  [0.495] 300
+Elo difference: 261.5 +/- 34.6, LOS: 100.0 %, DrawRatio: 32.3 %
+```
+
+### 6.0
+
+Equivalent to 5.34
+
+First version with Lazy SMP
+
+1 thread: 4009 bytes
+MD5: 1f4bef9c77a532ce0be81900390df1f2
+
+4 threads: 4079 bytes
+MD5: cf9ca8af00440fa1b18059a1c9ac72b9
+
+8moves book 10+0.1:
+```py
+Score of 4kc-1t vs 4ku-3.0: 499 - 331 - 673  [0.556] 1503
+...      4kc-1t playing White: 261 - 146 - 344  [0.577] 751
+...      4kc-1t playing Black: 238 - 185 - 329  [0.535] 752
+...      White vs Black: 446 - 384 - 673  [0.521] 1503
+Elo difference: 39.0 +/- 13.1, LOS: 100.0 %, DrawRatio: 44.8 %
+```
+
+8moves book 10+0.1:
+```py
+Score of 4kc-1t vs 4ku-3.1: 4333 - 3631 - 5036  [0.527] 13000
+...      4kc-1t playing White: 2248 - 1698 - 2554  [0.542] 6500
+...      4kc-1t playing Black: 2085 - 1933 - 2482  [0.512] 6500
+...      White vs Black: 4181 - 3783 - 5036  [0.515] 13000
+Elo difference: 18.8 +/- 4.7, LOS: 100.0 %, DrawRatio: 38.7 %
+```
