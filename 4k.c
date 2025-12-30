@@ -1640,6 +1640,7 @@ S(1) void entry_mini(ThreadData *data) {
   exit_now();
 }
 
+#ifndef FULL
 __attribute__((naked)) S(1) long newthread(ThreadData *stack) {
   __asm__ volatile("mov  rsi, rdi\n"     // arg2 = stack
                    "mov  edi, 0x50f00\n" // arg1 = clone flags
@@ -1651,6 +1652,7 @@ __attribute__((naked)) S(1) long newthread(ThreadData *stack) {
                    :
                    : "rax", "rcx", "rsi", "rdi", "r11", "memory");
 }
+#endif
 
 _Static_assert(sizeof(ThreadData) < thread_stack_size);
 
