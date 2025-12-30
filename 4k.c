@@ -69,42 +69,6 @@ G(
     })
 
 G(
-    3,
-    S(1) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
-             H(2, 2, 1));
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
-      u32 result = 0;
-      while (*string)
-        result = result * 10 + *string++ - '0';
-      return result;
-    })
-
-[[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                 const char *restrict rhs) {
-  while (*lhs || *rhs) {
-    if (*lhs != *rhs) {
-      return true;
-    }
-    lhs++;
-    rhs++;
-  }
-  return false;
-}
-
-G(
     3, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
@@ -128,12 +92,48 @@ G(
       }
     })
 
+G(
+    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+      u32 result = 0;
+      while (*string)
+        result = result * 10 + *string++ - '0';
+      return result;
+    })
+
+[[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                 const char *restrict rhs) {
+  while (*lhs || *rhs) {
+    if (*lhs != *rhs) {
+      return true;
+    }
+    lhs++;
+    rhs++;
+  }
+  return false;
+}
+
+G(
+    3,
+    S(1) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
+             H(2, 2, 1));
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
 typedef struct [[nodiscard]] {
   ssize_t tv_sec;  // seconds
   ssize_t tv_nsec; // nanoseconds
 } timespec;
 
-[[nodiscard]] S(0) u64 get_time() {
+[[nodiscard]] S(1) u64 get_time() {
   timespec ts;
   ssize_t ret; // Unused
   asm volatile("syscall"
@@ -144,6 +144,7 @@ typedef struct [[nodiscard]] {
 }
 
 #else
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -223,8 +224,8 @@ typedef struct [[nodiscard]] {
 
 G(
     10,
-    [[nodiscard]] S(1) bool move_string_equal(G(11, const char *restrict lhs),
-                                              G(11, const char *restrict rhs)) {
+    [[nodiscard]] S(1) bool move_string_equal(G(11, const char *restrict rhs),
+                                              G(11, const char *restrict lhs)) {
       return (G(12, *(const u64 *)rhs) ^ G(12, *(const u64 *)lhs)) << 24 == 0;
     })
 
@@ -260,28 +261,28 @@ G(
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 se(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 southeast(const u64 bb) {
       return G(20, shift(H(13, 2, -7), H(13, 2, ~0x101010101010101ull),
                          H(13, 2, bb)));
       return G(20, G(21, east)(G(21, south)(bb)));
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 ne(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 northeast(const u64 bb) {
       return G(22, G(23, east)(G(23, north)(bb)));
       return G(22, shift(H(13, 3, 9), H(13, 3, ~0x101010101010101ull),
                          H(13, 3, bb)));
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 nw(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 northwest(const u64 bb) {
       return G(24, shift(H(13, 4, 7), H(13, 4, ~0x8080808080808080ull),
                          H(13, 4, bb)));
       return G(24, G(25, west)(G(25, north)(bb)));
     })
 
 G(
-    19, [[nodiscard]] S(1) u64 sw(const u64 bb) {
+    19, [[nodiscard]] S(1) u64 southwest(const u64 bb) {
       return G(26, G(27, west)(G(27, south)(bb)));
       return G(26, shift(H(13, 5, -9), H(13, 5, ~0x8080808080808080ull),
                          H(13, 5, bb)));
@@ -349,7 +350,7 @@ G(
     })
 
 G(
-    35, [[nodiscard]] S(1) u64 king(const u64 bb) {
+    35, [[nodiscard]] S(0) u64 king(const u64 bb) {
       const u64 vertical = G(46, south(bb)) | G(46, north(bb));
       const u64 vertical_inclusive = G(47, bb) | G(47, vertical);
       return G(48, vertical) | G(48, east(vertical_inclusive)) |
@@ -421,17 +422,18 @@ G(
       const u64 theirs = pos->colour[1];
       G(62, const u64 pawns = theirs & pos->pieces[Pawn];)
       G(62, const u64 blockers = theirs | pos->colour[0];)
-      return G(63, G(64, (G(65, sw(pawns)) | G(65, se(pawns)))) & G(64, bb)) ||
+      return G(63, G(64, (G(65, southwest(pawns)) | G(65, southeast(pawns)))) &
+                       G(64, bb)) ||
              G(63, G(66, bishop(H(36, 2, blockers), H(36, 2, bb))) &
                        G(66, theirs) &
                        G(66, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
-             G(63, G(67, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(67, theirs) &
-                       G(67, rook(H(39, 2, blockers), H(39, 2, bb)))) ||
              G(63,
                G(68, king(bb)) & G(68, theirs) & G(68, pos->pieces[King])) ||
-             G(63,
-               G(69, knight(bb)) & G(69, theirs) & G(69, pos->pieces[Knight]));
+             G(63, G(69, knight(bb)) & G(69, theirs) &
+                       G(69, pos->pieces[Knight])) ||
+             G(63, G(67, theirs) &
+                       G(67, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(67, rook(H(39, 2, blockers), H(39, 2, bb))));
     })
 
 G(
@@ -455,8 +457,8 @@ G(
                                             H(72, 1, const i32 piece)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(73, if (piece == King) { moves = king(bb); })
-      else G(73, if (piece == Knight) { moves = knight(bb); }) else {
+      G(73, if (piece == Knight) { moves = knight(bb); })
+      else G(73, if (piece == King) { moves = king(bb); }) else {
         const u64 blockers = G(74, pos->colour[1]) | G(74, pos->colour[0]);
         G(
             75, if (G(76, piece == Queen) || G(76, piece == Bishop)) {
@@ -489,11 +491,11 @@ G(
           const u8 from = lsb(copy);
           assert(from >= 0);
           assert(from < 64);
+          G(82, copy &= copy - 1;)
+
           G(82, u64 moves = G(83, to_mask) &
                             G(83, get_mobility(H(72, 2, pos), H(72, 2, from),
                                                H(72, 2, piece)));)
-
-          G(82, copy &= copy - 1;)
 
           while (moves) {
             const u8 to = lsb(moves);
@@ -671,14 +673,16 @@ enum { max_moves = 218 };
     movelist = generate_pawn_moves(
         H(98, 4, -7), H(98, 4, movelist),
         H(98, 4,
-          G(109, nw(G(110, pos->colour[0]) & G(110, pos->pieces[Pawn]))) &
+          G(109,
+            northwest(G(110, pos->colour[0]) & G(110, pos->pieces[Pawn]))) &
               G(109, (G(111, pos->colour[1]) | G(111, pos->ep)))),
         H(98, 4, pos));)
   G(103, // PAWN EAST CAPTURES
     movelist = generate_pawn_moves(
         H(98, 5, -9), H(98, 5, movelist),
         H(98, 5,
-          G(112, ne(G(113, pos->colour[0]) & G(113, pos->pieces[Pawn]))) &
+          G(112,
+            northeast(G(113, pos->colour[0]) & G(113, pos->pieces[Pawn]))) &
               G(112, (G(114, pos->colour[1]) | G(114, pos->ep)))),
         H(98, 5, pos));)
   G(
@@ -829,34 +833,33 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(121, 1,
-    H(122, 1, i8 tempo;) H(122, 1, i8 open_files[6];)
-        H(122, 1, i8 pst_file[48];) H(122, 1, i8 passed_blocked_pawns[6];)
-            H(122, 1, i8 pawn_attacked_penalty[2];)
-                H(122, 1, i8 mobilities[5];))
+    H(122, 1, i8 tempo;) H(122, 1, i8 pawn_attacked_penalty[2];)
+        H(122, 1, i8 open_files[6];) H(122, 1, i8 pst_file[48];)
+            H(122, 1, i8 mobilities[5];) H(122, 1, i8 passed_blocked_pawns[6];))
   H(121, 1,
-    H(123, 1, i8 passed_pawns[6];) H(123, 1, i8 king_attacks[5];)
-        H(123, 1, i8 pst_rank[48];) H(123, 1, i8 protected_pawn;)
-            H(123, 1, i8 phalanx_pawn;) H(123, 1, i8 bishop_pair;))
+    H(123, 1, i8 king_attacks[5];) H(123, 1, i8 pst_rank[48];)
+        H(123, 1, i8 passed_pawns[6];) H(123, 1, i8 phalanx_pawn;)
+            H(123, 1, i8 bishop_pair;) H(123, 1, i8 protected_pawn;))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(121, 2,
-    H(122, 2, i32 tempo;) H(122, 2, i32 open_files[6];)
-        H(122, 2, i32 pst_file[48];) H(122, 2, i32 passed_blocked_pawns[6];)
-            H(122, 2, i32 pawn_attacked_penalty[2];)
-                H(122, 2, i32 mobilities[5];))
+    H(122, 2, i32 tempo;) H(122, 2, i32 pawn_attacked_penalty[2];)
+        H(122, 2, i32 open_files[6];) H(122, 2, i32 pst_file[48];)
+            H(122, 2, i32 mobilities[5];)
+                H(122, 2, i32 passed_blocked_pawns[6];))
   H(121, 2,
-    H(123, 2, i32 passed_pawns[6];) H(123, 2, i32 king_attacks[5];)
-        H(123, 2, i32 pst_rank[48];) H(123, 2, i32 protected_pawn;)
-            H(123, 2, i32 phalanx_pawn;) H(123, 2, i32 bishop_pair;))
+    H(123, 2, i32 king_attacks[5];) H(123, 2, i32 pst_rank[48];)
+        H(123, 2, i32 passed_pawns[6];) H(123, 2, i32 phalanx_pawn;)
+            H(123, 2, i32 bishop_pair;) H(123, 2, i32 protected_pawn;))
 
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i8 phases[6];
-  G(124, EvalParams mg;)
   G(124, EvalParams eg;)
+  G(124, EvalParams mg;)
 } EvalParamsInitial;
 
 G(125, S(0) EvalParamsMerged eval_params;)
@@ -1012,11 +1015,11 @@ S(0) i32 eval(Position *const restrict pos) {
                king(G(130, pos->colour[1]) & G(130, pos->pieces[King]));)
 
     G(129,
-      const u64 own_pawns = G(131, pos->colour[0]) & G(131, pos->pieces[Pawn]);)
+      const u64 own_pawns = G(131, pos->pieces[Pawn]) & G(131, pos->colour[0]);)
     G(129,
       const u64 opp_pawns = G(132, pos->pieces[Pawn]) & G(132, pos->colour[1]);
       const u64 attacked_by_pawns =
-          G(133, se(opp_pawns)) | G(133, sw(opp_pawns));
+          G(133, southeast(opp_pawns)) | G(133, southwest(opp_pawns));
       G(134,
         const u64 no_passers = G(135, opp_pawns) | G(135, attacked_by_pawns);)
           G(134, // PROTECTED PAWNS
@@ -1115,19 +1118,19 @@ S(0) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(122, Move best_move;)
-  G(122, Move killer;)
   G(122, i32 static_eval;)
-  G(122, i32 num_moves;)
+  G(122, Move best_move;)
   G(122, u64 position_hash;)
+  G(122, i32 num_moves;)
+  G(122, Move killer;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(164, i16 score;)
-  G(164, u16 partial_hash;)
-  G(164, Move move;)
   G(164, u8 flag;)
   G(164, i8 depth;)
+  G(164, u16 partial_hash;)
+  G(164, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1135,11 +1138,14 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
+enum { thread_count = 4 };
+enum { thread_stack_size = 8 * 1024 * 1024 };
 
-G(165, S(1) i32 move_history[2][6][64][64];)
 G(165, S(1) TTEntry tt[tt_length];)
-G(165, S(0) u64 start_time;)
-G(165, S(0) u64 max_time;)
+G(165, S(1) u64 start_time;)
+G(165, S(1) volatile bool stop;)
+G(165, __attribute__((aligned(4096))) u8
+           thread_stacks[thread_count][thread_stack_size];)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1196,14 +1202,15 @@ get_hash(const Position *const pos) {
 #endif
 
 S(1)
-i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
-           H(167, 1, i32 depth), H(167, 1, const bool do_null),
+i32 search(H(167, 1, const bool do_null), H(167, 1, const i32 beta),
+           H(167, 1, i32 depth), H(167, 1, SearchStack *restrict stack),
            H(167, 1, i32 alpha),
 #ifdef FULL
            u64 *nodes,
 #endif
-           H(168, 1, Position *const restrict pos),
-           H(168, 1, const i32 pos_history_count), H(168, 1, const i32 ply)) {
+           H(168, 1, Position *const restrict pos), H(168, 1, const i32 ply),
+           H(168, 1, i32 move_history[2][6][64][64]),
+           H(168, 1, const u64 max_time)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1214,23 +1221,22 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(169, ply) + G(169, pos_history_count);
-       G(170, i >= 0) && G(170, do_null); i -= 2) {
+  for (i32 i = G(169, ply); G(170, i >= 0) && G(170, do_null); i -= 2) {
     if (G(171, tt_hash) == G(171, stack[i].position_hash)) {
       return 0;
     }
   }
 
   // TT PROBING
-  G(172, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(172, const u16 tt_hash_partial = tt_hash / tt_length;)
+  G(172, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(172, stack[ply].best_move = (Move){0};)
   if (G(173, tt_entry->partial_hash) == G(173, tt_hash_partial)) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(174, tt_entry->depth >= depth) &&
-        G(174, G(175, tt_entry->flag) != G(175, tt_entry->score <= alpha)) &&
+    if (G(174, G(175, tt_entry->flag) != G(175, tt_entry->score <= alpha)) &&
+        G(174, tt_entry->depth >= depth) &&
         G(174, G(176, alpha) == G(176, beta - 1))) {
       return tt_entry->score;
     }
@@ -1280,30 +1286,29 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
       Position npos = *pos;
       G(189, flip_pos(&npos);)
       G(189, npos.ep = 0;)
-      const i32 score = -search(
-          H(167, 2, stack), H(167, 2, -alpha),
-          H(167, 2, depth - G(190, 4) - G(190, depth / 4)), H(167, 2, false),
-          H(167, 2, -beta),
+      const i32 score =
+          -search(H(167, 2, false), H(167, 2, -alpha),
+                  H(167, 2, depth - G(190, 4) - G(190, depth / 4)),
+                  H(167, 2, stack), H(167, 2, -beta),
 #ifdef FULL
-          nodes,
+                  nodes,
 #endif
-          H(168, 2, &npos), H(168, 2, pos_history_count), H(168, 2, ply + 1));
+                  H(168, 2, &npos), H(168, 2, ply + 1), H(168, 2, move_history),
+                  H(168, 2, max_time));
       if (score >= beta) {
         return score;
       }
     }
   }
 
+  G(191, u8 tt_flag = Upper;)
+  G(191, stack[G(192, ply) + G(192, 2)].position_hash = tt_hash;)
+  G(191, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(191, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(100, 3, pos), H(100, 3, moves), H(100, 3, in_qsearch));)
-  G(191, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(191,
-    stack[G(192, pos_history_count) + G(192, ply) + G(192, 2)].position_hash =
-        tt_hash;)
-  G(191, u8 tt_flag = Upper;)
-  G(191, i32 quiets_evaluated = 0;)
   G(191, i32 moves_evaluated = 0;)
+  G(191, i32 quiets_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1337,6 +1342,11 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
     swapmoves(G(199, &moves[move_index]), G(199, &moves[best_index]));
 
     G(
+        200, // MOVE SCORE PRUNING
+        if (G(204, moves_evaluated) &&
+            G(204, move_score < G(205, -128) * G(205, depth))) { break; })
+
+    G(
         200, // FORWARD FUTILITY PRUNING / DELTA PRUNING
         if (G(201, depth < 8) &&
             G(201,
@@ -1346,12 +1356,7 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
                       G(202,
                         initial_params.eg.material[moves[move_index].promo]) <
                   alpha) &&
-            G(201, !in_check) && G(201, moves_evaluated)) { break; })
-
-    G(
-        200, // MOVE SCORE PRUNING
-        if (G(204, move_score < G(205, -128) * G(205, depth)) &&
-            G(204, moves_evaluated)) { break; })
+            G(201, moves_evaluated) && G(201, !in_check)) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1367,24 +1372,24 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
 
     // LATE MOVE REDUCTION
     i32 reduction = G(206, depth > 3) && G(206, move_score <= 0)
-                        ? G(207, (move_score < -256)) +
+                        ? G(207, (move_score < -256)) + G(207, !improving) +
                               G(207, (G(208, alpha) == G(208, beta - 1))) +
-                              G(207, !improving) + G(207, moves_evaluated / 10)
+                              G(207, moves_evaluated / 10)
                         : 0;
 
     i32 score;
     while (true) {
-      score = -search(H(167, 3, stack), H(167, 3, -alpha),
+      score = -search(H(167, 3, true), H(167, 3, -alpha),
                       H(167, 3, depth - G(209, 1) - G(209, reduction)),
-                      H(167, 3, true), H(167, 3, low),
+                      H(167, 3, stack), H(167, 3, low),
 #ifdef FULL
                       nodes,
 #endif
-                      H(168, 3, &npos), H(168, 3, pos_history_count),
-                      H(168, 3, ply + 1));
+                      H(168, 3, &npos), H(168, 3, ply + 1),
+                      H(168, 3, move_history), H(168, 3, max_time));
 
       // EARLY EXITS
-      if (depth > 4 && get_time() - start_time > max_time) {
+      if (stop || (depth > 4 && get_time() - start_time > max_time)) {
         return best_score;
       }
 
@@ -1473,6 +1478,18 @@ i32 search(H(167, 1, SearchStack *restrict stack), H(167, 1, const i32 beta),
 
 S(1) void init() {
   G(
+      85, // INIT DIAGONAL MASKS
+      for (i32 sq = 0; sq < 64; sq++) {
+        const u64 bb = 1ULL << sq;
+        G(220, u64 sw_bb = southwest(bb);)
+        G(220, u64 ne_bb = northeast(bb);)
+        for (i32 i = 6; i > 0; i--) {
+          G(221, sw_bb |= southwest(sw_bb);)
+          G(221, ne_bb |= northeast(ne_bb);)
+        }
+        diag_mask[sq] = G(222, sw_bb) | G(222, ne_bb);
+      })
+  G(
       85, // MERGE EVAL PARAMS
       for (i32 i = 0; i < sizeof(EvalParamsMerged) / sizeof(i32); i++) {
         ((i32 *)&eval_params)[i] =
@@ -1483,26 +1500,12 @@ S(1) void init() {
                                  i < 6 ? initial_params.eg.material[i]
                                        : ((i8 *)&initial_params.eg)[6 + i]));
       })
-  G(85, // CLEAR HISTORY
-    __builtin_memset(move_history, 0, sizeof(move_history));)
-  G(
-      85, // INIT DIAGONAL MASKS
-      for (i32 sq = 0; sq < 64; sq++) {
-        const u64 bb = 1ULL << sq;
-        G(220, u64 sw_bb = sw(bb);)
-        G(220, u64 ne_bb = ne(bb);)
-        for (i32 i = 6; i > 0; i--) {
-          G(221, sw_bb |= sw(sw_bb);)
-          G(221, ne_bb |= ne(ne_bb);)
-        }
-        diag_mask[sq] = G(222, sw_bb) | G(222, ne_bb);
-      })
 }
 
 #ifdef FULL
 static void print_info(const Position *pos, const i32 depth, const i32 alpha,
                        const i32 beta, const i32 score, const u64 nodes,
-                       const Move pv_move) {
+                       const Move pv_move, const u64 max_time) {
   // Do not print unfinished iteration scores
   u64 elapsed = get_time() - start_time;
   if (elapsed > max_time) {
@@ -1560,16 +1563,25 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 }
 #endif
 
+typedef struct __attribute__((aligned(16))) ThreadDataStruct {
+  void (*entry)(struct ThreadDataStruct *);
+  // #ifdef FULL
+  i32 thread_id;
+  u64 nodes;
+  // #endif
+  G(998, Position pos;)
+  G(998, u64 max_time;)
+  G(998, SearchStack stack[1024];)
+  G(998, i32 move_history[2][6][64][64];)
+} ThreadData;
+
 S(1)
 void iteratively_deepen(
 #ifdef FULL
-    i32 maxdepth, u64 *nodes,
+    i32 maxdepth,
 #endif
-    H(223, 1, Position *const restrict pos),
-    H(223, 1, SearchStack *restrict stack),
-    H(223, 1, const i32 pos_history_count)) {
-  G(224, start_time = get_time();)
-  G(224, i32 score = 0;)
+    ThreadData *data) {
+  i32 score = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1579,34 +1591,112 @@ void iteratively_deepen(
     G(225, i32 window = 15;)
     G(225, size_t elapsed;)
     while (true) {
-      G(226, const i32 alpha = score - window;)
       G(226, const i32 beta = G(227, score) + G(227, window);)
-      score =
-          search(H(167, 4, stack), H(167, 4, beta), H(167, 4, depth),
-                 H(167, 4, false), H(167, 4, alpha),
+      G(226, const i32 alpha = score - window;)
+      score = search(H(167, 4, false), H(167, 4, beta), H(167, 4, depth),
+                     H(167, 4, data->stack), H(167, 4, alpha),
 #ifdef FULL
-                 nodes,
+                     &data->nodes,
 #endif
-                 H(168, 4, pos), H(168, 4, pos_history_count), H(168, 4, 0));
+                     H(168, 4, &data->pos), H(168, 4, 0),
+                     H(168, 4, data->move_history), H(168, 4, data->max_time));
 #ifdef FULL
-      print_info(pos, depth, alpha, beta, score, *nodes, stack[0].best_move);
+      if (data->thread_id == 0) {
+        print_info(&data->pos, depth, alpha, beta, score, data->nodes,
+                   data->stack[0].best_move, data->max_time);
+      }
 #endif
       elapsed = get_time() - start_time;
       G(228, window *= 2;)
       G(
-          228, if (G(229, elapsed > max_time) ||
-                   G(229, (G(230, score > alpha) && G(230, score < beta)))) {
+          228, if (G(229, elapsed > data->max_time) ||
+                   G(229, (G(230, score < beta) && G(230, score > alpha)))) {
             break;
           })
     }
 
-    if (elapsed > max_time / 16) {
+    if (stop || elapsed > data->max_time / 16) {
       break;
     }
   }
+}
+
+S(1) void *entry_full(void *param) {
+  ThreadData *data = param;
+  iteratively_deepen(
+#ifdef FULL
+      max_ply,
+#endif
+      data);
+  return NULL;
+}
+
+S(1) void entry_mini(ThreadData *data) {
+  iteratively_deepen(
+#ifdef FULL
+      max_ply,
+#endif
+      data);
+  exit_now();
+}
+
+#ifndef FULL
+__attribute__((naked)) S(1) long newthread(ThreadData *stack) {
+  __asm__ volatile("mov  rsi, rdi\n"     // arg2 = stack
+                   "mov  edi, 0x50f00\n" // arg1 = clone flags
+                   "mov  eax, 56\n"      // SYS_clone
+                   "syscall\n"
+                   "mov  rdi, rsp\n" // entry point argument
+                   "ret\n"
+                   :
+                   :
+                   : "rax", "rcx", "rsi", "rdi", "r11", "memory");
+}
+#endif
+
+_Static_assert(sizeof(ThreadData) < thread_stack_size);
+
+S(1)
+void run_smp() {
+  start_time = get_time();
+#ifdef FULL
+  pthread_t helpers[thread_count - 1];
+  u64 nodes = 0;
+#endif
+
+  ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];
+
+  for (i32 i = 1; i < thread_count; i++) {
+    ThreadData* helper_data = (ThreadData*)&thread_stacks[i][thread_stack_size - sizeof(ThreadData)];
+    G(999, helper_data->pos = main_data->pos;)
+    G(999, helper_data->max_time = -1LL;)
+#ifdef FULL
+    helper_data->thread_id = i;
+    pthread_create(&helpers[i - 1], NULL, entry_full, helper_data);
+#else
+    helper_data->entry = entry_mini;
+    newthread(helper_data);
+#endif
+  }
+
+  iteratively_deepen(
+#ifdef FULL
+      max_ply,
+#endif
+      main_data);
+  stop = true;
+
+  for (i32 i = 0; i < thread_count - 1; i++) {
+#ifdef FULL
+    pthread_join(helpers[i], NULL);
+#else
+    // TODO: sync ?
+#endif
+  }
+
   char move_name[8];
-  move_str(H(57, 3, move_name), H(57, 3, &stack[0].best_move),
-           H(57, 3, pos->flipped));
+  move_str(H(57, 3, move_name), H(57, 3, &main_data->stack[0].best_move),
+           H(57, 3, main_data->pos.flipped));
   putl("bestmove ");
   puts(move_name);
 }
@@ -1694,19 +1784,22 @@ const Position start_pos =
 #ifdef FULL
 S(1) void bench() {
   Position pos;
-  i32 pos_history_count = 0;
+  i32 move_history[2][6][64][64];
   SearchStack stack[1024];
-  __builtin_memset(move_history, 0, sizeof(move_history));
-  pos = start_pos;
-  max_time = -1ll;
-  u64 nodes = 0;
+  stop = false;
+  ThreadData data = {
+      .thread_id = 0,
+      .nodes = 0,
+      .max_time = -1LL,
+      .pos = start_pos,
+  };
   const u64 start = get_time();
-  iteratively_deepen(23, &nodes, H(223, 2, &pos), H(223, 2, stack),
-                     H(223, 2, pos_history_count));
+  start_time = start;
+  iteratively_deepen(23, &data);
   const u64 end = get_time();
   const u64 elapsed = end - start;
-  const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000U / elapsed : 0;
-  printf("%llu nodes %llu nps\n", nodes, nps);
+  const u64 nps = elapsed ? data.nodes * 1000 * 1000 * 1000U / elapsed : 0;
+  printf("%llu nodes %llu nps\n", data.nodes, nps);
 }
 #endif
 
@@ -1720,14 +1813,12 @@ S(1) void run() {
 #endif
 
   G(231, char line[4096];)
-  G(231, Position pos;)
-  G(231, i32 pos_history_count;)
-  G(231, SearchStack stack[1024];)
   G(231, init();)
+  G(231, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
+  G(231, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
 
 #ifdef FULL
-  pos = start_pos;
-  pos_history_count = 0;
+  main_data->pos = start_pos;
 #endif
 
 #ifndef FULL
@@ -1740,31 +1831,30 @@ S(1) void run() {
   while (true) {
     getl(line);
 #ifdef FULL
-    u64 nodes = 0;
     if (!strcmp(line, "uci")) {
       puts("id name 4k.c");
       puts("id author Gediminas Masaitis");
       puts("");
       puts("option name Hash type spin default 1 min 1 max 1");
-      puts("option name Threads type spin default 1 min 1 max 1");
+      puts("option name Threads type spin default 4 min 1 max 4");
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
-      __builtin_memset(tt, 0, sizeof(tt));
-      __builtin_memset(move_history, 0, sizeof(move_history));
+      __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
-      max_time = -1ll;
-      iteratively_deepen(max_ply, &nodes, H(223, 3, &pos), H(223, 3, stack),
-                         H(223, 3, pos_history_count));
+      stop = false;
+      start_time = get_time();
+      main_data->max_time = -1LL;
+      run_smp();
     } else if (!strcmp(line, "d")) {
-      display_pos(&pos);
+      display_pos(&main_data->pos);
     } else if (!strcmp(line, "perft")) {
       char depth_str[4];
       getl(depth_str);
       const i32 depth = atoi(depth_str);
       const u64 start = get_time();
-      nodes = perft(&pos, depth);
+      const u64 nodes = perft(&main_data->pos, depth);
       const u64 end = get_time();
       const u64 elapsed = end - start;
       const u64 nps = elapsed ? nodes * 1000 * 1000 * 1000 / elapsed : 0;
@@ -1772,66 +1862,30 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(232, if (G(233, line[0]) == G(233, 'i')) { puts("readyok"); })
-    else G(232, if (G(235, line[0]) == G(235, 'q')) { exit_now(); })
-    else G(232, if (G(234, line[0]) == G(234, 'g')) {
-#ifdef FULL
-      while (true) {
-        getl(line);
-        if (!pos.flipped && !strcmp(line, "wtime")) {
-          getl(line);
-          max_time = (u64)atoi(line) << 19; // Roughly /2 time
-          break;
-        }
-        else if (pos.flipped && !strcmp(line, "btime")) {
-          getl(line);
-          max_time = (u64)atoi(line) << 19; // Roughly /2 time
-          break;
-        }
-        else if (!strcmp(line, "movetime")) {
-          max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
-          break;
-        }
-      }
-      iteratively_deepen(max_ply, &nodes, H(223, 4, &pos), H(223, 4, stack),
-        H(223, 4, pos_history_count));
-#else
-      for (i32 i = 2 << pos.flipped; i > 0; i--) {
-        getl(line);
-        max_time = (u64)atoi(line) << 19; // Roughly /2 time
-      }
-      iteratively_deepen(H(223, 5, &pos), H(223, 5, stack),
-        H(223, 5, pos_history_count));
-#endif
-    })
+    G(232, if (G(235, line[0]) == G(235, 'q')) { exit_now(); })
+    else G(232, if (G(233, line[0]) == G(233, 'i')) { puts("readyok"); })
     else G(232, if (G(236, line[0]) == G(236, 'p')) {
-      G(237, pos_history_count = 0;)
-        G(237, pos = start_pos;)
+      G(237, main_data->pos = start_pos;)
         while (true) {
           const bool line_continue = getl(line);
 
 #if FULL
           if (!strcmp(line, "fen")) {
             getl(line);
-            get_fen(&pos, line);
+            get_fen(&main_data->pos, line);
           }
 #endif
           Move moves[max_moves];
           const i32 num_moves =
-            movegen(H(100, 4, &pos), H(100, 4, moves), H(100, 4, false));
+            movegen(H(100, 4, &main_data->pos), H(100, 4, moves), H(100, 4, false));
           for (i32 i = 0; i < num_moves; i++) {
             char move_name[8];
             move_str(H(57, 4, move_name), H(57, 4, &moves[i]),
-              H(57, 4, pos.flipped));
+              H(57, 4, main_data->pos.flipped));
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(G(238, move_name), G(238, line))) {
-              stack[pos_history_count].position_hash = get_hash(&pos);
-              pos_history_count++;
-              if (moves[i].takes_piece) {
-                pos_history_count = 0;
-              }
-              makemove(H(85, 4, &pos), H(85, 4, &moves[i]));
+              makemove(H(85, 4, &main_data->pos), H(85, 4, &moves[i]));
               break;
             }
           }
@@ -1839,6 +1893,36 @@ S(1) void run() {
             break;
           }
         }
+    })
+    else G(232, if (G(234, line[0]) == G(234, 'g')) {
+      stop = false;
+#ifdef FULL
+      while (true) {
+        getl(line);
+        if (!main_data->pos.flipped && !strcmp(line, "wtime")) {
+          getl(line);
+          main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
+          break;
+        }
+        else if (main_data->pos.flipped && !strcmp(line, "btime")) {
+          getl(line);
+          main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
+          break;
+        }
+        else if (!strcmp(line, "movetime")) {
+          main_data->max_time = 20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
+          break;
+        }
+      }
+      run_smp();
+#else
+      for (i32 i = 2 << main_data->pos.flipped; i > 0; i--) {
+        getl(line);
+        main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
+      }
+      start_time = get_time();
+      run_smp();
+#endif
     })
   }
 }

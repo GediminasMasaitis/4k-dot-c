@@ -8436,3 +8436,54 @@ Games | N: 41302 W: 11344 L: 11403 D: 18555
 Penta | [1052, 4848, 8853, 4903, 995]
 https://gedas.pythonanywhere.com/test/1587/
 ```
+
+### 5.34
+
+1 thread: 4008 bytes
+MD5: f1795cca32530f4ea376c2277465753a
+
+4 threads: 4079 bytes
+MD5: 530026964722ab685e0a0f6a1ae5f05c
+
+8 threads: 4078 bytes
+MD5: 91c96b12550f7783d9630c893df745d3
+
+* Lazy SMP
+* Remove full repetition detection
+
+1 thread vs 5.33:
+```py
+Elo   | 2.31 +- 15.72 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.19 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 752 W: 207 L: 202 D: 343
+Penta | [18, 79, 173, 92, 14]
+https://gedas.pythonanywhere.com/test/1602/
+```
+
+2v1 10+0.1
+```py
+Score of 4kc-2t vs 4kc-main: 181 - 59 - 180  [0.645] 420
+...      4kc-2t playing White: 133 - 8 - 69  [0.798] 210
+...      4kc-2t playing Black: 48 - 51 - 111  [0.493] 210
+...      White vs Black: 184 - 56 - 180  [0.652] 420
+Elo difference: 103.9 +/- 25.3, LOS: 100.0 %, DrawRatio: 42.9 %
+```
+
+4v1 10+0.1
+```py
+Score of 4kc-4t vs 4kc-main: 118 - 14 - 68  [0.760] 200
+...      4kc-4t playing White: 76 - 2 - 22  [0.870] 100
+...      4kc-4t playing Black: 42 - 12 - 46  [0.650] 100
+...      White vs Black: 88 - 44 - 68  [0.610] 200
+Elo difference: 200.2 +/- 41.5, LOS: 100.0 %, DrawRatio: 34.0 %
+```
+
+8v1 10+0.1
+```py
+Score of 4kc-8t vs 4kc-main: 135 - 7 - 58  [0.820] 200
+...      4kc-8t playing White: 84 - 0 - 16  [0.920] 100
+...      4kc-8t playing Black: 51 - 7 - 42  [0.720] 100
+...      White vs Black: 91 - 51 - 58  [0.600] 200
+Elo difference: 263.4 +/- 45.2, LOS: 100.0 %, DrawRatio: 29.0 %
+```
