@@ -8439,11 +8439,11 @@ https://gedas.pythonanywhere.com/test/1587/
 
 ### 5.34
 
-1 thread: 4009 bytes
-MD5: 1f4bef9c77a532ce0be81900390df1f2
-
-4 threads: 4079 bytes
+4 threads: 4079 bytes (+118)
 MD5: cf9ca8af00440fa1b18059a1c9ac72b9
+
+1 thread: 4009 bytes (-48)
+MD5: 1f4bef9c77a532ce0be81900390df1f2
 
 * Lazy SMP
 * Remove full repetition detection
@@ -8536,11 +8536,11 @@ Equivalent to 5.34
 
 First version with Lazy SMP
 
-1 thread: 4009 bytes
-MD5: 1f4bef9c77a532ce0be81900390df1f2
-
 4 threads: 4079 bytes
 MD5: cf9ca8af00440fa1b18059a1c9ac72b9
+
+1 thread: 4009 bytes 
+MD5: 1f4bef9c77a532ce0be81900390df1f2
 
 8moves book 10+0.1:
 ```py
@@ -8558,4 +8558,50 @@ Score of 4kc-1t vs 4ku-3.1: 4333 - 3631 - 5036  [0.527] 13000
 ...      4kc-1t playing Black: 2085 - 1933 - 2482  [0.512] 6500
 ...      White vs Black: 4181 - 3783 - 5036  [0.515] 13000
 Elo difference: 18.8 +/- 4.7, LOS: 100.0 %, DrawRatio: 38.7 %
+```
+
+### 6.1
+
+1MB child thread stack size
+
+4 threads: 4074 bytes (-5)
+MD5: 02b0488819271dd921a0bd807bcfd539
+
+1 thread: 4008 bytes (-1)
+MD5: 0b875d4c3310332f4d3bacb53f1f610c
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 387763
+info depth 1 score cp 28 time 0 nodes 38 nps 401500 pv b1c3
+info depth 2 score cp 17 time 0 nodes 115 nps 437355 pv b1c3
+info depth 3 score cp 27 time 0 nodes 235 nps 679906 pv b1c3
+info depth 4 score cp 17 time 0 nodes 396 nps 783578 pv b1c3
+info depth 5 score cp 3 time 0 nodes 642 nps 856771 pv b1c3
+info depth 6 score cp 15 time 1 nodes 1117 nps 977312 pv b1c3
+info depth 7 score cp 15 time 2 nodes 3295 nps 1128061 pv b1c3
+info depth 8 score cp 17 time 5 nodes 6115 nps 1109182 pv b1c3
+info depth 9 score cp 12 time 13 nodes 15300 nps 1156618 pv g1f3
+info depth 10 score cp 23 time 38 nodes 49868 nps 1283838 pv g1f3
+info depth 11 score cp 23 time 71 nodes 107837 nps 1512277 pv g1f3
+info depth 12 score cp 17 time 119 nodes 212456 nps 1773389 pv g1f3
+info depth 13 score cp 11 time 209 nodes 427911 nps 2041965 pv g1f3
+info depth 14 score cp 14 time 367 nodes 812329 nps 2210419 pv b1c3
+info depth 15 score cp 21 time 600 nodes 1372980 nps 2286170 pv d2d4
+info depth 16 score cp 25 time 992 nodes 2304583 nps 2322119 pv e2e4
+info depth 17 score cp 24 time 1118 nodes 2603632 nps 2327508 pv e2e4
+info depth 18 score cp 24 time 1469 nodes 3438587 nps 2339953 pv e2e4
+info depth 19 score cp 24 time 1775 nodes 4144751 nps 2334123 pv e2e4
+info depth 20 score cp 17 time 3064 nodes 7114318 nps 2321822 pv e2e4
+info depth 21 score cp 21 time 3877 nodes 8968036 nps 2313001 pv e2e4
+info depth 22 score cp 15 time 8355 nodes 19165661 nps 2293837 pv g1f3
+19165661 nodes 2293826 nps
+```
+
+10+0.1:
+```py
+Score of 4kc-1MB vs 4kc-8MB: 1214 - 1174 - 3112  [0.504] 5500
+...      4kc-1MB playing White: 663 - 510 - 1578  [0.528] 2751
+...      4kc-1MB playing Black: 551 - 664 - 1534  [0.479] 2749
+...      White vs Black: 1327 - 1061 - 3112  [0.524] 5500
+Elo difference: 2.5 +/- 6.0, LOS: 79.3 %, DrawRatio: 56.6 %
 ```

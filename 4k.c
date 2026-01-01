@@ -1139,13 +1139,13 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
-enum { thread_stack_size = 8 * 1024 * 1024 };
+enum { thread_stack_size = 1024 * 1024 };
 
 G(164, S(1) TTEntry tt[tt_length];)
+G(164, S(1) u64 start_time;)
 G(164, S(1) volatile bool stop;)
 G(164, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
-G(164, S(1) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1863,38 +1863,7 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(231, if (G(232, line[0]) == G(232, 'q')) { exit_now(); })
-    else G(231, if (G(233, line[0]) == G(233, 'i')) { puts("readyok"); })
-    else G(231, if (G(234, line[0]) == G(234, 'p')) {
-      G(235, main_data->pos = start_pos;)
-        while (true) {
-          const bool line_continue = getl(line);
-
-#if FULL
-          if (!strcmp(line, "fen")) {
-            getl(line);
-            get_fen(&main_data->pos, line);
-          }
-#endif
-          Move moves[max_moves];
-          const i32 num_moves =
-            movegen(H(99, 4, &main_data->pos), H(99, 4, moves), H(99, 4, false));
-          for (i32 i = 0; i < num_moves; i++) {
-            char move_name[8];
-            move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
-              H(54, 4, main_data->pos.flipped));
-            assert(move_string_equal(line, move_name) ==
-              !strcmp(line, move_name));
-            if (move_string_equal(G(236, move_name), G(236, line))) {
-              makemove(H(84, 4, &main_data->pos), H(84, 4, &moves[i]));
-              break;
-            }
-          }
-          if (!line_continue) {
-            break;
-          }
-        }
-    })
+    G(231, if (G(233, line[0]) == G(233, 'i')) { puts("readyok"); })
     else G(231, if (G(237, line[0]) == G(237, 'g')) {
       stop = false;
 #ifdef FULL
@@ -1925,6 +1894,37 @@ S(1) void run() {
       run_smp();
 #endif
     })
+    else G(231, if (G(234, line[0]) == G(234, 'p')) {
+      G(235, main_data->pos = start_pos;)
+        while (true) {
+          const bool line_continue = getl(line);
+
+#if FULL
+          if (!strcmp(line, "fen")) {
+            getl(line);
+            get_fen(&main_data->pos, line);
+          }
+#endif
+          Move moves[max_moves];
+          const i32 num_moves =
+            movegen(H(99, 4, &main_data->pos), H(99, 4, moves), H(99, 4, false));
+          for (i32 i = 0; i < num_moves; i++) {
+            char move_name[8];
+            move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
+              H(54, 4, main_data->pos.flipped));
+            assert(move_string_equal(line, move_name) ==
+              !strcmp(line, move_name));
+            if (move_string_equal(G(236, move_name), G(236, line))) {
+              makemove(H(84, 4, &main_data->pos), H(84, 4, &moves[i]));
+              break;
+            }
+          }
+          if (!line_continue) {
+            break;
+          }
+        }
+    })
+    else G(231, if (G(232, line[0]) == G(232, 'q')) { exit_now(); })
   }
 }
 
