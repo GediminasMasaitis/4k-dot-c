@@ -1156,7 +1156,7 @@ G(163, S(1) u64 start_time;)
 G(163, S(1) TTEntry tt[tt_length];)
 G(163, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
-G(163, S(1) volatile bool stop;)
+G(163, S(1) bool stop;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1399,7 +1399,7 @@ i32 search(
           H(165, 3, true), H(165, 3, low));
 
       // EARLY EXITS
-      if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
+      if (__atomic_load_n(&stop, __ATOMIC_RELAXED) || (depth > 4 && get_time() - start_time > data->max_time)) {
         return best_score;
       }
 
@@ -1612,7 +1612,7 @@ void iteratively_deepen(
           })
     }
 
-    if (stop || elapsed > data->max_time / 16) {
+    if (__atomic_load_n(&stop, __ATOMIC_RELAXED) || elapsed > data->max_time / 16) {
       break;
     }
   }
@@ -1682,7 +1682,7 @@ void run_smp() {
       max_ply,
 #endif
       main_data);
-  stop = true;
+  __atomic_store_n(&stop, true, __ATOMIC_RELAXED);
 
   for (i32 i = 0; i < thread_count - 1; i++) {
 #ifdef FULL
