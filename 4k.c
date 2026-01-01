@@ -1134,11 +1134,23 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
+typedef struct __attribute__((aligned(16))) ThreadDataStruct {
+  void (*entry)(struct ThreadDataStruct*);
+  // #ifdef FULL
+  i32 thread_id;
+  u64 nodes;
+  // #endif
+  G(222, Position pos;)
+    G(222, u64 max_time;)
+    G(222, SearchStack stack[1024];)
+    G(222, i32 move_history[2][6][64][64];)
+} ThreadData;
+
 enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(164, S(1) TTEntry tt[tt_length];)
@@ -1203,16 +1215,17 @@ get_hash(const Position *const pos) {
 
 S(1)
 i32 search(H(166, 1, const bool do_null), H(166, 1, const i32 beta),
-           H(166, 1, i32 depth), H(166, 1, SearchStack *restrict stack),
+           H(166, 1, i32 depth), H(166, 1, ThreadData *data),
            H(166, 1, i32 alpha),
 #ifdef FULL
            u64 *nodes,
 #endif
-           H(167, 1, Position *const restrict pos), H(167, 1, const i32 ply),
-           H(167, 1, i32 move_history[2][6][64][64]),
-           H(167, 1, const u64 max_time)) {
+           H(166, 1, Position *const pos), H(166, 1, const i32 ply)) {
   assert(alpha < beta);
   assert(ply >= 0);
+
+  SearchStack* const stack = data->stack;
+  i32(*const move_history)[6][64][64] = data->move_history;
 
   // IN-CHECK EXTENSION
   const bool in_check = find_in_check(pos);
@@ -1289,12 +1302,11 @@ i32 search(H(166, 1, const bool do_null), H(166, 1, const i32 beta),
       const i32 score =
           -search(H(166, 2, false), H(166, 2, -alpha),
                   H(166, 2, depth - G(189, 4) - G(189, depth / 4)),
-                  H(166, 2, stack), H(166, 2, -beta),
+                  H(166, 2, data), H(166, 2, -beta),
 #ifdef FULL
                   nodes,
 #endif
-                  H(167, 2, &npos), H(167, 2, ply + 1), H(167, 2, move_history),
-                  H(167, 2, max_time));
+                  H(166, 2, &npos), H(166, 2, ply + 1));
       if (score >= beta) {
         return score;
       }
@@ -1381,15 +1393,14 @@ i32 search(H(166, 1, const bool do_null), H(166, 1, const i32 beta),
     while (true) {
       score = -search(H(166, 3, true), H(166, 3, -alpha),
                       H(166, 3, depth - G(208, 1) - G(208, reduction)),
-                      H(166, 3, stack), H(166, 3, low),
+                      H(166, 3, data), H(166, 3, low),
 #ifdef FULL
                       nodes,
 #endif
-                      H(167, 3, &npos), H(167, 3, ply + 1),
-                      H(167, 3, move_history), H(167, 3, max_time));
+                      H(166, 3, &npos), H(166, 3, ply + 1));
 
       // EARLY EXITS
-      if (stop || (depth > 4 && get_time() - start_time > max_time)) {
+      if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
         return best_score;
       }
 
@@ -1563,18 +1574,6 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 }
 #endif
 
-typedef struct __attribute__((aligned(16))) ThreadDataStruct {
-  void (*entry)(struct ThreadDataStruct *);
-  // #ifdef FULL
-  i32 thread_id;
-  u64 nodes;
-  // #endif
-  G(222, Position pos;)
-  G(222, u64 max_time;)
-  G(222, SearchStack stack[1024];)
-  G(222, i32 move_history[2][6][64][64];)
-} ThreadData;
-
 S(1)
 void iteratively_deepen(
 #ifdef FULL
@@ -1594,12 +1593,11 @@ void iteratively_deepen(
       G(224, const i32 beta = G(225, score) + G(225, window);)
       G(224, const i32 alpha = score - window;)
       score = search(H(166, 4, false), H(166, 4, beta), H(166, 4, depth),
-                     H(166, 4, data->stack), H(166, 4, alpha),
+                     H(166, 4, data), H(166, 4, alpha),
 #ifdef FULL
                      &data->nodes,
 #endif
-                     H(167, 4, &data->pos), H(167, 4, 0),
-                     H(167, 4, data->move_history), H(167, 4, data->max_time));
+                     H(166, 4, &data->pos), H(166, 4, 0));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
