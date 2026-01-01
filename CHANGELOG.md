@@ -8616,6 +8616,15 @@ MD5: 5ab5dfda260319d0ee43b85e453a62a4
 1 thread: 3971 bytes (-37)
 MD5: 43b6b63a71d3d7d93457c9225d10b5d2
 
+```py
+Elo   | 3.80 +- 6.81 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 1.52 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 4484 W: 1248 L: 1199 D: 2037
+Penta | [111, 531, 912, 574, 114]
+https://gedas.pythonanywhere.com/test/1610/
+```
+
 ### 6.3
 
 Exclude unneeded variables for mini
@@ -8625,3 +8634,22 @@ MD5: f25799cc4e6cc428d40cf5962587ccac
 
 1 thread: 3973 bytes (+2)
 MD5: 53583adca54039bde41b8f550690f31e
+
+### 6.4
+
+Optimize mobility
+
+4 threads: 4072 bytes (+2)
+MD5: b1eb38153c20cbba0a180cbc40c3d5ee
+
+1 thread: 3975 bytes (+2)
+MD5: 2e1dfc13f72cbc23bb53a5f621b620f3
+
+```py
+Elo   | 0.70 +- 20.15 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 0.07 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 494 W: 134 L: 133 D: 227
+Penta | [12, 59, 102, 64, 10]
+https://gedas.pythonanywhere.com/test/1612/
+```
