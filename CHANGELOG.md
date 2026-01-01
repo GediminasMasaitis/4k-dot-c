@@ -8615,3 +8615,13 @@ MD5: 5ab5dfda260319d0ee43b85e453a62a4
 
 1 thread: 3971 bytes (-37)
 MD5: 43b6b63a71d3d7d93457c9225d10b5d2
+
+### 6.3
+
+Exclude unneeded variables for mini
+
+4 threads: 4070 bytes (-2)
+MD5: f25799cc4e6cc428d40cf5962587ccac
+
+1 thread: 3973 bytes (+2)
+MD5: 53583adca54039bde41b8f550690f31e

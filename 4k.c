@@ -69,6 +69,42 @@ G(
     })
 
 G(
+    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+      u32 result = 0;
+      while (*string)
+        result = result * 10 + *string++ - '0';
+      return result;
+    })
+
+G(
+    3,
+    S(1) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        _sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])),
+             H(2, 3, 1));
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+[[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                 const char *restrict rhs) {
+  while (*lhs || *rhs) {
+    if (*lhs != *rhs) {
+      return true;
+    }
+    lhs++;
+    rhs++;
+  }
+  return false;
+}
+
+G(
     3, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
@@ -90,42 +126,6 @@ G(
 
         string++;
       }
-    })
-
-G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
-      u32 result = 0;
-      while (*string)
-        result = result * 10 + *string++ - '0';
-      return result;
-    })
-
-[[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                 const char *restrict rhs) {
-  while (*lhs || *rhs) {
-    if (*lhs != *rhs) {
-      return true;
-    }
-    lhs++;
-    rhs++;
-  }
-  return false;
-}
-
-G(
-    3,
-    S(1) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        _sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])),
-             H(2, 3, 1));
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
     })
 
 typedef struct [[nodiscard]] {
@@ -1135,12 +1135,12 @@ _Static_assert(sizeof(TTEntry) == 10);
 
 typedef struct __attribute__((aligned(16))) ThreadDataStruct {
   void (*entry)(struct ThreadDataStruct *);
-  // #ifdef FULL
+#ifdef FULL
   i32 thread_id;
   u64 nodes;
-  // #endif
-  G(164, Position pos;)
+#endif
   G(164, u64 max_time;)
+  G(164, Position pos;)
   G(164, SearchStack stack[1024];)
   G(164, i32 move_history[2][6][64][64];)
 } ThreadData;
@@ -1152,11 +1152,11 @@ enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
-G(165, S(1) TTEntry tt[tt_length];)
 G(165, S(1) u64 start_time;)
-G(165, S(1) volatile bool stop;)
+G(165, S(1) TTEntry tt[tt_length];)
 G(165, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
+G(165, S(1) volatile bool stop;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1859,7 +1859,8 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(230, if (G(231, line[0]) == G(231, 'i')) { puts("readyok"); })
+    G(230, if (G(236, line[0]) == G(236, 'q')) { exit_now(); })
+    else G(230, if (G(231, line[0]) == G(231, 'i')) { puts("readyok"); })
     else G(230, if (G(232, line[0]) == G(232, 'g')) {
       stop = false;
 #ifdef FULL
@@ -1920,7 +1921,6 @@ S(1) void run() {
           }
         }
     })
-    else G(230, if (G(236, line[0]) == G(236, 'q')) { exit_now(); })
   }
 }
 
