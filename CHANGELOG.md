@@ -8605,3 +8605,13 @@ Score of 4kc-1MB vs 4kc-8MB: 1214 - 1174 - 3112  [0.504] 5500
 ...      White vs Black: 1327 - 1061 - 3112  [0.524] 5500
 Elo difference: 2.5 +/- 6.0, LOS: 79.3 %, DrawRatio: 56.6 %
 ```
+
+### 6.2
+
+Pass thread data to search
+
+4 threads: 4072 bytes (-2)
+MD5: 5ab5dfda260319d0ee43b85e453a62a4
+
+1 thread: 3971 bytes (-37)
+MD5: 43b6b63a71d3d7d93457c9225d10b5d2
