@@ -1213,13 +1213,13 @@ get_hash(const Position *const pos) {
 #endif
 
 S(1)
-i32 search(H(167, 1, Position *const pos), H(167, 1, const i32 beta),
-           H(167, 1, const i32 ply), H(167, 1, i32 depth),
-           H(167, 1, ThreadData *data),
+i32 search(
 #ifdef FULL
-           u64 *nodes,
+    u64 *nodes,
 #endif
-           H(167, 1, const bool do_null), H(167, 1, i32 alpha)) {
+    H(167, 1, Position *const pos), H(167, 1, const i32 beta),
+    H(167, 1, const i32 ply), H(167, 1, i32 depth), H(167, 1, ThreadData *data),
+    H(167, 1, const bool do_null), H(167, 1, i32 alpha)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1299,11 +1299,11 @@ i32 search(H(167, 1, Position *const pos), H(167, 1, const i32 beta),
       G(188, flip_pos(&npos);)
       G(188, npos.ep = 0;)
       const i32 score = -search(
-          H(167, 2, &npos), H(167, 2, -alpha), H(167, 2, ply + 1),
-          H(167, 2, depth - G(189, 4) - G(189, depth / 4)), H(167, 2, data),
 #ifdef FULL
           nodes,
 #endif
+          H(167, 2, &npos), H(167, 2, -alpha), H(167, 2, ply + 1),
+          H(167, 2, depth - G(189, 4) - G(189, depth / 4)), H(167, 2, data),
           H(167, 2, false), H(167, 2, -beta));
       if (score >= beta) {
         return score;
@@ -1389,13 +1389,13 @@ i32 search(H(167, 1, Position *const pos), H(167, 1, const i32 beta),
 
     i32 score;
     while (true) {
-      score = -search(H(167, 3, &npos), H(167, 3, -alpha), H(167, 3, ply + 1),
-                      H(167, 3, depth - G(208, 1) - G(208, reduction)),
-                      H(167, 3, data),
+      score = -search(
 #ifdef FULL
-                      nodes,
+          nodes,
 #endif
-                      H(167, 3, true), H(167, 3, low));
+          H(167, 3, &npos), H(167, 3, -alpha), H(167, 3, ply + 1),
+          H(167, 3, depth - G(208, 1) - G(208, reduction)), H(167, 3, data),
+          H(167, 3, true), H(167, 3, low));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
@@ -1589,12 +1589,13 @@ void iteratively_deepen(
     while (true) {
       G(223, const i32 beta = G(224, score) + G(224, window);)
       G(223, const i32 alpha = score - window;)
-      score = search(H(167, 4, &data->pos), H(167, 4, beta), H(167, 4, 0),
-                     H(167, 4, depth), H(167, 4, data),
+      score = search(
 #ifdef FULL
-                     &data->nodes,
+          &data->nodes,
 #endif
-                     H(167, 4, false), H(167, 4, alpha));
+          H(167, 4, &data->pos), H(167, 4, beta), H(167, 4, 0),
+          H(167, 4, depth), H(167, 4, data), H(167, 4, false),
+          H(167, 4, alpha));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
