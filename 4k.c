@@ -1279,18 +1279,18 @@ i32 search(
   }
 
   if (G(178, !in_check) && G(178, G(179, alpha) == G(179, beta - 1))) {
-    if (G(180, depth < 8) && G(180, !in_qsearch)) {
+    if (G(180, depth < 9) && G(180, !in_qsearch)) {
 
       G(181, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(182, 56) * G(182, (depth - improving)) >= beta) {
+        if (static_eval - G(182, 61) * G(182, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(181, // RAZORING
         in_qsearch =
-            G(183, static_eval) + G(183, G(184, 122) * G(184, depth)) <= alpha;)
+            G(183, static_eval) + G(183, G(184, 117) * G(184, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1335,11 +1335,11 @@ i32 search(
                         G(191, &moves[order_index]))
              << 30)) +
           G(165, // MOST VALUABLE VICTIM
-            G(192, moves[order_index].takes_piece) * G(192, 712)) +
+            G(192, moves[order_index].takes_piece) * G(192, 663)) +
           G(165, // KILLER MOVE
             G(193, move_equal(G(194, &moves[order_index]),
                               G(194, &stack[ply].killer))) *
-                G(193, 836)) +
+                G(193, 829)) +
           G(165, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]);
@@ -1354,13 +1354,13 @@ i32 search(
     G(
         197, // MOVE SCORE PRUNING
         if (G(198, moves_evaluated) &&
-            G(198, move_score < G(199, -128) * G(199, depth))) { break; })
+            G(198, move_score < G(199, -125) * G(199, depth))) { break; })
 
     G(
         197, // FORWARD FUTILITY PRUNING / DELTA PRUNING
         if (G(200, depth < 8) &&
             G(200,
-              G(201, static_eval) + G(201, G(202, 142) * G(202, depth)) +
+              G(201, static_eval) + G(201, G(202, 146) * G(202, depth)) +
                       G(201,
                         initial_params.eg.material[moves[move_index].promo]) +
                       G(201, initial_params.eg
@@ -1382,8 +1382,8 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(203, depth > 3) && G(203, move_score <= 0)
-                        ? G(204, (move_score < -256)) +
-                              G(204, moves_evaluated / 10) +
+                        ? G(204, (move_score < -263)) +
+                              G(204, moves_evaluated / 9) +
                               G(204, !improving) +
                               G(204, (G(205, alpha) == G(205, beta - 1)))
                         : 0;
