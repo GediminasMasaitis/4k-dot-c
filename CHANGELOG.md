@@ -8721,3 +8721,53 @@ MD5: 430b6de8886f4bc3c1a417efa3aeb6b9
 
 1 thread: 3978 bytes (-1)
 MD5: ed595ef87eff6385b66dcf4536ff5dfc
+
+### 6.7
+
+Simplify king atack eval
+
+4 threads: 4068 bytes (-9)
+MD5: d0f25db83cc2c9dc5134be999ecd8b41
+
+1 thread: 3968 bytes (-10)
+MD5: 01d694a08a0b72bb82a42a3b7b74bf42
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 341646
+info depth 1 score cp 28 time 0 nodes 38 nps 369394 pv b1c3
+info depth 2 score cp 17 time 0 nodes 116 nps 407400 pv b1c3
+info depth 3 score cp 27 time 0 nodes 236 nps 643339 pv b1c3
+info depth 4 score cp 17 time 0 nodes 417 nps 764538 pv b1c3
+info depth 5 score cp 4 time 0 nodes 683 nps 839673 pv b1c3
+info depth 6 score cp 16 time 1 nodes 1165 nps 958672 pv b1c3
+info depth 7 score cp 12 time 3 nodes 3649 nps 1050496 pv b1c3
+info depth 8 score cp 25 time 8 nodes 9200 nps 1097951 pv d2d3
+info depth 9 score cp 21 time 15 nodes 18053 nps 1190460 pv d2d3
+info depth 10 score cp 7 time 21 nodes 26694 nps 1238394 pv d2d3
+info depth 11 score cp 22 lowerbound time 42 nodes 58076 nps 1361281
+info depth 11 score cp 21 time 77 nodes 124126 nps 1592214 pv g1f3
+info depth 12 score cp 17 time 139 nodes 256651 nps 1837338 pv g1f3
+info depth 13 score cp 9 time 238 nodes 478324 nps 2007641 pv b1c3
+info depth 14 score cp 17 time 342 nodes 712003 nps 2077007 pv b1c3
+info depth 15 score cp 28 time 768 nodes 1682237 nps 2189013 pv e2e4
+info depth 16 score cp 13 upperbound time 954 nodes 2095504 nps 2195908
+info depth 16 score cp 17 time 1022 nodes 2245475 nps 2196477 pv e2e4
+info depth 17 score cp 11 time 1301 nodes 2859629 nps 2197510 pv e2e4
+info depth 18 score cp 12 time 2147 nodes 4719701 nps 2197621 pv e2e4
+info depth 19 score cp 15 time 3524 nodes 7711467 nps 2187687 pv d2d4
+info depth 20 score cp 16 time 4247 nodes 9277351 nps 2184261 pv d2d4
+info depth 21 score cp 31 lowerbound time 6567 nodes 14318416 nps 2180070
+info depth 21 score cp 32 time 7230 nodes 15789710 nps 2183857 pv e2e4
+info depth 22 score cp 17 upperbound time 8313 nodes 17984880 nps 2163439
+info depth 22 score cp 28 time 8683 nodes 18727994 nps 2156809 pv e2e4
+18727994 nodes 2156798 nps
+```
+
+```py
+Elo   | 5.75 +- 7.19 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | 1.80 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 3866 W: 1082 L: 1018 D: 1766
+Penta | [81, 460, 803, 492, 97]
+https://gedas.pythonanywhere.com/test/1624/
+```
