@@ -1141,6 +1141,7 @@ typedef struct __attribute__((aligned(16))) ThreadDataStruct {
   G(162, u64 max_time;)
   G(162, Position pos;)
   G(162, SearchStack stack[1024];)
+  G(162, i32 pos_history_count;)
   G(162, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1232,7 +1233,7 @@ i32 search(
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(166, ply); G(167, i >= 0) && G(167, do_null); i -= 2) {
+  for (i32 i = G(166, ply) + G(166, data->pos_history_count); G(167, i >= 0) && G(167, do_null); i -= 2) {
     if (G(168, tt_hash) == G(168, stack[i].position_hash)) {
       return 0;
     }
@@ -1665,6 +1666,7 @@ void run_smp() {
     ThreadData *helper_data =
         (ThreadData *)&thread_stacks[i][thread_stack_size - sizeof(ThreadData)];
     G(226, helper_data->pos = main_data->pos;)
+    G(226, helper_data->pos_history_count = main_data->pos_history_count;)
     G(226, helper_data->max_time = -1LL;)
 #ifdef FULL
     helper_data->thread_id = i;
@@ -1891,6 +1893,7 @@ S(1) void run() {
 #endif
     })
     else G(228, if (G(232, line[0]) == G(232, 'p')) {
+      G(233, main_data->pos_history_count = 0;)
       G(233, main_data->pos = start_pos;)
         while (true) {
           const bool line_continue = getl(line);
@@ -1911,6 +1914,11 @@ S(1) void run() {
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(G(234, move_name), G(234, line))) {
+              main_data->stack[main_data->pos_history_count].position_hash = get_hash(&main_data->pos);
+              main_data->pos_history_count++;
+              if (moves[i].takes_piece) {
+                main_data->pos_history_count = 0;
+              }
               makemove(H(82, 4, &main_data->pos), H(82, 4, &moves[i]));
               break;
             }
