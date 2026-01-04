@@ -69,19 +69,11 @@ G(
     })
 
 G(
-    3,
-    S(1) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
-             H(2, 2, 1));
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
+    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+      u32 result = 0;
+      while (*string)
+        result = result * 10 + *string++ - '0';
+      return result;
     })
 
 G(
@@ -121,11 +113,19 @@ G(
 }
 
 G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
-      u32 result = 0;
-      while (*string)
-        result = result * 10 + *string++ - '0';
-      return result;
+    3,
+    S(1) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
+             H(2, 2, 1));
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
     })
 
 typedef struct [[nodiscard]] {
@@ -276,9 +276,9 @@ G(
 
 G(
     18, [[nodiscard]] S(1) u64 northwest(const u64 bb) {
-      return G(23, G(24, west)(G(24, north)(bb)));
       return G(23, shift(H(12, 4, 7), H(12, 4, ~0x8080808080808080ull),
                          H(12, 4, bb)));
+      return G(23, G(24, west)(G(24, north)(bb)));
     })
 
 G(
@@ -339,7 +339,7 @@ G(
     })
 
 G(
-    34, [[nodiscard]] S(1) u64 knight(const u64 bb) {
+    34, [[nodiscard]] S(0) u64 knight(const u64 bb) {
       G(40, const u64 east_bb = east(bb);)
       G(40, const u64 west_bb = west(bb);)
       G(41, const u64 horizontal1 = G(42, west_bb) | G(42, east_bb);)
@@ -838,8 +838,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(119, 1, i8 mobilities[5];) H(119, 1, i8 passed_blocked_pawns[6];))
   H(118, 1,
     H(120, 1, i8 king_attacks[5];) H(120, 1, i8 pst_rank[48];)
-        H(120, 1, i8 passed_pawns[6];) H(120, 1, i8 phalanx_pawn;)
-            H(120, 1, i8 bishop_pair;) H(120, 1, i8 protected_pawn;))
+        H(120, 1, i8 passed_pawns[6];) H(120, 1, i8 bishop_pair;)
+            H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 protected_pawn;))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -851,8 +851,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
                 H(119, 2, i32 passed_blocked_pawns[6];))
   H(118, 2,
     H(120, 2, i32 king_attacks[5];) H(120, 2, i32 pst_rank[48];)
-        H(120, 2, i32 passed_pawns[6];) H(120, 2, i32 phalanx_pawn;)
-            H(120, 2, i32 bishop_pair;) H(120, 2, i32 protected_pawn;))
+        H(120, 2, i32 passed_pawns[6];) H(120, 2, i32 bishop_pair;)
+            H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 protected_pawn;))
 
 } EvalParamsMerged;
 
@@ -1040,18 +1040,18 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(138, pos->colour[0]) & G(138, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(139, copy &= copy - 1;)
         G(139, phase += initial_params.phases[p];)
         G(139, const i32 rank = sq >> 3;)
         G(139, const i32 file = G(140, sq) & G(140, 7);)
-
+        G(139, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(139, copy &= copy - 1;)
+        G(139, const u64 piece_bb = 1ULL << sq;)
         G(
             95, // PASSED PAWNS
             if (G(141, p == Pawn) &&
-                G(141, !(G(142, (0x101010101010101ULL << sq)) &
-                         G(142, no_passers)))) {
+                G(141, !(G(142, in_front) & G(142, no_passers)))) {
               G(
-                  143, if (G(144, north(1ULL << sq)) & G(144, pos->colour[1])) {
+                  143, if (G(144, north(piece_bb)) & G(144, pos->colour[1])) {
                     score += eval_params.passed_blocked_pawns[rank - 1];
                   })
 
@@ -1067,8 +1067,7 @@ S(0) i32 eval(Position *const restrict pos) {
 
         G(
             95, // OPEN FILES / DOUBLED PAWNS
-            if ((G(147, north(0x101010101010101ULL << sq)) &
-                 G(147, own_pawns)) == 0) {
+            if ((G(147, north(in_front)) & G(147, own_pawns)) == 0) {
               score += eval_params.open_files[p - 1];
             })
 
@@ -1081,7 +1080,7 @@ S(0) i32 eval(Position *const restrict pos) {
             95, if (p > Pawn) {
               G(
                   150, // PIECES ATTACKED BY PAWNS
-                  if (G(151, 1ULL << sq) & G(151, no_passers)) {
+                  if (G(151, piece_bb) & G(151, no_passers)) {
                     score += eval_params.pawn_attacked_penalty[c];
                   })
 
@@ -1103,8 +1102,8 @@ S(0) i32 eval(Position *const restrict pos) {
       }
     }
 
-    G(77, flip_pos(pos);)
     G(77, score = -score;)
+    G(77, flip_pos(pos);)
   }
 
   const i32 stronger_side_pawns_missing =

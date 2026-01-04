@@ -8695,11 +8695,11 @@ info depth 22 score cp 27 time 5580 nodes 12188254 nps 2184273 pv e2e4
 ```
 
 ```py
-Elo   | 5.23 +- 8.79 (95%)
+Elo   | -0.30 +- 2.95 (95%)
 SPRT  | 10.0+0.10s Threads=1 Hash=1MB
-LLR   | 0.60 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 2788 W: 802 L: 760 D: 1226
-Penta | [78, 307, 588, 337, 84]
+LLR   | -2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 24128 W: 6701 L: 6722 D: 10705
+Penta | [660, 2904, 4901, 2995, 604]
 https://gedas.pythonanywhere.com/test/1614/
 ```
 
@@ -8711,3 +8711,13 @@ Games | N: 4972 W: 1321 L: 1175 D: 2476
 Penta | [67, 550, 1130, 648, 91]
 https://gedas.pythonanywhere.com/test/1613/
 ```
+
+### 6.6
+
+Extact bbs in eval 
+
+4 threads: 4077 bytes (=)
+MD5: 430b6de8886f4bc3c1a417efa3aeb6b9
+
+1 thread: 3978 bytes (-1)
+MD5: ed595ef87eff6385b66dcf4536ff5dfc
