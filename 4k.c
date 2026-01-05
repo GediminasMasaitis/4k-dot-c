@@ -1280,14 +1280,14 @@ i32 search(
 
       G(181, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(182, 61) * G(182, (depth - improving)) >= beta) {
+        if (static_eval - G(182, 49) * G(182, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(181, // RAZORING
         in_qsearch =
-            G(183, static_eval) + G(183, G(184, 117) * G(184, depth)) <= alpha;)
+            G(183, static_eval) + G(183, G(184, 94) * G(184, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1357,7 +1357,7 @@ i32 search(
         197, // FORWARD FUTILITY PRUNING / DELTA PRUNING
         if (G(200, depth < 8) &&
             G(200,
-              G(201, static_eval) + G(201, G(202, 146) * G(202, depth)) +
+              G(201, static_eval) + G(201, G(202, 117) * G(202, depth)) +
                       G(201,
                         initial_params.eg.material[moves[move_index].promo]) +
                       G(201, initial_params.eg
@@ -1581,7 +1581,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(220, i32 window = 15;)
+    G(220, i32 window = 12;)
     G(220, size_t elapsed;)
     while (true) {
       G(221, const i32 alpha = score - window;)
