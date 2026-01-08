@@ -1379,7 +1379,7 @@ i32 search(
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(203, depth > 3) && G(203, move_score <= 0)
+    i32 reduction = G(203, depth > 3) && G(203, move_score < 512)
                         ? G(204, (move_score / -384)) + G(204, !improving) +
                               G(204, (G(205, alpha) == G(205, beta - 1))) +
                               G(204, moves_evaluated / 9)
