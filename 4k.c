@@ -1146,7 +1146,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 4 };
+enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(163, S(1) TTEntry tt[tt_length];)
@@ -1378,8 +1378,11 @@ i32 search(
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(203, depth > 3)
-                        ? G(204, (move_score / -384)) + G(204, !improving) +
+    i32 reduction = G(203, depth > 3) && moves_evaluated > 1
+                        ? G(204, (move_history[pos->flipped]
+                          [moves[move_index].takes_piece]
+                          [moves[move_index].from]
+                          [moves[move_index].to] / -384)) + G(204, !improving) +
                               G(204, (G(205, alpha) == G(205, beta - 1))) +
                               G(204, moves_evaluated / 9)
                         : 0;
