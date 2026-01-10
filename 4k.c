@@ -1122,8 +1122,8 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(161, i8 depth;)
   G(161, i16 score;)
+  G(161, i8 depth;)
   G(161, u8 flag;)
   G(161, Move move;)
   G(161, u16 partial_hash;)
@@ -1146,14 +1146,14 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 4 };
+enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
-G(163, S(1) TTEntry tt[tt_length];)
-G(163, S(1) u64 start_time;)
-G(163, S(1) volatile bool stop;)
 G(163, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
+G(163, S(1) u64 start_time;)
+G(163, S(1) TTEntry tt[tt_length];)
+G(163, S(1) volatile bool stop;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1666,8 +1666,8 @@ void run_smp() {
   for (i32 i = 1; i < thread_count; i++) {
     ThreadData *helper_data =
         (ThreadData *)&thread_stacks[i][thread_stack_size - sizeof(ThreadData)];
-    G(226, helper_data->pos = main_data->pos;)
     G(226, helper_data->max_time = -1LL;)
+    G(226, helper_data->pos = main_data->pos;)
 #ifdef FULL
     helper_data->thread_id = i;
     pthread_create(&helpers[i - 1], NULL, entry_full, helper_data);
