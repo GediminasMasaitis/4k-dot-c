@@ -1462,6 +1462,13 @@ i32 search(
 
     // LATE MOVE PRUNING
     if (G(212, !in_check) && G(212, G(213, alpha) == G(213, beta - 1)) &&
+        G(212, moves_evaluated > (G(214, 3) + G(214, 2 * depth * depth)) >>
+                   !improving)) {
+      break;
+    }
+
+    // LATE MOVE PRUNING
+    if (G(212, !in_check) && G(212, G(213, alpha) == G(213, beta - 1)) &&
         G(212, quiets_evaluated > (G(214, 1) + G(214, depth * depth)) >>
                    !improving)) {
       break;
