@@ -1434,7 +1434,7 @@ i32 search(
                                         [stack[ply].best_move.to];
 
                   *this_hist +=
-                  bonus - G(210, bonus) * G(210, *this_hist) / 1024;)
+                  bonus - G(210, bonus) * G(210, *this_hist) / 2048;)
                 G(
                     209, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1443,7 +1443,7 @@ i32 search(
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
-                          bonus + G(211, bonus) * G(211, *prev_hist) / 1024;
+                          bonus + G(211, bonus) * G(211, *prev_hist) / 2048;
                     })
               })
           G(
