@@ -1335,9 +1335,9 @@ i32 search(
           G(165, // KILLER MOVE
             G(193, move_equal(G(194, &moves[order_index]),
                               G(194, &stack[ply].killer))) *
-                G(193, 829)) +
+                G(193, 1658)) +
           G(165, // MOST VALUABLE VICTIM
-            G(192, moves[order_index].takes_piece) * G(192, 663)) +
+            G(192, moves[order_index].takes_piece) * G(192, 1326)) +
           G(165, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]);
@@ -1352,7 +1352,7 @@ i32 search(
     G(
         197, // MOVE SCORE PRUNING
         if (G(198, moves_evaluated) &&
-            G(198, move_score < G(199, -125) * G(199, depth))) { break; })
+            G(198, move_score < G(199, -250) * G(199, depth))) { break; })
 
     G(
         197, // FORWARD FUTILITY PRUNING / DELTA PRUNING
@@ -1380,7 +1380,7 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(203, depth > 3) && G(203, move_score <= 0)
-                        ? G(204, (move_score / -384)) + G(204, !improving) +
+                        ? G(204, (move_score / -768)) + G(204, !improving) +
                               G(204, (G(205, alpha) == G(205, beta - 1))) +
                               G(204, moves_evaluated / 9)
                         : 0;
