@@ -1582,11 +1582,11 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(220, i32 window = 15;)
+    i32 window = 15;
+    G(220, i32 alpha = score - window;)
+    G(220, i32 beta = G(222, score) + G(222, window);)
     G(220, size_t elapsed;)
     while (true) {
-      G(221, const i32 alpha = score - window;)
-      G(221, const i32 beta = G(222, score) + G(222, window);)
       score = search(
 #ifdef FULL
           &data->nodes,
@@ -1600,12 +1600,20 @@ void iteratively_deepen(
       }
 #endif
       elapsed = get_time() - start_time;
-      G(223, window *= 2;)
-      G(
-          223, if (G(224, elapsed > data->max_time) ||
+      if (G(224, elapsed > data->max_time) ||
                    G(224, (G(225, score < beta) && G(225, score > alpha)))) {
-            break;
-          })
+        break;
+      }
+      
+      if(score <= alpha) {
+        alpha -= window;
+        beta  = (alpha + 3 * beta) / 4;
+      }
+      else if(score >= beta){
+        beta += window;
+      }
+
+      window *= 2;
     }
 
     if (stop || elapsed > data->max_time / 16) {
