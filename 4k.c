@@ -1147,6 +1147,7 @@ typedef struct [[nodiscard]] {
   G(164, u64 max_time;)
   G(164, SearchStack stack[1024];)
   G(164, i32 move_history[2][6][64][64];)
+  G(164, i32 pos_history_count;)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1243,7 +1244,7 @@ i32 search(
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(168, ply); G(169, i >= 0) && G(169, do_null); i -= 2) {
+  for (i32 i = G(168, ply) + G(168, data->pos_history_count); G(169, i >= 0) && G(169, do_null); i -= 2) {
     if (G(170, tt_hash) == G(170, stack[i].position_hash)) {
       return 0;
     }
@@ -1324,7 +1325,7 @@ i32 search(
   G(190, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(97, 3, pos), H(97, 3, moves), H(97, 3, in_qsearch));)
-  G(190, stack[G(191, ply) + G(191, 2)].position_hash = tt_hash;)
+  G(190, stack[G(191, data->pos_history_count) + G(191, ply) + G(191, 2)].position_hash = tt_hash;)
   G(190, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(190, u8 tt_flag = Upper;)
   G(190, i32 quiets_evaluated = 0;)
@@ -1871,6 +1872,7 @@ S(1) void run() {
     G(230, if (G(232, line[0]) == G(232, 'i')) { puts("readyok"); })
     else G(230, if (G(234, line[0]) == G(234, 'p')) {
       G(235, main_data->pos = start_pos;)
+      G(235, main_data->pos_history_count = 0;)
         while (true) {
           const bool line_continue = getl(line);
 
@@ -1890,6 +1892,11 @@ S(1) void run() {
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
             if (move_string_equal(G(236, move_name), G(236, line))) {
+              main_data->stack[main_data->pos_history_count].position_hash = get_hash(&main_data->pos);
+              main_data->pos_history_count++;
+              if (moves[i].takes_piece) {
+                main_data->pos_history_count = 0;
+              }
               makemove(H(82, 4, &main_data->pos), H(82, 4, &moves[i]));
               break;
             }
