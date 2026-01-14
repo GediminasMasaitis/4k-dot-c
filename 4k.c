@@ -80,8 +80,8 @@ G(
     3, // Non-standard, gets but a word instead of a line
     S(1) bool getl(char *restrict string) {
       while (true) {
-        const int result = _sys(H(2, 3, stdin), H(2, 3, 1),
-                                H(2, 3, (ssize_t)string), H(2, 3, 0));
+        const int result = _sys(H(2, 2, stdin), H(2, 2, 1),
+                                H(2, 2, (ssize_t)string), H(2, 2, 0));
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -117,8 +117,8 @@ G(
     S(1) void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
-        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
-             H(2, 2, 1));
+        _sys(H(2, 3, stdout), H(2, 3, 1), H(2, 3, (ssize_t)(&string[length])),
+             H(2, 3, 1));
         length++;
       }
     }
@@ -359,7 +359,7 @@ G(
 
 G(
     48,
-    S(1) void swapu32(G(49, u32 *const rhs), G(49, u32 *const lhs)) {
+    S(1) void swapu32(G(49, u32 *const lhs), G(49, u32 *const rhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -388,15 +388,15 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(55, str[4] = "\0\0nbrq"[move->promo];)
+      G(55, str[5] = '\0';)
 
+      G(55, str[4] = "\0\0nbrq"[move->promo];)
       G(
           55, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
             G(56, str[i * 2] = 'a' + (&move->from)[i] % 8;)
             G(56, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
           })
-      G(55, str[5] = '\0';)
     })
 
 G(
@@ -431,9 +431,9 @@ G(
                G(66, king(bb)) & G(66, theirs) & G(66, pos->pieces[King])) ||
              G(62, G(67, knight(bb)) & G(67, theirs) &
                        G(67, pos->pieces[Knight])) ||
-             G(62, G(68, rook(H(38, 2, blockers), H(38, 2, bb))) &
-                       G(68, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(68, theirs));
+             G(62, G(68, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(68, theirs) &
+                       G(68, rook(H(38, 2, blockers), H(38, 2, bb))));
     })
 
 G(
@@ -687,19 +687,19 @@ enum { max_moves = 218 };
         H(95, 5, pos));)
   G(
       100, // SHORT CASTLE
-      if (G(115, !only_captures) && G(115, pos->castling[1]) &&
-          G(115, !(G(116, all) & G(116, 0xEull))) &&
-          G(117, !is_attacked(H(60, 5, pos), H(60, 5, 1ULL << 4))) &&
-          G(117, !is_attacked(H(60, 6, pos), H(60, 6, 1ULL << 3)))) {
+      if (G(112, !only_captures) && G(112, pos->castling[1]) &&
+          G(112, !(G(113, all) & G(113, 0xEull))) &&
+          G(114, !is_attacked(H(60, 3, pos), H(60, 3, 1ULL << 4))) &&
+          G(114, !is_attacked(H(60, 4, pos), H(60, 4, 1ULL << 3)))) {
         *movelist++ =
             (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
   G(
       100, // LONG CASTLE
-      if (G(112, !only_captures) && G(112, pos->castling[0]) &&
-          G(112, !(G(113, all) & G(113, 0x60ull))) &&
-          G(114, !is_attacked(H(60, 3, pos), H(60, 3, 1ULL << 4))) &&
-          G(114, !is_attacked(H(60, 4, pos), H(60, 4, 1ULL << 5)))) {
+      if (G(115, !only_captures) && G(115, pos->castling[0]) &&
+          G(115, !(G(116, all) & G(116, 0x60ull))) &&
+          G(117, !is_attacked(H(60, 5, pos), H(60, 5, 1ULL << 4))) &&
+          G(117, !is_attacked(H(60, 6, pos), H(60, 6, 1ULL << 5)))) {
         *movelist++ =
             (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
       })
@@ -833,33 +833,34 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(118, 1,
-    H(119, 1, i8 tempo;) H(119, 1, i8 pawn_attacked_penalty[2];)
-        H(119, 1, i8 open_files[6];) H(119, 1, i8 pst_file[48];)
-            H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 mobilities[5];))
+    H(119, 1, i8 pst_file[48];) H(119, 1, i8 tempo;)
+        H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 mobilities[5];)
+            H(119, 1, i8 passed_blocked_pawns[6];)
+                H(119, 1, i8 open_files[12];))
   H(118, 1,
-    H(120, 1, i8 king_attacks[5];) H(120, 1, i8 pst_rank[48];)
-        H(120, 1, i8 passed_pawns[6];) H(120, 1, i8 protected_pawn;)
-            H(120, 1, i8 bishop_pair;) H(120, 1, i8 phalanx_pawn;))
+    H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 protected_pawn;)
+        H(120, 1, i8 bishop_pair;) H(120, 1, i8 king_attacks[5];)
+            H(120, 1, i8 passed_pawns[6];) H(120, 1, i8 pst_rank[48];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(118, 2,
-    H(119, 2, i32 tempo;) H(119, 2, i32 pawn_attacked_penalty[2];)
-        H(119, 2, i32 open_files[6];) H(119, 2, i32 pst_file[48];)
+    H(119, 2, i32 pst_file[48];) H(119, 2, i32 tempo;)
+        H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 mobilities[5];)
             H(119, 2, i32 passed_blocked_pawns[6];)
-                H(119, 2, i32 mobilities[5];))
+                H(119, 2, i32 open_files[12];))
   H(118, 2,
-    H(120, 2, i32 king_attacks[5];) H(120, 2, i32 pst_rank[48];)
-        H(120, 2, i32 passed_pawns[6];) H(120, 2, i32 protected_pawn;)
-            H(120, 2, i32 bishop_pair;) H(120, 2, i32 phalanx_pawn;))
+    H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 protected_pawn;)
+        H(120, 2, i32 bishop_pair;) H(120, 2, i32 king_attacks[5];)
+            H(120, 2, i32 passed_pawns[6];) H(120, 2, i32 pst_rank[48];))
 
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i8 phases[6];
-  G(121, EvalParams eg;)
   G(121, EvalParams mg;)
+  G(121, EvalParams eg;)
 } EvalParamsInitial;
 
 G(122, S(0) EvalParamsMerged eval_params;)
@@ -867,133 +868,136 @@ G(122, S(0) EvalParamsMerged eval_params;)
 G(122,
   __attribute__((aligned(8))) S(1)
       const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4},
-                                                .mg = {.material = {0, 65, 270,
-                                                                    274, 362,
-                                                                    780},
+                                                .mg = {.material = {0, 67, 271,
+                                                                    276, 360,
+                                                                    788},
                                                        .pst_rank =
                                                            {
-                                                               0,   -11, -15,
+                                                               0,   -11, -16,
                                                                -8,  6,   29,
-                                                               94,  0, // Pawn
-                                                               -21, -11, 2,
-                                                               15,  26,  44,
-                                                               23,  -78, // Knight
-                                                               -8,  7,   13,
-                                                               13,  15,  16,
-                                                               -3,  -54, // Bishop
-                                                               1,   -11, -16,
-                                                               -19, 1,   19,
-                                                               11,  14, // Rook
-                                                               16,  17,  10,
-                                                               -1,  -6,  -1,
-                                                               -24, -12, // Queen
-                                                               -4,  -1,  -30,
-                                                               -38, -8,  42,
-                                                               49,  49, // King
+                                                               95,  0, // Pawn
+                                                               -23, -13, 1,
+                                                               14,  25,  45,
+                                                               26,  -76, // Knight
+                                                               -9,  6,   12,
+                                                               13,  14,  16,
+                                                               -1,  -52, // Bishop
+                                                               3,   -9,  -13,
+                                                               -16, 2,   17,
+                                                               5,   10, // Rook
+                                                               13,  15,  8,
+                                                               -3,  -7,  -1,
+                                                               -19, -7, // Queen
+                                                               -8,  -4,  -32,
+                                                               -37, -2,  53,
+                                                               62,  60, // King
                                                            },
                                                        .pst_file =
                                                            {
-                                                               -15, -13, -9,
-                                                               0,   5,   20,
-                                                               17,  -5, // Pawn
-                                                               -25, -11, 0,
+                                                               -17, -13, -9,
+                                                               -1,  5,   20,
+                                                               20,  -5, // Pawn
+                                                               -26, -11, 1,
                                                                14,  12,  11,
-                                                               3,   -4, // Knight
-                                                               -12, 2,   4,
-                                                               2,   5,   -2,
+                                                               3,   -5, // Knight
+                                                               -11, 2,   5,
+                                                               2,   5,   -3,
                                                                6,   -4, // Bishop
-                                                               -8,  -7,  1,
-                                                               10,  13,  1,
-                                                               -2,  -9, // Rook
-                                                               -10, -7,  -2,
-                                                               1,   2,   0,
-                                                               8,   7, // Queen
-                                                               -15, 24,  -5,
-                                                               -55, -21, -39,
-                                                               21,  3, // King
+                                                               -8,  -7,  0,
+                                                               9,   13,  2,
+                                                               0,   -9, // Rook
+                                                               -10, -7,  -1,
+                                                               2,   3,   0,
+                                                               7,   6, // Queen
+                                                               -16, 24,  -4,
+                                                               -50, -20, -40,
+                                                               21,  2, // King
                                                            },
                                                        .mobilities = {6, 6, 2,
                                                                       3, -9},
                                                        .king_attacks = {0, 15,
-                                                                        20, 14,
+                                                                        19, 14,
                                                                         0},
-                                                       .open_files = {13, -9,
-                                                                      -9, 20,
-                                                                      -3, -30},
-                                                       .passed_pawns = {-9, -11,
+                                                       .open_files =
+                                                           {11, -8, -9, 17, -1,
+                                                            -25, 12, -13, -13,
+                                                            31, -14, -59},
+                                                       .passed_pawns = {-7, -10,
                                                                         -7, 11,
-                                                                        34, 94},
+                                                                        34, 95},
                                                        .passed_blocked_pawns =
-                                                           {6, 0, 5, 13, 16,
-                                                            -32},
+                                                           {1, -4, 3, 13, 15,
+                                                            -37},
                                                        .protected_pawn = 17,
                                                        .phalanx_pawn = 11,
                                                        .bishop_pair = 24,
                                                        .pawn_attacked_penalty =
                                                            {-16, -128},
                                                        .tempo = 17},
-                                                .eg = {.material = {0, 84, 401,
-                                                                    396, 711,
-                                                                    1347},
+                                                .eg = {.material = {0, 83, 402,
+                                                                    399, 714,
+                                                                    1345},
                                                        .pst_rank =
                                                            {
                                                                0,   -5,  -8,
-                                                               -7,  1,   20,
-                                                               101, 0, // Pawn
-                                                               -38, -21, -5,
-                                                               21,  28,  10,
-                                                               1,   4, // Knight
-                                                               -14, -12, -1,
-                                                               3,   7,   4,
-                                                               3,   10, // Bishop
-                                                               -24, -24, -15,
-                                                               4,   15,  14,
-                                                               21,  9, // Rook
-                                                               -66, -52, -24,
-                                                               9,   33,  33,
-                                                               44,  23, // Queen
-                                                               -49, -6,  8,
-                                                               23,  34,  31,
-                                                               16,  -50, // King
+                                                               -7,  0,   19,
+                                                               100, 0, // Pawn
+                                                               -38, -22, -6,
+                                                               20,  27,  10,
+                                                               3,   6, // Knight
+                                                               -14, -13, -3,
+                                                               2,   7,   5,
+                                                               5,   12, // Bishop
+                                                               -22, -23, -15,
+                                                               4,   14,  13,
+                                                               21,  8, // Rook
+                                                               -63, -49, -20,
+                                                               13,  34,  31,
+                                                               37,  17, // Queen
+                                                               -47, -6,  9,
+                                                               24,  35,  32,
+                                                               16,  -47, // King
                                                            },
                                                        .pst_file =
                                                            {
-                                                               12,  12,  0,
-                                                               -10, -4,  -3,
-                                                               -2,  -5, // Pawn
+                                                               11,  11,  0,
+                                                               -10, -3,  -2,
+                                                               -1,  -6, // Pawn
                                                                -22, -4,  10,
-                                                               17,  17,  7,
-                                                               -2,  -22, // Knight
+                                                               19,  18,  5,
+                                                               -3,  -22, // Knight
                                                                -8,  -1,  1,
-                                                               5,   7,   5,
-                                                               0,   -8, // Bishop
-                                                               2,   5,   5,
-                                                               -1,  -5,  1,
-                                                               0,   -6, // Rook
-                                                               -23, -6,  4,
-                                                               11,  15,  12,
-                                                               -3,  -11, // Queen
-                                                               -30, 1,   17,
-                                                               31,  23,  25,
-                                                               1,   -39, // King
+                                                               7,   8,   4,
+                                                               -1,  -9, // Bishop
+                                                               2,   5,   6,
+                                                               -2,  -6,  2,
+                                                               -1,  -6, // Rook
+                                                               -23, -6,  3,
+                                                               9,   14,  15,
+                                                               -1,  -10, // Queen
+                                                               -29, 0,   16,
+                                                               31,  23,  23,
+                                                               -1,  -39, // King
                                                            },
                                                        .mobilities = {3, 5, 4,
-                                                                      2, -4},
+                                                                      1, -3},
                                                        .king_attacks = {0, -3,
                                                                         -7, 8,
                                                                         0},
-                                                       .open_files = {23, -5, 7,
-                                                                      10, 27,
-                                                                      10},
+                                                       .open_files = {22, 0, 12,
+                                                                      6, 22, 15,
+                                                                      25, -9, 2,
+                                                                      12, 42,
+                                                                      9},
                                                        .passed_pawns =
-                                                           {10, 16, 41, 67, 115,
-                                                            101},
+                                                           {10, 16, 41, 67, 114,
+                                                            100},
                                                        .passed_blocked_pawns =
-                                                           {-12, -13, -39, -69,
-                                                            -119, -124},
+                                                           {-11, -9, -34, -65,
+                                                            -114, -120},
                                                        .protected_pawn = 16,
                                                        .phalanx_pawn = 14,
-                                                       .bishop_pair = 63,
+                                                       .bishop_pair = 62,
                                                        .pawn_attacked_penalty =
                                                            {-10, -128},
                                                        .tempo = 7}};)
@@ -1016,100 +1020,104 @@ S(0) i32 eval(Position *const restrict pos) {
 
     G(126,
       const u64 own_pawns = G(128, pos->colour[0]) & G(128, pos->pieces[Pawn]);)
-    G(126,
-      const u64 opp_pawns = G(129, pos->pieces[Pawn]) & G(129, pos->colour[1]);
-      const u64 attacked_by_pawns =
-          G(130, southwest(opp_pawns)) | G(130, southeast(opp_pawns));
-      G(131, // PROTECTED PAWNS
-        score -= G(133, eval_params.protected_pawn) *
-                 G(133, count(G(134, opp_pawns) & G(134, attacked_by_pawns)));)
-          G(131, const u64 no_passers =
-                     G(132, opp_pawns) | G(132, attacked_by_pawns);)
-              G(131, // PHALANX PAWNS
-                score -=
-                G(135, eval_params.phalanx_pawn) *
-                G(135, count(G(136, opp_pawns) & G(136, west(opp_pawns))));))
     G(
         126, // BISHOP PAIR
         if (count(G(137, pos->pieces[Bishop]) & G(137, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
+    G(126,
+      const u64 opp_pawns = G(129, pos->pieces[Pawn]) & G(129, pos->colour[1]);
+      const u64 attacked_by_pawns =
+          G(130, southwest(opp_pawns)) | G(130, southeast(opp_pawns));
+      G(131, // PHALANX PAWNS
+        score -= G(135, eval_params.phalanx_pawn) *
+                 G(135, count(G(136, opp_pawns) & G(136, west(opp_pawns))));)
+          G(131, const u64 no_passers =
+                     G(134, opp_pawns) | G(134, attacked_by_pawns);)
+              G(131, // PROTECTED PAWNS
+                score -=
+                G(132, eval_params.protected_pawn) *
+                G(132, count(G(133, opp_pawns) & G(133, attacked_by_pawns)));))
 
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(138, pos->colour[0]) & G(138, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(139, const i32 rank = sq >> 3;)
         G(139, const i32 file = G(140, sq) & G(140, 7);)
-        G(139, phase += initial_params.phases[p];)
-        G(139, const u64 in_front = 0x101010101010101ULL << sq;)
         G(139, copy &= copy - 1;)
+        G(139, const i32 rank = sq >> 3;)
+        G(139, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(139, phase += initial_params.phases[p];)
         G(139, const u64 piece_bb = 1ULL << sq;)
-        G(
-            95, // OPEN FILES / DOUBLED PAWNS
-            if ((G(147, north(in_front)) & G(147, own_pawns)) == 0) {
-              score += eval_params.open_files[p - 1];
-            })
-
-        G(95, // MATERIAL
-          score += eval_params.material[p];)
-        G(
-            95, // PASSED PAWNS
-            if (G(141, p == Pawn) &&
-                G(141, !(G(142, in_front) & G(142, no_passers)))) {
-              G(
-                  143, if (G(144, north(piece_bb)) & G(144, pos->colour[1])) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
-                  })
-
-              G(143, score += eval_params.passed_pawns[rank - 1];)
-            })
+        G(95, // SPLIT PIECE-SQUARE TABLES FOR FILE
+          score +=
+          eval_params
+              .pst_file[G(151, G(152, (p - 1)) * G(152, 8)) + G(151, file)];)
 
         G(95, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
           eval_params
-              .pst_rank[G(148, G(149, (p - 1)) * G(149, 8)) + G(148, rank)];)
+              .pst_rank[G(149, G(150, (p - 1)) * G(150, 8)) + G(149, rank)];)
+        G(
+            95, // PASSED PAWNS
+            if (G(145, p == Pawn) &&
+                G(145, !(G(146, in_front) & G(146, no_passers)))) {
+              G(147, score += eval_params.passed_pawns[rank - 1];)
 
-        G(95, // SPLIT PIECE-SQUARE TABLES FOR FILE
-          score +=
-          eval_params
-              .pst_file[G(145, G(146, (p - 1)) * G(146, 8)) + G(145, file)];)
+              G(
+                  147, if (G(148, north(piece_bb)) & G(148, pos->colour[1])) {
+                    score += eval_params.passed_blocked_pawns[rank - 1];
+                  })
+            })
+
+        G(
+            95, // OPEN FILES / DOUBLED PAWNS
+            if ((G(141, north(in_front)) & G(141, own_pawns)) == 0) {
+              score +=
+                  eval_params.open_files[G(142, G(143, !(G(144, in_front) &
+                                                         G(144, opp_pawns))) *
+                                                    G(143, 6)) +
+                                         G(142, -1) + G(142, p)];
+            })
 
         G(
             95, if (p > Pawn) {
               G(
-                  150, // PIECES ATTACKED BY PAWNS
-                  if (G(151, piece_bb) & G(151, no_passers)) {
+                  153, // PIECES ATTACKED BY PAWNS
+                  if (G(154, piece_bb) & G(154, no_passers)) {
                     score += eval_params.pawn_attacked_penalty[c];
                   })
 
-              G(150, const u64 mobility =
+              G(153, const u64 mobility =
                          get_mobility(H(71, 3, pos), H(71, 3, sq), H(71, 3, p));
 
-                G(153, // MOBILITY
+                G(155, // MOBILITY
                   score +=
-                  G(154, count(G(155, ~pos->colour[0]) & G(155, mobility) &
-                               G(155, ~attacked_by_pawns))) *
-                  G(154, eval_params.mobilities[p - 2]);)
+                  G(156, count(G(157, ~pos->colour[0]) & G(157, mobility) &
+                               G(157, ~attacked_by_pawns))) *
+                  G(156, eval_params.mobilities[p - 2]);)
 
-                    G(153, // KING ATTACKS
+                    G(155, // KING ATTACKS
                       score +=
-                      G(156, count(G(157, mobility) & G(157, opp_king_zone))) *
-                      G(156, eval_params.king_attacks[p - 2]);))
+                      G(158, count(G(159, mobility) & G(159, opp_king_zone))) *
+                      G(158, eval_params.king_attacks[p - 2]);))
             })
+
+        G(95, // MATERIAL
+          score += eval_params.material[p];)
       }
     }
 
-    G(77, flip_pos(pos);)
     G(77, score = -score;)
+    G(77, flip_pos(pos);)
   }
 
   const i32 stronger_side_pawns_missing =
-      8 - count(G(158, pos->colour[score < 0]) & G(158, pos->pieces[Pawn]));
-  return (G(159, (i16)score) * G(159, phase) +
-          G(160,
+      8 - count(G(160, pos->colour[score < 0]) & G(160, pos->pieces[Pawn]));
+  return (G(161, (i16)score) * G(161, phase) +
+          G(162,
             (128 - stronger_side_pawns_missing * stronger_side_pawns_missing)) *
-              G(160, ((score + 0x8000) >> 16)) / 128 * (24 - phase)) /
+              G(162, ((score + 0x8000) >> 16)) / 128 * (24 - phase)) /
          24;
 }
 
@@ -1122,11 +1130,11 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(161, i16 score;)
-  G(161, i8 depth;)
-  G(161, u8 flag;)
-  G(161, Move move;)
-  G(161, u16 partial_hash;)
+  G(163, i16 score;)
+  G(163, i8 depth;)
+  G(163, u16 partial_hash;)
+  G(163, u8 flag;)
+  G(163, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1136,10 +1144,10 @@ typedef struct __attribute__((aligned(16))) ThreadDataStruct {
   i32 thread_id;
   u64 nodes;
 #endif
-  G(162, u64 max_time;)
-  G(162, Position pos;)
-  G(162, SearchStack stack[1024];)
-  G(162, i32 move_history[2][6][64][64];)
+  G(164, u64 max_time;)
+  G(164, Position pos;)
+  G(164, SearchStack stack[1024];)
+  G(164, i32 move_history[2][6][64][64];)
 } ThreadData;
 
 enum { tt_length = 1 << 23 }; // 80MB
@@ -1149,11 +1157,11 @@ enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
-G(163, S(1) u64 start_time;)
-G(163, S(1) TTEntry tt[tt_length];)
-G(163, __attribute__((aligned(4096))) u8
+G(165, S(1) TTEntry tt[tt_length];)
+G(165, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
-G(163, S(1) volatile bool stop;)
+G(165, S(1) volatile bool stop;)
+G(165, S(1) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1166,7 +1174,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   const u8 *const data = (const u8 *)pos;
   for (i32 i = 0; i < 6; i++) {
     i128 key;
-    __builtin_memcpy(&key, data + G(164, i) * G(164, 16), 16);
+    __builtin_memcpy(&key, data + G(166, i) * G(166, 16), 16);
     hash = __builtin_ia32_aesenc128(hash, key);
   }
 
@@ -1214,10 +1222,10 @@ i32 search(
 #ifdef FULL
     u64 *nodes,
 #endif
-    H(165, 1, Position *const pos), H(165, 1, const i32 beta),
-    H(165, 1, i32 depth), H(165, 1, ThreadData *data),
-    H(165, 1, const bool do_null), H(165, 1, const i32 ply),
-    H(165, 1, i32 alpha)) {
+    H(167, 1, Position *const pos), H(167, 1, const i32 beta),
+    H(167, 1, i32 depth), H(167, 1, ThreadData *data),
+    H(167, 1, const bool do_null), H(167, 1, const i32 ply),
+    H(167, 1, i32 alpha)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1231,23 +1239,23 @@ i32 search(
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(166, ply); G(167, i >= 0) && G(167, do_null); i -= 2) {
-    if (G(168, tt_hash) == G(168, stack[i].position_hash)) {
+  for (i32 i = G(168, ply); G(169, i >= 0) && G(169, do_null); i -= 2) {
+    if (G(170, tt_hash) == G(170, stack[i].position_hash)) {
       return 0;
     }
   }
 
   // TT PROBING
-  G(169, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
-  G(169, const u16 tt_hash_partial = tt_hash / tt_length;)
-  G(169, stack[ply].best_move = (Move){0};)
-  if (G(170, tt_entry->partial_hash) == G(170, tt_hash_partial)) {
+  G(171, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
+  G(171, const u16 tt_hash_partial = tt_hash / tt_length;)
+  G(171, stack[ply].best_move = (Move){0};)
+  if (G(172, tt_entry->partial_hash) == G(172, tt_hash_partial)) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(171, tt_entry->depth >= depth) &&
-        G(171, G(172, tt_entry->flag) != G(172, tt_entry->score <= alpha)) &&
-        G(171, G(173, alpha) == G(173, beta - 1))) {
+    if (G(173, tt_entry->depth >= depth) &&
+        G(173, G(174, tt_entry->flag) != G(174, tt_entry->score <= alpha)) &&
+        G(173, G(175, alpha) == G(175, beta - 1))) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1263,108 +1271,108 @@ i32 search(
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(174, G(175, tt_entry->partial_hash) == G(175, tt_hash_partial)) &&
-      G(174, G(176, tt_entry->flag) != G(176, static_eval) > tt_entry->score)) {
+  if (G(176, G(177, tt_entry->partial_hash) == G(177, tt_hash_partial)) &&
+      G(176, G(178, tt_entry->flag) != G(178, static_eval) > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
 
   // QUIESCENCE
-  if (G(177, static_eval > alpha) && G(177, in_qsearch)) {
+  if (G(179, static_eval > alpha) && G(179, in_qsearch)) {
     if (static_eval >= beta) {
       return static_eval;
     }
     alpha = static_eval;
   }
 
-  if (G(178, !in_check) && G(178, G(179, alpha) == G(179, beta - 1))) {
-    if (G(180, !in_qsearch) && G(180, depth < 9)) {
+  if (G(180, !in_check) && G(180, G(181, alpha) == G(181, beta - 1))) {
+    if (G(182, !in_qsearch) && G(182, depth < 9)) {
 
-      G(181, {
+      G(183, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(182, 61) * G(182, (depth - improving)) >= beta) {
+        if (static_eval - G(184, 61) * G(184, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
-      G(181, // RAZORING
+      G(183, // RAZORING
         in_qsearch =
-            G(183, static_eval) + G(183, G(184, 117) * G(184, depth)) <= alpha;)
+            G(185, static_eval) + G(185, G(186, 117) * G(186, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
-    if (G(185, depth > 2) && G(185, static_eval >= beta) && G(185, do_null)) {
+    if (G(187, depth > 2) && G(187, static_eval >= beta) && G(187, do_null)) {
       Position npos = *pos;
-      G(186, flip_pos(&npos);)
-      G(186, npos.ep = 0;)
+      G(188, flip_pos(&npos);)
+      G(188, npos.ep = 0;)
       const i32 score = -search(
 #ifdef FULL
           nodes,
 #endif
-          H(165, 2, &npos), H(165, 2, -alpha),
-          H(165, 2, depth - G(187, 4) - G(187, depth / 4)), H(165, 2, data),
-          H(165, 2, false), H(165, 2, ply + 1), H(165, 2, -beta));
+          H(167, 2, &npos), H(167, 2, -alpha),
+          H(167, 2, depth - G(189, 4) - G(189, depth / 4)), H(167, 2, data),
+          H(167, 2, false), H(167, 2, ply + 1), H(167, 2, -beta));
       if (score >= beta) {
         return score;
       }
     }
   }
 
-  G(188, Move moves[max_moves];
+  G(190, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(97, 3, pos), H(97, 3, moves), H(97, 3, in_qsearch));)
-  G(188, stack[G(189, ply) + G(189, 2)].position_hash = tt_hash;)
-  G(188, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(188, u8 tt_flag = Upper;)
-  G(188, i32 quiets_evaluated = 0;)
-  G(188, i32 moves_evaluated = 0;)
+  G(190, stack[G(191, ply) + G(191, 2)].position_hash = tt_hash;)
+  G(190, i32 best_score = in_qsearch ? static_eval : -inf;)
+  G(190, u8 tt_flag = Upper;)
+  G(190, i32 quiets_evaluated = 0;)
+  G(190, i32 moves_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(190, i32 move_score = ~0x1010101LL;)
-    G(190, i32 best_index = 0;)
+    G(192, i32 move_score = ~0x1010101LL;)
+    G(192, i32 best_index = 0;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
           stack[ply].moves[order_index].takes_piece ==
           piece_on(H(57, 7, pos), H(57, 7, stack[ply].moves[order_index].to)));
       const i32 order_move_score =
-          G(165, // PREVIOUS BEST MOVE FIRST
-            (move_equal(G(191, &stack[ply].best_move),
-                        G(191, &moves[order_index]))
+          G(167, // PREVIOUS BEST MOVE FIRST
+            (move_equal(G(193, &stack[ply].best_move),
+                        G(193, &moves[order_index]))
              << 30)) +
-          G(165, // KILLER MOVE
-            G(193, move_equal(G(194, &moves[order_index]),
-                              G(194, &stack[ply].killer))) *
-                G(193, 829)) +
-          G(165, // MOST VALUABLE VICTIM
-            G(192, moves[order_index].takes_piece) * G(192, 663)) +
-          G(165, // HISTORY HEURISTIC
+          G(167, // KILLER MOVE
+            G(194, move_equal(G(195, &moves[order_index]),
+                              G(195, &stack[ply].killer))) *
+                G(194, 829)) +
+          G(167, // MOST VALUABLE VICTIM
+            G(196, moves[order_index].takes_piece) * G(196, 663)) +
+          G(167, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]);
       if (order_move_score > move_score) {
-        G(195, best_index = order_index;)
-        G(195, move_score = order_move_score;)
+        G(197, best_index = order_index;)
+        G(197, move_score = order_move_score;)
       }
     }
 
-    swapmoves(G(196, &moves[move_index]), G(196, &moves[best_index]));
+    swapmoves(G(198, &moves[move_index]), G(198, &moves[best_index]));
 
     G(
-        197, // MOVE SCORE PRUNING
-        if (G(198, moves_evaluated) &&
-            G(198, move_score < G(199, -125) * G(199, depth))) { break; })
+        199, // MOVE SCORE PRUNING
+        if (G(200, moves_evaluated) &&
+            G(200, move_score < G(201, -125) * G(201, depth))) { break; })
 
     G(
-        197, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(200, depth < 8) &&
-            G(200,
-              G(201, static_eval) + G(201, G(202, 146) * G(202, depth)) +
-                      G(201,
+        199, // FORWARD FUTILITY PRUNING / DELTA PRUNING
+        if (G(202, depth < 8) &&
+            G(202,
+              G(203, static_eval) + G(203, G(204, 146) * G(204, depth)) +
+                      G(203,
                         initial_params.eg.material[moves[move_index].promo]) +
-                      G(201, initial_params.eg
+                      G(203, initial_params.eg
                                  .material[moves[move_index].takes_piece]) <
                   alpha) &&
-            G(200, moves_evaluated) && G(200, !in_check)) { break; })
+            G(202, moves_evaluated) && G(202, !in_check)) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1379,10 +1387,10 @@ i32 search(
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(203, depth > 3) && G(203, move_score <= 0)
-                        ? G(204, (move_score / -384)) + G(204, !improving) +
-                              G(204, (G(205, alpha) == G(205, beta - 1))) +
-                              G(204, moves_evaluated / 9)
+    i32 reduction = G(205, depth > 3) && G(205, move_score <= 0)
+                        ? G(206, (move_score / -384)) + G(206, !improving) +
+                              G(206, (G(207, alpha) == G(207, beta - 1))) +
+                              G(206, moves_evaluated / 9)
                         : 0;
 
     i32 score;
@@ -1391,9 +1399,9 @@ i32 search(
 #ifdef FULL
           nodes,
 #endif
-          H(165, 3, &npos), H(165, 3, -alpha),
-          H(165, 3, depth - G(206, 1) - G(206, reduction)), H(165, 3, data),
-          H(165, 3, true), H(165, 3, ply + 1), H(165, 3, low));
+          H(167, 3, &npos), H(167, 3, -alpha),
+          H(167, 3, depth - G(208, 1) - G(208, reduction)), H(167, 3, data),
+          H(167, 3, true), H(167, 3, ply + 1), H(167, 3, low));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
@@ -1418,39 +1426,39 @@ i32 search(
       best_score = score;
 
       if (score > alpha) {
-        G(207, tt_flag = Exact;)
-        G(207, stack[ply].best_move = moves[move_index];)
-        G(207, alpha = score;)
+        G(209, tt_flag = Exact;)
+        G(209, stack[ply].best_move = moves[move_index];)
+        G(209, alpha = score;)
         if (score >= beta) {
           assert(stack[ply].best_move.takes_piece ==
                  piece_on(H(57, 8, pos), H(57, 8, stack[ply].best_move.to)));
           G(
-              208, if (!in_qsearch) {
+              210, if (!in_qsearch) {
                 const i32 bonus = depth * depth;
-                G(209, i32 *const this_hist =
+                G(211, i32 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
                                         [stack[ply].best_move.from]
                                         [stack[ply].best_move.to];
 
                   *this_hist +=
-                  bonus - G(210, bonus) * G(210, *this_hist) / 1024;)
+                  bonus - G(212, bonus) * G(212, *this_hist) / 1024;)
                 G(
-                    209, for (i32 prev_index = 0; prev_index < move_index;
+                    211, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
                       const Move prev = moves[prev_index];
                       i32 *const prev_hist =
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
-                          bonus + G(211, bonus) * G(211, *prev_hist) / 1024;
+                          bonus + G(213, bonus) * G(213, *prev_hist) / 1024;
                     })
               })
           G(
-              208, if (stack[ply].best_move.takes_piece == None) {
+              210, if (stack[ply].best_move.takes_piece == None) {
                 stack[ply].killer = stack[ply].best_move;
               })
-          G(208, tt_flag = Lower;)
+          G(210, tt_flag = Lower;)
           break;
         }
       }
@@ -1461,16 +1469,16 @@ i32 search(
     }
 
     // LATE MOVE PRUNING
-    if (G(212, !in_check) && G(212, G(213, alpha) == G(213, beta - 1)) &&
-        G(212, quiets_evaluated > (G(214, 1) + G(214, depth * depth)) >>
+    if (G(214, !in_check) && G(214, G(215, alpha) == G(215, beta - 1)) &&
+        G(214, quiets_evaluated > (G(216, 1) + G(216, depth * depth)) >>
                    !improving)) {
       break;
     }
   }
 
   // MATE / STALEMATE DETECTION
-  if (G(215, best_score) == G(215, -inf)) {
-    return G(216, (ply - mate)) * G(216, in_check);
+  if (G(217, best_score) == G(217, -inf)) {
+    return G(218, (ply - mate)) * G(218, in_check);
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
@@ -1498,13 +1506,13 @@ S(1) void init() {
       82, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
-        G(217, u64 sw_bb = southwest(bb);)
-        G(217, u64 ne_bb = northeast(bb);)
+        G(219, u64 sw_bb = southwest(bb);)
+        G(219, u64 ne_bb = northeast(bb);)
         for (i32 i = 6; i > 0; i--) {
-          G(218, ne_bb |= northeast(ne_bb);)
-          G(218, sw_bb |= southwest(sw_bb);)
+          G(220, ne_bb |= northeast(ne_bb);)
+          G(220, sw_bb |= southwest(sw_bb);)
         }
-        diag_mask[sq] = G(219, sw_bb) | G(219, ne_bb);
+        diag_mask[sq] = G(221, sw_bb) | G(221, ne_bb);
       })
 }
 
@@ -1582,17 +1590,17 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(220, i32 window = 15;)
-    G(220, size_t elapsed;)
+    G(222, i32 window = 15;)
+    G(222, size_t elapsed;)
     while (true) {
-      G(221, const i32 alpha = score - window;)
-      G(221, const i32 beta = G(222, score) + G(222, window);)
+      G(223, const i32 alpha = score - window;)
+      G(223, const i32 beta = G(224, score) + G(224, window);)
       score = search(
 #ifdef FULL
           &data->nodes,
 #endif
-          H(165, 4, &data->pos), H(165, 4, beta), H(165, 4, depth),
-          H(165, 4, data), H(165, 4, false), H(165, 4, 0), H(165, 4, alpha));
+          H(167, 4, &data->pos), H(167, 4, beta), H(167, 4, depth),
+          H(167, 4, data), H(167, 4, false), H(167, 4, 0), H(167, 4, alpha));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
@@ -1600,10 +1608,10 @@ void iteratively_deepen(
       }
 #endif
       elapsed = get_time() - start_time;
-      G(223, window *= 2;)
+      G(225, window *= 2;)
       G(
-          223, if (G(224, elapsed > data->max_time) ||
-                   G(224, (G(225, score < beta) && G(225, score > alpha)))) {
+          225, if (G(226, elapsed > data->max_time) ||
+                   G(226, (G(227, score < beta) && G(227, score > alpha)))) {
             break;
           })
     }
@@ -1662,8 +1670,8 @@ void run_smp() {
   for (i32 i = 1; i < thread_count; i++) {
     ThreadData *helper_data =
         (ThreadData *)&thread_stacks[i][thread_stack_size - sizeof(ThreadData)];
-    G(226, helper_data->pos = main_data->pos;)
-    G(226, helper_data->max_time = -1LL;)
+    G(228, helper_data->pos = main_data->pos;)
+    G(228, helper_data->max_time = -1LL;)
 #ifdef FULL
     helper_data->thread_id = i;
     pthread_create(&helpers[i - 1], NULL, entry_full, helper_data);
@@ -1806,10 +1814,10 @@ S(1) void run() {
   setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 
-  G(227, char line[4096];)
-  G(227, init();)
-  G(227, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
-  G(227, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
+  G(229, char line[4096];)
+  G(229, init();)
+  G(229, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
+  G(229, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
 
 #ifdef FULL
   main_data->pos = start_pos;
@@ -1856,9 +1864,9 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(228, if (G(229, line[0]) == G(229, 'q')) { exit_now(); })
-    else G(228, if (G(230, line[0]) == G(230, 'i')) { puts("readyok"); })
-    else G(228, if (G(231, line[0]) == G(231, 'g')) {
+    G(230, if (G(231, line[0]) == G(231, 'q')) { exit_now(); })
+    else G(230, if (G(232, line[0]) == G(232, 'i')) { puts("readyok"); })
+    else G(230, if (G(233, line[0]) == G(233, 'g')) {
       stop = false;
 #ifdef FULL
       while (true) {
@@ -1888,8 +1896,8 @@ S(1) void run() {
       run_smp();
 #endif
     })
-    else G(228, if (G(232, line[0]) == G(232, 'p')) {
-      G(233, main_data->pos = start_pos;)
+    else G(230, if (G(234, line[0]) == G(234, 'p')) {
+      G(235, main_data->pos = start_pos;)
         while (true) {
           const bool line_continue = getl(line);
 
@@ -1908,7 +1916,7 @@ S(1) void run() {
               H(54, 4, main_data->pos.flipped));
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
-            if (move_string_equal(G(234, move_name), G(234, line))) {
+            if (move_string_equal(G(236, move_name), G(236, line))) {
               makemove(H(82, 4, &main_data->pos), H(82, 4, &moves[i]));
               break;
             }
