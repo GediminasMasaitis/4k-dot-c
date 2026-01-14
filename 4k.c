@@ -1301,7 +1301,7 @@ i32 search(
           nodes,
 #endif
           H(165, 2, &npos), H(165, 2, -alpha),
-          H(165, 2, depth - G(187, 4) - G(187, depth / 4)), H(165, 2, data),
+          H(165, 2, depth - G(187, 4) - G(187, depth / 4)) - G(187, (static_eval - beta) / 128), H(165, 2, data),
           H(165, 2, false), H(165, 2, ply + 1), H(165, 2, -beta));
       if (score >= beta) {
         return score;
