@@ -1157,7 +1157,7 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
 enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
-enum { mate = 31744, inf = 32256 };
+enum { mateish = 30000, mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
@@ -1288,7 +1288,7 @@ i32 search(
     alpha = static_eval;
   }
 
-  if (G(180, !in_check) && G(180, G(181, alpha) == G(181, beta - 1))) {
+  if (G(180, !in_check) && G(180, G(181, alpha) == G(181, beta - 1)) && alpha > -mateish && beta < mateish) {
     if (G(182, !in_qsearch) && G(182, depth < 9)) {
 
       G(183, {
