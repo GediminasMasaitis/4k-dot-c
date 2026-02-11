@@ -87,6 +87,7 @@ format:
 	dos2unix ./*.c
 	dos2unix ./*.ld
 	clang-format -i ./4k.c
+	clang-format -i ./compressor.c
 
 clean:
 	rm -rf build/**
