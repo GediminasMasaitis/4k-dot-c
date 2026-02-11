@@ -375,7 +375,7 @@ static void CSEval_destroy(CSEval* e) {
     free(e->packages); free(e->packageSizes);
 }
 
-static int CSEval_Init(CSEval* e, ModelPredictions* models, int length, int baseprob, float ls) {
+static void CSEval_Init(CSEval* e, ModelPredictions* models, int length, int baseprob, float ls) {
     e->length = length; e->models = models; e->baseprob = baseprob; e->logScale = ls;
     int np = (length + PKG_SIZE - 1) / PKG_SIZE;
     e->packages = (Package*)aligned_alloc16(np * sizeof(Package));
@@ -393,7 +393,6 @@ static int CSEval_Init(CSEval* e, ModelPredictions* models, int length, int base
         e->packageSizes[i] = remain * TABLE_BIT_PRECISION;
     }
     e->compressedSize = (int64_t)length << TABLE_BIT_PRECISION_BITS;
-    return 1;
 }
 
 /* ChangeWeight context for parallel_for */
@@ -710,11 +709,8 @@ static int Compress4k(const unsigned char* data, int dataSize, unsigned char* ou
 
 /* ── Weight optimization ─────────────────────────────────────── */
 static unsigned int ApproximateWeights(CState* cs, ModelList4k* ml) {
-    for (int i = 0; i < ml->nmodels; i++) {
-        unsigned char w = 0;
-        for (int b = 0; b < 8; b++) if (ml->models[i].mask & (1 << b)) w++;
-        ml->models[i].weight = w;
-    }
+    for (int i = 0; i < ml->nmodels; i++)
+        ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
     return CState_SetModels(cs, ml);
 }
 
