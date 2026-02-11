@@ -54,14 +54,17 @@ all:
 	@$(MAP_CHECK)
 	$(MD5)
 
-compress:
+compressor:
+	$(CC) -std=gnu2x -O2 -o compressor compressor.c -lpthread -lm
+
+compress: compressor
 	$(MKDIR)
 	$(CC) $(CFLAGS) -S -masm=intel -o 4k.s 4k.c
 	$(CC) $(CFLAGS) -c -o 4k.o 4k.s
 	$(CC) $(LDFLAGS) -Wl,-Map=$(EXE).map -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	$(LS) $(EXE)
 	@$(MAP_CHECK)
-	apultra -stats -v $(EXE) $(EXE).ap
+	./compressor -m slow -o $(EXE).4kc $(EXE)
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
@@ -93,3 +96,4 @@ clean:
 	rm -f *.gcda
 	rm -f *.gcno
 	rm -f *.c.temp*
+	rm -f compressor
