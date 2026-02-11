@@ -132,8 +132,8 @@ static void parallel_for(int begin, int end, void (*fn)(int,void*), void* ctx) {
 
 /* Thread-local accumulator */
 #define MAX_ACCUM_THREADS 128
-typedef struct { int64_t vals[MAX_ACCUM_THREADS]; pthread_mutex_t mtx; } Combinable;
-static void comb_init(Combinable* c) { memset(c, 0, sizeof(*c)); pthread_mutex_init(&c->mtx, NULL); }
+typedef struct { int64_t vals[MAX_ACCUM_THREADS]; } Combinable;
+static void comb_init(Combinable* c) { memset(c, 0, sizeof(*c)); }
 static int64_t* comb_local(Combinable* c) {
     pthread_t self = pthread_self();
     /* Simple: use thread id hashed to slot */
@@ -171,7 +171,7 @@ typedef struct {
     int size;
 } ModelList4k;
 
-typedef struct { unsigned char prob[2]; unsigned int pos; } Weights;
+typedef struct { unsigned char prob[2]; } Weights;
 
 typedef struct { __m128i prob[NPV]; } CompactPackage;
 typedef struct { __m128 prob[NPV][2]; } Package;
@@ -207,11 +207,6 @@ static inline int AritSize2(int right_prob, int wrong_prob) {
 static void AritCodeInit(AritState *s, void *dest) {
     s->dest_ptr = dest; s->dest_bit = (unsigned)-1;
     s->interval_size = 0x80000000; s->interval_min = 0;
-}
-
-static unsigned int AritCodePos(AritState *s) {
-    unsigned int rp = s->interval_size >> 3;
-    return (s->dest_bit << 12) + AritSize2(rp, 0x20000000 - rp) + 1;
 }
 
 static inline void PutBit(unsigned char* d, int db) {
@@ -320,15 +315,9 @@ static unsigned int ModelHash(const unsigned char* d, int bp, unsigned int mask,
 }
 
 /* ── ModelList4k ─────────────────────────────────────────────── */
-static ModelList4k ML_new(void) { ModelList4k m; m.nmodels = 0; m.size = 0; return m; }
+static ModelList4k ML_copy(const ModelList4k* src) { return *src; }
 
-static ModelList4k ML_copy(const ModelList4k* src) {
-    ModelList4k m; m.nmodels = src->nmodels; m.size = src->size;
-    if (m.nmodels > 0) memcpy(m.models, src->models, m.nmodels * sizeof(Model));
-    return m;
-}
-
-static int Parity(int n) { int p=0; for(int i=0;i<8;i++) p^=(n>>i)&1; return p; }
+static int Parity(int n) { return __builtin_parity(n & 0xFF); }
 
 static unsigned int ML_GetMaskList(const ModelList4k* ml, unsigned char* masks, int terminate) {
     unsigned int wm = 0;
@@ -352,26 +341,13 @@ static void ML_Print(const ModelList4k* ml, FILE* f) {
     fprintf(f, "\n");
 }
 
-static void ML_SetFromModelsAndMask(ModelList4k* ml, const unsigned char* models, int wm) {
-    ml->nmodels = 0; int w = 0;
-    do {
-        while (wm & 0x80000000) { w++; wm <<= 1; }
-        wm <<= 1;
-        if (wm) {
-            Model m = { (unsigned char)w, models[ml->nmodels] };
-            ml->models[ml->nmodels] = m;
-            ml->nmodels++;
-        }
-    } while (wm);
-}
-
 /* ── Weights update ──────────────────────────────────────────── */
 static void UpdateWeights(Weights* w, int bit, int saturate) {
     if (!saturate || w->prob[bit] < 255) w->prob[bit] += 1;
     if (w->prob[!bit] > 1) w->prob[!bit] >>= 1;
 }
 
-/* ── Helpers ─────────────────────────────────────────────────── */
+/* ── Utility ─────────────────────────────────────────────────── */
 static int NextPowerOf2(int v) { v--; v|=v>>1; v|=v>>2; v|=v>>4; v|=v>>8; v|=v>>16; return v+1; }
 static int PreviousPrime(int n) {
     for (;;) { n = (n-2)|1; int ok=1; for(int i=3;i*i<n;i+=2) if(n/i*i==n){ok=0;break;} if(ok) return n; }
@@ -386,7 +362,6 @@ typedef struct {
     int         weights[256];
     ModelPredictions* models;
     int         length;
-    int         numPackages;
     Package*    packages;
     unsigned*   packageSizes;
     int64_t     compressedSize;
@@ -403,7 +378,6 @@ static void CSEval_destroy(CSEval* e) {
 static int CSEval_Init(CSEval* e, ModelPredictions* models, int length, int baseprob, float ls) {
     e->length = length; e->models = models; e->baseprob = baseprob; e->logScale = ls;
     int np = (length + PKG_SIZE - 1) / PKG_SIZE;
-    e->numPackages = np;
     e->packages = (Package*)aligned_alloc16(np * sizeof(Package));
     e->packageSizes = (unsigned*)malloc(np * sizeof(unsigned));
     for (int i = 0; i < np; i++) {
@@ -435,7 +409,6 @@ static void CW_job(int job, void* vctx) {
     int mi = c->modelIndex;
     int pidxbase = job * c->PPJOB;
 
-    __m128 vls = _mm_set1_ps(e->logScale);
     __m128 vdw = _mm_set1_ps(c->diffw * e->logScale);
     __m128i vz = _mm_setzero_si128();
     __m128 vone = _mm_set1_ps(1.0f);
@@ -544,7 +517,7 @@ static HashEntry* FindEntry(HashEntry* t, unsigned hs, unsigned char mask, const
     }
 }
 
-static ModelPredictions CS_ApplyModel(const unsigned char* data, int bl, unsigned char mask, int saturate, float logScale) {
+static ModelPredictions CS_ApplyModel(const unsigned char* data, int bl, unsigned char mask, int saturate) {
     int hs = PreviousPrime(bl * 2);
     int maxp = (bl + PKG_SIZE - 1) / PKG_SIZE;
     int np = 0;
@@ -578,10 +551,10 @@ static ModelPredictions CS_ApplyModel(const unsigned char* data, int bl, unsigne
     return mp;
 }
 
-typedef struct { const unsigned char* data; int bl; int saturate; float logScale; ModelPredictions* models; } ApplyCtx;
+typedef struct { const unsigned char* data; int bl; int saturate; ModelPredictions* models; } ApplyCtx;
 static void ApplyJob(int mask, void* vc) {
     ApplyCtx* c = (ApplyCtx*)vc;
-    c->models[mask] = CS_ApplyModel(c->data, c->bl, (unsigned char)mask, c->saturate, c->logScale);
+    c->models[mask] = CS_ApplyModel(c->data, c->bl, (unsigned char)mask, c->saturate);
 }
 
 static CState* CState_new(const unsigned char* data, int size, int baseprob, int saturate, CSEval* eval, const unsigned char* context) {
@@ -593,7 +566,7 @@ static CState* CState_new(const unsigned char* data, int size, int baseprob, int
     assert(baseprob >= 9);
     cs->logScale = 1.0f / 2048.0f;
 
-    ApplyCtx ac = { d2 + MAX_CTX, cs->size, saturate, cs->logScale, cs->models };
+    ApplyCtx ac = { d2 + MAX_CTX, cs->size, saturate, cs->models };
     parallel_for(0, 256, ApplyJob, &ac);
     free(d2);
 
@@ -777,20 +750,8 @@ static unsigned int OptimizeWeights(CState* cs, ModelList4k* ml) {
 }
 
 static unsigned int TryWeights(CState* cs, ModelList4k* ml, int ct) {
-    if (ct == CT_FAST) return ApproximateWeights(cs, ml);
     if (ct == CT_SLOW || ct == CT_VERYSLOW) return OptimizeWeights(cs, ml);
     return ApproximateWeights(cs, ml);
-}
-
-/* ── InstantModels4k ─────────────────────────────────────────── */
-static ModelList4k InstantModels4k(void) {
-    ModelList4k m = ML_new();
-    struct { unsigned char mask, weight; } init[] = {
-        {0x00,0},{0x80,2},{0x40,1},{0xC0,3},{0x20,0},{0xA0,2},{0x60,2},{0x90,2},{0xFF,7},{0x51,2},{0xB0,3}
-    };
-    for (int i = 0; i < 11; i++) { m.models[i].mask = init[i].mask; m.models[i].weight = init[i].weight; }
-    m.nmodels = 11;
-    return m;
 }
 
 /* ── ApproximateModels4k ─────────────────────────────────────── */
@@ -967,8 +928,7 @@ int main(int argc, char* argv[]) {
     unsigned char sortedMasks[MAX_MODELS_N];
     unsigned int weightmask = ML_GetMaskList(&ml, sortedMasks, 1);
     int nm = ml.nmodels;
-    int hashbits = 0;
-    for (int hs = hashsize; hs > 1; hs >>= 1) hashbits++;
+    int hashbits = bsr(hashsize);
 
     unsigned char hdr[12];
     hdr[0]=dataSize; hdr[1]=dataSize>>8; hdr[2]=dataSize>>16; hdr[3]=dataSize>>24;
