@@ -55,7 +55,7 @@ all:
 	$(MD5)
 
 compressor:
-	$(CC) -std=gnu2x -O2 -o compressor compressor.c -lpthread -lm
+	$(CC) -std=gnu2x -O3 -o compressor compressor.c -lpthread -lm
 
 compress: compressor
 	$(MKDIR)

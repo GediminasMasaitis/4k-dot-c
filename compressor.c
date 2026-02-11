@@ -1,7 +1,7 @@
 /*
  * comp.c — Single-file Crinkler-style context-mixing compressor
  * Converted from C++ multi-file source to pure C11 + pthreads + SSE2
- * Compile: gcc -O2 -msse2 -std=gnu11 -fno-strict-aliasing -lpthread -o comp comp.c
+ * Compile: gcc -O2 -msse2 -std=gnu11 -fno-strict-aliasing -o comp comp.c -lpthread -lm
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,26 +15,15 @@
 #include <unistd.h>
 #include <emmintrin.h>
 
-/* ── Platform compat ─────────────────────────────────────────── */
-#ifdef _MSC_VER
-  #include <intrin.h>
-  #define FORCEINLINE __forceinline
-#else
-  #define FORCEINLINE __attribute__((always_inline)) static inline
-  static inline unsigned char BSR(unsigned long* idx, unsigned long mask) {
-      if (mask == 0) return 0;
-      *idx = 31 - __builtin_clz((unsigned int)mask);
-      return 1;
-  }
-  #define _BitScanReverse BSR
-  static inline void* xaligned_malloc(size_t sz, size_t al) {
-      void* p = NULL;
-      posix_memalign(&p, al, sz);
-      return p;
-  }
-  #define _aligned_malloc(s,a) xaligned_malloc(s,a)
-  #define _aligned_free free
-#endif
+/* ── Helpers ─────────────────────────────────────────────────── */
+static inline unsigned int bsr(unsigned int v) {
+    return v ? 31 - __builtin_clz(v) : 0;
+}
+static inline void* aligned_alloc16(size_t sz) {
+    void* p = NULL;
+    posix_memalign(&p, 16, sz);
+    return p;
+}
 
 /* ── Constants ───────────────────────────────────────────────── */
 #define TABLE_BIT_PRECISION_BITS 12
@@ -143,7 +132,7 @@ static void parallel_for(int begin, int end, void (*fn)(int,void*), void* ctx) {
 
 /* Thread-local accumulator */
 #define MAX_ACCUM_THREADS 128
-typedef struct { int64_t vals[MAX_ACCUM_THREADS]; int n; pthread_mutex_t mtx; } Combinable;
+typedef struct { int64_t vals[MAX_ACCUM_THREADS]; pthread_mutex_t mtx; } Combinable;
 static void comb_init(Combinable* c) { memset(c, 0, sizeof(*c)); pthread_mutex_init(&c->mtx, NULL); }
 static int64_t* comb_local(Combinable* c) {
     pthread_t self = pthread_self();
@@ -168,8 +157,6 @@ static void InitLogTable(void) {
         LogTable[i] = (int)(v + 0.5);  /* C-style truncation rounding */
     }
 }
-
-
 
 /* ── Structs ─────────────────────────────────────────────────── */
 typedef struct { void* dest_ptr; unsigned int dest_bit; unsigned int interval_size; unsigned int interval_min; } AritState;
@@ -204,14 +191,14 @@ typedef struct {
 typedef struct { unsigned int hash; unsigned char prob[2]; unsigned char used; } TinyHashEntry;
 
 /* ── Arit coder ──────────────────────────────────────────────── */
-FORCEINLINE int AritSize2(int right_prob, int wrong_prob) {
+static inline int AritSize2(int right_prob, int wrong_prob) {
     assert(right_prob > 0 && wrong_prob > 0);
-    unsigned long right_len, total_len;
+    unsigned int right_len, total_len;
     int total_prob = right_prob + wrong_prob;
     if (total_prob < TABLE_BIT_PRECISION)
         return LogTable[total_prob] - LogTable[right_prob];
-    _BitScanReverse(&right_len, right_prob);
-    _BitScanReverse(&total_len, total_prob);
+    right_len = bsr(right_prob);
+    total_len = bsr(total_prob);
     right_len = right_len > 12 ? right_len - 12 : 0;
     total_len = total_len > 12 ? total_len - 12 : 0;
     return LogTable[total_prob >> total_len] - LogTable[right_prob >> right_len] + ((total_len - right_len) << 12);
@@ -227,7 +214,7 @@ static unsigned int AritCodePos(AritState *s) {
     return (s->dest_bit << 12) + AritSize2(rp, 0x20000000 - rp) + 1;
 }
 
-FORCEINLINE void PutBit(unsigned char* d, int db) {
+static inline void PutBit(unsigned char* d, int db) {
     unsigned int msk, v;
     do {
         --db; if (db < 0) return;
@@ -410,14 +397,14 @@ typedef struct {
 static void CSEval_init(CSEval* e) { memset(e, 0, sizeof(*e)); }
 
 static void CSEval_destroy(CSEval* e) {
-    _aligned_free(e->packages); free(e->packageSizes);
+    free(e->packages); free(e->packageSizes);
 }
 
 static int CSEval_Init(CSEval* e, ModelPredictions* models, int length, int baseprob, float ls) {
     e->length = length; e->models = models; e->baseprob = baseprob; e->logScale = ls;
     int np = (length + PKG_SIZE - 1) / PKG_SIZE;
     e->numPackages = np;
-    e->packages = (Package*)_aligned_malloc(np * sizeof(Package), 16);
+    e->packages = (Package*)aligned_alloc16(np * sizeof(Package));
     e->packageSizes = (unsigned*)malloc(np * sizeof(unsigned));
     for (int i = 0; i < np; i++) {
         for (int j = 0; j < NPV; j++) {
@@ -561,7 +548,7 @@ static ModelPredictions CS_ApplyModel(const unsigned char* data, int bl, unsigne
     int hs = PreviousPrime(bl * 2);
     int maxp = (bl + PKG_SIZE - 1) / PKG_SIZE;
     int np = 0;
-    CompactPackage* pkgs = (CompactPackage*)_aligned_malloc(maxp * sizeof(CompactPackage), 16);
+    CompactPackage* pkgs = (CompactPackage*)aligned_alloc16(maxp * sizeof(CompactPackage));
     int* poff = (int*)malloc(maxp * sizeof(int));
     HashEntry* ht = (HashEntry*)calloc(hs, sizeof(HashEntry));
 
@@ -616,7 +603,7 @@ static CState* CState_new(const unsigned char* data, int size, int baseprob, int
 }
 
 static void CState_destroy(CState* cs) {
-    for (int i = 0; i < 256; i++) { _aligned_free(cs->models[i].packages); free(cs->models[i].packageOffsets); }
+    for (int i = 0; i < 256; i++) { free(cs->models[i].packages); free(cs->models[i].packageOffsets); }
     free(cs);
 }
 
