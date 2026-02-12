@@ -8,72 +8,76 @@ org 0x300000
 %define PAYLOAD_DEST 0x400000
 %define G_HT         0x800000
 %define HMUL         111
-%define FSZ          576
 
-; ===================== ELF Header (64 bytes) =====================
+; Stack layout for up to 21 models (284 bytes):
+;   [rsp+0]   output ptr (from push)
+;   [rsp+4]   hashmask
+;   [rsp+8]   tinymask
+;   [rsp+12]  bpos
+;   [rsp+16]  bitlength
+;   [rsp+20]  ht base
+;   [rsp+24]  pr0
+;   [rsp+28]  pr1
+;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
+;   [rsp+116] weights[21] (84 bytes, disp8)
+;   [rsp+200] cmasks[21]  (84 bytes, disp32)
+
+; ===================== ELF Header =====================
 ehdr:
-    db 0x7F, "ELF", 2, 1, 1, 0     ; e_ident[0..7]
-    dq 0                             ; e_ident[8..15] padding
-    dw 2                             ; e_type  = ET_EXEC
-    dw 0x3E                          ; e_machine = x86_64
-    dd 1                             ; e_version
-    dq _start                        ; e_entry
-    dq phdr - ehdr                   ; e_phoff = 56
-    dq 0                             ; e_shoff
-    dd 0                             ; e_flags
-    dw 64                            ; e_ehsize
-    dw 56                            ; e_phentsize
-
-; ============= Program Header (overlapping at offset 56) =========
+    db 0x7F, "ELF", 2, 1, 1, 0
+    dq 0
+    dw 2
+    dw 0x3E
+    dd 1
+    dq _start
+    dq phdr - ehdr
+    dq 0
+    dd 0
+    dw 64
+    dw 56
 phdr:
-    dd 1                             ; p_type  = PT_LOAD
-    dd 7                             ; p_flags = RWX
-    dq 0                             ; p_offset
-    dq 0x300000                      ; p_vaddr
-    dq 0x300000                      ; p_paddr
-    dq filesize                      ; p_filesz
-    dq 0x10000000                    ; p_memsz
-    dq 0x1000                        ; p_align
+    dd 1
+    dd 7
+    dq 0
+    dq 0x300000
+    dq 0x300000
+    dq filesize
+    dq 0x10000000
+    dq 0x1000
 
-; ========================= Entry Point ===========================
+; ========================= Entry =========================
 _start:
     mov     edi, payload_compressed
     mov     esi, PAYLOAD_DEST
     push    START_LOCATION
-    ; fall through
 
-; ================== Crinkler Decompressor ========================
 decompress4kc:
     push    rbp
     push    rbx
-    push    r12                        ; model counter register
+    push    r12
+    push    r13
     push    r14
     push    r15
-    sub     rsp, FSZ
-    mov     [rsp], esi                  ; 32-bit store
+    sub     rsp, 276
+    push    rsi                         ; [rsp]=output ptr
 
-    ; --- Parse header ---
-    mov     eax, [rdi]                  ; output_size
-    movzx   r9d, byte [rdi+9]          ; base_prob
-    movzx   ecx, byte [rdi+10]         ; hashbits
-    movzx   edx, byte [rdi+8]          ; num_models
-    mov     [rsp+32], edx
+    mov     eax, [rdi]
+    movzx   r9d, byte [rdi+9]
+    movzx   ecx, byte [rdi+10]
+    movzx   r13d, byte [rdi+8]         ; num_models in r13d
 
-    ; hashmask = (1 << (hashbits-1)) - 1
     dec     ecx
     push    1
     pop     rsi
     shl     esi, cl
     dec     esi
-    mov     [rsp+8], esi
+    mov     [rsp+4], esi               ; hashmask
 
-    ; bitlength = output_size * 8 + 1
     shl     eax, 3
     inc     eax
-    mov     [rsp+20], eax
+    mov     [rsp+16], eax              ; bitlength
 
-    ; tinymask = NextPowerOf2(bitlength * num_models) - 1
-    imul    eax, edx
+    imul    eax, r13d
     dec     eax
     bsr     ecx, eax
     push    2
@@ -84,48 +88,45 @@ decompress4kc:
     push    16
     pop     rax
 .ts:dec     eax
-    mov     [rsp+12], eax
+    mov     [rsp+8], eax               ; tinymask
 
-    ; --- Parse weightmask -> weights[], cmasks[] ---
+    ; --- Parse weightmask ---
     mov     eax, [rdi+4]
     xor     ecx, ecx
     xor     edx, edx
 .wl:test    eax, eax
     jz      .wd
-    cmp     ecx, [rsp+32]
+    cmp     ecx, r13d
     jge     .wd
 .wo:add     eax, eax
     jnc     .wz
     inc     edx
     jmp     .wo
-.wz:mov     [rsp+48+rcx*4], edx
-    movzx   esi, byte [rdi+12+rcx]
+.wz:mov     [rsp+116+rcx*4], edx       ; weights[m] (disp8)
     mov     ebp, eax
-    mov     bpl, sil
-    mov     [rsp+176+rcx*4], ebp
+    mov     bpl, [rdi+11+rcx]
+    mov     [rsp+200+rcx*4], ebp       ; cmasks[m] (disp32)
     inc     ecx
     jmp     .wl
 
-    ; --- Set up compressed data pointer & hash table ---
-.wd:movzx   ecx, byte [rdi+8]
+    ; --- Compressed data & hash table ---
+.wd:mov     ecx, r13d
     lea     r8, [rdi+rcx+11]
 
-    ; Clear hash table at G_HT (qword clear)
-    mov     eax, [rsp+12]
+    mov     eax, [rsp+8]
     inc     eax
     xchg    ecx, eax
     mov     edi, G_HT
-    mov     [rsp+24], edi              ; 32-bit store
+    mov     [rsp+20], edi
     xor     eax, eax
     rep stosq
 
-    ; --- Init arithmetic decoder ---
+    ; --- Init decoder ---
     xor     r14d, r14d
     xor     r15d, r15d
     mov     ebp, 0x80000000
     xor     ebx, ebx
 
-    ; Read first 31 bits
     push    31
     pop     rcx
 .il:bt      [r8], r14d
@@ -133,38 +134,36 @@ decompress4kc:
     inc     r14d
     loop    .il
 
-    mov     [rsp+16], eax              ; bpos = 0
+    mov     [rsp+12], eax              ; bpos = 0
 
-; ================= MAIN DECODE LOOP (inverted) ===================
-.ml:mov     ecx, [rsp+16]
-    cmp     ecx, [rsp+20]
+; ================= MAIN LOOP ===================
+.ml:mov     ecx, [rsp+12]
+    cmp     ecx, [rsp+16]
     jl      .body
 
-; --- Done (epilogue) ---
-.dn:add     rsp, FSZ
+.dn:pop     rax                         ; discard output ptr
+    add     rsp, 276
     pop     r15
     pop     r14
+    pop     r13
     pop     r12
     pop     rbx
     pop     rbp
     ret
 
-; --- Loop body ---
 .body:
-    mov     [rsp+36], r9d              ; pr0 = base_prob
-    mov     [rsp+40], r9d              ; pr1 = base_prob
-    xor     r12d, r12d                 ; model counter = 0
+    mov     [rsp+24], r9d
+    mov     [rsp+28], r9d
+    xor     r12d, r12d
 
-; --- Model loop (r12d = persistent counter) ---
 .mdl:
-    cmp     r12d, [rsp+32]
+    cmp     r12d, r13d
     jge     .mdd
-    mov     eax, [rsp+176+r12*4]       ; h = cmask[m]
+    mov     eax, [rsp+r12*4+200]       ; cmasks[m] (disp32)
     movzx   edx, al
-    mov     ecx, [rsp+16]
+    mov     ecx, [rsp+12]
     jecxz   .hsb
 
-    ; --- Context hash (bpos > 0) ---
     dec     ecx
     mov     esi, [rsp]
     mov     edi, ecx
@@ -193,7 +192,6 @@ decompress4kc:
 .cs:add     dl, dl
     jmp     .cl
 
-    ; --- Start-bit hash (bpos == 0) ---
 .hsb:
     imul    eax, eax, HMUL
     dec     eax
@@ -206,11 +204,10 @@ decompress4kc:
 .ss:add     dl, dl
     jmp     .sl
 
-    ; --- Hash reduce + linear probe ---
-.hr:and     eax, [rsp+8]
+.hr:and     eax, [rsp+4]
     mov     edi, eax
-    and     eax, [rsp+12]
-    mov     esi, [rsp+24]
+    and     eax, [rsp+8]
+    mov     esi, [rsp+20]
 .pb:lea     ecx, [rsi+rax*8]
     cmp     byte [rcx+6], 0
     jne     .pu
@@ -220,34 +217,31 @@ decompress4kc:
 .pu:cmp     [rcx], edi
     je      .po
     inc     eax
-    and     eax, [rsp+12]
+    and     eax, [rsp+8]
     jmp     .pb
 
-    ; --- Accumulate prediction ---
-.po:mov     edx, r12d                  ; model index from r12d
-    mov     [rsp+304+rdx*8], ecx       ; 32-bit store
+.po:mov     [rsp+32+r12*4], ecx        ; ent[m] (disp8)
     movzx   eax, byte [rcx+4]
     movzx   edi, byte [rcx+5]
-    mov     ecx, [rsp+48+rdx*4]
+    mov     ecx, [rsp+116+r12*4]       ; weights[m] (disp8)
     test    al, al
     jz      .bo
     test    edi, edi
     jnz     .nb
 .bo:add     ecx, 2
 .nb:shl     eax, cl
-    add     [rsp+36], eax
+    add     [rsp+24], eax
     shl     edi, cl
-    add     [rsp+40], edi
+    add     [rsp+28], edi
 
-    inc     r12d                       ; next model
+    inc     r12d
     jmp     .mdl
 
-; --- Arithmetic decode ---
 .mdd:
     mov     eax, ebp
-    mov     ecx, [rsp+40]
+    mov     ecx, [rsp+28]
     mul     ecx
-    mov     esi, [rsp+36]
+    mov     esi, [rsp+24]
     add     esi, ecx
     div     esi
     xchg    edi, eax
@@ -263,7 +257,6 @@ decompress4kc:
     push    1
     pop     rsi
 
-    ; --- Renormalize ---
 .rn:test    ebp, ebp
     js      .rd
 .rl:add     ebx, ebx
@@ -277,28 +270,28 @@ decompress4kc:
     pop     rdi
     sub     edi, esi
 
-    ; --- Update counters (countdown loop) ---
-    mov     ecx, [rsp+32]             ; ecx = nmod
-    dec     ecx                        ; ecx = nmod-1
-.ul:mov     eax, [rsp+304+rcx*8]
+    ; --- Update counters ---
+    mov     ecx, r13d
+    dec     ecx
+.ul:mov     eax, [rsp+32+rcx*4]        ; ent[m] (disp8)
     inc     byte [rax+4+rdi]
     cmp     byte [rax+4+rsi], 1
     jbe     .nh
     shr     byte [rax+4+rsi], 1
 .nh:dec     ecx
-    jns     .ul                        ; loop while ecx >= 0
+    jns     .ul
 
     ; --- Write output bit ---
     test    edi, edi
     jz      .nw
-    mov     ecx, [rsp+16]
+    mov     ecx, [rsp+12]
     dec     ecx
     js      .nw
     xor     ecx, 7
     mov     edx, [rsp]
     bts     [rdx], ecx
 
-.nw:inc     dword [rsp+16]
+.nw:inc     dword [rsp+12]
     jmp     .ml
 
 ; ========================= Payload ===============================
