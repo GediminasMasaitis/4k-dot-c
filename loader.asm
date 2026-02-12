@@ -52,11 +52,10 @@ _start:
     push    START_LOCATION
 
 decompress4kc:
-    sub     rsp, 284
-    mov     [rsp], esi                  ; output ptr at [rsp+0]
+    sub     rsp, 276
+    push    rsi                         ; [rsp]=output ptr, total frame=284
 
     mov     eax, [rdi]
-    movzx   r9d, byte [rdi+9]
     movzx   ecx, byte [rdi+10]
     movzx   r13d, byte [rdi+8]         ; num_models in r13d
 
@@ -77,11 +76,8 @@ decompress4kc:
     push    2
     pop     rax
     shl     eax, cl
-    cmp     eax, 16
-    jge     .ts
-    push    16
-    pop     rax
-.ts:dec     eax
+    dec     eax
+    or      eax, 15
     mov     [rsp+8], eax               ; tinymask
 
     ; --- Parse weightmask ---
@@ -106,6 +102,8 @@ decompress4kc:
     ; --- Compressed data & hash table ---
 .wd:mov     ecx, r13d
     lea     r8, [rdi+rcx+11]
+    movzx   edx, byte [rdi+9]
+    mov     [rsp+20], edx              ; base_prob (permanent)
 
     mov     eax, [rsp+8]
     inc     eax
@@ -127,19 +125,20 @@ decompress4kc:
     inc     r14d
     loop    .il
 
-    mov     [rsp+12], eax              ; bpos = 0
+    xor     r9d, r9d                   ; bpos = 0
 
 ; ================= MAIN LOOP (do-while, bitlength >= 1) ===================
 .body:
-    mov     [rsp+24], r9d
-    mov     [rsp+28], r9d
-    xor     r12d, r12d
+    mov     eax, [rsp+20]             ; base_prob
+    mov     [rsp+24], eax
+    mov     [rsp+28], eax
+    lea     r12d, [r13-1]              ; model counter = num_models-1 (countdown)
 
 ; --- Model loop (do-while, num_models >= 1) ---
 .mdl:
     mov     eax, [rsp+r12*4+200]       ; cmasks[m] (disp32)
     movzx   edx, al
-    mov     ecx, [rsp+12]
+    mov     ecx, r9d                   ; bpos
     jecxz   .hsb
 
     dec     ecx
@@ -210,9 +209,8 @@ decompress4kc:
     shl     edi, cl
     add     [rsp+28], edi
 
-    inc     r12d
-    cmp     r12d, r13d
-    jl      .mdl
+    dec     r12d
+    jns     .mdl
 
 .mdd:
     mov     eax, ebp
@@ -225,14 +223,13 @@ decompress4kc:
     mov     eax, r15d
     sub     eax, ebx
     cmp     eax, edi
+    sbb     esi, esi                   ; esi = CF ? -1 : 0 (preserves CF)
+    inc     esi                        ; esi = CF ? 0 : 1 (inc preserves CF)
     jae     .ui
     mov     ebp, edi
-    xor     esi, esi
     jmp     .rn
 .ui:add     ebx, edi
     sub     ebp, edi
-    push    1
-    pop     rsi
 
 .rn:test    ebp, ebp
     js      .rd
@@ -248,8 +245,7 @@ decompress4kc:
     sub     edi, esi
 
     ; --- Update counters ---
-    mov     ecx, r13d
-    dec     ecx
+    lea     ecx, [r13-1]
 .ul:mov     eax, [rsp+32+rcx*4]        ; ent[m] (disp8)
     inc     byte [rax+4+rdi]
     cmp     byte [rax+4+rsi], 1
@@ -261,16 +257,15 @@ decompress4kc:
     ; --- Write output bit ---
     test    edi, edi
     jz      .nw
-    mov     ecx, [rsp+12]
+    mov     ecx, r9d                   ; bpos
     dec     ecx
     js      .nw
     xor     ecx, 7
     mov     edx, [rsp]
     bts     [rdx], ecx
 
-.nw:inc     dword [rsp+12]
-    mov     ecx, [rsp+12]
-    cmp     ecx, [rsp+16]
+.nw:inc     r9d
+    cmp     r9d, [rsp+16]
     jl      .body
 
 ; --- Done ---
