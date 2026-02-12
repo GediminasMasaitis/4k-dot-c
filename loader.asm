@@ -108,7 +108,7 @@ decompress4kc:
 
     ; --- Set up compressed data pointer & hash table ---
 .wd:movzx   ecx, byte [rdi+8]
-    lea     r8, [rdi+rcx+12]
+    lea     r8, [rdi+rcx+11]
 
     ; Clear hash table at G_HT (qword clear)
     mov     eax, [rsp+12]

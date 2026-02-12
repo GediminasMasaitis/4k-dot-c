@@ -326,23 +326,17 @@ static int AritCodeEnd(AritState *state) {
 }
 
 static CounterState unsat_states[1471];
-static CounterState sat_states[1470];
 static int counter_state_map[256][256];
 
 static int CSVisit(CounterState *states, int *num_states, int max_states,
-                   unsigned char count0, unsigned char count1, int new_bit,
-                   int saturate) {
+                   unsigned char count0, unsigned char count1, int new_bit) {
   if (new_bit == 0) {
-    if (!saturate || count0 < 255) {
-      count0++;
-    }
+    count0++;
     if (count1 > 1) {
       count1 >>= 1;
     }
   } else {
-    if (!saturate || count1 < 255) {
-      count1++;
-    }
+    count1++;
     if (count0 > 1) {
       count0 >>= 1;
     }
@@ -358,14 +352,13 @@ static int CSVisit(CounterState *states, int *num_states, int max_states,
   entry->boosted_counters[0] = count0 << boost;
   entry->boosted_counters[1] = count1 << boost;
   states[state_idx].next_state[0] =
-      CSVisit(states, num_states, max_states, count0, count1, 0, saturate);
+      CSVisit(states, num_states, max_states, count0, count1, 0);
   states[state_idx].next_state[1] =
-      CSVisit(states, num_states, max_states, count0, count1, 1, saturate);
+      CSVisit(states, num_states, max_states, count0, count1, 1);
   return state_idx;
 }
 
-static void GenCounterStates(CounterState *states, int max_states,
-                             int saturate) {
+static void GenCounterStates(CounterState *states, int max_states) {
   memset(counter_state_map, -1, sizeof(counter_state_map));
   counter_state_map[0][1] = 0;
   counter_state_map[1][0] = 1;
@@ -381,21 +374,14 @@ static void GenCounterStates(CounterState *states, int max_states,
   first_one->boosted_counters[0] = 0;
   first_one->boosted_counters[1] = 1 << 2;
 
-  states[0].next_state[0] =
-      CSVisit(states, &num_states, max_states, 1, 0, 0, saturate);
-  states[0].next_state[1] =
-      CSVisit(states, &num_states, max_states, 1, 0, 1, saturate);
-  states[1].next_state[0] =
-      CSVisit(states, &num_states, max_states, 0, 1, 0, saturate);
-  states[1].next_state[1] =
-      CSVisit(states, &num_states, max_states, 0, 1, 1, saturate);
+  states[0].next_state[0] = CSVisit(states, &num_states, max_states, 1, 0, 0);
+  states[0].next_state[1] = CSVisit(states, &num_states, max_states, 1, 0, 1);
+  states[1].next_state[0] = CSVisit(states, &num_states, max_states, 0, 1, 0);
+  states[1].next_state[1] = CSVisit(states, &num_states, max_states, 0, 1, 1);
   assert(num_states == max_states);
 }
 
-static void InitCounterStates(void) {
-  GenCounterStates(unsat_states, 1471, 0);
-  GenCounterStates(sat_states, 1470, 1);
-}
+static void InitCounterStates(void) { GenCounterStates(unsat_states, 1471); }
 
 static inline int GetBit(const unsigned char *data, int bit_pos) {
   return (data[bit_pos >> 3] >> (7 - (bit_pos & 7))) & 1;
@@ -474,10 +460,8 @@ static void ML_Print(const ModelList4k *ml, FILE *file) {
   fprintf(file, "\n");
 }
 
-static void UpdateWeights(Weights *weights, int bit, int saturate) {
-  if (!saturate || weights->prob[bit] < 255) {
-    weights->prob[bit] += 1;
-  }
+static void UpdateWeights(Weights *weights, int bit) {
+  weights->prob[bit] += 1;
   if (weights->prob[!bit] > 1) {
     weights->prob[!bit] >>= 1;
   }
@@ -629,8 +613,9 @@ static void ChangeWeight_job(int job_idx, void *vctx) {
   }
 
     DO(0)
-    DO(1) DO(2) DO(3) DO(4) DO(5) DO(6) DO(7) DO(8) DO(9) DO(10) DO(11) DO(12)
-        DO(13) DO(14) DO(15)
+    DO(1)
+    DO(2) DO(3) DO(4) DO(5) DO(6) DO(7) DO(8) DO(9) DO(10) DO(11) DO(12) DO(13)
+        DO(14) DO(15)
 #undef DO
 
             __m128i right_exponent =
@@ -716,7 +701,6 @@ static int64_t CSEval_Evaluate(CSEval *eval, const ModelList4k *ml) {
 
 typedef struct {
   int size;
-  int saturate;
   ModelPredictions models[256];
   int64_t compressed_size;
   CSEval *eval;
@@ -761,7 +745,7 @@ static HashEntry *FindEntry(HashEntry *table, unsigned table_size,
 }
 
 static ModelPredictions CS_ApplyModel(const unsigned char *data, int bit_length,
-                                      unsigned char mask, int saturate) {
+                                      unsigned char mask) {
   int table_size = PreviousPrime(bit_length * 2);
   int max_packages = (bit_length + PKG_SIZE - 1) / PKG_SIZE;
   int num_packages = 0;
@@ -789,7 +773,7 @@ static ModelPredictions CS_ApplyModel(const unsigned char *data, int bit_length,
         right_prob = (float)(entry->weights.prob[bit] << boost);
         total_prob =
             (float)((entry->weights.prob[0] + entry->weights.prob[1]) << boost);
-        UpdateWeights(&entry->weights, bit, saturate);
+        UpdateWeights(&entry->weights, bit);
       }
       uint16_t *packed =
           (uint16_t *)&packages[num_packages].prob[bit_offset >> 2];
@@ -809,22 +793,19 @@ static ModelPredictions CS_ApplyModel(const unsigned char *data, int bit_length,
 typedef struct {
   const unsigned char *data;
   int bit_length;
-  int saturate;
   ModelPredictions *models;
 } ApplyModelCtx;
 
 static void ApplyModelJob(int mask, void *vctx) {
   ApplyModelCtx *ctx = (ApplyModelCtx *)vctx;
-  ctx->models[mask] = CS_ApplyModel(ctx->data, ctx->bit_length,
-                                    (unsigned char)mask, ctx->saturate);
+  ctx->models[mask] =
+      CS_ApplyModel(ctx->data, ctx->bit_length, (unsigned char)mask);
 }
 
 static CState *CState_new(const unsigned char *data, int size, int baseprob,
-                          int saturate, CSEval *eval,
-                          const unsigned char *context) {
+                          CSEval *eval, const unsigned char *context) {
   CState *cs = (CState *)calloc(1, sizeof(CState));
   cs->size = size * 8;
-  cs->saturate = saturate;
   cs->eval = eval;
   unsigned char *padded_data = (unsigned char *)malloc(size + MAX_CTX);
   memcpy(padded_data, context, MAX_CTX);
@@ -832,8 +813,7 @@ static CState *CState_new(const unsigned char *data, int size, int baseprob,
   assert(baseprob >= 9);
   cs->log_scale = 1.0f / 2048.0f;
 
-  ApplyModelCtx apply_ctx = {padded_data + MAX_CTX, cs->size, saturate,
-                             cs->models};
+  ApplyModelCtx apply_ctx = {padded_data + MAX_CTX, cs->size, cs->models};
   parallel_for(0, 256, ApplyModelJob, &apply_ctx);
   free(padded_data);
 
@@ -942,7 +922,7 @@ static HashBits ComputeHashBits(const unsigned char *data, int size,
 
 static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
                                  TinyHashEntry *hash_table, int baseprob,
-                                 int hashsize, int saturate) {
+                                 int hashsize) {
   int total_hashes = (int)hb->hashes_len;
   int num_models = hb->num_weights;
   int bit_length = (num_models == 0) ? hb->bits_len : total_hashes / num_models;
@@ -1001,14 +981,14 @@ static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
     }
     AritCode(arit_state, probs[1], probs[0], 1 - bit);
     for (int m = 0; m < num_models; m++) {
-      UpdateWeights((Weights *)matched_entries[m]->prob, bit, saturate);
+      UpdateWeights((Weights *)matched_entries[m]->prob, bit);
     }
   }
 }
 
 static int Compress4k(const unsigned char *data, int data_size,
                       unsigned char *out_data, int max_out, ModelList4k *ml,
-                      int saturate, int baseprob, int hashsize) {
+                      int baseprob, int hashsize) {
   unsigned char context[MAX_CTX] = {};
   HashBits hb = ComputeHashBits(data, data_size, context, ml, 1, 1);
   TinyHashEntry *hash_table =
@@ -1017,8 +997,7 @@ static int Compress4k(const unsigned char *data, int data_size,
   memset(out_data, 0, max_out);
   AritState arit_state;
   AritCodeInit(&arit_state, out_data);
-  CompressFromHashBits(&arit_state, &hb, hash_table, baseprob, hashsize,
-                       saturate);
+  CompressFromHashBits(&arit_state, &hb, hash_table, baseprob, hashsize);
   int compressed_bits = AritCodeEnd(&arit_state);
   int compressed_bytes = (compressed_bits + 7) / 8;
 
@@ -1101,9 +1080,8 @@ typedef void ProgressCB(void *, int, int);
 
 static ModelList4k ApproximateModels4k(const unsigned char *data, int size,
                                        const unsigned char context[MAX_CTX],
-                                       int compression_type, int saturate,
-                                       int baseprob, int *out_size,
-                                       ProgressCB *callback,
+                                       int compression_type, int baseprob,
+                                       int *out_size, ProgressCB *callback,
                                        void *callback_data) {
   int beam_width = (compression_type == CT_VERYSLOW) ? 3 : 1;
   int EFLAG = INT_MIN;
@@ -1112,7 +1090,7 @@ static ModelList4k ApproximateModels4k(const unsigned char *data, int size,
       (ModelList4k *)calloc(num_sets, sizeof(ModelList4k));
   CSEval eval;
   CSEval_init(&eval);
-  CState *cs = CState_new(data, size, baseprob, saturate, &eval, context);
+  CState *cs = CState_new(data, size, baseprob, &eval, context);
 
   unsigned char reversed_masks[256];
   for (int m = 0; m <= 255; m++) {
@@ -1237,7 +1215,6 @@ static void PrintUsage(const char *program) {
 int main(int argc, char *argv[]) {
   const char *output_file = NULL;
   int compression_type = CT_SLOW;
-  int saturate = 0;
   int baseprob = DEFAULT_BASEPROB;
 
   int opt;
@@ -1307,14 +1284,13 @@ int main(int argc, char *argv[]) {
 
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
   printf("Mode:        %s\n", CTName(compression_type));
-  printf("Saturate:    %s\n", saturate ? "yes" : "no");
   printf("Base prob:   %d\n", baseprob);
 
   unsigned char context[MAX_CTX] = {};
   int estimated_size = 0;
   ModelList4k ml =
-      ApproximateModels4k(data, data_size, context, compression_type, saturate,
-                          baseprob, &estimated_size, ProgressUpdate, NULL);
+      ApproximateModels4k(data, data_size, context, compression_type, baseprob,
+                          &estimated_size, ProgressUpdate, NULL);
 
   printf("\nEstimated:   %.3f bytes\n",
          estimated_size / (float)(BIT_PRECISION * 8));
@@ -1325,7 +1301,7 @@ int main(int argc, char *argv[]) {
   unsigned char *output_buf = (unsigned char *)malloc(max_output);
   int hashsize = 1024 * 1024 * 1024;
   int compressed_size = Compress4k(data, data_size, output_buf, max_output, &ml,
-                                   saturate, baseprob, hashsize);
+                                   baseprob, hashsize);
 
   printf("Compressed:  %d bytes (%.2f%%)\n", compressed_size,
          100.0f * compressed_size / data_size);
@@ -1335,7 +1311,7 @@ int main(int argc, char *argv[]) {
   int num_models = ml.nmodels;
   int hashbits = bsr(hashsize);
 
-  unsigned char header[12];
+  unsigned char header[11];
   header[0] = data_size;
   header[1] = data_size >> 8;
   header[2] = data_size >> 16;
@@ -1347,7 +1323,6 @@ int main(int argc, char *argv[]) {
   header[8] = num_models;
   header[9] = baseprob;
   header[10] = hashbits;
-  header[11] = saturate ? 1 : 0;
 
   FILE *out_file = fopen(output_file, "wb");
   if (!out_file) {
@@ -1356,13 +1331,13 @@ int main(int argc, char *argv[]) {
     free(data);
     return 1;
   }
-  fwrite(header, 1, 12, out_file);
+  fwrite(header, 1, 11, out_file);
   fwrite(sorted_masks, 1, num_models, out_file);
   fwrite(output_buf, 1, compressed_size, out_file);
   fclose(out_file);
 
   printf("Output:      %s (%d bytes, weightmask %08X)\n", output_file,
-         12 + num_models + compressed_size, weightmask);
+         11 + num_models + compressed_size, weightmask);
 
   free(output_buf);
   free(data);
