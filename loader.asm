@@ -11,8 +11,6 @@ org 0x300000
 %define FSZ          576
 
 ; ===================== ELF Header (64 bytes) =====================
-; Program header overlaps the last 8 bytes of the ELF header,
-; saving 8 bytes vs a separate phdr.
 ehdr:
     db 0x7F, "ELF", 2, 1, 1, 0     ; e_ident[0..7]
     dq 0                             ; e_ident[8..15] padding
@@ -20,41 +18,31 @@ ehdr:
     dw 0x3E                          ; e_machine = x86_64
     dd 1                             ; e_version
     dq _start                        ; e_entry
-    dq phdr - ehdr                   ; e_phoff = 56 (overlaps into header)
-    dq 0                             ; e_shoff (ignored)
+    dq phdr - ehdr                   ; e_phoff = 56 (overlaps)
+    dq 0                             ; e_shoff
     dd 0                             ; e_flags
     dw 64                            ; e_ehsize
     dw 56                            ; e_phentsize
 
 ; ============= Program Header (overlapping at offset 56) =========
 phdr:
-    ; These 8 bytes overlap with e_phnum/e_shentsize/e_shnum/e_shstrndx
-    dd 1                             ; p_type  = PT_LOAD  (also e_phnum=1, e_shentsize=0)
-    dd 7                             ; p_flags = RWX      (also e_shnum=7, e_shstrndx=0)
+    dd 1                             ; p_type  = PT_LOAD  (e_phnum=1)
+    dd 7                             ; p_flags = RWX
     dq 0                             ; p_offset
     dq 0x300000                      ; p_vaddr
     dq 0x300000                      ; p_paddr
     dq filesize                      ; p_filesz
-    dq 0x10000000                    ; p_memsz (256MB covers everything)
+    dq 0x10000000                    ; p_memsz
     dq 0x1000                        ; p_align
 
 ; ========================= Entry Point ===========================
 _start:
-    mov     edi, payload_compressed  ; rdi = compressed data
-    mov     esi, PAYLOAD_DEST        ; rsi = output at 0x400000
-    push    START_LOCATION           ; decompressor's ret jumps here
-    ; fall through into decompress4kc
+    mov     edi, payload_compressed
+    mov     esi, PAYLOAD_DEST
+    push    START_LOCATION
+    ; fall through
 
 ; ================== Crinkler Decompressor ========================
-; Args: rdi = compressed data (with header), rsi = output buffer
-; Persistent: ebx=lo, ebp=rng, r8=comp_base, r9d=base_prob,
-;             r14d=stream_pos, r15d=code
-;
-; Stack frame (576 bytes):
-;   [0] output  [8] hmask  [12] tmask  [16] bpos  [20] bitlen
-;   [24] g_ht   [32] nmod  [36] pr0    [40] pr1   [44] midx
-;   [48..175] wt[32]  [176..303] cm[32]  [304..559] ent[32]
-
 decompress4kc:
     push    rbp
     push    rbx
@@ -87,12 +75,12 @@ decompress4kc:
     imul    eax, edx
     dec     eax
     bsr     ecx, eax
-    push    2                          ; -2 vs mov eax, 2
+    push    2
     pop     rax
     shl     eax, cl
     cmp     eax, 16
     jge     .ts
-    push    16                         ; -2 vs mov eax, 16
+    push    16
     pop     rax
 .ts:dec     eax
     mov     [rsp+12], eax
@@ -105,29 +93,29 @@ decompress4kc:
     jz      .wd
     cmp     ecx, [rsp+32]
     jge     .wd
-.wo:bt      eax, 31
-    jnc     .wz
+    ; Count leading 1-bits as weight, 0-bit is separator
+    ; add eax,eax shifts left and sets CF = old bit 31
+.wo:add     eax, eax                   ; shift, CF = old high bit  (-6 vs bt+separate shift)
+    jnc     .wz                        ; 0-bit = separator
     inc     edx
-    add     eax, eax
     jmp     .wo
-.wz:add     eax, eax
-    mov     [rsp+48+rcx*4], edx        ; weights[m]
+.wz:mov     [rsp+48+rcx*4], edx        ; weights[m]
     movzx   esi, byte [rdi+12+rcx]     ; context mask byte
     mov     ebp, eax
-    and     ebp, 0xFFFFFF00
-    or      ebp, esi
+    mov     bpl, sil                   ; low byte = ctx mask  (-5 vs and+or)
     mov     [rsp+176+rcx*4], ebp       ; cmasks[m]
     inc     ecx
     jmp     .wl
 
     ; --- Set up compressed data pointer & hash table ---
-.wd:movzx   ecx, byte [rdi+8]          ; num_models
-    lea     r8, [rdi+rcx+12]           ; r8 = comp base (-3 vs lea+add)
+.wd:movzx   ecx, byte [rdi+8]
+    lea     r8, [rdi+rcx+12]           ; r8 = comp base
 
     ; Clear hash table at G_HT
     mov     eax, [rsp+12]              ; tinymask
     inc     eax
-    lea     ecx, [eax*2]              ; dword count
+    add     eax, eax                   ; dword count = (tinymask+1)*2
+    xchg    ecx, eax                   ; ecx = count, eax = junk  (-1 vs lea)
     mov     edi, G_HT
     mov     [rsp+24], rdi              ; save ht base
     xor     eax, eax
@@ -139,14 +127,15 @@ decompress4kc:
     mov     ebp, 0x80000000            ; range
     xor     ebx, ebx                   ; low = 0
 
-    ; Read first 31 bits
+    ; Read first 31 bits (use loop instruction)  (-1 vs cmp+jl)
+    push    31
+    pop     rcx
 .il:bt      [r8], r14d
     adc     r15d, r15d
     inc     r14d
-    cmp     r14d, 31
-    jl      .il
+    loop    .il
 
-    mov     [rsp+16], eax              ; bpos = 0 (eax=0 from rep stosd) (-4 bytes)
+    mov     [rsp+16], eax              ; bpos = 0 (eax=0 from rep stosd)
 
 ; ======================== MAIN DECODE LOOP =======================
 .ml:mov     ecx, [rsp+16]
@@ -164,7 +153,7 @@ decompress4kc:
     mov     eax, [rsp+176+rcx*4]       ; h = cmask[m]
     movzx   edx, al                    ; ctx byte
     mov     ecx, [rsp+16]
-    jecxz   .hsb                       ; -1 vs test ecx, ecx / jz
+    jecxz   .hsb
 
     ; --- Context hash (bpos > 0) ---
     dec     ecx
@@ -185,7 +174,7 @@ decompress4kc:
 
 .cl:test    dl, dl
     jz      .hr
-    dec     rsi
+    dec     esi                        ; 32-bit dec is safe (addr < 4GB)  (-1 vs dec rsi)
     test    dl, 0x80
     jz      .cs
     xor     al, [rsi]
@@ -217,7 +206,7 @@ decompress4kc:
     cmp     byte [rcx+6], 0
     jne     .pu
     mov     [rcx], edi
-    inc     byte [rcx+6]               ; -1 vs mov byte [rcx+6], 1
+    inc     byte [rcx+6]
     jmp     .po
 .pu:cmp     [rcx], edi
     je      .po
@@ -253,7 +242,7 @@ decompress4kc:
     mov     esi, [rsp+36]
     add     esi, ecx
     div     esi
-    xchg    edi, eax                   ; -1 vs mov edi, eax
+    xchg    edi, eax
     mov     eax, r15d
     sub     eax, ebx
     cmp     eax, edi
@@ -311,7 +300,7 @@ decompress4kc:
     pop     r14
     pop     rbx
     pop     rbp
-    ret                                ; pops START_LOCATION -> jumps to engine
+    ret
 
 ; ========================= Payload ===============================
 payload_compressed:
