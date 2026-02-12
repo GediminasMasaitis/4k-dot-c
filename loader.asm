@@ -11,6 +11,8 @@ org 0x300000
 %define FSZ          576
 
 ; ===================== ELF Header (64 bytes) =====================
+; Program header overlaps the last 8 bytes of the ELF header,
+; saving 8 bytes vs a separate phdr.
 ehdr:
     db 0x7F, "ELF", 2, 1, 1, 0     ; e_ident[0..7]
     dq 0                             ; e_ident[8..15] padding
@@ -18,20 +20,17 @@ ehdr:
     dw 0x3E                          ; e_machine = x86_64
     dd 1                             ; e_version
     dq _start                        ; e_entry
-    dq phdr - ehdr                   ; e_phoff = 64
-    dq 0                             ; e_shoff
+    dq phdr - ehdr                   ; e_phoff = 56 (overlaps into header)
+    dq 0                             ; e_shoff (ignored)
     dd 0                             ; e_flags
     dw 64                            ; e_ehsize
     dw 56                            ; e_phentsize
-    dw 1                             ; e_phnum
-    dw 0                             ; e_shentsize
-    dw 0                             ; e_shnum
-    dw 0                             ; e_shstrndx
 
-; =================== Program Header (56 bytes) ===================
+; ============= Program Header (overlapping at offset 56) =========
 phdr:
-    dd 1                             ; p_type  = PT_LOAD
-    dd 7                             ; p_flags = RWX
+    ; These 8 bytes overlap with e_phnum/e_shentsize/e_shnum/e_shstrndx
+    dd 1                             ; p_type  = PT_LOAD  (also e_phnum=1, e_shentsize=0)
+    dd 7                             ; p_flags = RWX      (also e_shnum=7, e_shstrndx=0)
     dq 0                             ; p_offset
     dq 0x300000                      ; p_vaddr
     dq 0x300000                      ; p_paddr
@@ -88,11 +87,13 @@ decompress4kc:
     imul    eax, edx
     dec     eax
     bsr     ecx, eax
-    mov     eax, 2
+    push    2                          ; -2 vs mov eax, 2
+    pop     rax
     shl     eax, cl
     cmp     eax, 16
     jge     .ts
-    mov     eax, 16
+    push    16                         ; -2 vs mov eax, 16
+    pop     rax
 .ts:dec     eax
     mov     [rsp+12], eax
 
@@ -120,9 +121,8 @@ decompress4kc:
     jmp     .wl
 
     ; --- Set up compressed data pointer & hash table ---
-.wd:lea     r8, [rdi+12]               ; r8 = comp base
-    movzx   ecx, byte [rdi+8]
-    add     r8, rcx                     ; skip context mask bytes
+.wd:movzx   ecx, byte [rdi+8]          ; num_models
+    lea     r8, [rdi+rcx+12]           ; r8 = comp base (-3 vs lea+add)
 
     ; Clear hash table at G_HT
     mov     eax, [rsp+12]              ; tinymask
@@ -146,7 +146,7 @@ decompress4kc:
     cmp     r14d, 31
     jl      .il
 
-    mov     dword [rsp+16], 0          ; bpos = 0
+    mov     [rsp+16], eax              ; bpos = 0 (eax=0 from rep stosd) (-4 bytes)
 
 ; ======================== MAIN DECODE LOOP =======================
 .ml:mov     ecx, [rsp+16]
@@ -164,8 +164,7 @@ decompress4kc:
     mov     eax, [rsp+176+rcx*4]       ; h = cmask[m]
     movzx   edx, al                    ; ctx byte
     mov     ecx, [rsp+16]
-    test    ecx, ecx
-    jz      .hsb
+    jecxz   .hsb                       ; -1 vs test ecx, ecx / jz
 
     ; --- Context hash (bpos > 0) ---
     dec     ecx
@@ -218,7 +217,7 @@ decompress4kc:
     cmp     byte [rcx+6], 0
     jne     .pu
     mov     [rcx], edi
-    mov     byte [rcx+6], 1
+    inc     byte [rcx+6]               ; -1 vs mov byte [rcx+6], 1
     jmp     .po
 .pu:cmp     [rcx], edi
     je      .po
@@ -254,7 +253,7 @@ decompress4kc:
     mov     esi, [rsp+36]
     add     esi, ecx
     div     esi
-    mov     edi, eax
+    xchg    edi, eax                   ; -1 vs mov edi, eax
     mov     eax, r15d
     sub     eax, ebx
     cmp     eax, edi
