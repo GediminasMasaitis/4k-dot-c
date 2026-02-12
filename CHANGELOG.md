@@ -8932,3 +8932,37 @@ Games | N: 628 W: 164 L: 160 D: 304
 Penta | [13, 67, 147, 77, 10]
 https://gedas.pythonanywhere.com/test/1664/
 ```
+
+### 7.0
+
+Use PAQ1-based compression
+
+4 threads: 4021 bytes (-68)
+MD5: 1814f1618379cf0d1858f7492413da0b
+
+1 thread: 3916 bytes (-78)
+MD5: 1235762468796929557205fdc4de077f
+
+1 thread:
+```py
+Input:       ./build/4kc (5176 bytes)
+Mode:        SLOW
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3285.951 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 90:2 50:1 AC:3 29:2 B0:3 48:0 88:1 32:1 CA:3 5A:3 95:5
+Compressed:  3272 bytes (63.21%)
+Output:      ./build/4kc.4kc (3301 bytes, weightmask 20820DFF)
+```
+
+4 threads:
+```py
+Input:       ./build/4kc (5343 bytes)
+Mode:        SLOW
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3391.935 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:3 60:2 A9:5 30:0 90:2 50:1 88:1 2C:1 B8:3 94:3 49:3 0C:0
+Compressed:  3378 bytes (63.22%)
+Output:      ./build/4kc.4kc (3406 bytes, weightmask 10441BFF)
+```
