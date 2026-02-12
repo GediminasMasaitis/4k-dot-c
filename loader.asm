@@ -77,7 +77,7 @@ decompress4kc:
     shl     eax, cl
     dec     eax
     or      eax, 15
-    mov     r11d, eax                  ; tinymask in r11d
+    xchg    eax, r11d                  ; tinymask in r11d (eax clobbered, reloaded next)
 
     ; --- Parse weightmask ---
     mov     eax, [rdi+4]
@@ -121,7 +121,7 @@ decompress4kc:
     inc     r14d
     loop    .il
 
-    xor     r9d, r9d                   ; bpos = 0
+    xchg    eax, r9d                   ; bpos = 0 (eax=0 from rep stosq)
 
 ; ================= MAIN LOOP (do-while, bitlength >= 1) ===================
 .body:
@@ -133,8 +133,8 @@ decompress4kc:
 .mdl:
     mov     eax, [rsp+r12*4+200]       ; cmasks[m] (disp32)
     movzx   edx, al
-    mov     ecx, r9d                   ; bpos
-    jecxz   .bp0
+    mov     ecx, r9d                   ; bpos (zero-extended to rcx)
+    jrcxz   .bp0
 
     dec     ecx
     mov     esi, [rsp]
@@ -244,9 +244,8 @@ decompress4kc:
     jns     .ul
 
     ; --- Write output bit ---
-    test    edi, edi
-    jz      .nw
-    mov     ecx, r9d                   ; bpos
+    mov     ecx, r9d
+    imul    ecx, edi                   ; 0 if bit==0 or bpos==0
     dec     ecx
     js      .nw
     xor     ecx, 7
