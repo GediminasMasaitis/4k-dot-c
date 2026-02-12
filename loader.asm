@@ -52,14 +52,8 @@ _start:
     push    START_LOCATION
 
 decompress4kc:
-    push    rbp
-    push    rbx
-    push    r12
-    push    r13
-    push    r14
-    push    r15
-    sub     rsp, 276
-    push    rsi                         ; [rsp]=output ptr
+    sub     rsp, 284
+    mov     [rsp], esi                  ; output ptr at [rsp+0]
 
     mov     eax, [rdi]
     movzx   r9d, byte [rdi+9]
@@ -117,7 +111,6 @@ decompress4kc:
     inc     eax
     xchg    ecx, eax
     mov     edi, G_HT
-    mov     [rsp+20], edi
     xor     eax, eax
     rep stosq
 
@@ -136,29 +129,14 @@ decompress4kc:
 
     mov     [rsp+12], eax              ; bpos = 0
 
-; ================= MAIN LOOP ===================
-.ml:mov     ecx, [rsp+12]
-    cmp     ecx, [rsp+16]
-    jl      .body
-
-.dn:pop     rax                         ; discard output ptr
-    add     rsp, 276
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbx
-    pop     rbp
-    ret
-
+; ================= MAIN LOOP (do-while, bitlength >= 1) ===================
 .body:
     mov     [rsp+24], r9d
     mov     [rsp+28], r9d
     xor     r12d, r12d
 
+; --- Model loop (do-while, num_models >= 1) ---
 .mdl:
-    cmp     r12d, r13d
-    jge     .mdd
     mov     eax, [rsp+r12*4+200]       ; cmasks[m] (disp32)
     movzx   edx, al
     mov     ecx, [rsp+12]
@@ -207,19 +185,17 @@ decompress4kc:
 .hr:and     eax, [rsp+4]
     mov     edi, eax
     and     eax, [rsp+8]
-    mov     esi, [rsp+20]
+    mov     esi, G_HT
 .pb:lea     ecx, [rsi+rax*8]
     cmp     byte [rcx+6], 0
-    jne     .pu
-    mov     [rcx], edi
-    inc     byte [rcx+6]
-    jmp     .po
-.pu:cmp     [rcx], edi
+    je      .pe
+    cmp     [rcx], edi
     je      .po
     inc     eax
     and     eax, [rsp+8]
     jmp     .pb
-
+.pe:mov     [rcx], edi
+    inc     byte [rcx+6]
 .po:mov     [rsp+32+r12*4], ecx        ; ent[m] (disp8)
     movzx   eax, byte [rcx+4]
     movzx   edi, byte [rcx+5]
@@ -235,7 +211,8 @@ decompress4kc:
     add     [rsp+28], edi
 
     inc     r12d
-    jmp     .mdl
+    cmp     r12d, r13d
+    jl      .mdl
 
 .mdd:
     mov     eax, ebp
@@ -292,7 +269,13 @@ decompress4kc:
     bts     [rdx], ecx
 
 .nw:inc     dword [rsp+12]
-    jmp     .ml
+    mov     ecx, [rsp+12]
+    cmp     ecx, [rsp+16]
+    jl      .body
+
+; --- Done ---
+.dn:add     rsp, 284
+    ret
 
 ; ========================= Payload ===============================
 payload_compressed:
