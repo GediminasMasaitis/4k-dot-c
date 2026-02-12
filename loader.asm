@@ -12,15 +12,14 @@ org 0x300000
 ; Stack layout for up to 21 models (284 bytes):
 ;   [rsp+0]   output ptr (from push)
 ;   [rsp+4]   hashmask
-;   [rsp+8]   tinymask
-;   [rsp+12]  bpos
 ;   [rsp+16]  bitlength
-;   [rsp+20]  ht base
 ;   [rsp+24]  pr0
 ;   [rsp+28]  pr1
 ;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
 ;   [rsp+116] weights[21] (84 bytes, disp8)
 ;   [rsp+200] cmasks[21]  (84 bytes, disp32)
+; Registers: r9=bpos, r10=base_prob, r11=tinymask, r13=num_models
+;            r8=compressed_ptr, r14=bitpos, r15=value, ebp=range, ebx=low
 
 ; ===================== ELF Header =====================
 ehdr:
@@ -78,7 +77,7 @@ decompress4kc:
     shl     eax, cl
     dec     eax
     or      eax, 15
-    mov     [rsp+8], eax               ; tinymask
+    mov     r11d, eax                  ; tinymask in r11d
 
     ; --- Parse weightmask ---
     mov     eax, [rdi+4]
@@ -102,12 +101,9 @@ decompress4kc:
     ; --- Compressed data & hash table ---
 .wd:mov     ecx, r13d
     lea     r8, [rdi+rcx+11]
-    movzx   edx, byte [rdi+9]
-    mov     [rsp+20], edx              ; base_prob (permanent)
+    movzx   r10d, byte [rdi+9]        ; base_prob in r10d
 
-    mov     eax, [rsp+8]
-    inc     eax
-    xchg    ecx, eax
+    lea     ecx, [r11+1]
     mov     edi, G_HT
     xor     eax, eax
     rep stosq
@@ -129,9 +125,8 @@ decompress4kc:
 
 ; ================= MAIN LOOP (do-while, bitlength >= 1) ===================
 .body:
-    mov     eax, [rsp+20]             ; base_prob
-    mov     [rsp+24], eax
-    mov     [rsp+28], eax
+    mov     [rsp+24], r10d
+    mov     [rsp+28], r10d
     lea     r12d, [r13-1]              ; model counter = num_models-1 (countdown)
 
 ; --- Model loop (do-while, num_models >= 1) ---
@@ -139,7 +134,7 @@ decompress4kc:
     mov     eax, [rsp+r12*4+200]       ; cmasks[m] (disp32)
     movzx   edx, al
     mov     ecx, r9d                   ; bpos
-    jecxz   .hsb
+    jecxz   .bp0
 
     dec     ecx
     mov     esi, [rsp]
@@ -169,29 +164,23 @@ decompress4kc:
 .cs:add     dl, dl
     jmp     .cl
 
-.hsb:
+    ; bpos==0: output buffer is all zeros, reuse as zero source
+.bp0:
+    mov     esi, [rsp]
     imul    eax, eax, HMUL
     dec     eax
-.sl:test    dl, dl
-    jz      .hr
-    test    dl, 0x80
-    jz      .ss
-    imul    eax, eax, HMUL
-    dec     eax
-.ss:add     dl, dl
-    jmp     .sl
+    jmp     .cl
 
 .hr:and     eax, [rsp+4]
     mov     edi, eax
-    and     eax, [rsp+8]
-    mov     esi, G_HT
-.pb:lea     ecx, [rsi+rax*8]
+    and     eax, r11d
+.pb:lea     ecx, [rax*8+G_HT]
     cmp     byte [rcx+6], 0
     je      .pe
     cmp     [rcx], edi
     je      .po
     inc     eax
-    and     eax, [rsp+8]
+    and     eax, r11d
     jmp     .pb
 .pe:mov     [rcx], edi
     inc     byte [rcx+6]
