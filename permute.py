@@ -29,6 +29,7 @@ files_to_copy = [
     'Makefile',
     '4k.c',
     '64bit-noheader.ld',
+    'compressor',
 ]
 
 # ---------------------------------------------
@@ -215,9 +216,9 @@ def run_make_and_get_bits(cwd=None):
         print(e.output)
         print("cwd:", cwd)
         raise
-    m = re.search(r'Compressed bits:\s*(\d+)\b', proc.stdout)
+    m = re.search(r'Compressed:\s+(\d+)\s+bytes', proc.stdout)
     if not m:
-        raise RuntimeError("Failed to parse 'Compressed bits' from make output")
+        raise RuntimeError("Failed to parse 'Compressed: N bytes' from make output:\n" + proc.stdout)
     return int(m.group(1))
 
 def read_file(path):
@@ -231,7 +232,7 @@ def setup_workers():
             shutil.rmtree(workdir)
         os.makedirs(workdir)
         for fname in files_to_copy:
-            shutil.copy(fname, os.path.join(workdir, fname))
+            shutil.copy2(fname, os.path.join(workdir, fname))
 
 def build_worker_tree(root_nodes, group_id, perm, src_path, worker_id, correlated_ids, original_groups):
     content = render_tree(root_nodes, group_id, correlated_ids, perm, original_groups)
@@ -542,6 +543,12 @@ def main():
         print('Random shuffling enabled with no fixed seed')
 
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
+
+    # Build compressor once up front so workers can reuse the binary
+    print('Building compressor...')
+    subprocess.run(['make', 'compressor'], check=True)
+    os.chmod('compressor', 0o755)
+
     setup_workers()
 
     for run in range(1, num_runs + 1):
