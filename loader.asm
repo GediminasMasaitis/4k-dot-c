@@ -11,13 +11,12 @@ org 0x300000
 
 ; Stack layout for up to 21 models (284 bytes):
 ;   [rsp+0]   output ptr (from push)
-;   [rsp+16]  bitlength
 ;   [rsp+24]  pr0
 ;   [rsp+28]  pr1
 ;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
 ;   [rsp+116] weights[21] (84 bytes, disp8)
 ;   [rsp+200] cmasks[21]  (84 bytes, disp32)
-; Registers: r9=bpos, r10=base_prob, r11=tinymask, r13=num_models
+; Registers: r9=bpos, r10=bitlength, r11=tinymask, r13=num_models
 ;            r8=compressed_ptr, r14=bitpos, r15=value, ebp=range, ebx=low
 
 ehdr:
@@ -25,20 +24,26 @@ ehdr:
 
 load_input:
     mov     edi, payload_compressed
-    jmp     short setup_stack
+    jmp     short zero_ebx
     db      0
 
     dw      2
     dw      0x3E
-    dd      0
+
+zero_ebx:
+    xor     ebx, ebx
+    jmp     short setup_stack
+
     dq      load_input
     dq      56
 
 setup_stack:
-    push    START_LOCATION
-    sub     rsp, 276
+    enter   276, 0
+    movzx   eax, word [rdi]
+    mov     r10d, eax
     jmp     short load_output
 
+    dw      0
     dw      56
 
 phdr:
@@ -57,23 +62,20 @@ load_output:
 
 init_header:
     push    rsi
-    movzx   eax, word [rdi]
-    mov     [rsp+16], eax
+    mov     r13b, [rdi+6]
+    mul     r13d
 
 decompress4kc:
-    movzx   r13d, byte [rdi+6]
-    imul    eax, r13d
     dec     eax
     bsr     ecx, eax
     push    2
     pop     rax
     shl     eax, cl
     dec     eax
-    or      eax, 15
+    or      al, 15
     xchg    eax, r11d
     mov     eax, [rdi+2]
     xor     ecx, ecx
-    xor     edx, edx
 .wl:test    eax, eax
     jz      .wd
 .wo:add     eax, eax
@@ -89,35 +91,32 @@ decompress4kc:
     jmp     .wl
 .wd:mov     ecx, r13d
     lea     r8, [rdi+rcx+7]
-    push    10
-    pop     r10
     lea     ecx, [r11+1]
     mov     edi, G_HT
-    xor     eax, eax
     rep stosq
-    xor     r14d, r14d
-    xor     r15d, r15d
-    mov     ebp, 0x80000000
-    xor     ebx, ebx
-    push    31
-    pop     rcx
+    stc
+    rcr     eax, 1
+    xchg    eax, ebp
+    mov     cl, 31
 .il:bt      [r8], r14d
     adc     r15d, r15d
     inc     r14d
     loop    .il
-    xchg    eax, r9d
 .body:
-    mov     [rsp+24], r10d
-    mov     [rsp+28], r10d
+    push    10
+    pop     rax
+    lea     rdi, [rsp+24]
+    stosd
+    stosd
     lea     r12d, [r13-1]
 .mdl:
     mov     eax, [rsp+r12*4+200]
-    movzx   edx, al
+    mov     dl, al
+    mov     esi, [rsp]
     mov     ecx, r9d
     jrcxz   .bp0
 
     dec     ecx
-    mov     esi, [rsp]
     mov     edi, ecx
     shr     edi, 3
     add     esi, edi
@@ -128,6 +127,7 @@ decompress4kc:
     inc     ecx
     shr     edi, cl
     xor     eax, edi
+.hash_finish:
     imul    eax, eax, HMUL
     add     al, dil
     dec     eax
@@ -135,19 +135,16 @@ decompress4kc:
 .cl:test    dl, dl
     jz      .hr
     dec     esi
-    test    dl, 0x80
-    jz      .cs
+    add     dl, dl
+    jnc     .cl
     xor     al, [rsi]
     imul    eax, eax, HMUL
     add     al, [rsi]
     dec     eax
-.cs:add     dl, dl
     jmp     .cl
 .bp0:
-    mov     esi, [rsp]
-    imul    eax, eax, HMUL
-    dec     eax
-    jmp     .cl
+    xor     edi, edi
+    jmp     short .hash_finish
 
 .hr:mov     edi, eax
     and     eax, r11d
@@ -224,11 +221,10 @@ decompress4kc:
     bts     [rdx], ecx
 
 .nw:inc     r9d
-    cmp     r9d, [rsp+16]
+    cmp     r9d, r10d
     jl      .body
 
-.dn:add     rsp, 284
-    ret
+.dn:jmp     START_LOCATION
 
 payload_compressed:
     incbin  './build/4kc.paq'
