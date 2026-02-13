@@ -9142,8 +9142,18 @@ Output:      ./build/4kc.paq (3282 bytes, weightmask 108115FF)
 
 ELF smashing
 
-4 threads: 3917 bytes (-17)
+4 threads: 3917 bytes (-23)
 MD5: b8a5a22f080fcd9ad4349fc3ea7b1f6a
 
 1 thread: 3845 bytes (-23)
 MD5: 818c1ab1987ad509af7cfab9d9378f7f
+
+### 7.8
+
+More ELF smashing
+
+4 threads: 3910 bytes (-7)
+MD5: 9b9001d1747d92170205b26b14060023
+
+1 thread: 3845 bytes (-7)
+MD5: bcf6d5773f8092dfab13dabcfee2d0f8
