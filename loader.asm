@@ -96,7 +96,6 @@ decompress4kc:
     pop     r10
     lea     ecx, [r11+1]
     mov     edi, G_HT
-    xor     eax, eax
     rep stosq
     xor     r14d, r14d
     xor     r15d, r15d
@@ -114,11 +113,11 @@ decompress4kc:
 .mdl:
     mov     eax, [rsp+r12*4+200]
     movzx   edx, al
+    mov     esi, [rsp]
     mov     ecx, r9d
     jrcxz   .bp0
 
     dec     ecx
-    mov     esi, [rsp]
     mov     edi, ecx
     shr     edi, 3
     add     esi, edi
@@ -145,7 +144,6 @@ decompress4kc:
 .cs:add     dl, dl
     jmp     .cl
 .bp0:
-    mov     esi, [rsp]
     imul    eax, eax, HMUL
     dec     eax
     jmp     .cl
@@ -216,9 +214,10 @@ decompress4kc:
     shr     byte [rax+4+rsi], 1
 .nh:dec     ecx
     jns     .ul
-    test    edi, edi
-    jz      .nw
-    lea     ecx, [r9-1]
+    mov     ecx, r9d
+    imul    ecx, edi
+    dec     ecx
+    js      .nw
     xor     ecx, 7
     mov     edx, [rsp]
     bts     [rdx], ecx
