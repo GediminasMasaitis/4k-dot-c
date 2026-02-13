@@ -134,13 +134,12 @@ decompress4kc:
 .cl:test    dl, dl
     jz      .hr
     dec     esi
-    test    dl, 0x80
-    jz      .cs
+    add     dl, dl
+    jnc     .cl
     xor     al, [rsi]
     imul    eax, eax, HMUL
     add     al, [rsi]
     dec     eax
-.cs:add     dl, dl
     jmp     .cl
 .bp0:
     imul    eax, eax, HMUL
