@@ -1007,11 +1007,10 @@ static int Compress4k(const unsigned char *data, const int data_size,
   AritCodeInit(&arit_state, out_data);
   CompressFromHashBits(&arit_state, &hb, hash_table, baseprob, hashsize);
   const int compressed_bits = AritCodeEnd(&arit_state);
-  const int compressed_bytes = (compressed_bits + 7) / 8;
 
   free(hash_table);
   HB_free(&hb);
-  return compressed_bytes;
+  return compressed_bits;
 }
 
 static unsigned int ApproximateWeights(CState *cs, ModelList4k *ml) {
@@ -1307,11 +1306,12 @@ int main(int argc, char *argv[]) {
   int max_output = data_size + 1024;
   unsigned char *output_buf = (unsigned char *)malloc(max_output);
   int hashsize = 1024 * 1024 * 1024;
-  int compressed_size = Compress4k(data, data_size, output_buf, max_output, &ml,
+  int compressed_bits = Compress4k(data, data_size, output_buf, max_output, &ml,
                                    baseprob, hashsize);
+  int compressed_size = (compressed_bits + 7) / 8;
 
-  printf("Compressed:  %d bytes (%.2f%%)\n", compressed_size,
-         100.0f * compressed_size / data_size);
+  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", compressed_size,
+         compressed_bits, 100.0f * compressed_size / data_size);
 
   unsigned char sorted_masks[MAX_MODELS_N];
   unsigned int weightmask = ML_GetMaskList(&ml, sorted_masks, 1);

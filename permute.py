@@ -10,6 +10,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import random
 
+def fmt_bits(bits):
+    if bits == float('inf'):
+        return 'N/A'
+    return f'{bits}b ({bits/8:.3f}B)'
+
 # Maximum number of parallel builds in each pass
 max_parallelism = 12
 
@@ -216,9 +221,9 @@ def run_make_and_get_bits(cwd=None):
         print(e.output)
         print("cwd:", cwd)
         raise
-    m = re.search(r'Compressed:\s+(\d+)\s+bytes', proc.stdout)
+    m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
     if not m:
-        raise RuntimeError("Failed to parse 'Compressed: N bytes' from make output:\n" + proc.stdout)
+        raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from make output:\n" + proc.stdout)
     return int(m.group(1))
 
 def read_file(path):
@@ -259,9 +264,9 @@ def stage_one(src_path, iteration, pass_best, stats_prefix):
     stats_bar = tqdm(
         total=1,
         desc=(
-            f'{stats_prefix}   Run best: {pass_best["best"]}B'
-            f'   Global best: {(str(global_best_size) if global_best_size < float("inf") else "N/A")}B'
-            f'   Saved this run: {saved_run}B'
+            f'{stats_prefix}   Run best: {fmt_bits(pass_best["best"])}'
+            f'   Global best: {fmt_bits(global_best_size)}'
+            f'   Saved this run: {fmt_bits(saved_run)}'
         ),
         bar_format='{desc}',
         position=0,
@@ -354,9 +359,9 @@ def stage_one(src_path, iteration, pass_best, stats_prefix):
                         is_new_run_best = True
                         saved_run = pass_best['initial'] - pass_best['best']
                         stats_bar.set_description(
-                            f'{stats_prefix}   Run best: {pass_best["best"]}B'
-                            f'   Global best: {(str(global_best_size) if global_best_size < float("inf") else "N/A")}B'
-                            f'   Saved this run: {saved_run}B'
+                            f'{stats_prefix}   Run best: {fmt_bits(pass_best["best"])}'
+                            f'   Global best: {fmt_bits(global_best_size)}'
+                            f'   Saved this run: {fmt_bits(saved_run)}'
                         )
                     is_new_global = False
                     if size < global_best_size:
@@ -364,11 +369,11 @@ def stage_one(src_path, iteration, pass_best, stats_prefix):
                         global_best_src = content
                         with open('global_best.c', 'w') as gf:
                             gf.write(global_best_src)
-                        print(f'*** New GLOBAL best: {global_best_size}B. Saved to global_best.c ***')
+                        print(f'*** New GLOBAL best: {fmt_bits(global_best_size)}. Saved to global_best.c ***')
                         is_new_global = True
 
                 tag = "NEW GLOBAL BEST!" if is_new_global else ("NEW RUN BEST!" if is_new_run_best else "")
-                group_bar.write(f'[{stats_prefix} pass {iteration}] {identifier} perm size: {size} {tag}')
+                group_bar.write(f'[{stats_prefix} pass {iteration}] {identifier} perm size: {fmt_bits(size)} {tag}')
                 group_bar.update(1)
                 total_bar.update(1)
 
@@ -434,9 +439,9 @@ def stage_one(src_path, iteration, pass_best, stats_prefix):
                         is_new_run_best = True
                         saved_run = pass_best['initial'] - pass_best['best']
                         stats_bar.set_description(
-                            f'{stats_prefix}   Run best: {pass_best["best"]}B'
-                            f'   Global best: {(str(global_best_size) if global_best_size < float("inf") else "N/A")}B'
-                            f'   Saved this run: {saved_run}B'
+                            f'{stats_prefix}   Run best: {fmt_bits(pass_best["best"])}'
+                            f'   Global best: {fmt_bits(global_best_size)}'
+                            f'   Saved this run: {fmt_bits(saved_run)}'
                         )
                     is_new_global = False
                     if size < global_best_size:
@@ -444,11 +449,11 @@ def stage_one(src_path, iteration, pass_best, stats_prefix):
                         global_best_src = content
                         with open('global_best.c', 'w') as gf:
                             gf.write(global_best_src)
-                        print(f'*** New GLOBAL best: {global_best_size}B. Saved to global_best.c ***')
+                        print(f'*** New GLOBAL best: {fmt_bits(global_best_size)}. Saved to global_best.c ***')
                         is_new_global = True
 
                 tag = "NEW GLOBAL BEST!" if is_new_global else ("NEW RUN BEST!" if is_new_run_best else "")
-                group_bar.write(f'[{stats_prefix} pass {iteration}] {base} perm size: {size} {tag}')
+                group_bar.write(f'[{stats_prefix} pass {iteration}] {base} perm size: {fmt_bits(size)} {tag}')
                 group_bar.update(1)
                 total_bar.update(1)
 
@@ -517,11 +522,11 @@ def stage_static(src_path, pass_best, stats_prefix):
                     global_best_src = variant
                     with open('global_best.c', 'w') as gf:
                         gf.write(global_best_src)
-                    print(f'*** New GLOBAL best via static toggle: {size}B ***')
+                    print(f'*** New GLOBAL best via static toggle: {fmt_bits(size)} ***')
                     global_improved = True
 
             tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {size} {tag}')
+            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {fmt_bits(size)} {tag}')
             stats_bar.update(1)
 
     stats_bar.close()
@@ -612,8 +617,8 @@ def main():
         pass_best = {'initial': size, 'best': size, 'best_content': content}
 
         print(f'\n=== Starting run {run}/{num_runs} ===')
-        print(f'Run {run} initial size: {size}B')
-        print(f'Global best so far: {global_best_size if global_best_size < float("inf") else "N/A"}B')
+        print(f'Run {run} initial size: {fmt_bits(size)}')
+        print(f'Global best so far: {fmt_bits(global_best_size)}')
 
         iteration = 1
         while True:
@@ -632,10 +637,10 @@ def main():
                 break
             iteration += 1
 
-        print(f'=== Run {run} completed. Run-best size: {pass_best["best"]}B ===')
-        print(f'Global best after run {run}: {global_best_size}B\n')
+        print(f'=== Run {run} completed. Run-best size: {fmt_bits(pass_best["best"])} ===')
+        print(f'Global best after run {run}: {fmt_bits(global_best_size)}\n')
 
-    print(f'\nAll runs completed. Global best size: {global_best_size}B')
+    print(f'\nAll runs completed. Global best size: {fmt_bits(global_best_size)}')
     if global_best_src is not None:
         with open('global_best.c', 'w') as gf:
             gf.write(global_best_src)
