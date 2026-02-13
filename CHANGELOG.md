@@ -8952,7 +8952,7 @@ Calculating models... 256/256
 Estimated:   3285.951 bytes
 Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 90:2 50:1 AC:3 29:2 B0:3 48:0 88:1 32:1 CA:3 5A:3 95:5
 Compressed:  3272 bytes (63.21%)
-Output:      ./build/4kc.4kc (3301 bytes, weightmask 20820DFF)
+Output:      ./build/4kc.paq (3301 bytes, weightmask 20820DFF)
 ```
 
 4 threads:
@@ -8964,5 +8964,76 @@ Calculating models... 256/256
 Estimated:   3391.935 bytes
 Models:      00:1 80:2 40:1 C0:3 20:0 A0:3 60:2 A9:5 30:0 90:2 50:1 88:1 2C:1 B8:3 94:3 49:3 0C:0
 Compressed:  3378 bytes (63.22%)
-Output:      ./build/4kc.4kc (3406 bytes, weightmask 10441BFF)
+Output:      ./build/4kc.paq (3406 bytes, weightmask 10441BFF)
+```
+
+### 7.1
+
+Blackbox after PAQ
+
+4 threads: 3980 bytes (-41)
+MD5: d13561ab73074fc0fb5750d2b011cf0e
+
+1 thread: 3903 bytes (-13)
+MD5: 1b100a00987cc5f58a06ccc5504530e9
+
+1 thread:
+```py
+Input:       ./build/4kc (5154 bytes)
+Mode:        SLOW
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3273.560 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 50:1 90:2 30:0 B0:3 88:2 A9:4 5A:3 44:1 29:2 32:1 41:0 97:5
+Compressed:  3258 bytes (63.21%)
+Output:      ./build/4kc.paq (3288 bytes, weightmask 10408AFF)
+```
+
+4 threads:
+```py
+Input:       ./build/4kc (5298 bytes)
+Mode:        SLOW
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3352.282 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 90:2 50:1 30:0 B0:3 88:1 58:2 32:1 4C:2 A4:2 41:0 A9:4 2D:2 9D:5
+Compressed:  3334 bytes (62.93%)
+Output:      ./build/4kc.paq (3365 bytes, weightmask 1040257E)
+```
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 325821
+info depth 1 score cp 31 time 0 nodes 38 nps 331617 pv b1c3
+info depth 2 score cp 17 time 0 nodes 114 nps 387130 pv b1c3
+info depth 3 score cp 27 time 0 nodes 234 nps 623296 pv b1c3
+info depth 4 score cp 17 time 0 nodes 382 nps 733482 pv b1c3
+info depth 5 score cp 3 time 0 nodes 583 nps 840883 pv b1c3
+info depth 6 score cp 15 time 0 nodes 902 nps 956815 pv b1c3
+info depth 7 score cp 15 time 2 nodes 2412 nps 1129732 pv b1c3
+info depth 8 score cp 17 time 2 nodes 3530 nps 1178739 pv b1c3
+info depth 9 score cp 18 time 9 nodes 11122 nps 1195747 pv g1f3
+info depth 10 score cp 3 upperbound time 13 nodes 16346 nps 1214526
+info depth 10 score cp 17 time 23 nodes 31141 nps 1311878 pv g1f3
+info depth 11 score cp 14 time 39 nodes 56666 nps 1427399 pv g1f3
+info depth 12 score cp 14 time 101 nodes 173831 nps 1704769 pv e2e4
+info depth 13 score cp 14 time 166 nodes 318662 nps 1909974 pv b1c3
+info depth 14 score cp 14 time 219 nodes 431515 nps 1962484 pv b1c3
+info depth 15 score cp 18 time 400 nodes 843116 nps 2104867 pv d2d4
+info depth 16 score cp 10 time 858 nodes 1867815 nps 2175346 pv d2d4
+info depth 17 score cp 11 time 1068 nodes 2320678 nps 2171312 pv d2d4
+info depth 18 score cp 16 time 1867 nodes 4035050 nps 2160575 pv d2d4
+info depth 19 score cp 16 time 2600 nodes 5609184 nps 2157259 pv d2d4
+info depth 20 score cp 25 time 4038 nodes 8578993 nps 2124208 pv e2e4
+info depth 21 score cp 32 time 5143 nodes 10912214 nps 2121737 pv e2e4
+info depth 22 score cp 28 time 6460 nodes 13794915 nps 2135426 pv e2e4
+13794915 nodes 2135413 nps
+```
+
+```py
+Elo   | -13.98 +- 25.77 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=1MB
+LLR   | -0.25 (-2.94, 2.94) [-5.00, 0.00]
+Games | N: 348 W: 92 L: 106 D: 150
+Penta | [10, 48, 76, 26, 14]
+https://gedas.pythonanywhere.com/test/1672/
 ```
