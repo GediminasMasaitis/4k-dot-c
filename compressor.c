@@ -211,11 +211,15 @@ typedef struct {
 } Weights;
 
 typedef struct {
-  uint16_t prob[NPV][8]; /* [group][0..3]=right_upper16, [4..7]=total_upper16 */
+  uint16_t right[PKG_SIZE]; /* upper 16 bits of right_prob floats */
+  uint16_t total[PKG_SIZE]; /* upper 16 bits of total_prob floats */
 } CompactPackage;
 
 typedef struct {
-  float prob[NPV][2][4]; /* [group][0=right,1=total][lane] */
+  float right[PKG_SIZE]; /* right probability sums, contiguous for vectorization
+                          */
+  float total[PKG_SIZE]; /* total probability sums, contiguous for vectorization
+                          */
 } Package;
 
 typedef struct {
@@ -536,13 +540,10 @@ static void CSEval_Init(CSEval *eval, ModelPredictions *models, int length,
   for (int i = 0; i < num_packages; i++) {
     float base_val = baseprob * log_scale;
     float total_active = baseprob * 2 * log_scale;
-    for (int j = 0; j < NPV; j++) {
-      float total_val =
-          (i * PKG_SIZE + j * 4 < length) ? total_active : base_val;
-      for (int k = 0; k < 4; k++) {
-        eval->packages[i].prob[j][0][k] = base_val;
-        eval->packages[i].prob[j][1][k] = total_val;
-      }
+    for (int n = 0; n < PKG_SIZE; n++) {
+      eval->packages[i].right[n] = base_val;
+      eval->packages[i].total[n] =
+          (i * PKG_SIZE + n < length) ? total_active : base_val;
     }
     int remain = length - i * PKG_SIZE;
     if (remain > PKG_SIZE) {
@@ -570,6 +571,7 @@ static void ChangeWeight_job(int job_idx, void *vctx) {
 
   float delta_weight = ctx->delta_weight * eval->log_scale;
 
+  /* Polynomial coefficients for fast log2 mantissa approximation */
   static const float LOG2_C0 = 1.42286530448213f;
   static const float LOG2_C1 = -0.58208536795165f;
   static const float LOG2_C2 = 0.15922006346951f;
@@ -587,28 +589,33 @@ static void ChangeWeight_job(int job_idx, void *vctx) {
     Package *sum = &sum_packages[offset];
     CompactPackage *model = &model_packages[pkg_idx];
 
+    /* --- Pass 1: expand model uint16 → float and update sums --------
+       This is a flat loop over PKG_SIZE (64) contiguous elements with
+       no loop-carried dependencies — ideal for auto-vectorization. */
+    for (int n = 0; n < PKG_SIZE; n++) {
+      uint32_t rb = (uint32_t)model->right[n] << 16;
+      uint32_t tb = (uint32_t)model->total[n] << 16;
+      float mr, mt;
+      memcpy(&mr, &rb, sizeof(float));
+      memcpy(&mt, &tb, sizeof(float));
+      sum->right[n] += mr * delta_weight;
+      sum->total[n] += mt * delta_weight;
+    }
+
+    /* --- Pass 2: reduce products across NPV groups per 4 lanes ------ */
     float prod_right[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     float prod_total[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-
     for (int I = 0; I < NPV; I++) {
       for (int k = 0; k < 4; k++) {
-        uint32_t right_bits = (uint32_t)model->prob[I][k] << 16;
-        uint32_t total_bits = (uint32_t)model->prob[I][4 + k] << 16;
-        float model_right, model_total;
-        memcpy(&model_right, &right_bits, sizeof(float));
-        memcpy(&model_total, &total_bits, sizeof(float));
-
-        sum->prob[I][0][k] += model_right * delta_weight;
-        sum->prob[I][1][k] += model_total * delta_weight;
-        prod_right[k] *= sum->prob[I][0][k];
-        prod_total[k] *= sum->prob[I][1][k];
+        prod_right[k] *= sum->right[I * 4 + k];
+        prod_total[k] *= sum->total[I * 4 + k];
       }
     }
 
+    /* --- Pass 3: fast log2 via IEEE 754 bit tricks, then sum lanes --- */
     int new_pkg_size = 0;
     for (int k = 0; k < 4; k++) {
-      uint32_t rb;
-      uint32_t tb;
+      uint32_t rb, tb;
       memcpy(&rb, &prod_right[k], sizeof(uint32_t));
       memcpy(&tb, &prod_total[k], sizeof(uint32_t));
 
@@ -752,10 +759,11 @@ static ModelPredictions CS_ApplyModel(const unsigned char *data, int bit_length,
             (float)((entry->weights.prob[0] + entry->weights.prob[1]) << boost);
         UpdateWeights(&entry->weights, bit);
       }
-      uint16_t *packed =
-          (uint16_t *)&packages[num_packages].prob[bit_offset >> 2];
-      packed[bit_offset & 3] = *(int *)&right_prob >> 16;
-      packed[4 + (bit_offset & 3)] = *(int *)&total_prob >> 16;
+      uint32_t rb, tb;
+      memcpy(&rb, &right_prob, sizeof(uint32_t));
+      memcpy(&tb, &total_prob, sizeof(uint32_t));
+      packages[num_packages].right[bit_offset] = (uint16_t)(rb >> 16);
+      packages[num_packages].total[bit_offset] = (uint16_t)(tb >> 16);
     }
     offsets[num_packages] = pkg_idx;
     if (needs_commit) {
