@@ -97,15 +97,14 @@ decompress4kc:
     lea     ecx, [r11+1]
     mov     edi, G_HT
     rep stosq
-    xor     r14d, r14d
-    xor     r15d, r15d
-    mov     ebp, 0x80000000
+    stc
+    rcr     eax, 1
+    xchg    eax, ebp
     mov     cl, 31
 .il:bt      [r8], r14d
     adc     r15d, r15d
     inc     r14d
     loop    .il
-    xchg    eax, r9d
 .body:
     mov     [rsp+24], r10d
     mov     [rsp+28], r10d
