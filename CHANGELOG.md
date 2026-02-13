@@ -9037,3 +9037,13 @@ Games | N: 348 W: 92 L: 106 D: 150
 Penta | [10, 48, 76, 26, 14]
 https://gedas.pythonanywhere.com/test/1672/
 ```
+
+### 7.2
+
+Bits in PAQ header
+
+4 threads: 3974 bytes (-6)
+MD5: 9e421edcb7326ce76d3f9d09261b5ecd
+
+1 thread: 3897 bytes (-6)
+MD5: 3c8594dd61006a812d7c0dca04178882

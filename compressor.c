@@ -1132,18 +1132,26 @@ int main(int argc, char *argv[]) {
   int num_models = ml.nmodels;
   int hashbits = bsr(hashsize);
 
-  unsigned char header[11];
-  header[0] = data_size;
-  header[1] = data_size >> 8;
-  header[2] = data_size >> 16;
-  header[3] = data_size >> 24;
-  header[4] = weightmask;
-  header[5] = weightmask >> 8;
-  header[6] = weightmask >> 16;
-  header[7] = weightmask >> 24;
-  header[8] = num_models;
-  header[9] = baseprob;
-  header[10] = hashbits;
+  int bitlength = data_size * 8 + 1;
+  if (bitlength > 65535) {
+    fprintf(stderr,
+            "Input too large for 16-bit bitlength (%d bits, max 65535)\n",
+            bitlength);
+    free(output_buf);
+    free(data);
+    return 1;
+  }
+
+  unsigned char header[9];
+  header[0] = bitlength;
+  header[1] = bitlength >> 8;
+  header[2] = weightmask;
+  header[3] = weightmask >> 8;
+  header[4] = weightmask >> 16;
+  header[5] = weightmask >> 24;
+  header[6] = num_models;
+  header[7] = baseprob;
+  header[8] = hashbits;
 
   FILE *out_file = fopen(output_file, "wb");
   if (!out_file) {
@@ -1153,13 +1161,13 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  fwrite(header, 1, 11, out_file);
+  fwrite(header, 1, 9, out_file);
   fwrite(sorted_masks, 1, num_models, out_file);
   fwrite(output_buf, 1, compressed_size, out_file);
   fclose(out_file);
 
   printf("Output:      %s (%d bytes, weightmask %08X)\n", output_file,
-         11 + num_models + compressed_size, weightmask);
+         9 + num_models + compressed_size, weightmask);
 
   free(output_buf);
   free(data);
