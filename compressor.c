@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <emmintrin.h>
 #include <getopt.h>
 #include <limits.h>
 #include <math.h>
@@ -10,13 +9,20 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Portable 128-bit SIMD via GCC/Clang vector extensions.
+   Maps to SSE on x86, NEON on ARM, etc. — no platform headers needed. */
+typedef float    v4f __attribute__((vector_size(16)));
+typedef uint32_t v4u __attribute__((vector_size(16)));
+typedef int32_t  v4i __attribute__((vector_size(16)));
+typedef uint16_t v8u16 __attribute__((vector_size(16)));
+
 static inline unsigned int bsr(unsigned int value) {
   return value ? 31 - __builtin_clz(value) : 0;
 }
 
-static inline void *aligned_alloc16(size_t size) {
+static inline void *aligned_alloc32(size_t size) {
   void *ptr = NULL;
-  posix_memalign(&ptr, 16, size);
+  posix_memalign(&ptr, 32, size);
   return ptr;
 }
 
@@ -212,11 +218,11 @@ typedef struct {
 } Weights;
 
 typedef struct {
-  __m128i prob[NPV];
+  uint16_t prob[NPV][8]; /* [group][0..3]=right, [4..7]=total — interleaved, matches original */
 } CompactPackage;
 
 typedef struct {
-  __m128 prob[NPV][2];
+  v4f prob[NPV][2]; /* [group][0=right, 1=total] — interleaved, same cache line */
 } Package;
 
 typedef struct {
@@ -532,16 +538,17 @@ static void CSEval_Init(CSEval *eval, ModelPredictions *models, int length,
   eval->baseprob = baseprob;
   eval->log_scale = log_scale;
   int num_packages = (length + PKG_SIZE - 1) / PKG_SIZE;
-  eval->packages = (Package *)aligned_alloc16(num_packages * sizeof(Package));
+  eval->packages = (Package *)aligned_alloc32(num_packages * sizeof(Package));
   eval->package_sizes = (unsigned *)malloc(num_packages * sizeof(unsigned));
+  float bv = baseprob * log_scale;
+  float tv = baseprob * 2 * log_scale;
+  v4f base_v = {bv, bv, bv, bv};
+  v4f total_active = {tv, tv, tv, tv};
   for (int i = 0; i < num_packages; i++) {
     for (int j = 0; j < NPV; j++) {
-      eval->packages[i].prob[j][0] = _mm_set1_ps(baseprob * log_scale);
-      if (i * PKG_SIZE + j * 4 < length) {
-        eval->packages[i].prob[j][1] = _mm_set1_ps(baseprob * 2 * log_scale);
-      } else {
-        eval->packages[i].prob[j][1] = _mm_set1_ps(baseprob * log_scale);
-      }
+      eval->packages[i].prob[j][0] = base_v;
+      eval->packages[i].prob[j][1] =
+          (i * PKG_SIZE + j * 4 < length) ? total_active : base_v;
     }
     int remain = length - i * PKG_SIZE;
     if (remain > PKG_SIZE) {
@@ -567,15 +574,20 @@ static void ChangeWeight_job(int job_idx, void *vctx) {
   int model_idx = ctx->model_index;
   int pkg_base = job_idx * ctx->packages_per_job;
 
-  __m128 vec_delta_weight = _mm_set1_ps(ctx->delta_weight * eval->log_scale);
-  __m128i vec_zero = _mm_setzero_si128();
-  __m128 vec_one = _mm_set1_ps(1.0f);
+  float dw = ctx->delta_weight * eval->log_scale;
+  const v4f vdw = {dw, dw, dw, dw};
+  const v4f vone = {1, 1, 1, 1};
 
-  __m128 log2_coeff0 = _mm_set1_ps(1.42286530448213f);
-  __m128 log2_coeff1 = _mm_set1_ps(-0.58208536795165f);
-  __m128 log2_coeff2 = _mm_set1_ps(0.15922006346951f);
-  __m128 vec_precision = _mm_set1_ps((float)TABLE_BIT_PRECISION);
-  __m128i mantissa_mask = _mm_set1_epi32(0x7fffff);
+  static const float LOG2_C0 = 1.42286530448213f;
+  static const float LOG2_C1 = -0.58208536795165f;
+  static const float LOG2_C2 = 0.15922006346951f;
+  const v4f vc0 = {LOG2_C0, LOG2_C0, LOG2_C0, LOG2_C0};
+  const v4f vc1 = {LOG2_C1, LOG2_C1, LOG2_C1, LOG2_C1};
+  const v4f vc2 = {LOG2_C2, LOG2_C2, LOG2_C2, LOG2_C2};
+  const v4f vprec = {TABLE_BIT_PRECISION, TABLE_BIT_PRECISION,
+                     TABLE_BIT_PRECISION, TABLE_BIT_PRECISION};
+  const v4u vmant = {0x7fffff, 0x7fffff, 0x7fffff, 0x7fffff};
+  const v4u vexp1 = {0x3f800000, 0x3f800000, 0x3f800000, 0x3f800000};
 
   Package *sum_packages = eval->packages;
   CompactPackage *model_packages = eval->models[model_idx].packages;
@@ -590,70 +602,71 @@ static void ChangeWeight_job(int job_idx, void *vctx) {
     Package *sum = &sum_packages[offset];
     CompactPackage *model = &model_packages[pkg_idx];
 
-    __m128 prod_right = vec_one;
-    __m128 prod_total = vec_one;
+    v4f prod_right = vone;
+    v4f prod_total = vone;
 
-#define DO(I)                                                                  \
-  {                                                                            \
-    __m128 sum_right = sum->prob[I][0];                                        \
-    __m128 sum_total = sum->prob[I][1];                                        \
-    __m128i packed = model->prob[I];                                           \
-    sum_right = _mm_add_ps(                                                    \
-        sum_right,                                                             \
-        _mm_mul_ps(_mm_castsi128_ps(_mm_unpacklo_epi16(vec_zero, packed)),     \
-                   vec_delta_weight));                                         \
-    sum_total = _mm_add_ps(                                                    \
-        sum_total,                                                             \
-        _mm_mul_ps(_mm_castsi128_ps(_mm_unpackhi_epi16(vec_zero, packed)),     \
-                   vec_delta_weight));                                         \
-    sum->prob[I][0] = sum_right;                                               \
-    sum->prob[I][1] = sum_total;                                               \
-    prod_right = _mm_mul_ps(prod_right, sum_right);                            \
-    prod_total = _mm_mul_ps(prod_total, sum_total);                            \
-  }
+    /* Fused update+product pass, fully unrolled. Each iteration:
+       - loads 8 interleaved uint16 (right+total) in one 128-bit load
+       - unpacks to separate right/total via shuffle (→ punpcklwd/punpckhwd on x86)
+       - updates sum with weighted prediction (→ vfmadd on FMA-capable CPUs)
+       - accumulates per-lane products (serial dependency across iterations) */
+    const v8u16 vzero16 = {};
+#pragma GCC unroll 16
+    for (int I = 0; I < NPV; I++) {
+      /* Single 128-bit load of interleaved [r0,r1,r2,r3, t0,t1,t2,t3] */
+      v8u16 packed;
+      memcpy(&packed, model->prob[I], 16);
 
-    DO(0)
-    DO(1)
-    DO(2) DO(3) DO(4) DO(5) DO(6) DO(7) DO(8) DO(9) DO(10) DO(11) DO(12) DO(13)
-        DO(14) DO(15)
-#undef DO
+      /* Separate right/total: interleave with zeros at 16-bit granularity,
+         placing each uint16 in the upper 16 bits of a 32-bit lane.
+         On x86 → punpcklwd / punpckhwd; on ARM → equivalent zip/uzp. */
+      v8u16 right_i = __builtin_shufflevector(vzero16, packed,
+                           0, 8, 1, 9, 2, 10, 3, 11);
+      v8u16 total_i = __builtin_shufflevector(vzero16, packed,
+                           4, 12, 5, 13, 6, 14, 7, 15);
+      v4f fmr; memcpy(&fmr, &right_i, 16);
+      v4f fmt; memcpy(&fmt, &total_i, 16);
 
-            __m128i right_exponent =
-                _mm_srli_epi32(_mm_castps_si128(prod_right), 23);
-    __m128i total_exponent = _mm_srli_epi32(_mm_castps_si128(prod_total), 23);
-    __m128 right_log = _mm_castsi128_ps(
-        _mm_or_si128(_mm_and_si128(_mm_castps_si128(prod_right), mantissa_mask),
-                     _mm_castps_si128(vec_one)));
-    __m128 total_log = _mm_castsi128_ps(
-        _mm_or_si128(_mm_and_si128(_mm_castps_si128(prod_total), mantissa_mask),
-                     _mm_castps_si128(vec_one)));
+      /* Direct vector load → FMA → store (v4f members, naturally aligned) */
+      v4f sr = sum->prob[I][0];
+      v4f st = sum->prob[I][1];
+      sr += fmr * vdw;
+      st += fmt * vdw;
+      sum->prob[I][0] = sr;
+      sum->prob[I][1] = st;
 
-    right_log = _mm_sub_ps(right_log, vec_one);
-    right_log = _mm_mul_ps(
-        _mm_add_ps(_mm_mul_ps(_mm_add_ps(_mm_mul_ps(log2_coeff2, right_log),
-                                         log2_coeff1),
-                              right_log),
-                   log2_coeff0),
-        right_log);
-    total_log = _mm_sub_ps(total_log, vec_one);
-    total_log = _mm_mul_ps(
-        _mm_add_ps(_mm_mul_ps(_mm_add_ps(_mm_mul_ps(log2_coeff2, total_log),
-                                         log2_coeff1),
-                              total_log),
-                   log2_coeff0),
-        total_log);
+      prod_right *= sr;
+      prod_total *= st;
+    }
 
-    __m128i frac_part = _mm_cvtps_epi32(
-        _mm_mul_ps(_mm_sub_ps(total_log, right_log), vec_precision));
-    __m128i new_size = _mm_add_epi32(
-        _mm_slli_epi32(_mm_sub_epi32(total_exponent, right_exponent),
-                       TABLE_BIT_PRECISION_BITS),
-        frac_part);
-    new_size = _mm_add_epi32(
-        new_size, _mm_shuffle_epi32(new_size, _MM_SHUFFLE(1, 0, 3, 2)));
-    new_size = _mm_add_epi32(
-        new_size, _mm_shuffle_epi32(new_size, _MM_SHUFFLE(2, 3, 0, 1)));
-    int new_pkg_size = _mm_cvtsi128_si32(new_size);
+    /* Fast log2 via IEEE 754 bit tricks on the product vectors */
+    v4u rb = (v4u)prod_right;
+    v4u tb = (v4u)prod_total;
+
+    v4i right_exp = (v4i)(rb >> 23);
+    v4i total_exp = (v4i)(tb >> 23);
+
+    v4f rmf = (v4f)((rb & vmant) | vexp1);
+    v4f tmf = (v4f)((tb & vmant) | vexp1);
+
+    v4f rx = rmf - vone;
+    v4f tx = tmf - vone;
+    v4f right_log = rx * (vc0 + rx * (vc1 + rx * vc2));
+    v4f total_log = tx * (vc0 + tx * (vc1 + tx * vc2));
+
+    v4f frac_f = (total_log - right_log) * vprec;
+    v4i exp_diff = (total_exp - right_exp) << TABLE_BIT_PRECISION_BITS;
+
+    /* Horizontal sum across 4 lanes.
+       Use copysign(0.5, x)+x then truncate for round-to-nearest: avoids
+       lrintf() PLT call overhead while matching _mm_cvtps_epi32 closely. */
+    v4u sign = (v4u)frac_f & (v4u){0x80000000u, 0x80000000u,
+                                    0x80000000u, 0x80000000u};
+    v4f bias = (v4f)(sign | (v4u){0x3F000000u, 0x3F000000u,
+                                   0x3F000000u, 0x3F000000u}); /* ±0.5f */
+    v4i frac_i = __builtin_convertvector(frac_f + bias, v4i);
+    v4i sizes = exp_diff + frac_i;
+    int new_pkg_size = sizes[0] + sizes[1] + sizes[2] + sizes[3];
 
     int old_pkg_size = pkg_sizes[offset];
     pkg_sizes[offset] = new_pkg_size;
@@ -750,7 +763,7 @@ static ModelPredictions CS_ApplyModel(const unsigned char *data, int bit_length,
   int max_packages = (bit_length + PKG_SIZE - 1) / PKG_SIZE;
   int num_packages = 0;
   CompactPackage *packages =
-      (CompactPackage *)aligned_alloc16(max_packages * sizeof(CompactPackage));
+      (CompactPackage *)aligned_alloc32(max_packages * sizeof(CompactPackage));
   int *offsets = (int *)malloc(max_packages * sizeof(int));
   HashEntry *hash_table = (HashEntry *)calloc(table_size, sizeof(HashEntry));
 
