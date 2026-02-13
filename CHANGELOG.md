@@ -9047,3 +9047,15 @@ MD5: 9e421edcb7326ce76d3f9d09261b5ecd
 
 1 thread: 3897 bytes (-6)
 MD5: 3c8594dd61006a812d7c0dca04178882
+
+### 7.3
+
+* Remove baseprob from header
+* Remove hashbits from header
+* Use hashmask directly in loader
+
+4 threads: 3962 bytes (-12)
+MD5: 9e421edcb7326ce76d3f9d09261b5ecd
+
+1 thread: 3885 bytes (-12)
+MD5: 63327769d1b5978e9ba4bdf188f0d306

@@ -52,14 +52,8 @@ decompress4kc:
     sub     rsp, 276
     push    rsi
     movzx   eax, word [rdi]
-    movzx   ecx, byte [rdi+8]
     movzx   r13d, byte [rdi+6]
-    dec     ecx
-    push    1
-    pop     rsi
-    shl     esi, cl
-    dec     esi
-    mov     [rsp+4], esi
+    mov     dword [rsp+4], 0x1FFFFFFF
     mov     [rsp+16], eax
     imul    eax, r13d
     dec     eax
@@ -83,13 +77,14 @@ decompress4kc:
     jmp     .wo
 .wz:mov     [rsp+116+rcx*4], edx
     mov     ebp, eax
-    mov     bpl, [rdi+9+rcx]
+    mov     bpl, [rdi+7+rcx]
     mov     [rsp+200+rcx*4], ebp
     inc     ecx
     jmp     .wl
 .wd:mov     ecx, r13d
-    lea     r8, [rdi+rcx+9]
-    movzx   r10d, byte [rdi+7]
+    lea     r8, [rdi+rcx+7]
+    push    10
+    pop     r10
     lea     ecx, [r11+1]
     mov     edi, G_HT
     xor     eax, eax

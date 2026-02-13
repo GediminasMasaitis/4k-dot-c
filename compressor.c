@@ -1130,7 +1130,6 @@ int main(int argc, char *argv[]) {
   unsigned char sorted_masks[MAX_MODELS_N];
   unsigned int weightmask = ML_GetMaskList(&ml, sorted_masks, 1);
   int num_models = ml.nmodels;
-  int hashbits = bsr(hashsize);
 
   int bitlength = data_size * 8 + 1;
   if (bitlength > 65535) {
@@ -1142,7 +1141,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  unsigned char header[9];
+  unsigned char header[7];
   header[0] = bitlength;
   header[1] = bitlength >> 8;
   header[2] = weightmask;
@@ -1150,8 +1149,6 @@ int main(int argc, char *argv[]) {
   header[4] = weightmask >> 16;
   header[5] = weightmask >> 24;
   header[6] = num_models;
-  header[7] = baseprob;
-  header[8] = hashbits;
 
   FILE *out_file = fopen(output_file, "wb");
   if (!out_file) {
@@ -1161,13 +1158,13 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  fwrite(header, 1, 9, out_file);
+  fwrite(header, 1, 7, out_file);
   fwrite(sorted_masks, 1, num_models, out_file);
   fwrite(output_buf, 1, compressed_size, out_file);
   fclose(out_file);
 
   printf("Output:      %s (%d bytes, weightmask %08X)\n", output_file,
-         9 + num_models + compressed_size, weightmask);
+         7 + num_models + compressed_size, weightmask);
 
   free(output_buf);
   free(data);
