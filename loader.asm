@@ -69,7 +69,7 @@ decompress4kc:
     pop     rax
     shl     eax, cl
     dec     eax
-    or      eax, 15
+    or      al, 15
     xchg    eax, r11d
     mov     eax, [rdi+2]
     xor     ecx, ecx
@@ -99,8 +99,7 @@ decompress4kc:
     xor     r15d, r15d
     mov     ebp, 0x80000000
     xor     ebx, ebx
-    push    31
-    pop     rcx
+    mov     cl, 31
 .il:bt      [r8], r14d
     adc     r15d, r15d
     inc     r14d
@@ -215,10 +214,9 @@ decompress4kc:
     shr     byte [rax+4+rsi], 1
 .nh:dec     ecx
     jns     .ul
-    mov     ecx, r9d
-    imul    ecx, edi
-    dec     ecx
-    js      .nw
+    test    edi, edi
+    jz      .nw
+    lea     ecx, [r9-1]
     xor     ecx, 7
     mov     edx, [rsp]
     bts     [rdx], ecx
