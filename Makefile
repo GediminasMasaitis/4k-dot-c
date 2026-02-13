@@ -55,7 +55,7 @@ all:
 	$(MD5)
 
 compressor:
-	$(CC) -march=native -O3 -std=gnu2x -lpthread -lm -o compressor compressor.c
+	$(CC) -march=native -O3 -std=gnu2x -lm -o compressor compressor.c
 
 compress: compressor
 	$(MKDIR)
@@ -97,4 +97,5 @@ clean:
 	rm -f *.gcda
 	rm -f *.gcno
 	rm -f *.c.temp*
+	rm -f *.paq
 	rm -f compressor

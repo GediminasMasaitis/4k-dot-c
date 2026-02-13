@@ -13,6 +13,8 @@ old
 *.c.temp*
 *.bak
 *.exe
+*.ap
+*.paq
 
 best.c
 worker_*

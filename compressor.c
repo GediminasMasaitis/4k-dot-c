@@ -2,12 +2,10 @@
 #include <getopt.h>
 #include <limits.h>
 #include <math.h>
-#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 typedef float v4f __attribute__((vector_size(16)));
 typedef uint32_t v4u __attribute__((vector_size(16)));
@@ -39,143 +37,6 @@ static inline void *aligned_alloc32(size_t size) {
 #define PKG_SIZE (NPV * 4)
 
 enum { CT_INSTANT = 0, CT_FAST, CT_SLOW, CT_VERYSLOW };
-
-#define PAR_THRESHOLD 32
-
-typedef struct {
-  void (*fn)(int, void *);
-  void *ctx;
-  int next;
-  int end;
-  pthread_mutex_t mtx;
-} ParJob;
-
-static int g_nthreads;
-static pthread_t *g_threads;
-static ParJob g_job;
-static pthread_mutex_t g_start_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t g_start_cv = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t g_done_cv = PTHREAD_COND_INITIALIZER;
-static int g_generation = 0;
-static int g_active = 0;
-static int g_shutdown = 0;
-
-static void par_execute(void) {
-  for (;;) {
-    pthread_mutex_lock(&g_job.mtx);
-    int item = g_job.next++;
-    pthread_mutex_unlock(&g_job.mtx);
-    if (item >= g_job.end) {
-      break;
-    }
-    g_job.fn(item, g_job.ctx);
-    pthread_mutex_lock(&g_start_mtx);
-    g_active--;
-    if (g_active == 0) {
-      pthread_cond_signal(&g_done_cv);
-    }
-    pthread_mutex_unlock(&g_start_mtx);
-  }
-}
-
-static void *par_worker(void *arg) {
-  (void)arg;
-  int last_gen = 0;
-  for (;;) {
-    pthread_mutex_lock(&g_start_mtx);
-    while (!g_shutdown && g_generation == last_gen) {
-      pthread_cond_wait(&g_start_cv, &g_start_mtx);
-    }
-    if (g_shutdown) {
-      pthread_mutex_unlock(&g_start_mtx);
-      return NULL;
-    }
-    last_gen = g_generation;
-    pthread_mutex_unlock(&g_start_mtx);
-    par_execute();
-  }
-}
-
-static void par_init(void) {
-  g_nthreads = (int)sysconf(_SC_NPROCESSORS_ONLN);
-  if (g_nthreads <= 0) {
-    g_nthreads = 4;
-  }
-  if (g_nthreads > 1) {
-    g_nthreads--;
-  }
-  pthread_mutex_init(&g_job.mtx, NULL);
-  g_threads = (pthread_t *)malloc(g_nthreads * sizeof(pthread_t));
-  for (int i = 0; i < g_nthreads; i++) {
-    pthread_create(&g_threads[i], NULL, par_worker, NULL);
-  }
-}
-
-static void par_shutdown(void) {
-  pthread_mutex_lock(&g_start_mtx);
-  g_shutdown = 1;
-  pthread_cond_broadcast(&g_start_cv);
-  pthread_mutex_unlock(&g_start_mtx);
-  for (int i = 0; i < g_nthreads; i++) {
-    pthread_join(g_threads[i], NULL);
-  }
-  free(g_threads);
-}
-
-static void parallel_for(const int begin, const int end,
-                         void (*fn)(int, void *), void *ctx) {
-  const int count = end - begin;
-  if (count <= 0) {
-    return;
-  }
-  if (count < PAR_THRESHOLD) {
-    for (int i = begin; i < end; i++) {
-      fn(i, ctx);
-    }
-    return;
-  }
-  pthread_mutex_lock(&g_job.mtx);
-  g_job.fn = fn;
-  g_job.ctx = ctx;
-  g_job.next = begin;
-  g_job.end = end;
-  pthread_mutex_unlock(&g_job.mtx);
-
-  pthread_mutex_lock(&g_start_mtx);
-  g_active = count;
-  g_generation++;
-  pthread_cond_broadcast(&g_start_cv);
-  pthread_mutex_unlock(&g_start_mtx);
-
-  par_execute();
-
-  pthread_mutex_lock(&g_start_mtx);
-  while (g_active > 0) {
-    pthread_cond_wait(&g_done_cv, &g_start_mtx);
-  }
-  pthread_mutex_unlock(&g_start_mtx);
-}
-
-#define MAX_ACCUM_THREADS 128
-
-typedef struct {
-  int64_t vals[MAX_ACCUM_THREADS];
-} Combinable;
-
-static void comb_init(Combinable *comb) { memset(comb, 0, sizeof(*comb)); }
-
-static int64_t *comb_local(Combinable *comb) {
-  const unsigned slot = (unsigned)(uintptr_t)pthread_self() % MAX_ACCUM_THREADS;
-  return &comb->vals[slot];
-}
-
-static int64_t comb_sum(const Combinable *comb) {
-  int64_t total = 0;
-  for (int i = 0; i < MAX_ACCUM_THREADS; i++) {
-    total += comb->vals[i];
-  }
-  return total;
-}
 
 #define LOG_TABLE_SIZE (2 * TABLE_BIT_PRECISION)
 static int LogTable[LOG_TABLE_SIZE];
@@ -563,22 +424,11 @@ static void CSEval_Init(CSEval *eval, ModelPredictions *models,
   eval->compressed_size = (int64_t)length << TABLE_BIT_PRECISION_BITS;
 }
 
-typedef struct {
-  CSEval *eval;
-  int model_index;
-  int delta_weight;
-  Combinable accumulator;
-  int packages_per_job;
-  int num_packages;
-} ChangeWeightCtx;
+static int64_t CSEval_ChangeWeight(const CSEval *eval, const int model_idx,
+                                   const int delta_weight) {
+  const int num_packages = eval->models[model_idx].num_packages;
 
-static void ChangeWeight_job(const int job_idx, void *vctx) {
-  ChangeWeightCtx *ctx = (ChangeWeightCtx *)vctx;
-  const CSEval *eval = ctx->eval;
-  const int model_idx = ctx->model_index;
-  const int pkg_base = job_idx * ctx->packages_per_job;
-
-  float dw = ctx->delta_weight * eval->log_scale;
+  float dw = delta_weight * eval->log_scale;
   const v4f vdw = {dw, dw, dw, dw};
   const v4f vone = {1, 1, 1, 1};
 
@@ -599,9 +449,7 @@ static void ChangeWeight_job(const int job_idx, void *vctx) {
   const int *pkg_offsets = eval->models[model_idx].package_offsets;
 
   int64_t delta_size = 0;
-  for (int i = 0; i < ctx->packages_per_job && pkg_base + i < ctx->num_packages;
-       i++) {
-    const int pkg_idx = pkg_base + i;
+  for (int pkg_idx = 0; pkg_idx < num_packages; pkg_idx++) {
     const int offset = pkg_offsets[pkg_idx];
     Package *sum = &sum_packages[offset];
     const CompactPackage *model = &model_packages[pkg_idx];
@@ -662,23 +510,7 @@ static void ChangeWeight_job(const int job_idx, void *vctx) {
     pkg_sizes[offset] = new_pkg_size;
     delta_size += new_pkg_size - old_pkg_size;
   }
-  *comb_local(&ctx->accumulator) += delta_size;
-}
-
-static int64_t CSEval_ChangeWeight(CSEval *eval, const int model_idx,
-                                   const int delta_weight) {
-  const int num_packages = eval->models[model_idx].num_packages;
-  const int pkgs_per_job = 64;
-  const int num_jobs = (num_packages + pkgs_per_job - 1) / pkgs_per_job;
-  ChangeWeightCtx ctx;
-  ctx.eval = eval;
-  ctx.model_index = model_idx;
-  ctx.delta_weight = delta_weight;
-  ctx.packages_per_job = pkgs_per_job;
-  ctx.num_packages = num_packages;
-  comb_init(&ctx.accumulator);
-  parallel_for(0, num_jobs, ChangeWeight_job, &ctx);
-  return comb_sum(&ctx.accumulator);
+  return delta_size;
 }
 
 static int64_t CSEval_Evaluate(CSEval *eval, const ModelList4k *ml) {
@@ -794,18 +626,6 @@ static ModelPredictions CS_ApplyModel(const unsigned char *data,
   return result;
 }
 
-typedef struct {
-  const unsigned char *data;
-  int bit_length;
-  ModelPredictions *models;
-} ApplyModelCtx;
-
-static void ApplyModelJob(const int mask, void *vctx) {
-  const ApplyModelCtx *ctx = (ApplyModelCtx *)vctx;
-  ctx->models[mask] =
-      CS_ApplyModel(ctx->data, ctx->bit_length, (unsigned char)mask);
-}
-
 static CState *CState_new(const unsigned char *data, const int size,
                           const int baseprob, CSEval *eval,
                           const unsigned char *context) {
@@ -818,8 +638,10 @@ static CState *CState_new(const unsigned char *data, const int size,
   assert(baseprob >= 9);
   cs->log_scale = 1.0f / 2048.0f;
 
-  ApplyModelCtx apply_ctx = {padded_data + MAX_CTX, cs->size, cs->models};
-  parallel_for(0, 256, ApplyModelJob, &apply_ctx);
+  for (int mask = 0; mask < 256; mask++) {
+    cs->models[mask] =
+        CS_ApplyModel(padded_data + MAX_CTX, cs->size, (unsigned char)mask);
+  }
   free(padded_data);
 
   CSEval_Init(eval, cs->models, size * 8, baseprob, cs->log_scale);
@@ -940,11 +762,11 @@ static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
       hash_shift++;
     }
   }
-  uint32_t hash_reciprocal =
+  const uint32_t hash_reciprocal =
       (uint32_t)(((1ull << (hash_shift + 31)) + hashsize - 1) / hashsize);
-  uint32_t reciprocal_shift = hash_shift - 1u + 32u;
+  const uint32_t reciprocal_shift = hash_shift - 1u + 32u;
 
-  unsigned int tiny_size = hb->tiny_hash_size;
+  const unsigned int tiny_size = hb->tiny_hash_size;
   memset(hash_table, 0, tiny_size * sizeof(TinyHashEntry));
   TinyHashEntry *matched_entries[MAX_N_STREAM];
 
@@ -953,7 +775,7 @@ static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
     const int bit = hb->bits[bp];
     unsigned int probs[2] = {(unsigned)baseprob, (unsigned)baseprob};
     for (int m = 0; m < num_models; m++) {
-      uint32_t hash_val = hb->hashes[hash_pos++];
+      const uint32_t hash_val = hb->hashes[hash_pos++];
       const unsigned int reduced_hash =
           hash_val - (uint32_t)(((uint64_t)hash_val * hash_reciprocal) >>
                                 reciprocal_shift) *
@@ -970,7 +792,7 @@ static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
         if (entry->hash == reduced_hash) {
           matched_entries[m] = entry;
           const int weight_factor = hb->weights[m];
-          unsigned int shift =
+          const unsigned int shift =
               (1 - (((entry->prob[0] + 255) & (entry->prob[1] + 255)) >> 8)) *
                   2 +
               weight_factor;
@@ -1083,13 +905,14 @@ static unsigned int TryWeights(CState *cs, ModelList4k *ml,
   return ApproximateWeights(cs, ml);
 }
 
-typedef void ProgressCB(void *, int, int);
+static void ProgressUpdate(const void *userdata, const int current,
+                           const int total);
 
-static ModelList4k
-ApproximateModels4k(const unsigned char *data, const int size,
-                    const unsigned char context[MAX_CTX],
-                    const int compression_type, const int baseprob,
-                    int *out_size, ProgressCB *callback, void *callback_data) {
+static ModelList4k ApproximateModels4k(const unsigned char *data,
+                                       const int size,
+                                       const unsigned char context[MAX_CTX],
+                                       const int compression_type,
+                                       const int baseprob, int *out_size) {
   const int beam_width = (compression_type == CT_VERYSLOW) ? 3 : 1;
   const int EFLAG = INT_MIN;
   const int num_sets = beam_width * 2;
@@ -1175,9 +998,8 @@ ApproximateModels4k(const unsigned char *data, const int size,
       }
     }
 
-    if (callback) {
-      callback(callback_data, mask_idx + 1, 256);
-    }
+    printf("\rCalculating models... %d/%d", mask_idx + 1, 256);
+    fflush(stdout);
   }
 
   assert((model_sets[0].size & EFLAG) != 0);
@@ -1202,12 +1024,6 @@ ApproximateModels4k(const unsigned char *data, const int size,
   CSEval_destroy(&eval);
   free(model_sets);
   return best;
-}
-
-static void ProgressUpdate(void *userdata, const int current, const int total) {
-  (void)userdata;
-  printf("\rCalculating models... %d/%d", current, total);
-  fflush(stdout);
 }
 
 static void PrintUsage(const char *program) {
@@ -1284,7 +1100,6 @@ int main(int argc, char *argv[]) {
   fread(data, 1, data_size, file);
   fclose(file);
 
-  par_init();
   InitLogTable();
   InitCounterStates();
 
@@ -1294,9 +1109,8 @@ int main(int argc, char *argv[]) {
 
   unsigned char context[MAX_CTX] = {};
   int estimated_size = 0;
-  ModelList4k ml =
-      ApproximateModels4k(data, data_size, context, compression_type, baseprob,
-                          &estimated_size, ProgressUpdate, NULL);
+  ModelList4k ml = ApproximateModels4k(
+      data, data_size, context, compression_type, baseprob, &estimated_size);
 
   printf("\nEstimated:   %.3f bytes\n",
          estimated_size / (float)(BIT_PRECISION * 8));
@@ -1349,6 +1163,5 @@ int main(int argc, char *argv[]) {
 
   free(output_buf);
   free(data);
-  par_shutdown();
   return 0;
 }
