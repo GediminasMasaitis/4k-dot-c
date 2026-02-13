@@ -9059,3 +9059,13 @@ MD5: 9e421edcb7326ce76d3f9d09261b5ecd
 
 1 thread: 3885 bytes (-12)
 MD5: 63327769d1b5978e9ba4bdf188f0d306
+
+### 7.4
+
+Shift-out-zero to terminate weightmask loop
+
+4 threads: 3959 bytes (-3)
+MD5: 6aa79604c6f21d64d920bb95d0c57a7c
+
+1 thread: 3882 bytes (-3)
+MD5: 3ba588ccfc2b7cfa294f7c87de8a025b

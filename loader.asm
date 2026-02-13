@@ -69,9 +69,8 @@ decompress4kc:
     xor     edx, edx
 .wl:test    eax, eax
     jz      .wd
-    cmp     ecx, r13d
-    jge     .wd
 .wo:add     eax, eax
+    jz      .wd
     jnc     .wz
     inc     edx
     jmp     .wo
