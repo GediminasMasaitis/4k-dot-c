@@ -25,12 +25,16 @@ ehdr:
 
 load_input:
     mov     edi, payload_compressed
-    jmp     short setup_stack
+    jmp     short zero_ebx
     db      0
 
     dw      2
     dw      0x3E
-    dd      0
+
+zero_ebx:
+    xor     ebx, ebx
+    jmp     short setup_stack
+
     dq      load_input
     dq      56
 
@@ -62,7 +66,7 @@ init_header:
 
 decompress4kc:
     movzx   r13d, byte [rdi+6]
-    imul    eax, r13d
+    mul     r13d
     dec     eax
     bsr     ecx, eax
     push    2
@@ -73,7 +77,6 @@ decompress4kc:
     xchg    eax, r11d
     mov     eax, [rdi+2]
     xor     ecx, ecx
-    xor     edx, edx
 .wl:test    eax, eax
     jz      .wd
 .wo:add     eax, eax
@@ -98,7 +101,6 @@ decompress4kc:
     xor     r14d, r14d
     xor     r15d, r15d
     mov     ebp, 0x80000000
-    xor     ebx, ebx
     mov     cl, 31
 .il:bt      [r8], r14d
     adc     r15d, r15d
