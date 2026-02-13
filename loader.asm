@@ -11,7 +11,6 @@ org 0x300000
 
 ; Stack layout for up to 21 models (284 bytes):
 ;   [rsp+0]   output ptr (from push)
-;   [rsp+4]   hashmask
 ;   [rsp+16]  bitlength
 ;   [rsp+24]  pr0
 ;   [rsp+28]  pr1
@@ -53,7 +52,6 @@ decompress4kc:
     push    rsi
     movzx   eax, word [rdi]
     movzx   r13d, byte [rdi+6]
-    mov     dword [rsp+4], 0x1FFFFFFF
     mov     [rsp+16], eax
     imul    eax, r13d
     dec     eax
@@ -142,8 +140,7 @@ decompress4kc:
     dec     eax
     jmp     .cl
 
-.hr:and     eax, [rsp+4]
-    mov     edi, eax
+.hr:mov     edi, eax
     and     eax, r11d
 .pb:lea     ecx, [rax*8+G_HT]
     cmp     byte [rcx+6], 0

@@ -9103,3 +9103,37 @@ Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 50:1 90:2 30:0 B0:3 88:2 44:1 29
 Compressed:  3259 bytes 26066 bits (63.23%)
 Output:      ./build/4kc.paq (3284 bytes, weightmask 108115FF)
 ```
+
+### 7.6
+
+Remove hash reduction
+
+4 threads: 3940 bytes (-12)
+MD5: c83a2b1860f9bbe1f86c94cd6eb48bd8
+
+1 thread: 3868 bytes (-14)
+MD5: 01afd6e8128911002d95c3c468ae0db8
+
+4 threads:
+```py
+Input:       ./build/4kc (5298 bytes)
+Mode:        SLOW
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3345.639 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 90:2 30:0 50:1 B0:3 88:1 4C:2 58:2 A4:2 41:0 32:1 A9:4 2D:3 97:4
+Compressed:  3327 bytes 26613 bits (62.80%)
+Output:      ./build/4kc.paq (3354 bytes, weightmask 104044FF)
+```
+
+1 thread:
+```py
+Input:       ./build/4kc (5154 bytes)
+Mode:        SLOW
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3273.331 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 50:1 90:2 30:0 B0:3 88:2 44:1 29:2 5A:3 A9:4 41:0 97:5
+Compressed:  3257 bytes 26049 bits (63.19%)
+Output:      ./build/4kc.paq (3282 bytes, weightmask 108115FF)
+```

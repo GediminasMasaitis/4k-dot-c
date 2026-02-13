@@ -108,7 +108,7 @@ typedef struct {
   unsigned char used;
 } TinyHashEntry;
 
-static inline int AritSize2(int right_prob, int wrong_prob) {
+static int AritSize2(const int right_prob, const int wrong_prob) {
   assert(right_prob > 0 && wrong_prob > 0);
   const int total_prob = right_prob + wrong_prob;
   if (total_prob < TABLE_BIT_PRECISION) {
@@ -177,7 +177,7 @@ static void AritCode(AritState *state, const unsigned int zero_prob,
   state->interval_size = interval_size;
 }
 
-static int AritCodeEnd(AritState *state) {
+static int AritCodeEnd(const AritState *state) {
   unsigned char *dest = (unsigned char *)state->dest_ptr;
   unsigned int bit_pos = state->dest_bit;
   const unsigned int interval_min = state->interval_min;
@@ -748,23 +748,12 @@ static HashBits ComputeHashBits(const unsigned char *data, const int size,
 }
 
 static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
-                                 TinyHashEntry *hash_table, const int baseprob,
-                                 int hashsize) {
+                                 TinyHashEntry *hash_table,
+                                 const int baseprob) {
   const int total_hashes = (int)hb->hashes_len;
   const int num_models = hb->num_weights;
   const int bit_length =
       (num_models == 0) ? hb->bits_len : total_hashes / num_models;
-  hashsize /= 2;
-  uint32_t hash_shift = 0;
-  {
-    int h = hashsize;
-    while (h > (1u << hash_shift)) {
-      hash_shift++;
-    }
-  }
-  const uint32_t hash_reciprocal =
-      (uint32_t)(((1ull << (hash_shift + 31)) + hashsize - 1) / hashsize);
-  const uint32_t reciprocal_shift = hash_shift - 1u + 32u;
 
   const unsigned int tiny_size = hb->tiny_hash_size;
   memset(hash_table, 0, tiny_size * sizeof(TinyHashEntry));
@@ -776,20 +765,16 @@ static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
     unsigned int probs[2] = {(unsigned)baseprob, (unsigned)baseprob};
     for (int m = 0; m < num_models; m++) {
       const uint32_t hash_val = hb->hashes[hash_pos++];
-      const unsigned int reduced_hash =
-          hash_val - (uint32_t)(((uint64_t)hash_val * hash_reciprocal) >>
-                                reciprocal_shift) *
-                         hashsize;
-      unsigned int slot = reduced_hash & (tiny_size - 1);
+      unsigned int slot = hash_val & (tiny_size - 1);
       TinyHashEntry *entry = &hash_table[slot];
       while (1) {
         if (entry->used == 0) {
-          entry->hash = reduced_hash;
+          entry->hash = hash_val;
           entry->used = 1;
           matched_entries[m] = entry;
           break;
         }
-        if (entry->hash == reduced_hash) {
+        if (entry->hash == hash_val) {
           matched_entries[m] = entry;
           const int weight_factor = hb->weights[m];
           const unsigned int shift =
@@ -817,8 +802,7 @@ static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
 
 static int Compress4k(const unsigned char *data, const int data_size,
                       unsigned char *out_data, const int max_out,
-                      const ModelList4k *ml, const int baseprob,
-                      const int hashsize) {
+                      const ModelList4k *ml, const int baseprob) {
   unsigned char context[MAX_CTX] = {};
   HashBits hb = ComputeHashBits(data, data_size, context, ml, 1, 1);
   TinyHashEntry *hash_table =
@@ -827,7 +811,7 @@ static int Compress4k(const unsigned char *data, const int data_size,
   memset(out_data, 0, max_out);
   AritState arit_state;
   AritCodeInit(&arit_state, out_data);
-  CompressFromHashBits(&arit_state, &hb, hash_table, baseprob, hashsize);
+  CompressFromHashBits(&arit_state, &hb, hash_table, baseprob);
   const int compressed_bits = AritCodeEnd(&arit_state);
 
   free(hash_table);
@@ -1119,9 +1103,8 @@ int main(int argc, char *argv[]) {
 
   int max_output = data_size + 1024;
   unsigned char *output_buf = (unsigned char *)malloc(max_output);
-  int hashsize = 1024 * 1024 * 1024;
-  int compressed_bits = Compress4k(data, data_size, output_buf, max_output, &ml,
-                                   baseprob, hashsize);
+  int compressed_bits =
+      Compress4k(data, data_size, output_buf, max_output, &ml, baseprob);
   int compressed_size = (compressed_bits + 7) / 8;
 
   printf("Compressed:  %d bytes %d bits (%.2f%%)\n", compressed_size,
