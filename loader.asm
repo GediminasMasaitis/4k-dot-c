@@ -21,37 +21,44 @@ org 0x300000
 ;            r8=compressed_ptr, r14=bitpos, r15=value, ebp=range, ebx=low
 
 ehdr:
-    db 0x7F, "ELF", 2, 1, 1, 0
-    dq 0
-    dw 2
-    dw 0x3E
-    dd 1
-    dq _start
-    dq phdr - ehdr
-    dq 0
-    dd 0
-    dw 64
-    dw 56
-phdr:
-    dd 1
-    dd 7
-    dq 0
-    dq 0x300000
-    dq 0x300000
-    dq filesize
-    dq 0x10000000
-    dq 0x1000
+    db      0x7F, "ELF", 2, 1, 1, 0      ; e_ident[0..7]        (bytes 0-7)
 
-_start:
-    mov     edi, payload_compressed
-    mov     esi, PAYLOAD_DEST
-    push    START_LOCATION
+_start:                                  ; e_ident[8..15]       (bytes 8-15)
+    mov     edi, payload_compressed      ;   5 bytes
+    jmp     short init_b                 ;   2 bytes
+    db      0                            ;   1 byte pad
+
+    dw      2                            ; e_type = ET_EXEC     (bytes 16-17)
+    dw      0x3E                         ; e_machine            (bytes 18-19)
+    dd      1                            ; e_version            (bytes 20-23)
+    dq      _start                       ; e_entry              (bytes 24-31)
+    dq      56                           ; e_phoff              (bytes 32-39)
+
+init_b:                                  ; e_shoff+e_flags+e_ehsize (bytes 40-53)
+    mov     esi, PAYLOAD_DEST            ;   5 bytes
+    push    START_LOCATION               ;   5 bytes
+    jmp     short init_c                 ;   2 bytes
+    dw      0                            ;   e_ehsize filler
+
+    dw      56                           ; e_phentsize          (bytes 54-55)
+
+phdr:                                    ; overlaps e_phnum..e_shstrndx (bytes 56-63)
+    dd      1                            ; p_type  (= e_phnum=1)
+    dd      7                            ; p_flags (= e_shnum=7, e_shstrndx=0)
+    dq      0                            ; p_offset             (bytes 64-71)
+    dq      0x300000                     ; p_vaddr              (bytes 72-79)
+    dq      0x300000                     ; p_paddr (ignored)    (bytes 80-87)
+    dq      filesize                     ; p_filesz             (bytes 88-95)
+    dq      0x10000000                   ; p_memsz              (bytes 96-103)
+
+init_c:                                  ; p_align (ignored)    (bytes 104-111)
+    movzx   eax, word [rdi]              ;   3 bytes - bitlength
+    movzx   r13d, byte [rdi+6]           ;   5 bytes - num_models
+                                         ;   falls through to decompress4kc
 
 decompress4kc:
     sub     rsp, 276
     push    rsi
-    movzx   eax, word [rdi]
-    movzx   r13d, byte [rdi+6]
     mov     [rsp+16], eax
     imul    eax, r13d
     dec     eax
