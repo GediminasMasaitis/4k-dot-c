@@ -18,8 +18,7 @@ org 0x300000
 ;   [rsp+24]  pr0
 ;   [rsp+28]  pr1
 ;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
-;   [rsp+116] weights[21] (84 bytes, disp8)
-;   [rsp+200] cmasks[21]  (84 bytes, disp32)
+;   [rsp+116] wc[21]      (168 bytes, disp8, 8B stride: weight@+0, cmask@+4)
 ; Registers: r9=bpos, r10=bitlength, r11=tinymask, r13=num_models
 ;            r8=compressed_ptr, r14=bitpos, r15=value, ebp=range, ebx=low
 
@@ -85,10 +84,10 @@ decompress4kc:
     jnc     .wz
     inc     edx
     jmp     .wo
-.wz:mov     [rsp+116+rcx*4], edx
+.wz:mov     [rsp+116+rcx*8], edx
     mov     ebp, eax
     mov     bpl, [rdi+7+rcx]
-    mov     [rsp+200+rcx*4], ebp
+    mov     [rsp+120+rcx*8], ebp
     inc     ecx
     jmp     .wl
 .wd:mov     ecx, r13d
@@ -109,7 +108,7 @@ decompress4kc:
     stosd
     lea     r12d, [r13-1]
 .mdl:
-    mov     eax, [rsp+r12*4+200]
+    mov     eax, [rsp+r12*8+120]
     mov     dl, al
     pop     rsi
     push    rsi
@@ -159,7 +158,7 @@ decompress4kc:
 .po:mov     [rsp+32+r12*4], ecx
     movzx   eax, byte [rcx+4]
     movzx   edi, byte [rcx+5]
-    mov     ecx, [rsp+116+r12*4]
+    mov     ecx, [rsp+r12*8+116]
     test    al, al
     jz      .bo
     test    edi, edi
