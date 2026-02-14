@@ -72,12 +72,10 @@ decompress4kc:
     pop     rax
     shl     eax, cl
     dec     eax
-    or      al, 15
     xchg    eax, r11d
     mov     eax, [rdi+2]
     xor     ecx, ecx
-.wl:test    eax, eax
-    jz      .wd
+.wl:
 .wo:add     eax, eax
     jz      .wd
     jnc     .wz
@@ -113,8 +111,9 @@ decompress4kc:
     mov     eax, [rsp+r12*4+200]
     mov     dl, al
     mov     esi, [rsp]
+    xor     edi, edi
     mov     ecx, r9d
-    jrcxz   .bp0
+    jrcxz   .hash_finish
 
     dec     ecx
     mov     edi, ecx
@@ -131,20 +130,18 @@ decompress4kc:
     imul    eax, eax, HMUL
     add     al, dil
     dec     eax
+    jmp     short .cl_next
 
-.cl:test    dl, dl
-    jz      .hr
-    dec     esi
-    add     dl, dl
-    jnc     .cl
+.cl_hash:
     xor     al, [rsi]
     imul    eax, eax, HMUL
     add     al, [rsi]
     dec     eax
-    jmp     .cl
-.bp0:
-    xor     edi, edi
-    jmp     short .hash_finish
+.cl_next:
+    dec     esi
+    add     dl, dl
+    jc      .cl_hash
+    jnz     .cl_next
 
 .hr:mov     edi, eax
     and     eax, r11d
@@ -192,14 +189,13 @@ decompress4kc:
 .ui:add     ebx, edi
     sub     ebp, edi
 
-.rn:test    ebp, ebp
-    js      .rd
+.rn:jmp     short .re
 .rl:add     ebx, ebx
     add     ebp, ebp
     bt      [r8], r14d
     adc     r15d, r15d
     inc     r14d
-    test    ebp, ebp
+.re:test    ebp, ebp
     jns     .rl
 .rd:push    1
     pop     rdi
@@ -207,9 +203,9 @@ decompress4kc:
     lea     ecx, [r13-1]
 .ul:mov     eax, [rsp+32+rcx*4]
     inc     byte [rax+4+rdi]
-    cmp     byte [rax+4+rsi], 1
-    jbe     .nh
     shr     byte [rax+4+rsi], 1
+    jnz     .nh
+    rcl     byte [rax+4+rsi], 1
 .nh:dec     ecx
     jns     .ul
     mov     ecx, r9d
