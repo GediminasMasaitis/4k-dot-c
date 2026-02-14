@@ -52,24 +52,13 @@ enum [[nodiscard]] {
 };
 
 G(
-    1, S(1) ssize_t _sys(H(2, 1, ssize_t arg1), H(2, 1, ssize_t arg3),
-                         H(2, 1, ssize_t arg2), H(2, 1, ssize_t call)) {
-      ssize_t ret;
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(call), "D"(arg1), "S"(arg2), "d"(arg3)
-                   : "rcx", "r11", "memory");
-      return ret;
-    })
-
-G(
     1, S(1) void exit_now() {
       asm volatile("syscall" : : "a"(60));
       __builtin_unreachable();
     })
 
 G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+    1, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
       u32 result = 0;
       while (*string)
         result = result * 10 + *string++ - '0';
@@ -77,7 +66,7 @@ G(
     })
 
 G(
-    3,
+    1
     S(0) void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
@@ -95,6 +84,8 @@ G(
       putl("\n");
     })
 
+G(
+    1,
 [[nodiscard]] static bool strcmp(const char *restrict lhs,
                                  const char *restrict rhs) {
   while (*lhs || *rhs) {
@@ -105,7 +96,7 @@ G(
     rhs++;
   }
   return false;
-}
+})
 
 G(
     3, // Non-standard, gets but a word instead of a line
