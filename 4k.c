@@ -52,24 +52,13 @@ enum [[nodiscard]] {
 };
 
 G(
-    1, S(1) ssize_t _sys(H(2, 1, ssize_t arg1), H(2, 1, ssize_t arg3),
-                         H(2, 1, ssize_t arg2), H(2, 1, ssize_t call)) {
-      ssize_t ret;
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(call), "D"(arg1), "S"(arg2), "d"(arg3)
-                   : "rcx", "r11", "memory");
-      return ret;
-    })
-
-G(
     1, S(1) void exit_now() {
       asm volatile("syscall" : : "a"(60));
       __builtin_unreachable();
     })
 
 G(
-    3, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
+    1, [[nodiscard]] S(1) u32 atoi(const char *restrict string) {
       u32 result = 0;
       while (*string)
         result = result * 10 + *string++ - '0';
@@ -77,12 +66,15 @@ G(
     })
 
 G(
-    3,
+    1,
     S(0) void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
-        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
-             H(2, 2, 1));
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
         length++;
       }
     }
@@ -92,24 +84,28 @@ G(
       putl("\n");
     })
 
-[[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                 const char *restrict rhs) {
-  while (*lhs || *rhs) {
-    if (*lhs != *rhs) {
-      return true;
-    }
-    lhs++;
-    rhs++;
-  }
-  return false;
-}
+G(
+    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                        const char *restrict rhs) {
+      while (*lhs || *rhs) {
+        if (*lhs != *rhs) {
+          return true;
+        }
+        lhs++;
+        rhs++;
+      }
+      return false;
+    })
 
 G(
-    3, // Non-standard, gets but a word instead of a line
+    1, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
-        const int result = _sys(H(2, 3, stdin), H(2, 3, 1),
-                                H(2, 3, (ssize_t)string), H(2, 3, 0));
+        ssize_t result;
+        asm volatile("syscall"
+                     : "=a"(result)
+                     : "0"(0), "D"(stdin), "S"(string), "d"(1)
+                     : "rcx", "r11", "memory");
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -128,20 +124,23 @@ G(
       }
     })
 
-typedef struct [[nodiscard]] {
-  ssize_t tv_sec;  // seconds
-  ssize_t tv_nsec; // nanoseconds
-} timespec;
+G(
+    1,
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
 
-[[nodiscard]] S(1) u64 get_time() {
-  timespec ts;
-  ssize_t ret; // Unused
-  asm volatile("syscall"
-               : "=a"(ret)
-               : "0"(228), "D"(1), "S"(&ts)
-               : "rcx", "r11", "memory");
-  return G(4, ts.tv_nsec) + G(4, G(5, ts.tv_sec) * G(5, 1000 * 1000 * 1000ULL));
-}
+    [[nodiscard]] S(1) u64 get_time() {
+      timespec ts;
+      ssize_t ret; // Unused
+      asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(4, ts.tv_nsec) +
+             G(4, G(5, ts.tv_sec) * G(5, 1000 * 1000 * 1000ULL));
+    })
 
 #else
 #include <pthread.h>
@@ -543,8 +542,8 @@ G(
             const u64 bb = move->to - move->from == 2   ? 0xa0
                            : move->from - move->to == 2 ? 0x9
                                                         : 0;
-            G(87, pos->pieces[Rook] ^= bb;)
             G(87, pos->colour[0] ^= bb;)
+            G(87, pos->pieces[Rook] ^= bb;)
           })
 
       // Move the piece
@@ -833,26 +832,26 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(118, 1,
-    H(119, 1, i8 pst_file[48];) H(119, 1, i8 pawn_attacked_penalty[2];)
-        H(119, 1, i8 mobilities[5];) H(119, 1, i8 tempo;)
+    H(119, 1, i8 pst_file[48];) H(119, 1, i8 tempo;)
+        H(119, 1, i8 mobilities[5];) H(119, 1, i8 pawn_attacked_penalty[2];)
             H(119, 1, i8 passed_blocked_pawns[6];)
                 H(119, 1, i8 open_files[12];))
   H(118, 1,
-    H(120, 1, i8 passed_pawns[6];) H(120, 1, i8 bishop_pair;)
-        H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 protected_pawn;)
+    H(120, 1, i8 protected_pawn;) H(120, 1, i8 phalanx_pawn;)
+        H(120, 1, i8 bishop_pair;) H(120, 1, i8 passed_pawns[6];)
             H(120, 1, i8 pst_rank[48];) H(120, 1, i8 king_attacks[5];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(118, 2,
-    H(119, 2, i32 pst_file[48];) H(119, 2, i32 pawn_attacked_penalty[2];)
-        H(119, 2, i32 mobilities[5];) H(119, 2, i32 tempo;)
+    H(119, 2, i32 pst_file[48];) H(119, 2, i32 tempo;)
+        H(119, 2, i32 mobilities[5];) H(119, 2, i32 pawn_attacked_penalty[2];)
             H(119, 2, i32 passed_blocked_pawns[6];)
                 H(119, 2, i32 open_files[12];))
   H(118, 2,
-    H(120, 2, i32 passed_pawns[6];) H(120, 2, i32 bishop_pair;)
-        H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 protected_pawn;)
+    H(120, 2, i32 protected_pawn;) H(120, 2, i32 phalanx_pawn;)
+        H(120, 2, i32 bishop_pair;) H(120, 2, i32 passed_pawns[6];)
             H(120, 2, i32 pst_rank[48];) H(120, 2, i32 king_attacks[5];))
 
 } EvalParamsMerged;
@@ -1132,8 +1131,8 @@ typedef struct [[nodiscard]] {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(163, i16 score;)
   G(163, u16 partial_hash;)
-  G(163, u8 flag;)
   G(163, Move move;)
+  G(163, u8 flag;)
   G(163, i8 depth;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1158,7 +1157,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(165, S(1) TTEntry tt[tt_length];)
@@ -1289,7 +1288,7 @@ i32 search(
   }
 
   if (G(180, !in_check) && G(180, G(181, alpha) == G(181, beta - 1))) {
-    if (G(182, !in_qsearch) && G(182, depth < 9)) {
+    if (G(182, depth < 9) && G(182, !in_qsearch)) {
 
       G(183, {
         // REVERSE FUTILITY PRUNING
@@ -1344,15 +1343,15 @@ i32 search(
             G(193, move_equal(G(194, &moves[order_index]),
                               G(194, &stack[ply].killer))) *
                 G(193, 829)) +
-          G(167, // MOST VALUABLE VICTIM
-            G(195, moves[order_index].takes_piece) * G(195, 663)) +
           G(167, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
           G(167, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(196, &stack[ply].best_move),
                         G(196, &moves[order_index]))
-             << 30));
+             << 30)) +
+          G(167, // MOST VALUABLE VICTIM
+            G(195, moves[order_index].takes_piece) * G(195, 663));
       if (order_move_score > move_score) {
         G(197, best_index = order_index;)
         G(197, move_score = order_move_score;)
@@ -1616,7 +1615,7 @@ void iteratively_deepen(
       G(225, window *= 2;)
       G(
           225, if (G(226, elapsed > data->max_time) ||
-                   G(226, (G(227, score < beta) && G(227, score > alpha)))) {
+                   G(226, (G(227, score > alpha) && G(227, score < beta)))) {
             break;
           })
     }
