@@ -600,7 +600,7 @@ static HashBitStream compute_hash_stream(const unsigned char *data, int size,
 static HashEntry *hash_probe(HashEntry *table, unsigned int mask,
                              unsigned int hash, int weight_shift,
                              unsigned int probs[2]) {
-  unsigned int slot = hash & mask;
+  unsigned int slot = (hash + 1) & mask;
   for (;;) {
     HashEntry *e = &table[slot];
     if (!e->hash) {
