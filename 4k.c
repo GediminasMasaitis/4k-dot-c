@@ -318,7 +318,7 @@ G(
       G(35, const u64 west_bb = west(bb);)
       G(36, const u64 horizontal1 = G(37, west_bb) | G(37, east_bb);)
       G(36,
-        const u64 horizontal2 = G(38, east(east_bb)) | G(38, west(west_bb));)
+        const u64 horizontal2 = G(38, west(west_bb)) | G(38, east(east_bb));)
       return G(39, horizontal1 >> 16) | G(39, horizontal2 >> 8) |
              G(39, horizontal2 << 8) | G(39, horizontal1 << 16);
     })
@@ -423,10 +423,10 @@ G(
       G(61, const u64 blockers = theirs | pos->colour[0];)
       return G(62, G(63, (G(64, southwest(pawns)) | G(64, southeast(pawns)))) &
                        G(63, bb)) ||
-             G(62, G(65, knight(bb)) & G(65, theirs) &
-                       G(65, pos->pieces[Knight])) ||
              G(62,
                G(66, king(bb)) & G(66, theirs) & G(66, pos->pieces[King])) ||
+             G(62, G(65, knight(bb)) & G(65, theirs) &
+                       G(65, pos->pieces[Knight])) ||
              G(62, G(67, bishop(H(43, 2, blockers), H(43, 2, bb))) &
                        G(67, theirs) &
                        G(67, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
