@@ -9197,3 +9197,37 @@ MD5: f37466bd721b7eeafd05c0e1c658a7bd
 
 1 thread: 3775 bytes (-1)
 MD5: 31741715ba70ce98aeb72b33924117d7
+
+### 7.13
+
+Use direct syscalls
+
+4 threads: 3842 bytes (-5)
+MD5: 44f93783945c3544a786d6d3c7c8782d
+
+1 thread: 3771 bytes (-4)
+MD5: 62b05da0be0364682d88258fb5b879bd
+
+4 threads:
+```py
+Input:       ./build/4kc (5294 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3340.883 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 90:2 50:1 30:0 B0:3 88:1 58:2 32:1 A4:3 4C:2 41:0 29:2 A9:4 95:4
+Compressed:  3322 bytes 26569 bits (62.75%)
+Output:      ./build/4kc.paq (3349 bytes, weightmask 104044FF)
+```
+
+1 thread:
+```py
+Input:       ./build/4kc (5150 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3270.334 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 50:1 90:2 30:0 B0:3 88:2 44:0 41:1 5A:3 29:2 A9:4 97:5
+Compressed:  3253 bytes 26021 bits (63.17%)
+Output:      ./build/4kc.paq (3278 bytes, weightmask 108115FF)
+```
