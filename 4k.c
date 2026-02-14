@@ -1123,8 +1123,8 @@ S(0) i32 eval(Position *const restrict pos) {
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
-  G(119, i32 num_moves;)
   G(119, Move killer;)
+  G(119, i32 num_moves;)
   G(119, u64 position_hash;)
   G(119, i32 static_eval;)
 } SearchStack;
@@ -1132,9 +1132,9 @@ typedef struct [[nodiscard]] {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(163, i16 score;)
   G(163, u16 partial_hash;)
-  G(163, Move move;)
   G(163, u8 flag;)
   G(163, i8 depth;)
+  G(163, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1323,17 +1323,17 @@ i32 search(
 
   G(190, stack[G(191, ply) + G(191, 2)].position_hash = tt_hash;)
   G(190, i32 best_score = in_qsearch ? static_eval : -inf;)
+  G(190, i32 quiets_evaluated = 0;)
+  G(190, i32 moves_evaluated = 0;)
   G(190, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(97, 3, pos), H(97, 3, moves), H(97, 3, in_qsearch));)
-  G(190, i32 moves_evaluated = 0;)
-  G(190, i32 quiets_evaluated = 0;)
   G(190, u8 tt_flag = Upper;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(192, i32 best_index = 0;)
     G(192, i32 move_score = ~0x1010101LL;)
+    G(192, i32 best_index = 0;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
