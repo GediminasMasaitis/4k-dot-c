@@ -1,3 +1,7 @@
+// Derived from Crinkler by Rune L. H. Stubbe and Aske Simon Christensen
+// Original: https://github.com/runestubbe/Crinkler (zlib license)
+// Rewritten and ported to Linux ELF x86-64
+
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>

@@ -1,3 +1,7 @@
+; Derived from Crinkler by Rune L. H. Stubbe and Aske Simon Christensen
+; Original: https://github.com/runestubbe/Crinkler (zlib license)
+; Rewritten and ported to Linux ELF x86-64
+
 bits 64
 org 0x300000
 

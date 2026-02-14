@@ -8935,7 +8935,7 @@ https://gedas.pythonanywhere.com/test/1664/
 
 ### 7.0
 
-Use PAQ1-based compression
+Use PAQ1-based compression (compressor and loader derived from Crinkler)
 
 4 threads: 4021 bytes (-68)
 MD5: 1814f1618379cf0d1858f7492413da0b
