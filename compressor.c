@@ -819,6 +819,128 @@ static int Compress4k(const unsigned char *data, const int data_size,
   return compressed_bits;
 }
 
+static inline int GetCompressedBit(const unsigned char *data, int bit_pos) {
+  return (data[bit_pos >> 3] >> (bit_pos & 7)) & 1;
+}
+
+static int Decompress4k(const unsigned char *paq_data, const int paq_size,
+                         unsigned char *out_data, const int baseprob) {
+  const int bitlength = paq_data[0] | (paq_data[1] << 8);
+  const unsigned int stored_weightmask =
+      paq_data[2] | (paq_data[3] << 8) | (paq_data[4] << 16) |
+      ((unsigned)paq_data[5] << 24);
+  const int num_models = paq_data[6];
+  const int data_bits = bitlength - 1;
+  const int data_bytes = data_bits / 8;
+
+  unsigned char model_masks[MAX_N_STREAM];
+  for (int i = 0; i < num_models; i++) {
+    model_masks[i] = paq_data[7 + i];
+  }
+
+  unsigned int wide_masks[MAX_N_STREAM];
+  int weights[MAX_N_STREAM];
+  int weight_val = 0;
+  unsigned int wm = stored_weightmask;
+  for (int n = 0; n < num_models; n++) {
+    while (wm & 0x80000000) {
+      wm <<= 1;
+      weight_val++;
+    }
+    wm <<= 1;
+    weights[n] = weight_val;
+    wide_masks[n] = (unsigned int)model_masks[n] | (wm & 0xFFFFFF00);
+  }
+
+  const unsigned char *compressed = paq_data + 7 + num_models;
+  unsigned char *databuf = (unsigned char *)calloc(data_bytes + MAX_CTX, 1);
+  unsigned char *padded_data = databuf + MAX_CTX;
+  const unsigned int tiny_size = NextPowerOf2(bitlength * num_models);
+  TinyHashEntry *hash_table =
+      (TinyHashEntry *)calloc(tiny_size, sizeof(TinyHashEntry));
+
+  unsigned int range = 0x80000000;
+  unsigned int low = 0;
+  unsigned int value = 0;
+  int comp_bit = 0;
+  for (int i = 0; i < 31; i++) {
+    value = (value << 1) | GetCompressedBit(compressed, comp_bit++);
+  }
+
+  for (int bp = 0; bp < bitlength; bp++) {
+    unsigned int probs[2] = {(unsigned)baseprob, (unsigned)baseprob};
+    TinyHashEntry *matched[MAX_N_STREAM];
+
+    for (int m = 0; m < num_models; m++) {
+      const unsigned int hash_val =
+          (bp == 0) ? ModelHashStart(wide_masks[m], HMUL)
+                    : ModelHash(padded_data, bp - 1, wide_masks[m], HMUL);
+
+      unsigned int slot = hash_val & (tiny_size - 1);
+      TinyHashEntry *entry = &hash_table[slot];
+      while (1) {
+        if (entry->used == 0) {
+          entry->hash = hash_val;
+          entry->used = 1;
+          matched[m] = entry;
+          break;
+        }
+        if (entry->hash == hash_val) {
+          matched[m] = entry;
+          const int wf = weights[m];
+          const unsigned int shift =
+              (1 -
+               (((entry->prob[0] + 255) & (entry->prob[1] + 255)) >> 8)) *
+                  2 +
+              wf;
+          probs[0] += (unsigned)entry->prob[0] << shift;
+          probs[1] += (unsigned)entry->prob[1] << shift;
+          break;
+        }
+        slot++;
+        if (slot >= tiny_size) {
+          slot = 0;
+        }
+        entry = &hash_table[slot];
+      }
+    }
+
+    const unsigned int total = probs[0] + probs[1];
+    const unsigned int threshold = (uint64_t)range * probs[1] / total;
+    const unsigned int diff = value - low;
+
+    int bit;
+    if (diff < threshold) {
+      range = threshold;
+      bit = 1;
+    } else {
+      low += threshold;
+      range -= threshold;
+      bit = 0;
+    }
+
+    while (!(range & 0x80000000)) {
+      low <<= 1;
+      range <<= 1;
+      value = (value << 1) | GetCompressedBit(compressed, comp_bit++);
+    }
+
+    for (int m = 0; m < num_models; m++) {
+      UpdateWeights((Weights *)matched[m]->prob, bit);
+    }
+
+    if (bp > 0 && bit) {
+      const int data_bp = bp - 1;
+      padded_data[data_bp >> 3] |= 1 << (7 - (data_bp & 7));
+    }
+  }
+
+  memcpy(out_data, padded_data, data_bytes);
+  free(databuf);
+  free(hash_table);
+  return data_bytes;
+}
+
 static unsigned int ApproximateWeights(CState *cs, ModelList4k *ml) {
   for (int i = 0; i < ml->nmodels; i++) {
     ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
@@ -1012,7 +1134,8 @@ static ModelList4k ApproximateModels4k(const unsigned char *data,
 
 static void PrintUsage(const char *program) {
   printf("Usage: %s [options] <input_file>\n\nOptions:\n", program);
-  printf("  -o <file>    Output file (default: <input>.paq)\n");
+  printf("  -o <file>    Output file (default: <input>.paq or <input>.bin)\n");
+  printf("  -d           Decompress mode\n");
   printf("  -m <mode>    Compression mode: instant, fast, slow, veryslow "
          "(default: slow)\n");
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BASEPROB);
@@ -1023,12 +1146,16 @@ int main(int argc, char *argv[]) {
   const char *output_file = NULL;
   int compression_type = CT_SLOW;
   int baseprob = DEFAULT_BASEPROB;
+  int decompress = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:h")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:dh")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
+      break;
+    case 'd':
+      decompress = 1;
       break;
     case 'm':
       if (!strcmp(optarg, "instant")) {
@@ -1066,11 +1193,6 @@ int main(int argc, char *argv[]) {
   }
 
   const char *input_file = argv[optind];
-  if (!output_file) {
-    char default_output[512];
-    snprintf(default_output, sizeof(default_output), "%s.paq", input_file);
-    output_file = default_output;
-  }
 
   FILE *file = fopen(input_file, "rb");
   if (!file) {
@@ -1083,6 +1205,52 @@ int main(int argc, char *argv[]) {
   unsigned char *data = (unsigned char *)malloc(data_size);
   fread(data, 1, data_size, file);
   fclose(file);
+
+  if (decompress) {
+    if (!output_file) {
+      static char default_output[512];
+      int len = strlen(input_file);
+      if (len > 4 && !strcmp(input_file + len - 4, ".paq")) {
+        snprintf(default_output, sizeof(default_output), "%.*s",
+                 len - 4, input_file);
+      } else {
+        snprintf(default_output, sizeof(default_output), "%s.bin", input_file);
+      }
+      output_file = default_output;
+    }
+
+    printf("Input:       %s (%d bytes)\n", input_file, data_size);
+    printf("Base prob:   %d\n", baseprob);
+
+    int bitlength = data[0] | (data[1] << 8);
+    int out_size = (bitlength - 1) / 8;
+    printf("Bitlength:   %d (%d data bytes)\n", bitlength, out_size);
+    printf("Models:      %d\n", data[6]);
+
+    unsigned char *out_data = (unsigned char *)calloc(out_size + 16, 1);
+    int decoded = Decompress4k(data, data_size, out_data, baseprob);
+
+    FILE *out_file = fopen(output_file, "wb");
+    if (!out_file) {
+      fprintf(stderr, "Failed to open output '%s'\n", output_file);
+      free(out_data);
+      free(data);
+      return 1;
+    }
+    fwrite(out_data, 1, decoded, out_file);
+    fclose(out_file);
+
+    printf("Output:      %s (%d bytes)\n", output_file, decoded);
+    free(out_data);
+    free(data);
+    return 0;
+  }
+
+  if (!output_file) {
+    static char default_output[512];
+    snprintf(default_output, sizeof(default_output), "%s.paq", input_file);
+    output_file = default_output;
+  }
 
   InitLogTable();
   InitCounterStates();
