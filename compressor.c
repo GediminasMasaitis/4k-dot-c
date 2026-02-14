@@ -20,13 +20,12 @@ typedef uint16_t v8u16 __attribute__((vector_size(16)));
 #define MAX_MODELS 256
 #define MAX_SEARCH 21
 #define MAX_WEIGHT 9
-#define MAX_STREAM 32
-#define LOG2_NPV 4
-#define NPV (1 << LOG2_NPV)
+#define NPV 16
 #define PKG_BITS (NPV * 4)
 
-enum { CT_INSTANT = 0, CT_FAST, CT_SLOW, CT_VERYSLOW };
-static const char *const CT_NAMES[] = {"INSTANT", "FAST", "SLOW", "VERYSLOW"};
+#define MIN_LEVEL 1
+#define MAX_LEVEL 3
+#define DEFAULT_LEVEL 2
 
 typedef struct {
   unsigned char weight;
@@ -34,7 +33,7 @@ typedef struct {
 } Model;
 
 typedef struct {
-  Model models[MAX_MODELS];
+  Model models[MAX_SEARCH];
   int num_models;
   int size;
 } ModelSet;
@@ -49,8 +48,7 @@ typedef struct {
 
 typedef struct {
   int num_blocks;
-  int arena_offset;
-  int map_offset;
+  int offset;
 } ModelPred;
 
 typedef struct {
@@ -65,12 +63,12 @@ typedef struct {
   unsigned char bitnum;
   unsigned char prob[2];
   const unsigned char *data_ptr;
+  unsigned int generation;
 } CtxEntry;
 
 typedef struct {
   unsigned int hash;
   unsigned char prob[2];
-  unsigned char used;
 } HashEntry;
 
 typedef struct {
@@ -85,23 +83,17 @@ typedef struct {
 
 typedef struct {
   int active_weights[MAX_MODELS];
-  ModelPred *model_info;
-  CompactPredBlock *block_arena;
-  int *map_arena;
-  int length;
+  const struct CompState *cs;
   PredBlock *accum;
   unsigned *accum_sizes;
   int64_t cost;
-  int base_prob;
   float log_scale;
 } Evaluator;
 
-typedef struct {
-  ModelPred models[256];
+typedef struct CompState {
+  ModelPred models[MAX_MODELS];
   CompactPredBlock *block_arena;
   int *map_arena;
-  int arena_blocks;
-  int arena_maps;
   Evaluator *eval;
 } CompState;
 
@@ -306,15 +298,18 @@ static void model_set_print(const ModelSet *ml, FILE *f) {
 
 static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
                                  unsigned char mask, const unsigned char *data,
-                                 int bit_pos) {
+                                 int bit_pos, unsigned int generation) {
   const unsigned char *dp = &data[bit_pos / 8];
   unsigned char bn = (unsigned char)(bit_pos & 7);
   for (unsigned int h = ctx_hash(data, bit_pos, mask);; h++) {
     CtxEntry *e = &table[h % table_size];
-    if (e->data_ptr == NULL) {
+    if (e->generation != generation) {
       e->mask = mask;
       e->bitnum = bn;
       e->data_ptr = dp;
+      e->prob[0] = 0;
+      e->prob[1] = 0;
+      e->generation = generation;
       return e;
     }
     if (e->mask == mask && e->bitnum == bn &&
@@ -334,11 +329,10 @@ static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
 
 static int compute_single_model(const unsigned char *data, int total_bits,
                                 unsigned char mask, CtxEntry *ht, int ht_size,
-                                CompactPredBlock *out_blocks,
-                                int *out_offsets) {
+                                CompactPredBlock *out_blocks, int *out_offsets,
+                                unsigned int generation) {
   int max_blocks = (total_bits + PKG_BITS - 1) / PKG_BITS;
   int num_blocks = 0;
-  memset(ht, 0, ht_size * sizeof(CtxEntry));
 
   for (int bi = 0; bi < max_blocks; bi++) {
     int base = bi * PKG_BITS;
@@ -347,7 +341,8 @@ static int compute_single_model(const unsigned char *data, int total_bits,
       float rp = 0, tp = 0;
       if (base + off < total_bits) {
         int bit = get_bit(data, base + off);
-        CtxEntry *e = ctx_table_probe(ht, ht_size, mask, data, base + off);
+        CtxEntry *e =
+            ctx_table_probe(ht, ht_size, mask, data, base + off, generation);
         int boost = (e->prob[0] == 0 || e->prob[1] == 0) ? 2 : 0;
         if (e->prob[0] || e->prob[1])
           needs_commit = 1;
@@ -370,14 +365,9 @@ static int compute_single_model(const unsigned char *data, int total_bits,
   return num_blocks;
 }
 
-static void eval_setup(Evaluator *ev, ModelPred *models,
-                       CompactPredBlock *block_arena, int *map_arena,
-                       int length, int base_prob, float log_scale) {
-  ev->model_info = models;
-  ev->block_arena = block_arena;
-  ev->map_arena = map_arena;
-  ev->length = length;
-  ev->base_prob = base_prob;
+static void eval_setup(Evaluator *ev, const CompState *cs, int length,
+                       int base_prob, float log_scale) {
+  ev->cs = cs;
   ev->log_scale = log_scale;
 
   int nblocks = (length + PKG_BITS - 1) / PKG_BITS;
@@ -408,11 +398,15 @@ static void eval_destroy(const Evaluator *ev) {
   free(ev->accum_sizes);
 }
 
+static inline int eval_get_size(const Evaluator *ev) {
+  return (int)(ev->cost / (TPREC / BIT_PREC));
+}
+
 static int64_t eval_adjust(const Evaluator *ev, int model_idx, int delta) {
-  const ModelPred *mp = &ev->model_info[model_idx];
+  const ModelPred *mp = &ev->cs->models[model_idx];
   const int nblocks = mp->num_blocks;
-  const CompactPredBlock *mblocks = &ev->block_arena[mp->arena_offset];
-  const int *mmap = &ev->map_arena[mp->map_offset];
+  const CompactPredBlock *mblocks = &ev->cs->block_arena[mp->offset];
+  const int *mmap = &ev->cs->map_arena[mp->offset];
 
   float dw = delta * ev->log_scale;
   const v4f vdw = v4f_splat(dw);
@@ -524,21 +518,16 @@ static CompState *state_new(const unsigned char *data, int size, int base_prob,
 
   int cursor = 0;
   for (int m = 0; m < 256; m++) {
-    cs->models[m].arena_offset = cursor;
-    cs->models[m].map_offset = cursor;
-    cs->models[m].num_blocks =
-        compute_single_model(dp, total_bits, (unsigned char)m, ht, ht_size,
-                             &cs->block_arena[cursor], &cs->map_arena[cursor]);
+    cs->models[m].offset = cursor;
+    cs->models[m].num_blocks = compute_single_model(
+        dp, total_bits, (unsigned char)m, ht, ht_size, &cs->block_arena[cursor],
+        &cs->map_arena[cursor], m + 1);
     cursor += cs->models[m].num_blocks;
   }
   free(ht);
   free(padded);
 
-  cs->arena_blocks = cursor;
-  cs->arena_maps = cursor;
-
-  eval_setup(eval, cs->models, cs->block_arena, cs->map_arena, total_bits,
-             base_prob, log_scale);
+  eval_setup(eval, cs, total_bits, base_prob, log_scale);
   return cs;
 }
 
@@ -546,15 +535,6 @@ static void state_destroy(CompState *cs) {
   free(cs->block_arena);
   free(cs->map_arena);
   free(cs);
-}
-
-static int state_get_size(const CompState *cs) {
-  return (int)(cs->eval->cost / (TPREC / BIT_PREC));
-}
-
-static int state_set_models(CompState *cs, const ModelSet *ml) {
-  eval_evaluate(cs->eval, ml);
-  return state_get_size(cs);
 }
 
 static void hbs_init(HashBitStream *hb) { memset(hb, 0, sizeof(*hb)); }
@@ -588,8 +568,8 @@ static HashBitStream compute_hash_stream(const unsigned char *data, int size,
   unsigned char *padded = alloc_padded(ctx, data, size);
   unsigned char *dp = padded + MAX_CTX;
 
-  unsigned int ext_masks[MAX_STREAM];
-  unsigned char ctx_masks[MAX_STREAM];
+  unsigned int ext_masks[MAX_SEARCH];
+  unsigned char ctx_masks[MAX_SEARCH];
   unsigned int wmask = encode_weight_mask(ml, ctx_masks, finish);
   decode_weight_mask(wmask, num, ctx_masks, out.weights, ext_masks);
 
@@ -642,7 +622,7 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
   unsigned int tmask = hb->table_size - 1;
   memset(ht, 0, hb->table_size * sizeof(HashEntry));
 
-  HashEntry *matched[MAX_STREAM];
+  HashEntry *matched[MAX_SEARCH];
   int hpos = 0;
   for (int bp = 0; bp < total_bits; bp++) {
     int bit = hb->bits[bp];
@@ -657,12 +637,10 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
 }
 
 static int compress_4k(const unsigned char *data, int size, unsigned char *out,
-                       int max_out, const ModelSet *ml, int base_prob) {
+                       const ModelSet *ml, int base_prob) {
   unsigned char ctx[MAX_CTX] = {};
   HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
   HashEntry *ht = (HashEntry *)calloc(hb.table_size, sizeof(HashEntry));
-
-  memset(out, 0, max_out);
   ArithCoder ac;
   arith_init(&ac, out);
   encode_from_stream(&ac, &hb, ht, base_prob);
@@ -684,12 +662,12 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
   int data_bits = bitlen - 1;
   int data_bytes = data_bits / 8;
 
-  unsigned char ctx_masks[MAX_STREAM];
+  unsigned char ctx_masks[MAX_SEARCH];
   for (int i = 0; i < num; i++)
     ctx_masks[i] = cdata[7 + i];
 
-  unsigned int ext_masks[MAX_STREAM];
-  int weights[MAX_STREAM];
+  unsigned int ext_masks[MAX_SEARCH];
+  int weights[MAX_SEARCH];
   decode_weight_mask(stored_wmask, num, ctx_masks, weights, ext_masks);
 
   const unsigned char *comp = cdata + 7 + num;
@@ -706,7 +684,7 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
 
   for (int bp = 0; bp < bitlen; bp++) {
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
-    HashEntry *matched[MAX_STREAM];
+    HashEntry *matched[MAX_SEARCH];
 
     for (int m = 0; m < num; m++) {
       unsigned int h = (bp == 0) ? ctx_hash_initial(ext_masks[m])
@@ -752,7 +730,8 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
 static unsigned int approximate_weights(CompState *cs, ModelSet *ml) {
   for (int i = 0; i < ml->num_models; i++)
     ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
-  return state_set_models(cs, ml);
+  eval_evaluate(cs->eval, ml);
+  return eval_get_size(cs->eval);
 }
 
 static unsigned int optimize_weights(CompState *cs, ModelSet *ml) {
@@ -770,7 +749,8 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml) {
     int improved = 0;
     if (cand.models[idx].weight <= MAX_WEIGHT &&
         cand.models[idx].weight != 255) {
-      unsigned int trial = state_set_models(cs, &cand);
+      eval_evaluate(cs->eval, &cand);
+      unsigned int trial = eval_get_size(cs->eval);
       if (trial < best) {
         best = trial;
         *ml = cand;
@@ -794,9 +774,8 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml) {
   return best;
 }
 
-static unsigned int try_weights(CompState *cs, ModelSet *ml, int mode) {
-  return (mode == CT_SLOW || mode == CT_VERYSLOW) ? optimize_weights(cs, ml)
-                                                  : approximate_weights(cs, ml);
+static unsigned int try_weights(CompState *cs, ModelSet *ml, int level) {
+  return (level >= 2) ? optimize_weights(cs, ml) : approximate_weights(cs, ml);
 }
 
 static int model_set_cmp(const void *a, const void *b) {
@@ -806,9 +785,9 @@ static int model_set_cmp(const void *a, const void *b) {
 }
 
 static ModelSet search_best_models(const unsigned char *data, int size,
-                                   const unsigned char ctx[MAX_CTX], int mode,
+                                   const unsigned char ctx[MAX_CTX], int level,
                                    int base_prob, int *out_size) {
-  const int beam = (mode == CT_VERYSLOW) ? 3 : 1;
+  const int beam = (level >= 3) ? 3 : 1;
   const int EFLAG = INT_MIN;
   const int nsets = beam * 2;
   ModelSet *sets = (ModelSet *)calloc(nsets, sizeof(ModelSet));
@@ -824,7 +803,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
     rev_masks[m] = (unsigned char)v;
   }
 
-  sets[0].size = state_get_size(cs) | EFLAG;
+  sets[0].size = eval_get_size(cs->eval) | EFLAG;
   for (int s = 1; s < beam; s++)
     sets[s].size = INT_MAX;
 
@@ -853,16 +832,16 @@ static ModelSet search_best_models(const unsigned char *data, int size,
         next->num_models = cur->num_models + 1;
 
         int old_sz = cur->size & ~EFLAG;
-        int new_sz = try_weights(cs, next, mode);
+        int new_sz = try_weights(cs, next, level);
 
-        if (new_sz < old_sz || mode == CT_VERYSLOW) {
+        if (new_sz < old_sz || level >= 3) {
           int best_sz = new_sz;
 
           for (int m = next->num_models - 2; m >= 0; m--) {
             Model removed = next->models[m];
             next->num_models--;
             next->models[m] = next->models[next->num_models];
-            int trial = try_weights(cs, next, mode);
+            int trial = try_weights(cs, next, level);
             if (trial < best_sz) {
               best_sz = trial;
             } else {
@@ -932,15 +911,14 @@ static void print_usage(const char *prog) {
   printf("Usage: %s [options] <input_file>\n\nOptions:\n", prog);
   printf("  -o <file>    Output file (default: <input>.paq or <input>.bin)\n");
   printf("  -d           Decompress mode\n");
-  printf("  -m <mode>    Compression mode: instant, fast, slow, veryslow "
-         "(default: slow)\n");
+  printf("  -m <1-3>     Compression level (default: %d)\n", DEFAULT_LEVEL);
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
   printf("  -h           Show this help\n");
 }
 
 int main(int argc, char *argv[]) {
   const char *output_file = NULL;
-  int mode = CT_SLOW;
+  int level = DEFAULT_LEVEL;
   int base_prob = DEFAULT_BPROB;
   int decompress = 0;
 
@@ -954,16 +932,10 @@ int main(int argc, char *argv[]) {
       decompress = 1;
       break;
     case 'm':
-      if (!strcmp(optarg, "instant"))
-        mode = CT_INSTANT;
-      else if (!strcmp(optarg, "fast"))
-        mode = CT_FAST;
-      else if (!strcmp(optarg, "slow"))
-        mode = CT_SLOW;
-      else if (!strcmp(optarg, "veryslow"))
-        mode = CT_VERYSLOW;
-      else {
-        fprintf(stderr, "Unknown mode: %s\n", optarg);
+      level = atoi(optarg);
+      if (level < MIN_LEVEL || level > MAX_LEVEL) {
+        fprintf(stderr, "Compression level must be %d-%d\n", MIN_LEVEL,
+                MAX_LEVEL);
         return 1;
       }
       break;
@@ -996,7 +968,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  static char default_out[512];
+  char default_out[512];
 
   if (decompress) {
     if (!output_file) {
@@ -1011,10 +983,25 @@ int main(int argc, char *argv[]) {
     printf("Input:       %s (%d bytes)\n", input_file, data_size);
     printf("Base prob:   %d\n", base_prob);
 
+    if (data_size < 7) {
+      fprintf(stderr, "Input too small to be a valid .paq file\n");
+      free(data);
+      return 1;
+    }
+
     int bitlen = data[0] | (data[1] << 8);
+    int num_models = data[6];
+
+    if (bitlen < 1 || 7 + num_models > data_size) {
+      fprintf(stderr, "Corrupt header (bitlen=%d, models=%d, filesize=%d)\n",
+              bitlen, num_models, data_size);
+      free(data);
+      return 1;
+    }
+
     int out_sz = (bitlen - 1) / 8;
     printf("Bitlength:   %d (%d data bytes)\n", bitlen, out_sz);
-    printf("Models:      %d\n", data[6]);
+    printf("Models:      %d\n", num_models);
 
     unsigned char *out_data = (unsigned char *)calloc(out_sz + 16, 1);
     int decoded = decompress_4k(data, out_data, base_prob);
@@ -1036,37 +1023,35 @@ int main(int argc, char *argv[]) {
     output_file = default_out;
   }
 
+  int bitlen = data_size * 8 + 1;
+  if (bitlen > 65535) {
+    fprintf(stderr, "Input too large for 16-bit bitlength (%d bits)\n", bitlen);
+    free(data);
+    return 1;
+  }
+
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
-  printf("Mode:        %s\n", CT_NAMES[mode]);
+  printf("Level:       %d\n", level);
   printf("Base prob:   %d\n", base_prob);
 
   unsigned char ctx[MAX_CTX] = {};
   int est_size = 0;
   ModelSet ml =
-      search_best_models(data, data_size, ctx, mode, base_prob, &est_size);
+      search_best_models(data, data_size, ctx, level, base_prob, &est_size);
 
   printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
   printf("Models:      ");
   model_set_print(&ml, stdout);
 
   int max_out = data_size + 1024;
-  unsigned char *out_buf = (unsigned char *)malloc(max_out);
-  int comp_bits =
-      compress_4k(data, data_size, out_buf, max_out, &ml, base_prob);
+  unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
+  int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
   int comp_bytes = (comp_bits + 7) / 8;
   printf("Compressed:  %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits,
          100.0f * comp_bytes / data_size);
 
-  unsigned char ordered_masks[MAX_MODELS];
+  unsigned char ordered_masks[MAX_SEARCH];
   unsigned int wmask = encode_weight_mask(&ml, ordered_masks, 1);
-
-  int bitlen = data_size * 8 + 1;
-  if (bitlen > 65535) {
-    fprintf(stderr, "Input too large for 16-bit bitlength (%d bits)\n", bitlen);
-    free(out_buf);
-    free(data);
-    return 1;
-  }
 
   unsigned char header[7];
   uint16_t bl16 = (uint16_t)bitlen;
