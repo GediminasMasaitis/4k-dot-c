@@ -81,8 +81,11 @@ G(
     S(0) void putl(const char *const restrict string) {
       i32 length = 0;
       while (string[length]) {
-        _sys(H(2, 2, stdout), H(2, 2, 1), H(2, 2, (ssize_t)(&string[length])),
-             H(2, 2, 1));
+        ssize_t ret;
+        asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                   : "rcx", "r11", "memory");
         length++;
       }
     }
@@ -108,8 +111,11 @@ G(
     3, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
-        const int result = _sys(H(2, 3, stdin), H(2, 3, 1),
-                                H(2, 3, (ssize_t)string), H(2, 3, 0));
+        ssize_t result;
+        asm volatile("syscall"
+                   : "=a"(result)
+                   : "0"(0), "D"(stdin), "S"(string), "d"(1)
+                   : "rcx", "r11", "memory");
 
     // Assume stdin never closes on mini build
 #ifdef FULL
@@ -1158,7 +1164,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(165, S(1) TTEntry tt[tt_length];)
