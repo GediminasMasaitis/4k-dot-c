@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,54 +11,22 @@ typedef uint32_t v4u __attribute__((vector_size(16)));
 typedef int32_t v4i __attribute__((vector_size(16)));
 typedef uint16_t v8u16 __attribute__((vector_size(16)));
 
-static inline unsigned int bsr(unsigned int value) {
-  return value ? 31 - __builtin_clz(value) : 0;
-}
-
-static inline void *aligned_alloc32(size_t size) {
-  void *ptr = NULL;
-  posix_memalign(&ptr, 32, size);
-  return ptr;
-}
-
-#define TABLE_BIT_PRECISION_BITS 12
-#define TABLE_BIT_PRECISION (1 << TABLE_BIT_PRECISION_BITS)
+#define TPREC_BITS 12
+#define TPREC (1 << TPREC_BITS)
 #define HMUL 111
 #define MAX_CTX 8
-#define DEFAULT_BASEPROB 10
-#define BIT_PRECISION 256
-#define MAX_MODELS_N 256
-#define MAX_N_SEARCH 21
-#define MAX_MODEL_WT 9
-#define MAX_N_STREAM 32
+#define DEFAULT_BPROB 10
+#define BIT_PREC 256
+#define MAX_MODELS 256
+#define MAX_SEARCH 21
+#define MAX_WEIGHT 9
+#define MAX_STREAM 32
 #define LOG2_NPV 4
 #define NPV (1 << LOG2_NPV)
-#define PKG_SIZE (NPV * 4)
+#define PKG_BITS (NPV * 4)
 
 enum { CT_INSTANT = 0, CT_FAST, CT_SLOW, CT_VERYSLOW };
-
-#define LOG_TABLE_SIZE (2 * TABLE_BIT_PRECISION)
-static int LogTable[LOG_TABLE_SIZE];
-
-static void InitLogTable(void) {
-  LogTable[0] = 0;
-  for (int i = 1; i < LOG_TABLE_SIZE; i++) {
-    double val = log2((double)i / TABLE_BIT_PRECISION) * TABLE_BIT_PRECISION;
-    LogTable[i] = (int)(val + 0.5);
-  }
-}
-
-typedef struct {
-  void *dest_ptr;
-  unsigned int dest_bit;
-  unsigned int interval_size;
-  unsigned int interval_min;
-} AritState;
-
-typedef struct {
-  unsigned short boosted_counters[2];
-  unsigned short next_state[2];
-} CounterState;
+static const char *const CT_NAMES[] = {"INSTANT", "FAST", "SLOW", "VERYSLOW"};
 
 typedef struct {
   unsigned char weight;
@@ -67,1025 +34,846 @@ typedef struct {
 } Model;
 
 typedef struct {
-  Model models[MAX_MODELS_N];
-  int nmodels;
+  Model models[MAX_MODELS];
+  int num_models;
   int size;
-} ModelList4k;
-
-typedef struct {
-  unsigned char prob[2];
-} Weights;
+} ModelSet;
 
 typedef struct {
   uint16_t prob[NPV][8];
-} CompactPackage;
+} CompactPredBlock;
 
 typedef struct {
   v4f prob[NPV][2];
-} Package;
+} PredBlock;
 
 typedef struct {
-  int num_packages;
-  CompactPackage *packages;
-  int *package_offsets;
-} ModelPredictions;
+  int num_blocks;
+  int arena_offset;
+  int map_offset;
+} ModelPred;
 
 typedef struct {
-  unsigned int hashes_cap;
-  unsigned int hashes_len;
-  unsigned int *hashes;
-  int bits_cap;
-  int bits_len;
-  unsigned char *bits;
-  int *weights;
-  int num_weights;
-  unsigned int tiny_hash_size;
-} HashBits;
+  unsigned char *dest;
+  unsigned int bit_pos;
+  unsigned int range;
+  unsigned int low;
+} ArithCoder;
+
+typedef struct {
+  unsigned char mask;
+  unsigned char bitnum;
+  unsigned char prob[2];
+  const unsigned char *data_ptr;
+} CtxEntry;
 
 typedef struct {
   unsigned int hash;
   unsigned char prob[2];
   unsigned char used;
-} TinyHashEntry;
+} HashEntry;
 
-static int AritSize2(const int right_prob, const int wrong_prob) {
-  assert(right_prob > 0 && wrong_prob > 0);
-  const int total_prob = right_prob + wrong_prob;
-  if (total_prob < TABLE_BIT_PRECISION) {
-    return LogTable[total_prob] - LogTable[right_prob];
-  }
-  unsigned int right_shift = bsr(right_prob);
-  unsigned int total_shift = bsr(total_prob);
-  right_shift = right_shift > 12 ? right_shift - 12 : 0;
-  total_shift = total_shift > 12 ? total_shift - 12 : 0;
-  return LogTable[total_prob >> total_shift] -
-         LogTable[right_prob >> right_shift] +
-         ((total_shift - right_shift) << 12);
+typedef struct {
+  unsigned int *hashes;
+  unsigned int hashes_len, hashes_cap;
+  unsigned char *bits;
+  int bits_len, bits_cap;
+  int *weights;
+  int num_weights;
+  unsigned int table_size;
+} HashBitStream;
+
+typedef struct {
+  int active_weights[MAX_MODELS];
+  ModelPred *model_info;
+  CompactPredBlock *block_arena;
+  int *map_arena;
+  int length;
+  PredBlock *accum;
+  unsigned *accum_sizes;
+  int64_t cost;
+  int base_prob;
+  float log_scale;
+} Evaluator;
+
+typedef struct {
+  ModelPred models[256];
+  CompactPredBlock *block_arena;
+  int *map_arena;
+  int arena_blocks;
+  int arena_maps;
+  Evaluator *eval;
+} CompState;
+
+static inline v4f v4f_splat(float x) { return (v4f){x, x, x, x}; }
+static inline v4u v4u_splat(uint32_t x) { return (v4u){x, x, x, x}; }
+
+static inline void *alloc_aligned(size_t size) {
+  void *p = NULL;
+  if (posix_memalign(&p, 32, size) != 0)
+    return NULL;
+  return p;
 }
 
-static void AritCodeInit(AritState *state, void *dest) {
-  state->dest_ptr = dest;
-  state->dest_bit = (unsigned)-1;
-  state->interval_size = 0x80000000;
-  state->interval_min = 0;
+static int next_pow2(int v) {
+  v--;
+  v |= v >> 1;
+  v |= v >> 2;
+  v |= v >> 4;
+  v |= v >> 8;
+  v |= v >> 16;
+  return v + 1;
 }
 
-static void PutBit(unsigned char *dest, int bit_pos) {
-  do {
-    --bit_pos;
-    if (bit_pos < 0) {
-      return;
-    }
-    const unsigned int mask = 1u << (bit_pos & 7);
-    const unsigned int byte_val = dest[bit_pos >> 3];
-    dest[bit_pos >> 3] = byte_val ^ mask;
-    if (!(byte_val & mask)) {
-      break;
-    }
-  } while (1);
-}
-
-static void AritCode(AritState *state, const unsigned int zero_prob,
-                     const unsigned int one_prob, const int bit) {
-  unsigned char *dest = (unsigned char *)state->dest_ptr;
-  unsigned int bit_pos = state->dest_bit;
-  unsigned int interval_min = state->interval_min;
-  unsigned int interval_size = state->interval_size;
-  const unsigned int total_prob = zero_prob + one_prob;
-  const unsigned int threshold =
-      (uint64_t)interval_size * zero_prob / total_prob;
-  if (bit) {
-    const unsigned int old_min = interval_min;
-    interval_min += threshold;
-    if (interval_min < old_min) {
-      PutBit(dest, bit_pos);
-    }
-    interval_size -= threshold;
-  } else {
-    interval_size = threshold;
-  }
-  while (interval_size < 0x80000000) {
-    bit_pos++;
-    if (interval_min & 0x80000000) {
-      PutBit(dest, bit_pos);
-    }
-    interval_min <<= 1;
-    interval_size <<= 1;
-  }
-  state->dest_bit = bit_pos;
-  state->interval_min = interval_min;
-  state->interval_size = interval_size;
-}
-
-static int AritCodeEnd(const AritState *state) {
-  unsigned char *dest = (unsigned char *)state->dest_ptr;
-  unsigned int bit_pos = state->dest_bit;
-  const unsigned int interval_min = state->interval_min;
-  const unsigned int interval_size = state->interval_size;
-  if (interval_min > 0) {
-    if (interval_min + interval_size - 1 >= interval_min) {
-      bit_pos++;
-    }
-    PutBit(dest, bit_pos);
-  }
-  return bit_pos;
-}
-
-static CounterState unsat_states[1471];
-static int counter_state_map[256][256];
-
-static int CSVisit(CounterState *states, int *num_states, const int max_states,
-                   unsigned char count0, unsigned char count1,
-                   int const new_bit) {
-  if (new_bit == 0) {
-    count0++;
-    if (count1 > 1) {
-      count1 >>= 1;
-    }
-  } else {
-    count1++;
-    if (count0 > 1) {
-      count0 >>= 1;
-    }
-  }
-
-  if (counter_state_map[count1][count0] != -1) {
-    return counter_state_map[count1][count0];
-  }
-
-  const int boost = (count0 == 0 || count1 == 0) ? 2 : 0;
-  const int state_idx = (*num_states);
-  counter_state_map[count1][count0] = state_idx;
-  assert(*num_states < max_states);
-  CounterState *entry = &states[(*num_states)++];
-  entry->boosted_counters[0] = count0 << boost;
-  entry->boosted_counters[1] = count1 << boost;
-  states[state_idx].next_state[0] =
-      CSVisit(states, num_states, max_states, count0, count1, 0);
-  states[state_idx].next_state[1] =
-      CSVisit(states, num_states, max_states, count0, count1, 1);
-  return state_idx;
-}
-
-static void GenCounterStates(CounterState *states, const int max_states) {
-  memset(counter_state_map, -1, sizeof(counter_state_map));
-  counter_state_map[0][1] = 0;
-  counter_state_map[1][0] = 1;
-  int num_states = 0;
-
-  assert(num_states < max_states);
-  CounterState *first_zero = &states[num_states++];
-  first_zero->boosted_counters[0] = 1 << 2;
-  first_zero->boosted_counters[1] = 0;
-
-  assert(num_states < max_states);
-  CounterState *first_one = &states[num_states++];
-  first_one->boosted_counters[0] = 0;
-  first_one->boosted_counters[1] = 1 << 2;
-
-  states[0].next_state[0] = CSVisit(states, &num_states, max_states, 1, 0, 0);
-  states[0].next_state[1] = CSVisit(states, &num_states, max_states, 1, 0, 1);
-  states[1].next_state[0] = CSVisit(states, &num_states, max_states, 0, 1, 0);
-  states[1].next_state[1] = CSVisit(states, &num_states, max_states, 0, 1, 1);
-  assert(num_states == max_states);
-}
-
-static void InitCounterStates(void) { GenCounterStates(unsat_states, 1471); }
-
-static inline int GetBit(const unsigned char *data, const int bit_pos) {
-  return (data[bit_pos >> 3] >> (7 - (bit_pos & 7))) & 1;
-}
-
-static unsigned int ModelHashStart(const unsigned int mask,
-                                   const int hash_mul) {
-  unsigned char data_len = (unsigned char)mask;
-  unsigned int hash = mask;
-  hash = hash * hash_mul - 1;
-  while (data_len) {
-    if (data_len & 0x80) {
-      hash = hash * hash_mul - 1;
-    }
-    data_len += data_len;
-  }
-  return hash;
-}
-
-static unsigned int ModelHash(const unsigned char *data, const int bit_pos,
-                              const unsigned int mask, const int hash_mul) {
-  unsigned char data_len = (unsigned char)mask;
-  const unsigned char *ptr = data + (bit_pos >> 3);
-  unsigned int hash = mask;
-  unsigned char cur_byte = (0x100 | *ptr) >> ((~bit_pos & 7) + 1);
-  hash ^= cur_byte;
-  hash *= hash_mul;
-  hash = (hash & 0xFFFFFF00) | ((hash + cur_byte) & 0xFF);
-  hash--;
-  while (data_len) {
-    ptr--;
-    if (data_len & 0x80) {
-      cur_byte = *ptr;
-      hash ^= cur_byte;
-      hash *= hash_mul;
-      hash = (hash & 0xFFFFFF00) | ((hash + cur_byte) & 0xFF);
-      hash--;
-    }
-    data_len += data_len;
-  }
-  return hash;
-}
-
-static ModelList4k ML_copy(const ModelList4k *src) { return *src; }
-
-static unsigned int ML_GetMaskList(const ModelList4k *ml, unsigned char *masks,
-                                   const int terminate) {
-  unsigned int weightmask = 0;
-  int remaining = ml->nmodels;
-  int bit_idx = 31;
-  for (int weight = 0; remaining; weight++) {
-    for (int m = 0; m < ml->nmodels; m++) {
-      if (ml->models[m].weight == weight) {
-        if (masks) {
-          *masks++ = ml->models[m].mask;
-        }
-        remaining--;
-        bit_idx--;
-      }
-    }
-    weightmask |= (1u << bit_idx);
-    bit_idx--;
-  }
-  while (bit_idx >= 0) {
-    weightmask |= 1u << bit_idx;
-    bit_idx--;
-  }
-  int parity = __builtin_parity(weightmask & 0xFF);
-  return weightmask & (unsigned)(-2 + (terminate ^ parity));
-}
-
-static void ML_Print(const ModelList4k *ml, FILE *file) {
-  for (int m = 0; m < ml->nmodels; m++) {
-    fprintf(file, "%s%02X:%d", m ? " " : "", ml->models[m].mask,
-            ml->models[m].weight);
-  }
-  fprintf(file, "\n");
-}
-
-static void UpdateWeights(Weights *weights, const int bit) {
-  weights->prob[bit] += 1;
-  if (weights->prob[!bit] > 1) {
-    weights->prob[!bit] >>= 1;
-  }
-}
-
-static int NextPowerOf2(int value) {
-  value--;
-  value |= value >> 1;
-  value |= value >> 2;
-  value |= value >> 4;
-  value |= value >> 8;
-  value |= value >> 16;
-  return value + 1;
-}
-
-static int PreviousPrime(int n) {
+static int prev_prime(int n) {
   for (;;) {
     n = (n - 2) | 1;
-    int is_prime = 1;
-    for (int divisor = 3; divisor * divisor < n; divisor += 2) {
-      if (n / divisor * divisor == n) {
-        is_prime = 0;
+    int ok = 1;
+    for (int d = 3; d * d < n; d += 2) {
+      if (n % d == 0) {
+        ok = 0;
         break;
       }
     }
-    if (is_prime) {
+    if (ok)
       return n;
+  }
+}
+
+static inline void counter_update(unsigned char prob[2], int bit) {
+  prob[bit] += 1;
+  if (prob[!bit] > 1)
+    prob[!bit] >>= 1;
+}
+
+static unsigned char *alloc_padded(const unsigned char *ctx,
+                                   const unsigned char *data, int size) {
+  unsigned char *buf = (unsigned char *)malloc(size + MAX_CTX);
+  memcpy(buf, ctx, MAX_CTX);
+  memcpy(buf + MAX_CTX, data, size);
+  return buf;
+}
+
+#define DYNPUSH(arr, len, cap, val, elem_sz)                                   \
+  do {                                                                         \
+    if ((len) >= (cap)) {                                                      \
+      (cap) = (cap) ? (cap) * 2 : 4096;                                        \
+      (arr) = realloc((arr), (cap) * (elem_sz));                               \
+    }                                                                          \
+    (arr)[(len)++] = (val);                                                    \
+  } while (0)
+
+static inline unsigned int hash_mix(unsigned int h, unsigned char byte) {
+  h ^= byte;
+  h *= HMUL;
+  h = (h & 0xFFFFFF00u) | ((h + byte) & 0xFF);
+  return h - 1;
+}
+
+static unsigned int ctx_hash_initial(unsigned int mask) {
+  unsigned char cmask = (unsigned char)mask;
+  unsigned int h = mask;
+  h = h * HMUL - 1;
+  while (cmask) {
+    if (cmask & 0x80)
+      h = h * HMUL - 1;
+    cmask += cmask;
+  }
+  return h;
+}
+
+static unsigned int ctx_hash(const unsigned char *data, int bit_pos,
+                             unsigned int mask) {
+  unsigned char cmask = (unsigned char)mask;
+  const unsigned char *ptr = data + (bit_pos >> 3);
+  unsigned int h = mask;
+  unsigned char cur = (0x100 | *ptr) >> ((~bit_pos & 7) + 1);
+  h = hash_mix(h, cur);
+  while (cmask) {
+    ptr--;
+    if (cmask & 0x80) {
+      cur = *ptr;
+      h = hash_mix(h, cur);
     }
+    cmask += cmask;
+  }
+  return h;
+}
+
+static inline int get_bit(const unsigned char *data, int pos) {
+  return (data[pos >> 3] >> (7 - (pos & 7))) & 1;
+}
+
+static inline int get_compressed_bit(const unsigned char *data, int pos) {
+  return (data[pos >> 3] >> (pos & 7)) & 1;
+}
+
+static void arith_init(ArithCoder *ac, void *dest) {
+  ac->dest = (unsigned char *)dest;
+  ac->bit_pos = (unsigned)-1;
+  ac->range = 0x80000000u;
+  ac->low = 0;
+}
+
+static void propagate_carry(unsigned char *dest, int pos) {
+  while (--pos >= 0) {
+    unsigned int mask = 1u << (pos & 7);
+    unsigned int byte = dest[pos >> 3];
+    dest[pos >> 3] = byte ^ mask;
+    if (!(byte & mask))
+      break;
   }
 }
 
-static const char *CTName(const int compression_type) {
-  switch (compression_type) {
-  case CT_INSTANT:
-    return "INSTANT";
-  case CT_FAST:
-    return "FAST";
-  case CT_SLOW:
-    return "SLOW";
-  case CT_VERYSLOW:
-    return "VERYSLOW";
+static void arith_encode(ArithCoder *ac, unsigned int p0, unsigned int p1,
+                         int bit) {
+  unsigned int total = p0 + p1;
+  unsigned int thresh = (uint64_t)ac->range * p0 / total;
+  if (bit) {
+    unsigned int old_low = ac->low;
+    ac->low += thresh;
+    if (ac->low < old_low)
+      propagate_carry(ac->dest, ac->bit_pos);
+    ac->range -= thresh;
+  } else {
+    ac->range = thresh;
   }
-  return "UNKNOWN";
+  while (ac->range < 0x80000000u) {
+    ac->bit_pos++;
+    if (ac->low & 0x80000000u)
+      propagate_carry(ac->dest, ac->bit_pos);
+    ac->low <<= 1;
+    ac->range <<= 1;
+  }
 }
 
-typedef struct {
-  int weights[256];
-  ModelPredictions *models;
-  int length;
-  Package *packages;
-  unsigned *package_sizes;
-  int64_t compressed_size;
-  int baseprob;
-  float log_scale;
-} CSEval;
-
-static void CSEval_init(CSEval *eval) { memset(eval, 0, sizeof(*eval)); }
-
-static void CSEval_destroy(const CSEval *eval) {
-  free(eval->packages);
-  free(eval->package_sizes);
+static int arith_finish(const ArithCoder *ac) {
+  unsigned int pos = ac->bit_pos;
+  if (ac->low > 0) {
+    if (ac->low + ac->range - 1 >= ac->low)
+      pos++;
+    propagate_carry(ac->dest, pos);
+  }
+  return pos;
 }
 
-static void CSEval_Init(CSEval *eval, ModelPredictions *models,
-                        const int length, const int baseprob,
-                        const float log_scale) {
-  eval->length = length;
-  eval->models = models;
-  eval->baseprob = baseprob;
-  eval->log_scale = log_scale;
-  int num_packages = (length + PKG_SIZE - 1) / PKG_SIZE;
-  eval->packages = (Package *)aligned_alloc32(num_packages * sizeof(Package));
-  eval->package_sizes = (unsigned *)malloc(num_packages * sizeof(unsigned));
-  float bv = baseprob * log_scale;
-  float tv = baseprob * 2 * log_scale;
-  v4f base_v = {bv, bv, bv, bv};
-  v4f total_active = {tv, tv, tv, tv};
-  for (int i = 0; i < num_packages; i++) {
-    for (int j = 0; j < NPV; j++) {
-      eval->packages[i].prob[j][0] = base_v;
-      eval->packages[i].prob[j][1] =
-          (i * PKG_SIZE + j * 4 < length) ? total_active : base_v;
-    }
-    int remain = length - i * PKG_SIZE;
-    if (remain > PKG_SIZE) {
-      remain = PKG_SIZE;
-    }
-    eval->package_sizes[i] = remain * TABLE_BIT_PRECISION;
-  }
-  eval->compressed_size = (int64_t)length << TABLE_BIT_PRECISION_BITS;
-}
-
-static int64_t CSEval_ChangeWeight(const CSEval *eval, const int model_idx,
-                                   const int delta_weight) {
-  const int num_packages = eval->models[model_idx].num_packages;
-
-  float dw = delta_weight * eval->log_scale;
-  const v4f vdw = {dw, dw, dw, dw};
-  const v4f vone = {1, 1, 1, 1};
-
-  static const float LOG2_C0 = 1.42286530448213f;
-  static const float LOG2_C1 = -0.58208536795165f;
-  static const float LOG2_C2 = 0.15922006346951f;
-  const v4f vc0 = {LOG2_C0, LOG2_C0, LOG2_C0, LOG2_C0};
-  const v4f vc1 = {LOG2_C1, LOG2_C1, LOG2_C1, LOG2_C1};
-  const v4f vc2 = {LOG2_C2, LOG2_C2, LOG2_C2, LOG2_C2};
-  const v4f vprec = {TABLE_BIT_PRECISION, TABLE_BIT_PRECISION,
-                     TABLE_BIT_PRECISION, TABLE_BIT_PRECISION};
-  const v4u vmant = {0x7fffff, 0x7fffff, 0x7fffff, 0x7fffff};
-  const v4u vexp1 = {0x3f800000, 0x3f800000, 0x3f800000, 0x3f800000};
-
-  Package *sum_packages = eval->packages;
-  CompactPackage *model_packages = eval->models[model_idx].packages;
-  unsigned *pkg_sizes = eval->package_sizes;
-  const int *pkg_offsets = eval->models[model_idx].package_offsets;
-
-  int64_t delta_size = 0;
-  for (int pkg_idx = 0; pkg_idx < num_packages; pkg_idx++) {
-    const int offset = pkg_offsets[pkg_idx];
-    Package *sum = &sum_packages[offset];
-    const CompactPackage *model = &model_packages[pkg_idx];
-
-    v4f prod_right = vone;
-    v4f prod_total = vone;
-
-    const v8u16 vzero16 = {};
-#pragma GCC unroll 16
-    for (int I = 0; I < NPV; I++) {
-      v8u16 packed;
-      memcpy(&packed, model->prob[I], 16);
-      v8u16 right_i =
-          __builtin_shufflevector(vzero16, packed, 0, 8, 1, 9, 2, 10, 3, 11);
-      v8u16 total_i =
-          __builtin_shufflevector(vzero16, packed, 4, 12, 5, 13, 6, 14, 7, 15);
-      v4f fmr;
-      memcpy(&fmr, &right_i, 16);
-      v4f fmt;
-      memcpy(&fmt, &total_i, 16);
-
-      v4f sr = sum->prob[I][0];
-      v4f st = sum->prob[I][1];
-      sr += fmr * vdw;
-      st += fmt * vdw;
-      sum->prob[I][0] = sr;
-      sum->prob[I][1] = st;
-
-      prod_right *= sr;
-      prod_total *= st;
-    }
-
-    v4u rb = (v4u)prod_right;
-    v4u tb = (v4u)prod_total;
-
-    v4i right_exp = (v4i)(rb >> 23);
-    v4i total_exp = (v4i)(tb >> 23);
-
-    v4f rmf = (v4f)((rb & vmant) | vexp1);
-    v4f tmf = (v4f)((tb & vmant) | vexp1);
-
-    v4f rx = rmf - vone;
-    v4f tx = tmf - vone;
-    v4f right_log = rx * (vc0 + rx * (vc1 + rx * vc2));
-    v4f total_log = tx * (vc0 + tx * (vc1 + tx * vc2));
-
-    v4f frac_f = (total_log - right_log) * vprec;
-    v4i exp_diff = (total_exp - right_exp) << TABLE_BIT_PRECISION_BITS;
-    v4u sign =
-        (v4u)frac_f & (v4u){0x80000000u, 0x80000000u, 0x80000000u, 0x80000000u};
-    v4f bias =
-        (v4f)(sign | (v4u){0x3F000000u, 0x3F000000u, 0x3F000000u, 0x3F000000u});
-    v4i frac_i = __builtin_convertvector(frac_f + bias, v4i);
-    v4i sizes = exp_diff + frac_i;
-    int new_pkg_size = sizes[0] + sizes[1] + sizes[2] + sizes[3];
-
-    int old_pkg_size = pkg_sizes[offset];
-    pkg_sizes[offset] = new_pkg_size;
-    delta_size += new_pkg_size - old_pkg_size;
-  }
-  return delta_size;
-}
-
-static int64_t CSEval_Evaluate(CSEval *eval, const ModelList4k *ml) {
-  int new_weights[MAX_MODELS_N] = {};
-  for (int i = 0; i < ml->nmodels; i++) {
-    new_weights[ml->models[i].mask] = 1 << ml->models[i].weight;
-  }
-  for (int i = 0; i < MAX_MODELS_N; i++) {
-    if (new_weights[i] != eval->weights[i]) {
-      const int64_t delta =
-          CSEval_ChangeWeight(eval, i, new_weights[i] - eval->weights[i]);
-      if (eval->weights[i] == 0) {
-        eval->compressed_size += 8 * TABLE_BIT_PRECISION;
-      } else if (new_weights[i] == 0) {
-        eval->compressed_size -= 8 * TABLE_BIT_PRECISION;
+static unsigned int encode_weight_mask(const ModelSet *ml, unsigned char *masks,
+                                       int terminate) {
+  unsigned int wmask = 0;
+  int remaining = ml->num_models;
+  int bit = 31;
+  for (int w = 0; remaining; w++) {
+    for (int m = 0; m < ml->num_models; m++) {
+      if (ml->models[m].weight == w) {
+        if (masks)
+          *masks++ = ml->models[m].mask;
+        remaining--;
+        bit--;
       }
-      eval->weights[i] = new_weights[i];
-      eval->compressed_size += delta;
     }
+    wmask |= 1u << bit;
+    bit--;
   }
-  return eval->compressed_size;
+  while (bit >= 0) {
+    wmask |= 1u << bit;
+    bit--;
+  }
+  int parity = __builtin_parity(wmask & 0xFF);
+  return wmask & (unsigned)(-2 + (terminate ^ parity));
 }
 
-typedef struct {
-  int size;
-  ModelPredictions models[256];
-  int64_t compressed_size;
-  CSEval *eval;
-  float log_scale;
-} CState;
-
-typedef struct {
-  unsigned char mask;
-  unsigned char bitnum;
-  Weights weights;
-  const unsigned char *datapos;
-} HashEntry;
-
-static HashEntry *FindEntry(HashEntry *table, const unsigned table_size,
-                            const unsigned char mask, const unsigned char *data,
-                            const int bit_pos) {
-  const unsigned char *data_ptr = &data[bit_pos / 8];
-  const unsigned char bit_num = (unsigned char)(bit_pos & 7);
-  for (unsigned hash = ModelHash(data, bit_pos, mask, HMUL);; hash++) {
-    HashEntry *entry = &table[hash % table_size];
-    if (entry->datapos == NULL) {
-      entry->mask = mask;
-      entry->bitnum = bit_num;
-      entry->datapos = data_ptr;
-      return entry;
+static void decode_weight_mask(unsigned int wmask, int num_models,
+                               const unsigned char *ctx_masks, int *weights,
+                               unsigned int *ext_masks) {
+  int wval = 0;
+  for (int n = 0; n < num_models; n++) {
+    while (wmask & 0x80000000u) {
+      wmask <<= 1;
+      wval++;
     }
-    if (entry->mask == mask && entry->bitnum == bit_num &&
-        (data_ptr[0] & (0xFF00 >> bit_num)) ==
-            (entry->datapos[0] & (0xFF00 >> bit_num))) {
+    wmask <<= 1;
+    weights[n] = wval;
+    ext_masks[n] = (unsigned int)ctx_masks[n] | (wmask & 0xFFFFFF00u);
+  }
+}
+
+static void model_set_print(const ModelSet *ml, FILE *f) {
+  for (int m = 0; m < ml->num_models; m++)
+    fprintf(f, "%s%02X:%d", m ? " " : "", ml->models[m].mask,
+            ml->models[m].weight);
+  fprintf(f, "\n");
+}
+
+static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
+                                 unsigned char mask, const unsigned char *data,
+                                 int bit_pos) {
+  const unsigned char *dp = &data[bit_pos / 8];
+  unsigned char bn = (unsigned char)(bit_pos & 7);
+  for (unsigned int h = ctx_hash(data, bit_pos, mask);; h++) {
+    CtxEntry *e = &table[h % table_size];
+    if (e->data_ptr == NULL) {
+      e->mask = mask;
+      e->bitnum = bn;
+      e->data_ptr = dp;
+      return e;
+    }
+    if (e->mask == mask && e->bitnum == bn &&
+        (dp[0] & (0xFF00 >> bn)) == (e->data_ptr[0] & (0xFF00 >> bn))) {
       int match = 1;
       for (int i = 0; i < 8; i++) {
-        if (((mask >> i) & 1) && data_ptr[i - 8] != entry->datapos[i - 8]) {
+        if (((mask >> i) & 1) && dp[i - 8] != e->data_ptr[i - 8]) {
           match = 0;
           break;
         }
       }
-      if (match) {
-        return entry;
-      }
+      if (match)
+        return e;
     }
   }
 }
 
-static ModelPredictions CS_ApplyModel(const unsigned char *data,
-                                      const int bit_length,
-                                      const unsigned char mask) {
-  int table_size = PreviousPrime(bit_length * 2);
-  int max_packages = (bit_length + PKG_SIZE - 1) / PKG_SIZE;
-  int num_packages = 0;
-  CompactPackage *packages =
-      (CompactPackage *)aligned_alloc32(max_packages * sizeof(CompactPackage));
-  int *offsets = (int *)malloc(max_packages * sizeof(int));
-  HashEntry *hash_table = (HashEntry *)calloc(table_size, sizeof(HashEntry));
+static int compute_single_model(const unsigned char *data, int total_bits,
+                                unsigned char mask, CtxEntry *ht, int ht_size,
+                                CompactPredBlock *out_blocks,
+                                int *out_offsets) {
+  int max_blocks = (total_bits + PKG_BITS - 1) / PKG_BITS;
+  int num_blocks = 0;
+  memset(ht, 0, ht_size * sizeof(CtxEntry));
 
-  for (int pkg_idx = 0; pkg_idx < max_packages; pkg_idx++) {
-    int bit_base = pkg_idx * PKG_SIZE;
+  for (int bi = 0; bi < max_blocks; bi++) {
+    int base = bi * PKG_BITS;
     int needs_commit = 0;
-    for (int bit_offset = 0; bit_offset < PKG_SIZE; bit_offset++) {
-      float right_prob = 0;
-      float total_prob = 0;
-      if (bit_base + bit_offset < bit_length) {
-        int bit = GetBit(data, bit_base + bit_offset);
-        HashEntry *entry = FindEntry(hash_table, table_size, mask, data,
-                                     bit_base + bit_offset);
-        int boost = (entry->weights.prob[0] == 0 || entry->weights.prob[1] == 0)
-                        ? 2
-                        : 0;
-        if (entry->weights.prob[0] || entry->weights.prob[1]) {
+    for (int off = 0; off < PKG_BITS; off++) {
+      float rp = 0, tp = 0;
+      if (base + off < total_bits) {
+        int bit = get_bit(data, base + off);
+        CtxEntry *e = ctx_table_probe(ht, ht_size, mask, data, base + off);
+        int boost = (e->prob[0] == 0 || e->prob[1] == 0) ? 2 : 0;
+        if (e->prob[0] || e->prob[1])
           needs_commit = 1;
-        }
-        right_prob = (float)(entry->weights.prob[bit] << boost);
-        total_prob =
-            (float)((entry->weights.prob[0] + entry->weights.prob[1]) << boost);
-        UpdateWeights(&entry->weights, bit);
+        rp = (float)(e->prob[bit] << boost);
+        tp = (float)((e->prob[0] + e->prob[1]) << boost);
+        counter_update(e->prob, bit);
       }
-      uint16_t *packed =
-          (uint16_t *)&packages[num_packages].prob[bit_offset >> 2];
-      packed[bit_offset & 3] = *(int *)&right_prob >> 16;
-      packed[4 + (bit_offset & 3)] = *(int *)&total_prob >> 16;
+      uint16_t *packed = (uint16_t *)&out_blocks[num_blocks].prob[off >> 2];
+      int ri, ti;
+      memcpy(&ri, &rp, sizeof(int));
+      memcpy(&ti, &tp, sizeof(int));
+      packed[off & 3] = (uint16_t)(ri >> 16);
+      packed[4 + (off & 3)] = (uint16_t)(ti >> 16);
     }
-    offsets[num_packages] = pkg_idx;
-    if (needs_commit) {
-      num_packages++;
-    }
+    out_offsets[num_blocks] = bi;
+    if (needs_commit)
+      num_blocks++;
   }
-  free(hash_table);
-  const ModelPredictions result = {num_packages, packages, offsets};
-  return result;
+
+  return num_blocks;
 }
 
-static CState *CState_new(const unsigned char *data, const int size,
-                          const int baseprob, CSEval *eval,
-                          const unsigned char *context) {
-  CState *cs = (CState *)calloc(1, sizeof(CState));
-  cs->size = size * 8;
-  cs->eval = eval;
-  unsigned char *padded_data = (unsigned char *)malloc(size + MAX_CTX);
-  memcpy(padded_data, context, MAX_CTX);
-  memcpy(padded_data + MAX_CTX, data, size);
-  assert(baseprob >= 9);
-  cs->log_scale = 1.0f / 2048.0f;
+static void eval_setup(Evaluator *ev, ModelPred *models,
+                       CompactPredBlock *block_arena, int *map_arena,
+                       int length, int base_prob, float log_scale) {
+  ev->model_info = models;
+  ev->block_arena = block_arena;
+  ev->map_arena = map_arena;
+  ev->length = length;
+  ev->base_prob = base_prob;
+  ev->log_scale = log_scale;
 
-  for (int mask = 0; mask < 256; mask++) {
-    cs->models[mask] =
-        CS_ApplyModel(padded_data + MAX_CTX, cs->size, (unsigned char)mask);
+  int nblocks = (length + PKG_BITS - 1) / PKG_BITS;
+  ev->accum = (PredBlock *)alloc_aligned(nblocks * sizeof(PredBlock));
+  ev->accum_sizes = (unsigned *)malloc(nblocks * sizeof(unsigned));
+
+  float bv = base_prob * log_scale;
+  float tv = base_prob * 2 * log_scale;
+  v4f base_v = v4f_splat(bv);
+  v4f total_v = v4f_splat(tv);
+
+  for (int i = 0; i < nblocks; i++) {
+    for (int j = 0; j < NPV; j++) {
+      ev->accum[i].prob[j][0] = base_v;
+      ev->accum[i].prob[j][1] =
+          (i * PKG_BITS + j * 4 < length) ? total_v : base_v;
+    }
+    int remain = length - i * PKG_BITS;
+    if (remain > PKG_BITS)
+      remain = PKG_BITS;
+    ev->accum_sizes[i] = remain * TPREC;
   }
-  free(padded_data);
+  ev->cost = (int64_t)length << TPREC_BITS;
+}
 
-  CSEval_Init(eval, cs->models, size * 8, baseprob, cs->log_scale);
-  cs->compressed_size = (int64_t)TABLE_BIT_PRECISION * size * 8;
+static void eval_destroy(const Evaluator *ev) {
+  free(ev->accum);
+  free(ev->accum_sizes);
+}
+
+static int64_t eval_adjust(const Evaluator *ev, int model_idx, int delta) {
+  const ModelPred *mp = &ev->model_info[model_idx];
+  const int nblocks = mp->num_blocks;
+  const CompactPredBlock *mblocks = &ev->block_arena[mp->arena_offset];
+  const int *mmap = &ev->map_arena[mp->map_offset];
+
+  float dw = delta * ev->log_scale;
+  const v4f vdw = v4f_splat(dw);
+  const v4f vone = v4f_splat(1);
+
+  static const float C0 = 1.42286530448213f;
+  static const float C1 = -0.58208536795165f;
+  static const float C2 = 0.15922006346951f;
+  const v4f vc0 = v4f_splat(C0);
+  const v4f vc1 = v4f_splat(C1);
+  const v4f vc2 = v4f_splat(C2);
+  const v4f vprec = v4f_splat(TPREC);
+  const v4u vmant = v4u_splat(0x7FFFFFu);
+  const v4u vexp1 = v4u_splat(0x3F800000u);
+
+  PredBlock *accum = ev->accum;
+  unsigned *sizes = ev->accum_sizes;
+  int64_t delta_cost = 0;
+
+  for (int bi = 0; bi < nblocks; bi++) {
+    const int off = mmap[bi];
+    PredBlock *sum = &accum[off];
+    const CompactPredBlock *mb = &mblocks[bi];
+
+    v4f prod_r = vone, prod_t = vone;
+    const v8u16 vzero16 = {};
+
+#pragma GCC unroll 16
+    for (int I = 0; I < NPV; I++) {
+      v8u16 packed;
+      memcpy(&packed, mb->prob[I], 16);
+      v8u16 ri =
+          __builtin_shufflevector(vzero16, packed, 0, 8, 1, 9, 2, 10, 3, 11);
+      v8u16 ti =
+          __builtin_shufflevector(vzero16, packed, 4, 12, 5, 13, 6, 14, 7, 15);
+      v4f fr;
+      memcpy(&fr, &ri, 16);
+      v4f ft;
+      memcpy(&ft, &ti, 16);
+
+      v4f sr = sum->prob[I][0] + fr * vdw;
+      v4f st = sum->prob[I][1] + ft * vdw;
+      sum->prob[I][0] = sr;
+      sum->prob[I][1] = st;
+      prod_r *= sr;
+      prod_t *= st;
+    }
+
+    v4u rb = (v4u)prod_r, tb = (v4u)prod_t;
+    v4i rexp = (v4i)(rb >> 23), texp = (v4i)(tb >> 23);
+    v4f rmf = (v4f)((rb & vmant) | vexp1);
+    v4f tmf = (v4f)((tb & vmant) | vexp1);
+    v4f rx = rmf - vone, tx = tmf - vone;
+    v4f rlog = rx * (vc0 + rx * (vc1 + rx * vc2));
+    v4f tlog = tx * (vc0 + tx * (vc1 + tx * vc2));
+    v4f frac_f = (tlog - rlog) * vprec;
+    v4i exp_diff = (texp - rexp) << TPREC_BITS;
+    v4u sign = (v4u)frac_f & v4u_splat(0x80000000u);
+    v4f bias = (v4f)(sign | v4u_splat(0x3F000000u));
+    v4i frac_i = __builtin_convertvector(frac_f + bias, v4i);
+    v4i sz = exp_diff + frac_i;
+
+    int new_sz = sz[0] + sz[1] + sz[2] + sz[3];
+    int old_sz = sizes[off];
+    sizes[off] = new_sz;
+    delta_cost += new_sz - old_sz;
+  }
+  return delta_cost;
+}
+
+static int64_t eval_evaluate(Evaluator *ev, const ModelSet *ml) {
+  int new_w[MAX_MODELS] = {};
+  for (int i = 0; i < ml->num_models; i++)
+    new_w[ml->models[i].mask] = 1 << ml->models[i].weight;
+
+  for (int i = 0; i < MAX_MODELS; i++) {
+    if (new_w[i] != ev->active_weights[i]) {
+      int64_t d = eval_adjust(ev, i, new_w[i] - ev->active_weights[i]);
+      if (ev->active_weights[i] == 0)
+        ev->cost += 8 * TPREC;
+      else if (new_w[i] == 0)
+        ev->cost -= 8 * TPREC;
+      ev->active_weights[i] = new_w[i];
+      ev->cost += d;
+    }
+  }
+  return ev->cost;
+}
+
+static CompState *state_new(const unsigned char *data, int size, int base_prob,
+                            Evaluator *eval, const unsigned char *ctx) {
+  CompState *cs = (CompState *)calloc(1, sizeof(CompState));
+  cs->eval = eval;
+  int total_bits = size * 8;
+  float log_scale = 1.0f / 2048.0f;
+
+  unsigned char *padded = alloc_padded(ctx, data, size);
+  unsigned char *dp = padded + MAX_CTX;
+  assert(base_prob >= 9);
+
+  int max_blocks_per_model = (total_bits + PKG_BITS - 1) / PKG_BITS;
+  int arena_capacity = 256 * max_blocks_per_model;
+  cs->block_arena = (CompactPredBlock *)alloc_aligned(arena_capacity *
+                                                      sizeof(CompactPredBlock));
+  cs->map_arena = (int *)malloc(arena_capacity * sizeof(int));
+
+  int ht_size = prev_prime(total_bits * 2);
+  CtxEntry *ht = (CtxEntry *)calloc(ht_size, sizeof(CtxEntry));
+
+  int cursor = 0;
+  for (int m = 0; m < 256; m++) {
+    cs->models[m].arena_offset = cursor;
+    cs->models[m].map_offset = cursor;
+    cs->models[m].num_blocks =
+        compute_single_model(dp, total_bits, (unsigned char)m, ht, ht_size,
+                             &cs->block_arena[cursor], &cs->map_arena[cursor]);
+    cursor += cs->models[m].num_blocks;
+  }
+  free(ht);
+  free(padded);
+
+  cs->arena_blocks = cursor;
+  cs->arena_maps = cursor;
+
+  eval_setup(eval, cs->models, cs->block_arena, cs->map_arena, total_bits,
+             base_prob, log_scale);
   return cs;
 }
 
-static void CState_destroy(CState *cs) {
-  for (int i = 0; i < 256; i++) {
-    free(cs->models[i].packages);
-    free(cs->models[i].package_offsets);
-  }
+static void state_destroy(CompState *cs) {
+  free(cs->block_arena);
+  free(cs->map_arena);
   free(cs);
 }
 
-static int CState_SetModels(CState *cs, const ModelList4k *ml) {
-  cs->compressed_size = CSEval_Evaluate(cs->eval, ml);
-  return (int)(cs->compressed_size / (TABLE_BIT_PRECISION / BIT_PRECISION));
+static int state_get_size(const CompState *cs) {
+  return (int)(cs->eval->cost / (TPREC / BIT_PREC));
 }
 
-static int CState_GetCompressedSize(const CState *cs) {
-  return (int)(cs->compressed_size / (TABLE_BIT_PRECISION / BIT_PRECISION));
+static int state_set_models(CompState *cs, const ModelSet *ml) {
+  eval_evaluate(cs->eval, ml);
+  return state_get_size(cs);
 }
 
-static void HB_init(HashBits *hb) { memset(hb, 0, sizeof(*hb)); }
+static void hbs_init(HashBitStream *hb) { memset(hb, 0, sizeof(*hb)); }
 
-static void HB_free(const HashBits *hb) {
+static void hbs_free(const HashBitStream *hb) {
   free(hb->hashes);
   free(hb->bits);
   free(hb->weights);
 }
 
-static void HB_push_hash(HashBits *hb, const unsigned int value) {
-  if (hb->hashes_len >= hb->hashes_cap) {
-    hb->hashes_cap = hb->hashes_cap ? hb->hashes_cap * 2 : 4096;
-    hb->hashes =
-        (unsigned *)realloc(hb->hashes, hb->hashes_cap * sizeof(unsigned));
-  }
-  hb->hashes[hb->hashes_len++] = value;
+static inline void hbs_push_hash(HashBitStream *hb, unsigned int v) {
+  DYNPUSH(hb->hashes, hb->hashes_len, hb->hashes_cap, v, sizeof(unsigned int));
 }
 
-static void HB_push_bit(HashBits *hb, const int value) {
-  if (hb->bits_len >= hb->bits_cap) {
-    hb->bits_cap = hb->bits_cap ? hb->bits_cap * 2 : 4096;
-    hb->bits = (unsigned char *)realloc(hb->bits, hb->bits_cap);
-  }
-  hb->bits[hb->bits_len++] = (unsigned char)value;
+static inline void hbs_push_bit(HashBitStream *hb, int v) {
+  DYNPUSH(hb->bits, hb->bits_len, hb->bits_cap, (unsigned char)v,
+          sizeof(unsigned char));
 }
 
-static HashBits ComputeHashBits(const unsigned char *data, const int size,
-                                unsigned char *context,
-                                const ModelList4k *models, const int first,
-                                const int finish) {
-  const int bit_length = first + size * 8;
-  const int total_length = bit_length * models->nmodels;
-  HashBits out;
-  HB_init(&out);
-  out.num_weights = models->nmodels;
-  out.weights = (int *)malloc(models->nmodels * sizeof(int));
-  out.tiny_hash_size = NextPowerOf2(total_length);
+static HashBitStream compute_hash_stream(const unsigned char *data, int size,
+                                         unsigned char *ctx, const ModelSet *ml,
+                                         int first, int finish) {
+  int total_bits = first + size * 8;
+  int num = ml->num_models;
+  HashBitStream out;
+  hbs_init(&out);
+  out.num_weights = num;
+  out.weights = (int *)malloc(num * sizeof(int));
+  out.table_size = next_pow2(total_bits * num);
 
-  unsigned char *databuf = (unsigned char *)malloc(size + MAX_CTX);
-  unsigned char *padded_data = databuf + MAX_CTX;
-  memcpy(databuf, context, MAX_CTX);
-  memcpy(padded_data, data, size);
+  unsigned char *padded = alloc_padded(ctx, data, size);
+  unsigned char *dp = padded + MAX_CTX;
 
-  unsigned int wide_masks[MAX_N_STREAM];
-  unsigned char model_masks[MAX_N_STREAM];
-  const int num_models = models->nmodels;
-  unsigned int weightmask = ML_GetMaskList(models, model_masks, finish);
-  int weight_val = 0;
-  for (int n = 0; n < num_models; n++) {
-    while (weightmask & 0x80000000) {
-      weightmask <<= 1;
-      weight_val++;
-    }
-    weightmask <<= 1;
-    out.weights[n] = weight_val;
-    wide_masks[n] = (unsigned int)model_masks[n] | (weightmask & 0xFFFFFF00);
-  }
+  unsigned int ext_masks[MAX_STREAM];
+  unsigned char ctx_masks[MAX_STREAM];
+  unsigned int wmask = encode_weight_mask(ml, ctx_masks, finish);
+  decode_weight_mask(wmask, num, ctx_masks, out.weights, ext_masks);
 
   if (first) {
-    for (int m = 0; m < num_models; m++) {
-      HB_push_hash(&out, ModelHashStart(wide_masks[m], HMUL));
-    }
-    HB_push_bit(&out, 1);
+    for (int m = 0; m < num; m++)
+      hbs_push_hash(&out, ctx_hash_initial(ext_masks[m]));
+    hbs_push_bit(&out, 1);
   }
 
   for (int bp = 0; bp < size * 8; bp++) {
-    int bit = GetBit(padded_data, bp);
-    for (int m = 0; m < num_models; m++) {
-      HB_push_hash(&out, ModelHash(padded_data, bp, wide_masks[m], HMUL));
-    }
-    HB_push_bit(&out, bit);
+    int bit = get_bit(dp, bp);
+    for (int m = 0; m < num; m++)
+      hbs_push_hash(&out, ctx_hash(dp, bp, ext_masks[m]));
+    hbs_push_bit(&out, bit);
   }
 
-  int copy_size = size < MAX_CTX ? size : MAX_CTX;
-  if (copy_size > 0) {
-    memcpy(context + MAX_CTX - copy_size, padded_data + size - copy_size,
-           copy_size);
-  }
-  free(databuf);
+  int copy = size < MAX_CTX ? size : MAX_CTX;
+  if (copy > 0)
+    memcpy(ctx + MAX_CTX - copy, dp + size - copy, copy);
+  free(padded);
   return out;
 }
 
-static void CompressFromHashBits(AritState *arit_state, const HashBits *hb,
-                                 TinyHashEntry *hash_table,
-                                 const int baseprob) {
-  const int total_hashes = (int)hb->hashes_len;
-  const int num_models = hb->num_weights;
-  const int bit_length =
-      (num_models == 0) ? hb->bits_len : total_hashes / num_models;
-
-  const unsigned int tiny_size = hb->tiny_hash_size;
-  memset(hash_table, 0, tiny_size * sizeof(TinyHashEntry));
-  TinyHashEntry *matched_entries[MAX_N_STREAM];
-
-  int hash_pos = 0;
-  for (int bp = 0; bp < bit_length; bp++) {
-    const int bit = hb->bits[bp];
-    unsigned int probs[2] = {(unsigned)baseprob, (unsigned)baseprob};
-    for (int m = 0; m < num_models; m++) {
-      const uint32_t hash_val = hb->hashes[hash_pos++];
-      unsigned int slot = hash_val & (tiny_size - 1);
-      TinyHashEntry *entry = &hash_table[slot];
-      while (1) {
-        if (entry->used == 0) {
-          entry->hash = hash_val;
-          entry->used = 1;
-          matched_entries[m] = entry;
-          break;
-        }
-        if (entry->hash == hash_val) {
-          matched_entries[m] = entry;
-          const int weight_factor = hb->weights[m];
-          const unsigned int shift =
-              (1 - (((entry->prob[0] + 255) & (entry->prob[1] + 255)) >> 8)) *
-                  2 +
-              weight_factor;
-          probs[0] += (unsigned)entry->prob[0] << shift;
-          probs[1] += (unsigned)entry->prob[1] << shift;
-          break;
-        }
-
-        slot++;
-        if (slot >= tiny_size) {
-          slot = 0;
-        }
-        entry = &hash_table[slot];
-      }
+static HashEntry *hash_probe(HashEntry *table, unsigned int mask,
+                             unsigned int hash, int weight_shift,
+                             unsigned int probs[2]) {
+  unsigned int slot = hash & mask;
+  for (;;) {
+    HashEntry *e = &table[slot];
+    if (!e->used) {
+      e->hash = hash;
+      e->used = 1;
+      return e;
     }
-    AritCode(arit_state, probs[1], probs[0], 1 - bit);
-    for (int m = 0; m < num_models; m++) {
-      UpdateWeights((Weights *)matched_entries[m]->prob, bit);
+    if (e->hash == hash) {
+      unsigned int shift =
+          (1 - (((e->prob[0] + 255) & (e->prob[1] + 255)) >> 8)) * 2 +
+          weight_shift;
+      probs[0] += (unsigned)e->prob[0] << shift;
+      probs[1] += (unsigned)e->prob[1] << shift;
+      return e;
     }
+    slot = (slot + 1) & mask;
   }
 }
 
-static int Compress4k(const unsigned char *data, const int data_size,
-                      unsigned char *out_data, const int max_out,
-                      const ModelList4k *ml, const int baseprob) {
-  unsigned char context[MAX_CTX] = {};
-  HashBits hb = ComputeHashBits(data, data_size, context, ml, 1, 1);
-  TinyHashEntry *hash_table =
-      (TinyHashEntry *)calloc(hb.tiny_hash_size, sizeof(TinyHashEntry));
+static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
+                               HashEntry *ht, int base_prob) {
+  int num = hb->num_weights;
+  int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
+  unsigned int tmask = hb->table_size - 1;
+  memset(ht, 0, hb->table_size * sizeof(HashEntry));
 
-  memset(out_data, 0, max_out);
-  AritState arit_state;
-  AritCodeInit(&arit_state, out_data);
-  CompressFromHashBits(&arit_state, &hb, hash_table, baseprob);
-  const int compressed_bits = AritCodeEnd(&arit_state);
-
-  free(hash_table);
-  HB_free(&hb);
-  return compressed_bits;
+  HashEntry *matched[MAX_STREAM];
+  int hpos = 0;
+  for (int bp = 0; bp < total_bits; bp++) {
+    int bit = hb->bits[bp];
+    unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
+    for (int m = 0; m < num; m++)
+      matched[m] =
+          hash_probe(ht, tmask, hb->hashes[hpos++], hb->weights[m], probs);
+    arith_encode(ac, probs[1], probs[0], 1 - bit);
+    for (int m = 0; m < num; m++)
+      counter_update(matched[m]->prob, bit);
+  }
 }
 
-static inline int GetCompressedBit(const unsigned char *data, int bit_pos) {
-  return (data[bit_pos >> 3] >> (bit_pos & 7)) & 1;
+static int compress_4k(const unsigned char *data, int size, unsigned char *out,
+                       int max_out, const ModelSet *ml, int base_prob) {
+  unsigned char ctx[MAX_CTX] = {};
+  HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
+  HashEntry *ht = (HashEntry *)calloc(hb.table_size, sizeof(HashEntry));
+
+  memset(out, 0, max_out);
+  ArithCoder ac;
+  arith_init(&ac, out);
+  encode_from_stream(&ac, &hb, ht, base_prob);
+  int total = arith_finish(&ac);
+
+  free(ht);
+  hbs_free(&hb);
+  return total;
 }
 
-static int Decompress4k(const unsigned char *paq_data, const int paq_size,
-                         unsigned char *out_data, const int baseprob) {
-  const int bitlength = paq_data[0] | (paq_data[1] << 8);
-  const unsigned int stored_weightmask =
-      paq_data[2] | (paq_data[3] << 8) | (paq_data[4] << 16) |
-      ((unsigned)paq_data[5] << 24);
-  const int num_models = paq_data[6];
-  const int data_bits = bitlength - 1;
-  const int data_bytes = data_bits / 8;
+static int decompress_4k(const unsigned char *cdata, unsigned char *out,
+                         int base_prob) {
+  uint16_t bl16;
+  memcpy(&bl16, cdata, 2);
+  int bitlen = bl16;
+  unsigned int stored_wmask;
+  memcpy(&stored_wmask, cdata + 2, 4);
+  int num = cdata[6];
+  int data_bits = bitlen - 1;
+  int data_bytes = data_bits / 8;
 
-  unsigned char model_masks[MAX_N_STREAM];
-  for (int i = 0; i < num_models; i++) {
-    model_masks[i] = paq_data[7 + i];
-  }
+  unsigned char ctx_masks[MAX_STREAM];
+  for (int i = 0; i < num; i++)
+    ctx_masks[i] = cdata[7 + i];
 
-  unsigned int wide_masks[MAX_N_STREAM];
-  int weights[MAX_N_STREAM];
-  int weight_val = 0;
-  unsigned int wm = stored_weightmask;
-  for (int n = 0; n < num_models; n++) {
-    while (wm & 0x80000000) {
-      wm <<= 1;
-      weight_val++;
-    }
-    wm <<= 1;
-    weights[n] = weight_val;
-    wide_masks[n] = (unsigned int)model_masks[n] | (wm & 0xFFFFFF00);
-  }
+  unsigned int ext_masks[MAX_STREAM];
+  int weights[MAX_STREAM];
+  decode_weight_mask(stored_wmask, num, ctx_masks, weights, ext_masks);
 
-  const unsigned char *compressed = paq_data + 7 + num_models;
-  unsigned char *databuf = (unsigned char *)calloc(data_bytes + MAX_CTX, 1);
-  unsigned char *padded_data = databuf + MAX_CTX;
-  const unsigned int tiny_size = NextPowerOf2(bitlength * num_models);
-  TinyHashEntry *hash_table =
-      (TinyHashEntry *)calloc(tiny_size, sizeof(TinyHashEntry));
+  const unsigned char *comp = cdata + 7 + num;
+  unsigned char *buf = (unsigned char *)calloc(data_bytes + MAX_CTX, 1);
+  unsigned char *dp = buf + MAX_CTX;
+  unsigned int tsize = next_pow2(bitlen * num);
+  HashEntry *ht = (HashEntry *)calloc(tsize, sizeof(HashEntry));
+  unsigned int tmask = tsize - 1;
 
-  unsigned int range = 0x80000000;
-  unsigned int low = 0;
-  unsigned int value = 0;
-  int comp_bit = 0;
-  for (int i = 0; i < 31; i++) {
-    value = (value << 1) | GetCompressedBit(compressed, comp_bit++);
-  }
+  unsigned int range = 0x80000000u, low = 0, value = 0;
+  int cpos = 0;
+  for (int i = 0; i < 31; i++)
+    value = (value << 1) | get_compressed_bit(comp, cpos++);
 
-  for (int bp = 0; bp < bitlength; bp++) {
-    unsigned int probs[2] = {(unsigned)baseprob, (unsigned)baseprob};
-    TinyHashEntry *matched[MAX_N_STREAM];
+  for (int bp = 0; bp < bitlen; bp++) {
+    unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
+    HashEntry *matched[MAX_STREAM];
 
-    for (int m = 0; m < num_models; m++) {
-      const unsigned int hash_val =
-          (bp == 0) ? ModelHashStart(wide_masks[m], HMUL)
-                    : ModelHash(padded_data, bp - 1, wide_masks[m], HMUL);
-
-      unsigned int slot = hash_val & (tiny_size - 1);
-      TinyHashEntry *entry = &hash_table[slot];
-      while (1) {
-        if (entry->used == 0) {
-          entry->hash = hash_val;
-          entry->used = 1;
-          matched[m] = entry;
-          break;
-        }
-        if (entry->hash == hash_val) {
-          matched[m] = entry;
-          const int wf = weights[m];
-          const unsigned int shift =
-              (1 -
-               (((entry->prob[0] + 255) & (entry->prob[1] + 255)) >> 8)) *
-                  2 +
-              wf;
-          probs[0] += (unsigned)entry->prob[0] << shift;
-          probs[1] += (unsigned)entry->prob[1] << shift;
-          break;
-        }
-        slot++;
-        if (slot >= tiny_size) {
-          slot = 0;
-        }
-        entry = &hash_table[slot];
-      }
+    for (int m = 0; m < num; m++) {
+      unsigned int h = (bp == 0) ? ctx_hash_initial(ext_masks[m])
+                                 : ctx_hash(dp, bp - 1, ext_masks[m]);
+      matched[m] = hash_probe(ht, tmask, h, weights[m], probs);
     }
 
-    const unsigned int total = probs[0] + probs[1];
-    const unsigned int threshold = (uint64_t)range * probs[1] / total;
-    const unsigned int diff = value - low;
+    unsigned int total = probs[0] + probs[1];
+    unsigned int thresh = (uint64_t)range * probs[1] / total;
+    unsigned int diff = value - low;
 
     int bit;
-    if (diff < threshold) {
-      range = threshold;
+    if (diff < thresh) {
+      range = thresh;
       bit = 1;
     } else {
-      low += threshold;
-      range -= threshold;
+      low += thresh;
+      range -= thresh;
       bit = 0;
     }
 
-    while (!(range & 0x80000000)) {
+    while (!(range & 0x80000000u)) {
       low <<= 1;
       range <<= 1;
-      value = (value << 1) | GetCompressedBit(compressed, comp_bit++);
+      value = (value << 1) | get_compressed_bit(comp, cpos++);
     }
 
-    for (int m = 0; m < num_models; m++) {
-      UpdateWeights((Weights *)matched[m]->prob, bit);
-    }
+    for (int m = 0; m < num; m++)
+      counter_update(matched[m]->prob, bit);
 
     if (bp > 0 && bit) {
-      const int data_bp = bp - 1;
-      padded_data[data_bp >> 3] |= 1 << (7 - (data_bp & 7));
+      int dbp = bp - 1;
+      dp[dbp >> 3] |= 1 << (7 - (dbp & 7));
     }
   }
 
-  memcpy(out_data, padded_data, data_bytes);
-  free(databuf);
-  free(hash_table);
+  memcpy(out, dp, data_bytes);
+  free(buf);
+  free(ht);
   return data_bytes;
 }
 
-static unsigned int ApproximateWeights(CState *cs, ModelList4k *ml) {
-  for (int i = 0; i < ml->nmodels; i++) {
+static unsigned int approximate_weights(CompState *cs, ModelSet *ml) {
+  for (int i = 0; i < ml->num_models; i++)
     ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
-  }
-  return CState_SetModels(cs, ml);
+  return state_set_models(cs, ml);
 }
 
-static unsigned int OptimizeWeights(CState *cs, ModelList4k *ml) {
-  ModelList4k candidate = ML_copy(ml);
-  int model_idx = ml->nmodels - 1;
-  int direction = 1;
-  int last_improved_idx = model_idx;
-  unsigned int best_size = ApproximateWeights(cs, ml);
-  if (ml->nmodels == 0) {
-    return best_size;
-  }
+static unsigned int optimize_weights(CompState *cs, ModelSet *ml) {
+  ModelSet cand = *ml;
+  int idx = ml->num_models - 1;
+  int dir = 1;
+  int last_improved = idx;
+  unsigned int best = approximate_weights(cs, ml);
+  if (ml->num_models == 0)
+    return best;
 
   do {
-    int skip = 0;
-    for (int i = 0; i < ml->nmodels; i++) {
-      candidate.models[i] = ml->models[i];
-      if (i == model_idx) {
-        candidate.models[i].weight += direction;
-        if (candidate.models[i].weight > MAX_MODEL_WT) {
-          candidate.models[i].weight = MAX_MODEL_WT;
-          skip = 1;
-        }
-        if (candidate.models[i].weight == 255) {
-          candidate.models[i].weight = 0;
-          skip = 1;
-        }
+    cand = *ml;
+    cand.models[idx].weight += dir;
+    int improved = 0;
+    if (cand.models[idx].weight <= MAX_WEIGHT &&
+        cand.models[idx].weight != 255) {
+      unsigned int trial = state_set_models(cs, &cand);
+      if (trial < best) {
+        best = trial;
+        *ml = cand;
+        last_improved = idx;
+        improved = 1;
       }
     }
-    candidate.nmodels = ml->nmodels;
-    unsigned int candidate_size = 0;
-    if (!skip) {
-      candidate_size = CState_SetModels(cs, &candidate);
-    }
-    if (!skip && candidate_size < best_size) {
-      best_size = candidate_size;
-      for (int i = 0; i < ml->nmodels; i++) {
-        ml->models[i] = candidate.models[i];
-      }
-      last_improved_idx = model_idx;
-    } else {
-      if (direction == 1 && ml->models[model_idx].weight > 0) {
-        direction = -1;
+    if (!improved) {
+      if (dir == 1 && ml->models[idx].weight > 0) {
+        dir = -1;
       } else {
-        direction = 1;
-        model_idx--;
-        if (model_idx < 0) {
-          model_idx = ml->nmodels - 1;
-        }
-        if (model_idx == last_improved_idx) {
+        dir = 1;
+        idx--;
+        if (idx < 0)
+          idx = ml->num_models - 1;
+        if (idx == last_improved)
           break;
-        }
       }
     }
   } while (1);
-  return best_size;
+  return best;
 }
 
-static unsigned int TryWeights(CState *cs, ModelList4k *ml,
-                               const int compression_type) {
-  if (compression_type == CT_SLOW || compression_type == CT_VERYSLOW) {
-    return OptimizeWeights(cs, ml);
-  }
-  return ApproximateWeights(cs, ml);
+static unsigned int try_weights(CompState *cs, ModelSet *ml, int mode) {
+  return (mode == CT_SLOW || mode == CT_VERYSLOW) ? optimize_weights(cs, ml)
+                                                  : approximate_weights(cs, ml);
 }
 
-static void ProgressUpdate(const void *userdata, const int current,
-                           const int total);
+static int model_set_cmp(const void *a, const void *b) {
+  int sa = ((const ModelSet *)a)->size;
+  int sb = ((const ModelSet *)b)->size;
+  return (sa > sb) - (sa < sb);
+}
 
-static ModelList4k ApproximateModels4k(const unsigned char *data,
-                                       const int size,
-                                       const unsigned char context[MAX_CTX],
-                                       const int compression_type,
-                                       const int baseprob, int *out_size) {
-  const int beam_width = (compression_type == CT_VERYSLOW) ? 3 : 1;
+static ModelSet search_best_models(const unsigned char *data, int size,
+                                   const unsigned char ctx[MAX_CTX], int mode,
+                                   int base_prob, int *out_size) {
+  const int beam = (mode == CT_VERYSLOW) ? 3 : 1;
   const int EFLAG = INT_MIN;
-  const int num_sets = beam_width * 2;
-  ModelList4k *model_sets =
-      (ModelList4k *)calloc(num_sets, sizeof(ModelList4k));
-  CSEval eval;
-  CSEval_init(&eval);
-  CState *cs = CState_new(data, size, baseprob, &eval, context);
+  const int nsets = beam * 2;
+  ModelSet *sets = (ModelSet *)calloc(nsets, sizeof(ModelSet));
+  Evaluator eval = {0};
+  CompState *cs = state_new(data, size, base_prob, &eval, ctx);
 
-  unsigned char reversed_masks[256];
+  unsigned char rev_masks[256];
   for (int m = 0; m <= 255; m++) {
     int v = m;
-    v = ((v & 0x0f) << 4) | ((v & 0xf0) >> 4);
-    v = ((v & 0x33) << 2) | ((v & 0xcc) >> 2);
-    v = ((v & 0x55) << 1) | ((v & 0xaa) >> 1);
-    reversed_masks[m] = (unsigned char)v;
+    v = ((v & 0x0F) << 4) | ((v & 0xF0) >> 4);
+    v = ((v & 0x33) << 2) | ((v & 0xCC) >> 2);
+    v = ((v & 0x55) << 1) | ((v & 0xAA) >> 1);
+    rev_masks[m] = (unsigned char)v;
   }
 
-  model_sets[0].size = CState_GetCompressedSize(cs) | EFLAG;
-  for (int s = 1; s < beam_width; s++) {
-    model_sets[s].size = INT_MAX;
-  }
+  sets[0].size = state_get_size(cs) | EFLAG;
+  for (int s = 1; s < beam; s++)
+    sets[s].size = INT_MAX;
 
-  for (int mask_idx = 0; mask_idx <= 255; mask_idx++) {
-    const int mask = reversed_masks[mask_idx];
+  for (int mi = 0; mi <= 255; mi++) {
+    int mask = rev_masks[mi];
 
-    for (int s = 0; s < beam_width; s++) {
-      ModelList4k *current = &model_sets[s];
-      ModelList4k *next = &model_sets[beam_width + s];
+    for (int s = 0; s < beam; s++) {
+      ModelSet *cur = &sets[s];
+      ModelSet *next = &sets[beam + s];
       next->size = INT_MAX;
-      if (current->size == INT_MAX) {
+      if (cur->size == INT_MAX)
         continue;
-      }
 
-      int already_used = 0;
-      for (int m = 0; m < current->nmodels; m++) {
-        if (current->models[m].mask == mask) {
-          already_used = 1;
+      int used = 0;
+      for (int m = 0; m < cur->num_models; m++) {
+        if (cur->models[m].mask == mask) {
+          used = 1;
+          break;
         }
       }
 
-      if (!already_used && current->nmodels < (int)MAX_N_SEARCH) {
-        *next = ML_copy(current);
-        next->models[current->nmodels].mask = (unsigned char)mask;
-        next->models[current->nmodels].weight = 0;
-        next->nmodels = current->nmodels + 1;
+      if (!used && cur->num_models < (int)MAX_SEARCH) {
+        *next = *cur;
+        next->models[cur->num_models].mask = (unsigned char)mask;
+        next->models[cur->num_models].weight = 0;
+        next->num_models = cur->num_models + 1;
 
-        const int old_size = current->size & ~EFLAG;
-        const int new_size = TryWeights(cs, next, compression_type);
+        int old_sz = cur->size & ~EFLAG;
+        int new_sz = try_weights(cs, next, mode);
 
-        if (new_size < old_size || compression_type == CT_VERYSLOW) {
-          int best_size = new_size;
-          for (int m = next->nmodels - 2; m >= 0; m--) {
-            const Model removed_model = next->models[m];
-            next->nmodels--;
-            next->models[m] = next->models[next->nmodels];
-            const int trial_size = TryWeights(cs, next, compression_type);
-            if (trial_size < best_size) {
-              best_size = trial_size;
+        if (new_sz < old_sz || mode == CT_VERYSLOW) {
+          int best_sz = new_sz;
+
+          for (int m = next->num_models - 2; m >= 0; m--) {
+            Model removed = next->models[m];
+            next->num_models--;
+            next->models[m] = next->models[next->num_models];
+            int trial = try_weights(cs, next, mode);
+            if (trial < best_sz) {
+              best_sz = trial;
             } else {
-              next->models[m] = removed_model;
-              next->nmodels++;
+              next->models[m] = removed;
+              next->num_models++;
             }
           }
-          next->size = best_size;
-          if ((current->size & EFLAG) && new_size < old_size) {
-            current->size &= ~EFLAG;
+          next->size = best_sz;
+          if ((cur->size & EFLAG) && new_sz < old_sz) {
+            cur->size &= ~EFLAG;
             next->size |= EFLAG;
           }
         } else {
@@ -1094,58 +882,67 @@ static ModelList4k ApproximateModels4k(const unsigned char *data,
       }
     }
 
-    for (int i = 0; i < num_sets - 1; i++) {
-      for (int j = i + 1; j < num_sets; j++) {
-        if (model_sets[j].size < model_sets[i].size) {
-          const ModelList4k temp = model_sets[i];
-          model_sets[i] = model_sets[j];
-          model_sets[j] = temp;
-        }
-      }
-    }
-
-    printf("\rCalculating models... %d/%d", mask_idx + 1, 256);
+    qsort(sets, nsets, sizeof(ModelSet), model_set_cmp);
+    printf("\rCalculating models... %d/%d", mi + 1, 256);
     fflush(stdout);
   }
 
-  assert((model_sets[0].size & EFLAG) != 0);
-  model_sets[0].size &= ~EFLAG;
-  for (int i = 0; i < num_sets - 1; i++) {
-    for (int j = i + 1; j < num_sets; j++) {
-      if (model_sets[j].size < model_sets[i].size) {
-        const ModelList4k temp = model_sets[i];
-        model_sets[i] = model_sets[j];
-        model_sets[j] = temp;
-      }
-    }
-  }
+  assert((sets[0].size & EFLAG) != 0);
+  sets[0].size &= ~EFLAG;
+  qsort(sets, nsets, sizeof(ModelSet), model_set_cmp);
 
-  ModelList4k best = ML_copy(&model_sets[0]);
-  const int final_size = OptimizeWeights(cs, &best);
-  if (out_size) {
-    *out_size = final_size;
-  }
+  ModelSet best = sets[0];
+  int final_sz = optimize_weights(cs, &best);
+  if (out_size)
+    *out_size = final_sz;
 
-  CState_destroy(cs);
-  CSEval_destroy(&eval);
-  free(model_sets);
+  state_destroy(cs);
+  eval_destroy(&eval);
+  free(sets);
   return best;
 }
 
-static void PrintUsage(const char *program) {
-  printf("Usage: %s [options] <input_file>\n\nOptions:\n", program);
+static unsigned char *read_file(const char *path, int *out_size) {
+  FILE *f = fopen(path, "rb");
+  if (!f)
+    return NULL;
+  fseek(f, 0, SEEK_END);
+  int sz = (int)ftell(f);
+  fseek(f, 0, SEEK_SET);
+  unsigned char *buf = (unsigned char *)malloc(sz);
+  if ((int)fread(buf, 1, sz, f) != sz) {
+    free(buf);
+    fclose(f);
+    return NULL;
+  }
+  fclose(f);
+  *out_size = sz;
+  return buf;
+}
+
+static int write_file(const char *path, const void *data, int size) {
+  FILE *f = fopen(path, "wb");
+  if (!f)
+    return 0;
+  fwrite(data, 1, size, f);
+  fclose(f);
+  return 1;
+}
+
+static void print_usage(const char *prog) {
+  printf("Usage: %s [options] <input_file>\n\nOptions:\n", prog);
   printf("  -o <file>    Output file (default: <input>.paq or <input>.bin)\n");
   printf("  -d           Decompress mode\n");
   printf("  -m <mode>    Compression mode: instant, fast, slow, veryslow "
          "(default: slow)\n");
-  printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BASEPROB);
+  printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
   printf("  -h           Show this help\n");
 }
 
 int main(int argc, char *argv[]) {
   const char *output_file = NULL;
-  int compression_type = CT_SLOW;
-  int baseprob = DEFAULT_BASEPROB;
+  int mode = CT_SLOW;
+  int base_prob = DEFAULT_BPROB;
   int decompress = 0;
 
   int opt;
@@ -1158,88 +955,77 @@ int main(int argc, char *argv[]) {
       decompress = 1;
       break;
     case 'm':
-      if (!strcmp(optarg, "instant")) {
-        compression_type = CT_INSTANT;
-      } else if (!strcmp(optarg, "fast")) {
-        compression_type = CT_FAST;
-      } else if (!strcmp(optarg, "slow")) {
-        compression_type = CT_SLOW;
-      } else if (!strcmp(optarg, "veryslow")) {
-        compression_type = CT_VERYSLOW;
-      } else {
+      if (!strcmp(optarg, "instant"))
+        mode = CT_INSTANT;
+      else if (!strcmp(optarg, "fast"))
+        mode = CT_FAST;
+      else if (!strcmp(optarg, "slow"))
+        mode = CT_SLOW;
+      else if (!strcmp(optarg, "veryslow"))
+        mode = CT_VERYSLOW;
+      else {
         fprintf(stderr, "Unknown mode: %s\n", optarg);
         return 1;
       }
       break;
     case 'b':
-      baseprob = atoi(optarg);
-      if (baseprob < 9) {
+      base_prob = atoi(optarg);
+      if (base_prob < 9) {
         fprintf(stderr, "Base prob must be >= 9\n");
         return 1;
       }
       break;
     case 'h':
-      PrintUsage(argv[0]);
+      print_usage(argv[0]);
       return 0;
     default:
-      PrintUsage(argv[0]);
+      print_usage(argv[0]);
       return 1;
     }
   }
   if (optind >= argc) {
     fprintf(stderr, "Error: no input file specified\n");
-    PrintUsage(argv[0]);
+    print_usage(argv[0]);
     return 1;
   }
 
   const char *input_file = argv[optind];
-
-  FILE *file = fopen(input_file, "rb");
-  if (!file) {
-    fprintf(stderr, "Failed to open '%s'\n", input_file);
+  int data_size;
+  unsigned char *data = read_file(input_file, &data_size);
+  if (!data) {
+    fprintf(stderr, "Failed to read '%s'\n", input_file);
     return 1;
   }
-  fseek(file, 0, SEEK_END);
-  int data_size = (int)ftell(file);
-  fseek(file, 0, SEEK_SET);
-  unsigned char *data = (unsigned char *)malloc(data_size);
-  fread(data, 1, data_size, file);
-  fclose(file);
+
+  static char default_out[512];
 
   if (decompress) {
     if (!output_file) {
-      static char default_output[512];
       int len = strlen(input_file);
-      if (len > 4 && !strcmp(input_file + len - 4, ".paq")) {
-        snprintf(default_output, sizeof(default_output), "%.*s",
-                 len - 4, input_file);
-      } else {
-        snprintf(default_output, sizeof(default_output), "%s.bin", input_file);
-      }
-      output_file = default_output;
+      if (len > 4 && !strcmp(input_file + len - 4, ".paq"))
+        snprintf(default_out, sizeof(default_out), "%.*s", len - 4, input_file);
+      else
+        snprintf(default_out, sizeof(default_out), "%s.bin", input_file);
+      output_file = default_out;
     }
 
     printf("Input:       %s (%d bytes)\n", input_file, data_size);
-    printf("Base prob:   %d\n", baseprob);
+    printf("Base prob:   %d\n", base_prob);
 
-    int bitlength = data[0] | (data[1] << 8);
-    int out_size = (bitlength - 1) / 8;
-    printf("Bitlength:   %d (%d data bytes)\n", bitlength, out_size);
+    int bitlen = data[0] | (data[1] << 8);
+    int out_sz = (bitlen - 1) / 8;
+    printf("Bitlength:   %d (%d data bytes)\n", bitlen, out_sz);
     printf("Models:      %d\n", data[6]);
 
-    unsigned char *out_data = (unsigned char *)calloc(out_size + 16, 1);
-    int decoded = Decompress4k(data, data_size, out_data, baseprob);
+    unsigned char *out_data = (unsigned char *)calloc(out_sz + 16, 1);
+    int decoded = decompress_4k(data, out_data, base_prob);
 
-    FILE *out_file = fopen(output_file, "wb");
-    if (!out_file) {
+    if (!write_file(output_file, out_data, decoded)) {
       fprintf(stderr, "Failed to open output '%s'\n", output_file);
       free(out_data);
       free(data);
       return 1;
     }
-    fwrite(out_data, 1, decoded, out_file);
-    fclose(out_file);
-
     printf("Output:      %s (%d bytes)\n", output_file, decoded);
     free(out_data);
     free(data);
@@ -1247,77 +1033,64 @@ int main(int argc, char *argv[]) {
   }
 
   if (!output_file) {
-    static char default_output[512];
-    snprintf(default_output, sizeof(default_output), "%s.paq", input_file);
-    output_file = default_output;
+    snprintf(default_out, sizeof(default_out), "%s.paq", input_file);
+    output_file = default_out;
   }
 
-  InitLogTable();
-  InitCounterStates();
-
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
-  printf("Mode:        %s\n", CTName(compression_type));
-  printf("Base prob:   %d\n", baseprob);
+  printf("Mode:        %s\n", CT_NAMES[mode]);
+  printf("Base prob:   %d\n", base_prob);
 
-  unsigned char context[MAX_CTX] = {};
-  int estimated_size = 0;
-  ModelList4k ml = ApproximateModels4k(
-      data, data_size, context, compression_type, baseprob, &estimated_size);
+  unsigned char ctx[MAX_CTX] = {};
+  int est_size = 0;
+  ModelSet ml =
+      search_best_models(data, data_size, ctx, mode, base_prob, &est_size);
 
-  printf("\nEstimated:   %.3f bytes\n",
-         estimated_size / (float)(BIT_PRECISION * 8));
+  printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
   printf("Models:      ");
-  ML_Print(&ml, stdout);
+  model_set_print(&ml, stdout);
 
-  int max_output = data_size + 1024;
-  unsigned char *output_buf = (unsigned char *)malloc(max_output);
-  int compressed_bits =
-      Compress4k(data, data_size, output_buf, max_output, &ml, baseprob);
-  int compressed_size = (compressed_bits + 7) / 8;
+  int max_out = data_size + 1024;
+  unsigned char *out_buf = (unsigned char *)malloc(max_out);
+  int comp_bits =
+      compress_4k(data, data_size, out_buf, max_out, &ml, base_prob);
+  int comp_bytes = (comp_bits + 7) / 8;
+  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits,
+         100.0f * comp_bytes / data_size);
 
-  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", compressed_size,
-         compressed_bits, 100.0f * compressed_size / data_size);
+  unsigned char ordered_masks[MAX_MODELS];
+  unsigned int wmask = encode_weight_mask(&ml, ordered_masks, 1);
 
-  unsigned char sorted_masks[MAX_MODELS_N];
-  unsigned int weightmask = ML_GetMaskList(&ml, sorted_masks, 1);
-  int num_models = ml.nmodels;
-
-  int bitlength = data_size * 8 + 1;
-  if (bitlength > 65535) {
-    fprintf(stderr,
-            "Input too large for 16-bit bitlength (%d bits, max 65535)\n",
-            bitlength);
-    free(output_buf);
+  int bitlen = data_size * 8 + 1;
+  if (bitlen > 65535) {
+    fprintf(stderr, "Input too large for 16-bit bitlength (%d bits)\n", bitlen);
+    free(out_buf);
     free(data);
     return 1;
   }
 
   unsigned char header[7];
-  header[0] = bitlength;
-  header[1] = bitlength >> 8;
-  header[2] = weightmask;
-  header[3] = weightmask >> 8;
-  header[4] = weightmask >> 16;
-  header[5] = weightmask >> 24;
-  header[6] = num_models;
+  uint16_t bl16 = (uint16_t)bitlen;
+  memcpy(header, &bl16, 2);
+  memcpy(header + 2, &wmask, 4);
+  header[6] = ml.num_models;
 
-  FILE *out_file = fopen(output_file, "wb");
-  if (!out_file) {
+  FILE *fout = fopen(output_file, "wb");
+  if (!fout) {
     fprintf(stderr, "Failed to open output '%s'\n", output_file);
-    free(output_buf);
+    free(out_buf);
     free(data);
     return 1;
   }
-
-  fwrite(header, 1, 7, out_file);
-  fwrite(sorted_masks, 1, num_models, out_file);
-  fwrite(output_buf, 1, compressed_size, out_file);
-  fclose(out_file);
+  fwrite(header, 1, 7, fout);
+  fwrite(ordered_masks, 1, ml.num_models, fout);
+  fwrite(out_buf, 1, comp_bytes, fout);
+  fclose(fout);
 
   printf("Output:      %s (%d bytes, weightmask %08X)\n", output_file,
-         7 + num_models + compressed_size, weightmask);
+         7 + ml.num_models + comp_bytes, wmask);
 
-  free(output_buf);
+  free(out_buf);
   free(data);
   return 0;
 }
