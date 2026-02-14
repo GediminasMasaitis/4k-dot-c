@@ -176,17 +176,16 @@ decompress4kc:
     mov     esi, [rsp+24]
     add     esi, ecx
     div     esi
-    xchg    edi, eax
-    mov     eax, r15d
-    sub     eax, ebx
-    cmp     eax, edi
+    mov     edi, r15d
+    sub     edi, ebx
+    cmp     edi, eax
     sbb     esi, esi
     inc     esi
     jae     .ui
-    mov     ebp, edi
+    mov     ebp, eax
     jmp     .rn
-.ui:add     ebx, edi
-    sub     ebp, edi
+.ui:add     ebx, eax
+    sub     ebp, eax
 
 .rn:jmp     short .re
 .rl:add     ebx, ebx
