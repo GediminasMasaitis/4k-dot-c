@@ -89,9 +89,6 @@ decompress4kc:
     jmp     .wl
 .wd:mov     ecx, r13d
     lea     r8, [rdi+rcx+7]
-    lea     ecx, [r11+1]
-    mov     edi, G_HT
-    rep stosq
     stc
     rcr     eax, 1
     xchg    eax, ebp
@@ -110,7 +107,8 @@ decompress4kc:
 .mdl:
     mov     eax, [rsp+r12*4+200]
     mov     dl, al
-    mov     esi, [rsp]
+    pop     rsi
+    push    rsi
     xor     edi, edi
     mov     ecx, r9d
     jrcxz   .hash_finish
@@ -144,14 +142,14 @@ decompress4kc:
     jnz     .cl_next
 
 .hr:mov     edi, eax
-    and     eax, r11d
-.pb:lea     ecx, [rax*8+G_HT]
+    jmp     short .pm
+.pb:inc     eax
+.pm:and     eax, r11d
+    lea     ecx, [rax*8+G_HT]
     cmp     dword [rcx], 0
     je      .pe
     cmp     [rcx], edi
     je      .po
-    inc     eax
-    and     eax, r11d
     jmp     .pb
 .pe:mov     [rcx], edi
 .po:mov     [rsp+32+r12*4], ecx
@@ -211,7 +209,8 @@ decompress4kc:
     dec     ecx
     js      .nw
     xor     ecx, 7
-    mov     edx, [rsp]
+    pop     rdx
+    push    rdx
     bts     [rdx], ecx
 
 .nw:inc     r9d

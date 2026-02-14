@@ -9231,3 +9231,13 @@ Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 50:1 90:2 30:0 B0:3 88:2 44:0 41
 Compressed:  3253 bytes 26021 bits (63.17%)
 Output:      ./build/4kc.paq (3278 bytes, weightmask 108115FF)
 ```
+
+### 7.14
+
+Smaller loader
+
+4 threads: 3827 (-15)
+MD5: f37466bd721b7eeafd05c0e1c658a7bd
+
+1 thread: 3756 bytes (-15)
+MD5: 31741715ba70ce98aeb72b33924117d7
