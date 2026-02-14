@@ -130,14 +130,13 @@ decompress4kc:
 .hash_finish:
     imul    eax, eax, HMUL
     add     al, dil
-    dec     eax
-    jmp     short .cl_next
+    jmp     short .sd
 
 .cl_hash:
     xor     al, [rsi]
     imul    eax, eax, HMUL
     add     al, [rsi]
-    dec     eax
+.sd:dec     eax
 .cl_next:
     dec     esi
     add     dl, dl
@@ -145,15 +144,13 @@ decompress4kc:
     jnz     .cl_next
 
 .hr:mov     edi, eax
-    jmp     short .pm
 .pb:inc     eax
-.pm:and     eax, r11d
+    and     eax, r11d
     lea     ecx, [rax*8+G_HT]
-    cmp     dword [rcx], 0
-    je      .pe
     cmp     [rcx], edi
     je      .po
-    jmp     .pb
+    cmp     dword [rcx], 0
+    jnz     .pb
 .pe:mov     [rcx], edi
 .po:mov     [rsp+32+r12*4], ecx
     movzx   eax, byte [rcx+4]
@@ -183,7 +180,7 @@ decompress4kc:
     sbb     esi, esi
     inc     esi
     jae     .ui
-    mov     ebp, eax
+    xchg    eax, ebp
     jmp     .rn
 .ui:add     ebx, eax
     sub     ebp, eax
@@ -199,14 +196,13 @@ decompress4kc:
 .rd:push    1
     pop     rdi
     sub     edi, esi
-    lea     ecx, [r13-1]
-.ul:mov     eax, [rsp+32+rcx*4]
+    mov     ecx, r13d
+.ul:mov     eax, [rsp+28+rcx*4]
     inc     byte [rax+4+rdi]
     shr     byte [rax+4+rsi], 1
     jnz     .nh
     rcl     byte [rax+4+rsi], 1
-.nh:dec     ecx
-    jns     .ul
+.nh:loop    .ul
     mov     ecx, r9d
     imul    ecx, edi
     dec     ecx
