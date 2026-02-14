@@ -437,17 +437,17 @@ G(
 
 G(
     59, S(0) void flip_pos(Position *const restrict pos) {
-      G(69, u32 *c = (u32 *)pos->castling;
-        *c = G(70, (*c >> 16)) | G(70, (*c << 16));)
       G(
           69, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
+      G(69, pos->flipped ^= 1;)
 
+      G(69, u32 *c = (u32 *)pos->castling;
+        *c = G(70, (*c >> 16)) | G(70, (*c << 16));)
       G(69, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
         pos->colour[0] ^= pos->colour[1];)
-      G(69, pos->flipped ^= 1;)
     })
 
 G(
@@ -458,7 +458,7 @@ G(
       const u64 bb = 1ULL << sq;
       G(72, if (piece == Knight) { moves = knight(bb); })
       else G(72, if (piece == King) { moves = king(bb); }) else {
-        const u64 blockers = G(73, pos->colour[1]) | G(73, pos->colour[0]);
+        const u64 blockers = G(73, pos->colour[0]) | G(73, pos->colour[1]);
         G(
             74, if (piece != Rook) {
               moves |= bishop(H(43, 3, blockers), H(43, 3, bb));
@@ -1023,11 +1023,12 @@ S(0) i32 eval(Position *const restrict pos) {
       const u64 opp_pawns = G(129, pos->pieces[Pawn]) & G(129, pos->colour[1]);
       const u64 attacked_by_pawns =
           G(130, southwest(opp_pawns)) | G(130, southeast(opp_pawns));
-      G(131, // PHALANX PAWNS
-        score -= G(132, eval_params.phalanx_pawn) *
-                 G(132, count(G(133, opp_pawns) & G(133, west(opp_pawns))));)
-          G(131, const u64 no_passers =
-                     G(134, opp_pawns) | G(134, attacked_by_pawns);)
+      G(131,
+        const u64 no_passers = G(134, opp_pawns) | G(134, attacked_by_pawns);)
+          G(131, // PHALANX PAWNS
+            score -=
+            G(132, eval_params.phalanx_pawn) *
+            G(132, count(G(133, opp_pawns) & G(133, west(opp_pawns))));)
               G(131, // PROTECTED PAWNS
                 score -=
                 G(135, eval_params.protected_pawn) *
@@ -1046,8 +1047,8 @@ S(0) i32 eval(Position *const restrict pos) {
         G(139, copy &= copy - 1;)
         G(139, const u64 in_front = 0x101010101010101ULL << sq;)
         G(139, phase += initial_params.phases[p];)
-        G(139, const u64 piece_bb = 1ULL << sq;)
         G(139, const i32 rank = sq >> 3;)
+        G(139, const u64 piece_bb = 1ULL << sq;)
         G(95, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score +=
           eval_params
