@@ -146,7 +146,7 @@ decompress4kc:
 .hr:mov     edi, eax
     and     eax, r11d
 .pb:lea     ecx, [rax*8+G_HT]
-    cmp     byte [rcx+6], 0
+    cmp     dword [rcx], 0
     je      .pe
     cmp     [rcx], edi
     je      .po
@@ -154,7 +154,6 @@ decompress4kc:
     and     eax, r11d
     jmp     .pb
 .pe:mov     [rcx], edi
-    inc     byte [rcx+6]
 .po:mov     [rsp+32+r12*4], ecx
     movzx   eax, byte [rcx+4]
     movzx   edi, byte [rcx+5]

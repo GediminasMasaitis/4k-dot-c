@@ -9177,3 +9177,13 @@ MD5: cab510227bc2c881074a414a148b8322
 
 1 thread: 3780 bytes (-13)
 MD5: bfdcf511ffc8a423de06af8048fe5107
+
+### 7.11
+
+Drop used check in compression
+
+4 threads: 3848 (-4)
+MD5: be8c26794625c2b86b65ff7bbb93661f
+
+1 thread: 3776 bytes (-4)
+MD5: d6703799cc49d6fb8850d9d22c1faa9f
