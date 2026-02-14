@@ -577,10 +577,10 @@ G(
 
       G(91, // Update castling permissions
         const u64 oppMask = mask >> 56;
-        G(94, pos->castling[2] &= !(oppMask & 0x90);)
-            G(94, pos->castling[0] &= !(mask & 0x90);)
-                G(94, pos->castling[1] &= !(mask & 0x11);)
-                    G(94, pos->castling[3] &= !(oppMask & 0x11);))
+        G(94, pos->castling[3] &= !(oppMask & 0x11);)
+            G(94, pos->castling[1] &= !(mask & 0x11);)
+                G(94, pos->castling[0] &= !(mask & 0x90);)
+                    G(94, pos->castling[2] &= !(oppMask & 0x90);))
 
       if (find_in_check(pos)) {
         return false;
@@ -1023,12 +1023,11 @@ S(0) i32 eval(Position *const restrict pos) {
       const u64 opp_pawns = G(129, pos->pieces[Pawn]) & G(129, pos->colour[1]);
       const u64 attacked_by_pawns =
           G(130, southwest(opp_pawns)) | G(130, southeast(opp_pawns));
-      G(131,
-        const u64 no_passers = G(134, opp_pawns) | G(134, attacked_by_pawns);)
-          G(131, // PHALANX PAWNS
-            score -=
-            G(132, eval_params.phalanx_pawn) *
-            G(132, count(G(133, opp_pawns) & G(133, west(opp_pawns))));)
+      G(131, // PHALANX PAWNS
+        score -= G(132, eval_params.phalanx_pawn) *
+                 G(132, count(G(133, opp_pawns) & G(133, west(opp_pawns))));)
+          G(131, const u64 no_passers =
+                     G(134, opp_pawns) | G(134, attacked_by_pawns);)
               G(131, // PROTECTED PAWNS
                 score -=
                 G(135, eval_params.protected_pawn) *
