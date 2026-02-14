@@ -619,9 +619,8 @@ static HashEntry *hash_probe(HashEntry *table, unsigned int mask,
   unsigned int slot = hash & mask;
   for (;;) {
     HashEntry *e = &table[slot];
-    if (!e->used) {
+    if (!e->hash) {
       e->hash = hash;
-      e->used = 1;
       return e;
     }
     if (e->hash == hash) {
