@@ -223,8 +223,8 @@ typedef struct [[nodiscard]] {
 
 G(
     9,
-    [[nodiscard]] S(1) bool move_string_equal(G(10, const char *restrict rhs),
-                                              G(10, const char *restrict lhs)) {
+    [[nodiscard]] S(1) bool move_string_equal(G(10, const char *restrict lhs),
+                                              G(10, const char *restrict rhs)) {
       return (G(11, *(const u64 *)rhs) ^ G(11, *(const u64 *)lhs)) << 24 == 0;
     })
 
@@ -313,25 +313,6 @@ G(
     })
 
 G(
-    34, [[nodiscard]] S(0) u64 knight(const u64 bb) {
-      G(35, const u64 east_bb = east(bb);)
-      G(35, const u64 west_bb = west(bb);)
-      G(36, const u64 horizontal1 = G(37, west_bb) | G(37, east_bb);)
-      G(36,
-        const u64 horizontal2 = G(38, west(west_bb)) | G(38, east(east_bb));)
-      return G(39, horizontal1 >> 16) | G(39, horizontal2 >> 8) |
-             G(39, horizontal2 << 8) | G(39, horizontal1 << 16);
-    })
-
-G(
-    34, [[nodiscard]] S(0) u64 king(const u64 bb) {
-      const u64 vertical = G(40, north(bb)) | G(40, south(bb));
-      const u64 vertical_inclusive = G(41, bb) | G(41, vertical);
-      return G(42, vertical) | G(42, east(vertical_inclusive)) |
-             G(42, west(vertical_inclusive));
-    })
-
-G(
     34, [[nodiscard]] S(0) u64 bishop(H(43, 1, const u64 blockers),
                                       H(43, 1, const u64 bb)) {
       assert(count(bb) == 1);
@@ -354,6 +335,25 @@ G(
              G(47, // West
                ray(H(28, 3, blockers), H(28, 3, ~0x8080808080808080ull),
                    H(28, 3, bb), H(28, 3, -1)));
+    })
+
+G(
+    34, [[nodiscard]] S(0) u64 king(const u64 bb) {
+      const u64 vertical = G(40, north(bb)) | G(40, south(bb));
+      const u64 vertical_inclusive = G(41, bb) | G(41, vertical);
+      return G(42, vertical) | G(42, east(vertical_inclusive)) |
+             G(42, west(vertical_inclusive));
+    })
+
+G(
+    34, [[nodiscard]] S(0) u64 knight(const u64 bb) {
+      G(35, const u64 east_bb = east(bb);)
+      G(35, const u64 west_bb = west(bb);)
+      G(36, const u64 horizontal1 = G(37, west_bb) | G(37, east_bb);)
+      G(36,
+        const u64 horizontal2 = G(38, west(west_bb)) | G(38, east(east_bb));)
+      return G(39, horizontal1 >> 16) | G(39, horizontal2 >> 8) |
+             G(39, horizontal2 << 8) | G(39, horizontal1 << 16);
     })
 
 G(
@@ -456,8 +456,8 @@ G(
                                             H(71, 1, const i32 piece)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(72, if (piece == Knight) { moves = knight(bb); })
-      else G(72, if (piece == King) { moves = king(bb); }) else {
+      G(72, if (piece == King) { moves = king(bb); })
+      else G(72, if (piece == Knight) { moves = knight(bb); }) else {
         const u64 blockers = G(73, pos->colour[0]) | G(73, pos->colour[1]);
         G(
             74, if (piece != Rook) {
@@ -557,8 +557,8 @@ G(
 
       // En passant
       if (G(89, piece == Pawn) && G(89, to == pos->ep)) {
-        G(90, pos->colour[1] ^= to >> 8;)
         G(90, pos->pieces[Pawn] ^= to >> 8;)
+        G(90, pos->colour[1] ^= to >> 8;)
       }
       pos->ep = 0;
 
@@ -832,10 +832,10 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(118, 1,
-    H(119, 1, i8 pst_file[48];) H(119, 1, i8 tempo;)
-        H(119, 1, i8 mobilities[5];) H(119, 1, i8 pawn_attacked_penalty[2];)
-            H(119, 1, i8 passed_blocked_pawns[6];)
-                H(119, 1, i8 open_files[12];))
+    H(119, 1, i8 open_files[12];) H(119, 1, i8 tempo;)
+        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 pst_file[48];)
+            H(119, 1, i8 mobilities[5];)
+                H(119, 1, i8 pawn_attacked_penalty[2];))
   H(118, 1,
     H(120, 1, i8 protected_pawn;) H(120, 1, i8 phalanx_pawn;)
         H(120, 1, i8 bishop_pair;) H(120, 1, i8 passed_pawns[6];)
@@ -845,10 +845,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(118, 2,
-    H(119, 2, i32 pst_file[48];) H(119, 2, i32 tempo;)
-        H(119, 2, i32 mobilities[5];) H(119, 2, i32 pawn_attacked_penalty[2];)
-            H(119, 2, i32 passed_blocked_pawns[6];)
-                H(119, 2, i32 open_files[12];))
+    H(119, 2, i32 open_files[12];) H(119, 2, i32 tempo;)
+        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 pst_file[48];)
+            H(119, 2, i32 mobilities[5];)
+                H(119, 2, i32 pawn_attacked_penalty[2];))
   H(118, 2,
     H(120, 2, i32 protected_pawn;) H(120, 2, i32 phalanx_pawn;)
         H(120, 2, i32 bishop_pair;) H(120, 2, i32 passed_pawns[6];)
@@ -1226,9 +1226,8 @@ i32 search(
     u64 *nodes,
 #endif
     H(167, 1, Position *const pos), H(167, 1, const i32 beta),
-    H(167, 1, i32 depth), H(167, 1, ThreadData *data),
-    H(167, 1, const bool do_null), H(167, 1, const i32 ply),
-    H(167, 1, i32 alpha)) {
+    H(167, 1, i32 depth), H(167, 1, ThreadData *data), H(167, 1, const i32 ply),
+    H(167, 1, const bool do_null), H(167, 1, i32 alpha)) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1313,7 +1312,7 @@ i32 search(
 #endif
           H(167, 2, &npos), H(167, 2, -alpha),
           H(167, 2, depth - G(189, 4) - G(189, depth / 4)), H(167, 2, data),
-          H(167, 2, false), H(167, 2, ply + 1), H(167, 2, -beta));
+          H(167, 2, ply + 1), H(167, 2, false), H(167, 2, -beta));
       if (score >= beta) {
         return score;
       }
@@ -1331,8 +1330,8 @@ i32 search(
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(192, i32 move_score = ~0x1010101LL;)
     G(192, i32 best_index = 0;)
+    G(192, i32 move_score = ~0x1010101LL;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
@@ -1404,7 +1403,7 @@ i32 search(
 #endif
           H(167, 3, &npos), H(167, 3, -alpha),
           H(167, 3, depth - G(208, 1) - G(208, reduction)), H(167, 3, data),
-          H(167, 3, true), H(167, 3, ply + 1), H(167, 3, low));
+          H(167, 3, ply + 1), H(167, 3, true), H(167, 3, low));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
@@ -1604,7 +1603,7 @@ void iteratively_deepen(
           &data->nodes,
 #endif
           H(167, 4, &data->pos), H(167, 4, beta), H(167, 4, depth),
-          H(167, 4, data), H(167, 4, false), H(167, 4, 0), H(167, 4, alpha));
+          H(167, 4, data), H(167, 4, 0), H(167, 4, false), H(167, 4, alpha));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,

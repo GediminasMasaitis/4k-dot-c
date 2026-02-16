@@ -9261,3 +9261,65 @@ MD5: ff81ae1d91413dededd66fc34c654c59
 
 1 thread: 3740 bytes (-16)
 MD5: 16001b49686c9092f712ad4c72d24a42
+
+### 7.16
+
+Rerun blackbox
+
+4 threads: 3808 bytes (-3)
+MD5: bc3d15d3ad29d196da075368fbdf55a2
+
+1 thread: 3738 bytes (-2)
+MD5: cb510790f9988ec7eaece619feaf25dc
+
+4 threads:
+```py
+Input:       ./build/4kc (5294 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3338.459 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:3 60:2 90:2 50:1 30:0 B0:3 88:2 4C:2 5A:3 29:2 97:5 41:0
+Compressed:  3346 bytes 26767 bits (63.20%)
+Output:      ./build/4kc.paq (3346 bytes)
+```
+
+1 thread:
+```py
+Input:       ./build/4kc (5154 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3268.687 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 90:2 50:1 30:0 B0:3 88:1 44:1 29:2 A9:4 A4:2 5A:4 95:4
+Compressed:  3276 bytes 26206 bits (63.56%)
+Output:      ./build/4kc.paq (3276 bytes)
+```
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 192338
+info depth 1 score cp 31 time 0 nodes 38 nps 239159 pv b1c3
+info depth 2 score cp 17 time 0 nodes 114 nps 338710 pv b1c3
+info depth 3 score cp 27 time 0 nodes 234 nps 563278 pv b1c3
+info depth 4 score cp 17 time 0 nodes 382 nps 676336 pv b1c3
+info depth 5 score cp 3 time 0 nodes 583 nps 768319 pv b1c3
+info depth 6 score cp 15 time 1 nodes 902 nps 885403 pv b1c3
+info depth 7 score cp 15 time 2 nodes 2412 nps 1089636 pv b1c3
+info depth 8 score cp 17 time 3 nodes 3530 nps 1136026 pv b1c3
+info depth 9 score cp 18 time 9 nodes 11122 nps 1133728 pv g1f3
+info depth 10 score cp 3 upperbound time 14 nodes 16346 nps 1148121
+info depth 10 score cp 17 time 25 nodes 31141 nps 1235102 pv g1f3
+info depth 11 score cp 14 time 41 nodes 56666 nps 1365757 pv g1f3
+info depth 12 score cp 14 time 102 nodes 173831 nps 1688034 pv e2e4
+info depth 13 score cp 14 time 165 nodes 318662 nps 1923852 pv b1c3
+info depth 14 score cp 14 time 217 nodes 431515 nps 1984243 pv b1c3
+info depth 15 score cp 18 time 395 nodes 843116 nps 2133521 pv d2d4
+info depth 16 score cp 10 time 841 nodes 1867815 nps 2219880 pv d2d4
+info depth 17 score cp 11 time 1041 nodes 2320678 nps 2229171 pv d2d4
+info depth 18 score cp 16 time 1809 nodes 4035050 nps 2230476 pv d2d4
+info depth 19 score cp 16 time 2527 nodes 5609184 nps 2219559 pv d2d4
+info depth 20 score cp 25 time 3879 nodes 8578993 nps 2211374 pv e2e4
+info depth 21 score cp 32 time 4933 nodes 10912214 nps 2212058 pv e2e4
+info depth 22 score cp 28 time 6286 nodes 13794915 nps 2194367 pv e2e4
+13794915 nodes 2194348 nps
+```
