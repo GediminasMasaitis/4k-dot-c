@@ -64,7 +64,7 @@ compress: compressor
 	$(CC) $(LDFLAGS) -Wl,-Map=$(EXE).map -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	$(LS) $(EXE)
 	@$(MAP_CHECK)
-	./compressor -m 2 -o $(EXE).paq $(EXE)
+	./compressor -2 -o $(EXE).paq $(EXE)
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm

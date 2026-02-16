@@ -762,6 +762,27 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
     printf("    Total model contribution: %.1f bits (%.1f bytes)\n",
            -total_saved, -total_saved / 8.0);
 
+    int order[MAX_SEARCH];
+    for (int m = 0; m < num; m++)
+      order[m] = m;
+    for (int i = 0; i < num - 1; i++)
+      for (int j = i + 1; j < num; j++)
+        if (model_bits_saved[order[i]] < model_bits_saved[order[j]]) {
+          int tmp = order[i];
+          order[i] = order[j];
+          order[j] = tmp;
+        }
+    printf("  Per-model stats (by bits saved):\n");
+    for (int i = 0; i < num; i++) {
+      int m = order[i];
+      unsigned int total = model_hits[m] + model_misses[m];
+      printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
+             "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
+             m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
+             total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
+             -model_bits_saved[m], -model_bits_saved[m] / 8.0);
+    }
+
     unsigned int sat_lopsided = 0, sat_strong = 0, sat_balanced = 0,
                  sat_other = 0;
     unsigned int ht_occupied = 0;
@@ -1130,11 +1151,38 @@ static int write_file(const char *path, const void *data, int size) {
   return 1;
 }
 
+static int parse_models(const char *str, ModelSet *ml) {
+  ml->num_models = 0;
+  ml->size = 0;
+  const char *p = str;
+  while (*p && ml->num_models < MAX_SEARCH) {
+    while (*p == ' ' || *p == ',')
+      p++;
+    if (!*p)
+      break;
+    unsigned int mask;
+    unsigned int weight;
+    int consumed = 0;
+    if (sscanf(p, "%x:%u%n", &mask, &weight, &consumed) < 2)
+      return -1;
+    if (mask > 255 || weight > MAX_WEIGHT)
+      return -1;
+    ml->models[ml->num_models].mask = (unsigned char)mask;
+    ml->models[ml->num_models].weight = (unsigned char)weight;
+    ml->num_models++;
+    p += consumed;
+  }
+  return ml->num_models;
+}
+
 static void print_usage(const char *prog) {
   printf("Usage: %s [options] <input_file>\n\nOptions:\n", prog);
   printf("  -o <file>    Output file (default: <input>.paq or <input>.bin)\n");
   printf("  -d           Decompress mode\n");
-  printf("  -m <1-3>     Compression level (default: %d)\n", DEFAULT_LEVEL);
+  printf("  -1/-2/-3     Compression level (default: -%d)\n", DEFAULT_LEVEL);
+  printf("  -m <models>  Use explicit models, skip search (e.g. \"00:1 80:2 "
+         "C0:3\")\n");
+  printf("  -w           Optimize weights on explicit models from -m\n");
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
@@ -1147,9 +1195,12 @@ int main(int argc, char *argv[]) {
   int base_prob = DEFAULT_BPROB;
   int decompress = 0;
   int max_passes = 1;
+  ModelSet explicit_models = {0};
+  int have_explicit_models = 0;
+  int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:dhv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:123dwhv")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1157,13 +1208,28 @@ int main(int argc, char *argv[]) {
     case 'd':
       decompress = 1;
       break;
-    case 'm':
-      level = atoi(optarg);
-      if (level < MIN_LEVEL || level > MAX_LEVEL) {
-        fprintf(stderr, "Compression level must be %d-%d\n", MIN_LEVEL,
-                MAX_LEVEL);
+    case '1':
+      level = 1;
+      break;
+    case '2':
+      level = 2;
+      break;
+    case '3':
+      level = 3;
+      break;
+    case 'm': {
+      int n = parse_models(optarg, &explicit_models);
+      if (n < 1) {
+        fprintf(stderr, "Invalid model string: '%s'\n", optarg);
+        fprintf(stderr,
+                "Expected format: \"00:1 80:2 C0:3\" (hex_mask:weight)\n");
         return 1;
       }
+      have_explicit_models = 1;
+      break;
+    }
+    case 'w':
+      optimize_explicit_weights = 1;
       break;
     case 'b':
       base_prob = atoi(optarg);
@@ -1269,34 +1335,55 @@ int main(int argc, char *argv[]) {
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
   printf("Level:       %d\n", level);
   printf("Base prob:   %d\n", base_prob);
-  if (max_passes > 1)
+  if (max_passes > 1 && !have_explicit_models)
     printf("Max passes:  %d\n", max_passes);
 
   unsigned char ctx[MAX_CTX] = {};
   int est_size = 0;
-  ModelSet ml = search_best_models(data, data_size, ctx, level, base_prob,
-                                   &est_size, NULL);
+  ModelSet ml;
 
-  for (int pass = 2; pass <= max_passes; pass++) {
-    int prev_size = est_size;
-    if (verbose)
-      printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
-    ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
-                            &ml);
-    if (est_size >= prev_size) {
-      if (verbose)
-        printf("  No improvement, stopping.\n");
-      break;
+  if (have_explicit_models) {
+    ml = explicit_models;
+    printf("Models:      ");
+    model_set_print(&ml, stdout);
+    if (optimize_explicit_weights) {
+      printf("Optimizing weights for %d explicit models...\n", ml.num_models);
+      Evaluator eval = {0};
+      CompState *cs = state_new(data, data_size, base_prob, &eval, ctx);
+      est_size = optimize_weights(cs, &ml);
+      state_destroy(cs);
+      eval_destroy(&eval);
+      printf("Optimized:   ");
+      model_set_print(&ml, stdout);
+      printf("Estimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
+    } else {
+      printf("Skipping search, using %d explicit models\n", ml.num_models);
     }
-    if (verbose)
-      printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass,
-             prev_size / (float)(BIT_PREC * 8),
-             est_size / (float)(BIT_PREC * 8));
-  }
+  } else {
+    ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
+                            NULL);
 
-  printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
-  printf("Models:      ");
-  model_set_print(&ml, stdout);
+    for (int pass = 2; pass <= max_passes; pass++) {
+      int prev_size = est_size;
+      if (verbose)
+        printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
+      ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
+                              &ml);
+      if (est_size >= prev_size) {
+        if (verbose)
+          printf("  No improvement, stopping.\n");
+        break;
+      }
+      if (verbose)
+        printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass,
+               prev_size / (float)(BIT_PREC * 8),
+               est_size / (float)(BIT_PREC * 8));
+    }
+
+    printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
+    printf("Models:      ");
+    model_set_print(&ml, stdout);
+  }
 
   int max_out = data_size + 1024;
   unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
