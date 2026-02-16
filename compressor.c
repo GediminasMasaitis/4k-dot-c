@@ -31,7 +31,7 @@ typedef uint16_t v8u16 __attribute__((vector_size(16)));
 #define MAX_LEVEL 3
 #define DEFAULT_LEVEL 2
 
-static int verbose = 0; /* 0=off, 1=verbose, 2=very verbose */
+static int verbose = 0;  /* 0=off, 1=verbose, 2=very verbose */
 
 typedef struct {
   unsigned char weight;
@@ -107,15 +107,12 @@ static inline v4f v4f_splat(float x) { return (v4f){x, x, x, x}; }
 static inline v4u v4u_splat(uint32_t x) { return (v4u){x, x, x, x}; }
 
 static inline float fast_log2f(float x) {
-  union {
-    float f;
-    uint32_t u;
-  } bits = {x};
+  union { float f; uint32_t u; } bits = {x};
   int exp = (int)(bits.u >> 23) - 127;
   bits.u = (bits.u & 0x7FFFFFu) | 0x3F800000u;
   float m = bits.f - 1.0f;
-  return exp + m * (1.42286530448213f +
-                    m * (-0.58208536795165f + m * 0.15922006346951f));
+  return exp + m * (1.42286530448213f + m * (-0.58208536795165f +
+         m * 0.15922006346951f));
 }
 
 static inline void *alloc_aligned(size_t size) {
@@ -317,8 +314,8 @@ static void model_set_print(const ModelSet *ml, FILE *f) {
 static void model_set_sprint(const ModelSet *ml, char *buf, int bufsize) {
   int pos = 0;
   for (int m = 0; m < ml->num_models && pos < bufsize - 6; m++)
-    pos += snprintf(buf + pos, bufsize - pos, "%s%02X:%d", m ? " " : "",
-                    ml->models[m].mask, ml->models[m].weight);
+    pos += snprintf(buf + pos, bufsize - pos, "%s%02X:%d",
+                    m ? " " : "", ml->models[m].mask, ml->models[m].weight);
 }
 
 static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
@@ -640,8 +637,7 @@ static HashEntry *hash_probe(HashEntry *table, unsigned int mask,
   }
 }
 
-static void print_hash_table_stats(const HashEntry *ht,
-                                   unsigned int table_size) {
+static void print_hash_table_stats(const HashEntry *ht, unsigned int table_size) {
   unsigned int occupied = 0;
   unsigned int max_chain = 0;
   unsigned long total_displacement = 0;
@@ -982,7 +978,8 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   if (seed && seed->num_models > 0) {
     sets[0] = *seed;
     eval_evaluate(cs->eval, &sets[0]);
-    sets[0].size = eval_get_size(cs->eval) | EFLAG;
+    sets[0].size = (eval_get_size(cs->eval) +
+                    seed->num_models * 8 * BIT_PREC) | EFLAG;
   } else {
     sets[0].size = eval_get_size(cs->eval) | EFLAG;
   }
@@ -1020,7 +1017,8 @@ static ModelSet search_best_models(const unsigned char *data, int size,
         int old_sz = cur->size & ~EFLAG;
         if (verbose >= 2)
           printf("    -- try adding %02X:\n", mask);
-        int new_sz = try_weights(cs, next, level);
+        int new_sz = try_weights(cs, next, level) +
+                     next->num_models * 8 * BIT_PREC;
 
         if (new_sz < old_sz || level >= 3) {
           int best_sz = new_sz;
@@ -1028,8 +1026,9 @@ static ModelSet search_best_models(const unsigned char *data, int size,
           if (verbose && new_sz < INT_MAX) {
             char setbuf[512] = "";
             model_set_sprint(next, setbuf, sizeof(setbuf));
-            printf("  +mask %02X -> %2d models, est %.1f bytes [%s]\n", mask,
-                   next->num_models, new_sz / (float)(BIT_PREC * 8), setbuf);
+            printf("  +mask %02X -> %2d models, est %.1f bytes [%s]\n",
+                   mask, next->num_models,
+                   new_sz / (float)(BIT_PREC * 8) + 7, setbuf);
             fflush(stdout);
             mask_helped = 1;
           }
@@ -1040,14 +1039,15 @@ static ModelSet search_best_models(const unsigned char *data, int size,
             next->models[m] = next->models[next->num_models];
             if (verbose >= 2)
               printf("    -- try removing %02X:\n", removed.mask);
-            int trial = try_weights(cs, next, level);
+            int trial = try_weights(cs, next, level) +
+                        next->num_models * 8 * BIT_PREC;
             if (trial < best_sz) {
               if (verbose) {
                 char setbuf[512] = "";
                 model_set_sprint(next, setbuf, sizeof(setbuf));
                 printf("  -mask %02X -> %2d models, est %.1f bytes [%s]\n",
                        removed.mask, next->num_models,
-                       trial / (float)(BIT_PREC * 8), setbuf);
+                       trial / (float)(BIT_PREC * 8) + 7, setbuf);
                 fflush(stdout);
               }
               best_sz = trial;
@@ -1087,14 +1087,15 @@ static ModelSet search_best_models(const unsigned char *data, int size,
            masks_tried, masks_accepted, masks_tried - masks_accepted);
     printf("  Final weight optimization:\n");
   }
-  int final_sz = optimize_weights(cs, &best);
+  int final_sz = optimize_weights(cs, &best) +
+                 best.num_models * 8 * BIT_PREC;
   if (out_size)
     *out_size = final_sz;
   if (verbose) {
     char setbuf[512] = "";
     model_set_sprint(&best, setbuf, sizeof(setbuf));
-    printf("  Final: %2d models, est %.1f bytes [%s]\n", best.num_models,
-           final_sz / (float)(BIT_PREC * 8), setbuf);
+    printf("  Final: %2d models, est %.1f bytes [%s]\n",
+           best.num_models, final_sz / (float)(BIT_PREC * 8) + 7, setbuf);
   }
 
   state_destroy(cs);
@@ -1281,8 +1282,8 @@ int main(int argc, char *argv[]) {
     int prev_size = est_size;
     if (verbose)
       printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
-    ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
-                            &ml);
+    ml = search_best_models(data, data_size, ctx, level, base_prob,
+                            &est_size, &ml);
     if (est_size >= prev_size) {
       if (verbose)
         printf("  No improvement, stopping.\n");
@@ -1290,11 +1291,11 @@ int main(int argc, char *argv[]) {
     }
     if (verbose)
       printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass,
-             prev_size / (float)(BIT_PREC * 8),
-             est_size / (float)(BIT_PREC * 8));
+             prev_size / (float)(BIT_PREC * 8) + 7,
+             est_size / (float)(BIT_PREC * 8) + 7);
   }
 
-  printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
+  printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8) + 7);
   printf("Models:      ");
   model_set_print(&ml, stdout);
 
