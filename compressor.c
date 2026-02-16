@@ -961,7 +961,8 @@ static int model_set_cmp(const void *a, const void *b) {
 
 static ModelSet search_best_models(const unsigned char *data, int size,
                                    const unsigned char ctx[MAX_CTX], int level,
-                                   int base_prob, int *out_size) {
+                                   int base_prob, int *out_size,
+                                   const ModelSet *seed) {
   const int beam = (level >= 3) ? 3 : 1;
   const int EFLAG = INT_MIN;
   const int nsets = beam * 2;
@@ -978,7 +979,13 @@ static ModelSet search_best_models(const unsigned char *data, int size,
     rev_masks[m] = (unsigned char)v;
   }
 
-  sets[0].size = eval_get_size(cs->eval) | EFLAG;
+  if (seed && seed->num_models > 0) {
+    sets[0] = *seed;
+    eval_evaluate(cs->eval, &sets[0]);
+    sets[0].size = eval_get_size(cs->eval) | EFLAG;
+  } else {
+    sets[0].size = eval_get_size(cs->eval) | EFLAG;
+  }
   for (int s = 1; s < beam; s++)
     sets[s].size = INT_MAX;
 
@@ -1130,6 +1137,7 @@ static void print_usage(const char *prog) {
   printf("  -m <1-3>     Compression level (default: %d)\n", DEFAULT_LEVEL);
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
   printf("  -v           Verbose output (use -vv for very verbose)\n");
+  printf("  -p <n>       Max search passes (default: 1)\n");
   printf("  -h           Show this help\n");
 }
 
@@ -1138,9 +1146,10 @@ int main(int argc, char *argv[]) {
   int level = DEFAULT_LEVEL;
   int base_prob = DEFAULT_BPROB;
   int decompress = 0;
+  int max_passes = 1;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:dhv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:dhv")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1168,6 +1177,13 @@ int main(int argc, char *argv[]) {
       return 0;
     case 'v':
       verbose++;
+      break;
+    case 'p':
+      max_passes = atoi(optarg);
+      if (max_passes < 1) {
+        fprintf(stderr, "Passes must be >= 1\n");
+        return 1;
+      }
       break;
     default:
       print_usage(argv[0]);
@@ -1253,11 +1269,30 @@ int main(int argc, char *argv[]) {
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
   printf("Level:       %d\n", level);
   printf("Base prob:   %d\n", base_prob);
+  if (max_passes > 1)
+    printf("Max passes:  %d\n", max_passes);
 
   unsigned char ctx[MAX_CTX] = {};
   int est_size = 0;
-  ModelSet ml =
-      search_best_models(data, data_size, ctx, level, base_prob, &est_size);
+  ModelSet ml = search_best_models(data, data_size, ctx, level, base_prob,
+                                   &est_size, NULL);
+
+  for (int pass = 2; pass <= max_passes; pass++) {
+    int prev_size = est_size;
+    if (verbose)
+      printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
+    ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
+                            &ml);
+    if (est_size >= prev_size) {
+      if (verbose)
+        printf("  No improvement, stopping.\n");
+      break;
+    }
+    if (verbose)
+      printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass,
+             prev_size / (float)(BIT_PREC * 8),
+             est_size / (float)(BIT_PREC * 8));
+  }
 
   printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
   printf("Models:      ");
