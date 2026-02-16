@@ -1302,11 +1302,22 @@ int main(int argc, char *argv[]) {
   unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
   int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
   int comp_bytes = (comp_bits + 7) / 8;
-  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits,
-         100.0f * comp_bytes / data_size);
 
   unsigned char ordered_masks[MAX_SEARCH];
   unsigned int wmask = encode_weight_mask(&ml, ordered_masks, 1);
+
+  int header_bytes = 7 + ml.num_models;
+  int total_bytes = header_bytes + comp_bytes;
+  int total_bits = header_bytes * 8 + comp_bits;
+
+  if (verbose) {
+    printf("Raw:         %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits,
+           100.0f * comp_bytes / data_size);
+    printf("Weightmask:  %08X\n", wmask);
+    printf("Padding:     %d bits\n", total_bytes * 8 - total_bits);
+  }
+  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", total_bytes, total_bits,
+         100.0f * total_bytes / data_size);
 
   unsigned char header[7];
   uint16_t bl16 = (uint16_t)bitlen;
@@ -1326,8 +1337,7 @@ int main(int argc, char *argv[]) {
   fwrite(out_buf, 1, comp_bytes, fout);
   fclose(fout);
 
-  printf("Output:      %s (%d bytes, weightmask %08X)\n", output_file,
-         7 + ml.num_models + comp_bytes, wmask);
+  printf("Output:      %s (%d bytes)\n", output_file, total_bytes);
 
   free(out_buf);
   free(data);
