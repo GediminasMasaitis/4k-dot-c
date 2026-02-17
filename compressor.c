@@ -142,9 +142,12 @@ typedef struct {
   unsigned int sat_balanced;
   unsigned int sat_mixed;
 
-  double entropy;    /* Shannon H0 in bits/byte */
+  double entropy; /* Shannon H0 in bits/byte */
+  unsigned int byte_freq[256];
   float *byte_costs; /* cost per data byte during encoding */
   int num_data_bytes;
+  const unsigned char
+      *input_data; /* pointer to original input (valid during report write) */
 
   /* search trajectory log */
   float *search_best; /* best estimate after each mask (256 entries) */
@@ -1440,6 +1443,215 @@ static void write_html_report(const char *path, const CompStats *s) {
           s->min_range);
   fprintf(f, "</table></div>\n");
 
+  /* ── Byte Frequency Heatmap ── */
+  {
+    unsigned int fmax = 0;
+    int nunique = 0;
+    for (int i = 0; i < 256; i++) {
+      if (s->byte_freq[i] > fmax)
+        fmax = s->byte_freq[i];
+      if (s->byte_freq[i] > 0)
+        nunique++;
+    }
+    float log_fmax = fmax > 1 ? fast_log2f((float)fmax) : 1;
+
+    int cell = 28, gap = 1;
+    int grid = cell * 16 + gap * 15;
+    int hdr = 18;     /* space for column headers */
+    int row_lbl = 22; /* space for row labels */
+    int svg_w = row_lbl + grid + 4;
+    int svg_h = hdr + grid + 4;
+
+    fprintf(f,
+            "<div class=\"sec\"><h2>Byte Frequency</h2>\n"
+            "<p class=\"d\">16&times;16 grid of all 256 byte values. "
+            "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
+            nunique, fmax);
+    fprintf(f,
+            "<svg width=\"%d\" height=\"%d\" "
+            "style=\"font-family:'JetBrains Mono','Cascadia Code','Consolas',"
+            "monospace;display:block;margin-bottom:8px\">\n",
+            svg_w, svg_h);
+
+    /* column headers (low nibble) */
+    for (int c = 0; c < 16; c++) {
+      int x = row_lbl + c * (cell + gap) + cell / 2;
+      fprintf(f,
+              "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+              "font-size=\"8\" fill=\"#656d76\">%X</text>\n",
+              x, hdr - 5, c);
+    }
+
+    for (int r = 0; r < 16; r++) {
+      int y = hdr + r * (cell + gap);
+
+      /* row label (high nibble) */
+      fprintf(f,
+              "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+              "font-size=\"8\" fill=\"#656d76\">%X_</text>\n",
+              row_lbl - 4, y + cell / 2 + 3, r);
+
+      for (int c = 0; c < 16; c++) {
+        int byte_val = r * 16 + c;
+        unsigned int freq = s->byte_freq[byte_val];
+        int x = row_lbl + c * (cell + gap);
+
+        /* color: log-scale intensity */
+        float intensity = 0;
+        if (freq > 0 && fmax > 0) {
+          intensity = (fast_log2f((float)freq) + 1) / (log_fmax + 1);
+          if (intensity < 0.08f)
+            intensity = 0.08f;
+          if (intensity > 1.0f)
+            intensity = 1.0f;
+        }
+
+        /* map intensity to color: 0 = #f6f8fa, low = light blue, high = dark
+         * blue */
+        int cr, cg, cb;
+        if (freq == 0) {
+          cr = 246;
+          cg = 248;
+          cb = 250; /* empty: near-white */
+        } else {
+          /* interpolate from light (#dbeafe) to dark (#1e40af) */
+          cr = (int)(219 + (30 - 219) * intensity);
+          cg = (int)(234 + (64 - 234) * intensity);
+          cb = (int)(254 + (175 - 254) * intensity);
+        }
+
+        /* printable character label */
+        char label[8] = "";
+        if (byte_val >= 0x20 && byte_val <= 0x7E && byte_val != '<' &&
+            byte_val != '>' && byte_val != '&' && byte_val != '"')
+          snprintf(label, sizeof(label), "%c", byte_val);
+
+        fprintf(f,
+                "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+                "rx=\"2\" fill=\"rgb(%d,%d,%d)\">"
+                "<title>0x%02X",
+                x, y, cell, cell, cr, cg, cb, byte_val);
+        if (byte_val >= 0x20 && byte_val <= 0x7E)
+          fprintf(f, " '%c'", byte_val);
+        fprintf(f, ": %u (%.1f%%)</title></rect>\n", freq,
+                s->input_size > 0 ? 100.0 * freq / s->input_size : 0.0);
+
+        /* show printable char or nothing */
+        if (label[0]) {
+          int text_bright = intensity > 0.5f;
+          fprintf(
+              f,
+              "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+              "font-size=\"9\" fill=\"%s\" pointer-events=\"none\">%s</text>\n",
+              x + cell / 2, y + cell / 2 + 3, text_bright ? "#fff" : "#656d76",
+              label);
+        }
+      }
+    }
+    fprintf(f, "</svg></div>\n");
+  }
+
+  /* ── Compressibility Map ── */
+  if (s->byte_costs && s->num_data_bytes > 0) {
+    int nb = s->num_data_bytes;
+    float cmin = 1e9f, cmax = -1e9f;
+    for (int i = 0; i < nb; i++) {
+      if (s->byte_costs[i] < cmin)
+        cmin = s->byte_costs[i];
+      if (s->byte_costs[i] > cmax)
+        cmax = s->byte_costs[i];
+    }
+    if (cmax <= cmin)
+      cmax = cmin + 1;
+
+    /* adaptive grid: target ~800px wide, cell size 2-16px */
+    int cols, cell;
+    if (nb <= 64) {
+      cols = nb < 16 ? nb : 16;
+      cell = 16;
+    } else if (nb <= 512) {
+      cols = 32;
+      cell = 14;
+    } else if (nb <= 2048) {
+      cols = 64;
+      cell = 10;
+    } else if (nb <= 4096) {
+      cols = 64;
+      cell = 8;
+    } else if (nb <= 8192) {
+      cols = 96;
+      cell = 6;
+    } else {
+      cols = 128;
+      cell = 4;
+    }
+    int rows = (nb + cols - 1) / cols;
+    int gap = cell >= 6 ? 1 : 0;
+    int stride = cell + gap;
+    int svg_w = cols * stride - gap + 2;
+    int svg_h = rows * stride - gap + 2;
+
+    fprintf(
+        f,
+        "<div class=\"sec\"><h2>Compressibility Map</h2>\n"
+        "<p class=\"d\">Each cell = one byte of input. "
+        "<span style=\"color:#1a7f37\">\xe2\x96\x88</span> green = "
+        "highly compressible (low cost), "
+        "<span style=\"color:#cf222e\">\xe2\x96\x88</span> red = "
+        "hard to compress (high cost). "
+        "%d bytes, %d&times;%d grid, %.1f&ndash;%.1f bits/byte range.</p>\n",
+        nb, cols, rows, cmin, cmax);
+    fprintf(f,
+            "<svg width=\"%d\" height=\"%d\" "
+            "style=\"display:block;margin-bottom:8px\">\n",
+            svg_w, svg_h);
+
+    for (int i = 0; i < nb; i++) {
+      int col = i % cols;
+      int row = i / cols;
+      int x = 1 + col * stride;
+      int y = 1 + row * stride;
+
+      float cost = s->byte_costs[i];
+      /* normalize 0..1 where 0 = most compressible, 1 = least */
+      float t = (cost - cmin) / (cmax - cmin);
+      if (t < 0)
+        t = 0;
+      if (t > 1)
+        t = 1;
+
+      /* color: green (compressible) -> yellow -> red (expensive)
+         green = rgb(34,197,94), yellow = rgb(234,179,8), red = rgb(239,68,68)
+       */
+      int cr, cg, cb;
+      if (t < 0.5f) {
+        float u = t * 2; /* 0..1 within green->yellow */
+        cr = (int)(34 + (234 - 34) * u);
+        cg = (int)(197 + (179 - 197) * u);
+        cb = (int)(94 + (8 - 94) * u);
+      } else {
+        float u = (t - 0.5f) * 2; /* 0..1 within yellow->red */
+        cr = (int)(234 + (239 - 234) * u);
+        cg = (int)(179 + (68 - 179) * u);
+        cb = (int)(8 + (68 - 8) * u);
+      }
+
+      fprintf(f,
+              "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+              "fill=\"rgb(%d,%d,%d)\"",
+              x, y, cell, cell, cr, cg, cb);
+
+      /* tooltip: offset, byte value, char, cost */
+      unsigned char bval = s->input_data ? s->input_data[i] : 0;
+      fprintf(f, "><title>%d: 0x%02X", i, bval);
+      if (bval >= 0x20 && bval <= 0x7E)
+        fprintf(f, " '%c'", bval);
+      fprintf(f, " (%.2f bits)</title></rect>\n", cost);
+    }
+
+    fprintf(f, "</svg></div>\n");
+  }
+
   /* ── Cost Over File Position ── */
   if (s->byte_costs && s->num_data_bytes > 1) {
     int nb = s->num_data_bytes;
@@ -2308,7 +2520,9 @@ int main(int argc, char *argv[]) {
       }
     }
     cstats.entropy = h0;
+    memcpy(cstats.byte_freq, freq, sizeof(freq));
 
+    cstats.input_data = data;
     write_html_report(html_output, &cstats);
     printf("HTML report: %s\n", html_output);
     free(cstats.byte_costs);
