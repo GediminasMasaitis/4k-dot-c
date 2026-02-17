@@ -21,3 +21,4 @@ best.c
 worker_*
 compressor
 out.txt
+*.html
