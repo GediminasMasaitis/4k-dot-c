@@ -17,12 +17,16 @@ ifeq ($(OS),Windows_NT)
     LS = dir
     MD5 = certutil -hashfile $(EXE) MD5
     MAP_CHECK = if exist $(EXE).map findstr fill $(EXE).map
+    RM_FILE = del /F /Q
+    RM_DIR = if exist build rmdir /S /Q build
 else
     EXE ?= ./build/4kc
     MKDIR = mkdir -p build
     LS = ls -la
     MD5 = md5sum $(EXE)
     MAP_CHECK = if [ -f $(EXE).map ]; then grep fill $(EXE).map || true; fi
+    RM_FILE = rm -f
+    RM_DIR = rm -rf build
 endif
 
 ifeq ($(NOSTDLIB), true)
@@ -46,6 +50,12 @@ ifeq ($(ASSERTS), true)
 	CFLAGS += -DASSERTS
 else
 	CFLAGS += -DNDEBUG
+endif
+
+ifeq ($(HTML), true)
+	HTMLARG := -H $(EXE).html
+else
+	HTMLARG :=
 endif
 
 all:
@@ -72,7 +82,7 @@ compress_source: compile_asm link_asm
 
 compress: compressor compress_source
 	@$(MAP_CHECK)
-	./compressor -b $(BPROB) -o $(EXE).paq $(EXE)
+	./compressor -b $(BPROB) $(HTMLARG) -o $(EXE).paq $(EXE)
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
@@ -98,12 +108,13 @@ format:
 	clang-format -i ./compressor.c
 
 clean:
-	rm -rf build/**
-	rm -f *.map
-	rm -f *.s
-	rm -f *.o
-	rm -f *.gcda
-	rm -f *.gcno
-	rm -f *.c.temp*
-	rm -f *.paq
-	rm -f compressor
+	-$(RM_DIR)
+	-$(RM_FILE) *.map
+	-$(RM_FILE) *.s
+	-$(RM_FILE) *.o
+	-$(RM_FILE) *.gcda
+	-$(RM_FILE) *.gcno
+	-$(RM_FILE) *.c.temp*
+	-$(RM_FILE) *.paq
+	-$(RM_FILE) compressor
+	-$(RM_FILE) compressor.exe
