@@ -102,6 +102,72 @@ typedef struct CompState {
   Evaluator *eval;
 } CompState;
 
+typedef struct {
+  char input_file[512];
+  int input_size;
+  int beam;
+  int simple;
+  int extreme;
+  int base_prob;
+
+  int compressed_bits;
+  int header_bytes;
+  int total_bytes;
+  float estimated_bytes;
+
+  int num_models;
+  unsigned char model_masks[MAX_SEARCH];
+  int model_weights[MAX_SEARCH];
+  char model_string[512];
+
+  unsigned int model_hits[MAX_SEARCH];
+  unsigned int model_misses[MAX_SEARCH];
+  double model_bits_saved[MAX_SEARCH];
+
+  unsigned int conf_hist[11];
+  int total_bits;
+
+  unsigned int bytepos_count[8];
+  double bytepos_cost[8];
+  double total_cost;
+
+  unsigned int min_range;
+
+  unsigned int ht_occupied;
+  unsigned int ht_size;
+  unsigned int ht_max_chain;
+  double ht_avg_displacement;
+
+  unsigned int sat_lopsided;
+  unsigned int sat_strong;
+  unsigned int sat_balanced;
+  unsigned int sat_mixed;
+
+  double entropy; /* Shannon H0 in bits/byte */
+  unsigned int byte_freq[256];
+  float *byte_costs; /* cost per data byte during encoding */
+  float *byte_model_contrib; /* [num_data_bytes * num_models] per-byte per-model */
+  int num_data_bytes;
+  const unsigned char
+      *input_data; /* pointer to original input (valid during report write) */
+
+  /* search trajectory log */
+  float *search_best; /* best estimate after each mask (256 entries) */
+  int search_len;
+  struct {
+    int mask_idx;       /* which of the 256 iterations */
+    unsigned char mask; /* context mask value */
+    int num_models;     /* model count after this event */
+    float est_bytes;    /* estimated size */
+    int is_removal;     /* 0 = addition, 1 = removal */
+  } *search_events;
+  int search_nevents, search_events_cap;
+
+  int valid;
+} CompStats;
+
+static const char *html_output = NULL;
+
 static inline v4f v4f_splat(float x) { return (v4f){x, x, x, x}; }
 static inline v4u v4u_splat(uint32_t x) { return (v4u){x, x, x, x}; }
 
@@ -664,12 +730,13 @@ static void print_hash_table_stats(const HashEntry *ht,
 }
 
 static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
-                               HashEntry *ht, int base_prob,
-                               const ModelSet *ml) {
+                               HashEntry *ht, int base_prob, const ModelSet *ml,
+                               CompStats *stats) {
   int num = hb->num_weights;
   int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
   unsigned int tmask = hb->table_size - 1;
   memset(ht, 0, hb->table_size * sizeof(HashEntry));
+  int collect = verbose || (stats != NULL);
 
   unsigned int model_hits[MAX_SEARCH] = {};
   unsigned int model_misses[MAX_SEARCH] = {};
@@ -682,6 +749,15 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
 
   HashEntry *matched[MAX_SEARCH];
   int hpos = 0;
+  /* per-byte cost tracking for position curve */
+  int num_data_bytes = (total_bits > 1) ? (total_bits - 1 + 7) / 8 : 0;
+  float *byte_costs = NULL;
+  float *byte_model_contrib = NULL;
+  if (stats && num_data_bytes > 0) {
+    byte_costs = (float *)calloc(num_data_bytes, sizeof(float));
+    byte_model_contrib = (float *)calloc(
+        (size_t)num_data_bytes * num, sizeof(float));
+  }
   for (int bp = 0; bp < total_bits; bp++) {
     int bit = hb->bits[bp];
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
@@ -689,22 +765,28 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
       unsigned int p0_before = probs[0], p1_before = probs[1];
       matched[m] =
           hash_probe(ht, tmask, hb->hashes[hpos++], hb->weights[m], probs);
-      if (verbose) {
+      if (collect) {
         if (matched[m]->prob[0] || matched[m]->prob[1]) {
           model_hits[m]++;
           unsigned int before_correct = bit ? p1_before : p0_before;
           unsigned int before_total = p0_before + p1_before;
           unsigned int after_correct = probs[bit];
           unsigned int after_total = probs[0] + probs[1];
-          model_bits_saved[m] +=
+          float delta =
               fast_log2f((float)after_correct / after_total) -
               fast_log2f((float)before_correct / before_total);
+          model_bits_saved[m] += delta;
+          if (byte_model_contrib && bp > 0) {
+            int byte_idx = (bp - 1) / 8;
+            if (byte_idx < num_data_bytes)
+              byte_model_contrib[byte_idx * num + m] += delta;
+          }
         } else {
           model_misses[m]++;
         }
       }
     }
-    if (verbose) {
+    if (collect) {
       float conf = (float)probs[bit] / (probs[0] + probs[1]);
       int bucket = (conf < 0.5f) ? 0 : (int)((conf - 0.5f) * 20) + 1;
       if (bucket > 10)
@@ -716,9 +798,14 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
       int bpos = bp & 7;
       bytepos_count[bpos]++;
       bytepos_cost[bpos] += bit_cost;
+      if (byte_costs && bp > 0) {
+        int byte_idx = (bp - 1) / 8;
+        if (byte_idx < num_data_bytes)
+          byte_costs[byte_idx] += bit_cost;
+      }
     }
     arith_encode(ac, probs[1], probs[0], 1 - bit);
-    if (verbose && ac->range < min_range)
+    if (collect && ac->range < min_range)
       min_range = ac->range;
     for (int m = 0; m < num; m++)
       counter_update(matched[m]->prob, bit);
@@ -809,10 +896,66 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
     printf("    Mixed (2:1 to 4:1):    %u (%.1f%%)\n", sat_other,
            ht_occupied ? 100.0 * sat_other / ht_occupied : 0.0);
   }
+
+  if (stats) {
+    int snum = num < MAX_SEARCH ? num : MAX_SEARCH;
+    stats->num_models = snum;
+    stats->total_bits = total_bits;
+    stats->total_cost = total_cost;
+    stats->min_range = min_range;
+    memcpy(stats->conf_hist, conf_hist, sizeof(conf_hist));
+    memcpy(stats->bytepos_count, bytepos_count, sizeof(bytepos_count));
+    memcpy(stats->bytepos_cost, bytepos_cost, sizeof(bytepos_cost));
+    for (int m = 0; m < snum; m++) {
+      stats->model_masks[m] = ml->models[m].mask;
+      stats->model_weights[m] = ml->models[m].weight;
+      stats->model_hits[m] = model_hits[m];
+      stats->model_misses[m] = model_misses[m];
+      stats->model_bits_saved[m] = model_bits_saved[m];
+    }
+    /* hash table + saturation stats */
+    stats->ht_size = hb->table_size;
+    stats->ht_occupied = 0;
+    stats->ht_max_chain = 0;
+    stats->sat_lopsided = 0;
+    stats->sat_strong = 0;
+    stats->sat_balanced = 0;
+    stats->sat_mixed = 0;
+    unsigned long total_disp = 0;
+    unsigned int htmask = hb->table_size - 1;
+    for (unsigned int i = 0; i < hb->table_size; i++) {
+      if (ht[i].hash) {
+        stats->ht_occupied++;
+        unsigned int ideal = (ht[i].hash + 1) & htmask;
+        unsigned int disp = (i - ideal) & htmask;
+        if (disp > stats->ht_max_chain)
+          stats->ht_max_chain = disp;
+        total_disp += disp;
+        unsigned int p0 = ht[i].prob[0], p1 = ht[i].prob[1];
+        if (p0 == 0 || p1 == 0)
+          stats->sat_lopsided++;
+        else if (p0 > p1 * 4 || p1 > p0 * 4)
+          stats->sat_strong++;
+        else if (p0 <= p1 * 2 && p1 <= p0 * 2)
+          stats->sat_balanced++;
+        else
+          stats->sat_mixed++;
+      }
+    }
+    stats->ht_avg_displacement =
+        stats->ht_occupied ? (double)total_disp / stats->ht_occupied : 0.0;
+    stats->byte_costs = byte_costs;
+    stats->byte_model_contrib = byte_model_contrib;
+    stats->num_data_bytes = num_data_bytes;
+    stats->valid = 1;
+  } else {
+    free(byte_costs);
+    free(byte_model_contrib);
+  }
 }
 
 static int compress_4k(const unsigned char *data, int size, unsigned char *out,
-                       const ModelSet *ml, int base_prob) {
+                       const ModelSet *ml, int base_prob, CompStats *stats) {
   unsigned char ctx[MAX_CTX] = {};
   HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
   if (verbose) {
@@ -823,7 +966,7 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
   HashEntry *ht = (HashEntry *)calloc(hb.table_size, sizeof(HashEntry));
   ArithCoder ac;
   arith_init(&ac, out);
-  encode_from_stream(&ac, &hb, ht, base_prob, ml);
+  encode_from_stream(&ac, &hb, ht, base_prob, ml, stats);
   int total = arith_finish(&ac);
 
   if (verbose)
@@ -838,7 +981,7 @@ static unsigned int real_compress_size(const unsigned char *data, int size,
                                        const ModelSet *ml, int base_prob) {
   int max_out = size + 1024;
   unsigned char *out = (unsigned char *)calloc(max_out, 1);
-  int comp_bits = compress_4k(data, size, out, ml, base_prob);
+  int comp_bits = compress_4k(data, size, out, ml, base_prob, NULL);
   free(out);
   int header_bits = (7 + ml->num_models) * 8;
   return (unsigned int)(header_bits + comp_bits) * BIT_PREC;
@@ -1006,7 +1149,7 @@ static int model_set_cmp(const void *a, const void *b) {
 static ModelSet search_best_models(const unsigned char *data, int size,
                                    const unsigned char ctx[MAX_CTX], int beam,
                                    int simple, int base_prob, int *out_size,
-                                   const ModelSet *seed) {
+                                   const ModelSet *seed, CompStats *stats) {
   const int EFLAG = INT_MIN;
   const int nsets = beam * 2;
   ModelSet *sets = (ModelSet *)calloc(nsets, sizeof(ModelSet));
@@ -1043,6 +1186,16 @@ static ModelSet search_best_models(const unsigned char *data, int size,
     sets[s].size = INT_MAX;
 
   int masks_tried = 0, masks_accepted = 0;
+
+  /* search trajectory logging */
+  int log_search = (stats != NULL);
+  if (log_search) {
+    stats->search_best = (float *)malloc(256 * sizeof(float));
+    stats->search_len = 0;
+    stats->search_events = NULL;
+    stats->search_nevents = 0;
+    stats->search_events_cap = 0;
+  }
 
   for (int mi = 0; mi <= 255; mi++) {
     int mask = rev_masks[mi];
@@ -1086,6 +1239,22 @@ static ModelSet search_best_models(const unsigned char *data, int size,
             fflush(stdout);
             mask_helped = 1;
           }
+          if (log_search && new_sz < INT_MAX && s == 0) {
+            if (stats->search_nevents >= stats->search_events_cap) {
+              stats->search_events_cap =
+                  stats->search_events_cap ? stats->search_events_cap * 2 : 64;
+              stats->search_events = realloc(
+                  stats->search_events,
+                  stats->search_events_cap * sizeof(stats->search_events[0]));
+            }
+            int idx = stats->search_nevents++;
+            stats->search_events[idx].mask_idx = mi;
+            stats->search_events[idx].mask = (unsigned char)mask;
+            stats->search_events[idx].num_models = next->num_models;
+            stats->search_events[idx].est_bytes =
+                new_sz / (float)(BIT_PREC * 8);
+            stats->search_events[idx].is_removal = 0;
+          }
 
           for (int m = next->num_models - 2; m >= 0; m--) {
             Model removed = next->models[m];
@@ -1102,6 +1271,24 @@ static ModelSet search_best_models(const unsigned char *data, int size,
                        removed.mask, next->num_models,
                        trial / (float)(BIT_PREC * 8), setbuf);
                 fflush(stdout);
+              }
+              if (log_search && s == 0) {
+                if (stats->search_nevents >= stats->search_events_cap) {
+                  stats->search_events_cap = stats->search_events_cap
+                                                 ? stats->search_events_cap * 2
+                                                 : 64;
+                  stats->search_events =
+                      realloc(stats->search_events,
+                              stats->search_events_cap *
+                                  sizeof(stats->search_events[0]));
+                }
+                int idx = stats->search_nevents++;
+                stats->search_events[idx].mask_idx = mi;
+                stats->search_events[idx].mask = removed.mask;
+                stats->search_events[idx].num_models = next->num_models;
+                stats->search_events[idx].est_bytes =
+                    trial / (float)(BIT_PREC * 8);
+                stats->search_events[idx].is_removal = 1;
               }
               best_sz = trial;
             } else {
@@ -1123,6 +1310,11 @@ static ModelSet search_best_models(const unsigned char *data, int size,
     qsort(sets, nsets, sizeof(ModelSet), model_set_cmp);
     if (mask_helped)
       masks_accepted++;
+    if (log_search) {
+      int best_raw = sets[0].size & ~EFLAG;
+      stats->search_best[mi] = best_raw / (float)(BIT_PREC * 8);
+      stats->search_len = mi + 1;
+    }
     if (!verbose) {
       printf("\rCalculating models... %d/%d", mi + 1, 256);
       fflush(stdout);
@@ -1156,6 +1348,1861 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   }
   free(sets);
   return best;
+}
+
+static void write_html_report(const char *path, const CompStats *s) {
+  FILE *f = fopen(path, "w");
+  if (!f) {
+    fprintf(stderr, "Failed to open HTML output '%s'\n", path);
+    return;
+  }
+
+  double ratio = 100.0 * s->total_bytes / (double)s->input_size;
+  double savings = 100.0 - ratio;
+  float actual_bpb =
+      s->input_size > 0 ? (float)s->total_bytes * 8.0f / s->input_size : 0;
+  float est_delta = (float)s->total_bytes - s->estimated_bytes;
+  float est_delta_pct =
+      s->estimated_bytes > 0 ? 100.0f * est_delta / s->estimated_bytes : 0;
+  float context_gain = (float)s->entropy - actual_bpb;
+
+  /* ── HTML head + CSS ── */
+  fprintf(f,
+    "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">\n"
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+    "<title>Compression Report &ndash; %s</title>\n"
+    "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n"
+    "<link href=\"https://fonts.googleapis.com/css2?"
+    "family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400"
+    "&family=JetBrains+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">\n"
+    "<style>\n"
+    ":root{\n"
+    "  --bg:#0c0e14;--bg2:#13161f;--bg3:#1a1e2b;--bg4:#242938;\n"
+    "  --bdr:#2a2f3f;--bdr2:#353b4f;\n"
+    "  --fg:#e8eaf0;--fg2:#a0a6b8;--fg3:#6b7186;\n"
+    "  --acc:#22d3ee;--acc2:#06b6d4;--acc3:#0891b2;\n"
+    "  --grn:#34d399;--grn2:#10b981;\n"
+    "  --red:#f87171;--red2:#ef4444;\n"
+    "  --ylw:#fbbf24;--ylw2:#f59e0b;\n"
+    "  --orn:#fb923c;--blu:#60a5fa;\n"
+    "  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code','Consolas',monospace;\n"
+    "  --sans:'DM Sans',system-ui,-apple-system,sans-serif;\n"
+    "}\n"
+    "*{margin:0;padding:0;box-sizing:border-box}\n"
+    "html{scroll-behavior:smooth}\n"
+    ".card[id]{scroll-margin-top:20px}\n"
+    "body{font-family:var(--sans);background:var(--bg);color:var(--fg);"
+    "line-height:1.6;-webkit-font-smoothing:antialiased}\n"
+    ".wrap{max-width:1060px;margin:0 auto;padding:24px 28px 64px 28px;"
+    "margin-left:200px}\n"
+    "\n"
+    "/* ── Sidebar ── */\n"
+    ".sidebar{position:fixed;top:0;left:0;width:184px;height:100vh;"
+    "background:var(--bg2);border-right:1px solid var(--bdr);"
+    "padding:20px 0;overflow-y:auto;z-index:100;"
+    "display:flex;flex-direction:column}\n"
+    ".sidebar .sb-title{font-size:10px;font-weight:600;color:var(--fg3);"
+    "text-transform:uppercase;letter-spacing:1.2px;padding:0 16px;"
+    "margin-bottom:12px}\n"
+    ".sidebar a{display:block;padding:6px 16px 6px 14px;font-size:12px;"
+    "color:var(--fg3);text-decoration:none;border-left:2px solid transparent;"
+    "transition:color .15s,border-color .15s,background .15s;"
+    "line-height:1.4}\n"
+    ".sidebar a:hover{color:var(--fg2);background:rgba(255,255,255,.02)}\n"
+    ".sidebar a.active{color:var(--acc);border-left-color:var(--acc);"
+    "background:rgba(34,211,238,.04)}\n"
+    "@media(max-width:900px){.sidebar{display:none}.wrap{margin-left:0}}\n"
+    "\n"
+    "/* ── Hero ── */\n"
+    ".hero{display:flex;align-items:center;gap:40px;padding:40px 0 36px;"
+    "border-bottom:1px solid var(--bdr)}\n"
+    ".hero-ring{position:relative;flex-shrink:0}\n"
+    ".hero-ring svg{display:block}\n"
+    ".hero-pct{position:absolute;inset:0;display:flex;flex-direction:column;"
+    "align-items:center;justify-content:center}\n"
+    ".hero-pct .big{font-size:32px;font-weight:700;letter-spacing:-1px;"
+    "color:var(--acc);line-height:1}\n"
+    ".hero-pct .lbl{font-size:11px;color:var(--fg3);text-transform:uppercase;"
+    "letter-spacing:1.5px;margin-top:4px}\n"
+    ".hero-info h1{font-size:20px;font-weight:600;color:var(--fg);"
+    "margin-bottom:4px}\n"
+    ".hero-info .sub{font-size:13px;color:var(--fg3)}\n"
+    ".hero-stats{display:flex;gap:32px;margin-top:18px}\n"
+    ".hero-stat .val{font-family:var(--mono);font-size:20px;font-weight:600;"
+    "line-height:1}\n"
+    ".hero-stat .lbl{font-size:11px;color:var(--fg3);margin-top:3px;"
+    "text-transform:uppercase;letter-spacing:.5px}\n"
+    "\n"
+    "/* ── Cards ── */\n"
+    ".grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;"
+    "margin-top:28px}\n"
+    ".grid .full{grid-column:1/-1}\n"
+    ".card{background:var(--bg2);border:1px solid var(--bdr);"
+    "border-radius:10px;padding:22px 24px;overflow:hidden}\n"
+    ".card h2{font-size:14px;font-weight:600;color:var(--fg);"
+    "margin-bottom:2px;display:flex;align-items:center;gap:8px}\n"
+    ""
+    ".card .desc{font-size:11.5px;color:var(--fg3);margin-bottom:16px}\n"
+    "\n"
+    "/* ── Tables ── */\n"
+    "table{border-collapse:collapse;width:100%%;font-size:12.5px;"
+    "font-variant-numeric:tabular-nums}\n"
+    "th{color:var(--fg3);font-weight:600;text-transform:uppercase;"
+    "font-size:10px;letter-spacing:.6px;padding:7px 10px;text-align:left;"
+    "border-bottom:1px solid var(--bdr2)}\n"
+    "th.r{text-align:right}\n"
+    "td{padding:6px 10px;border-bottom:1px solid var(--bdr);color:var(--fg2)}\n"
+    "td.r{text-align:right;font-family:var(--mono);font-size:11.5px}\n"
+    "td.n{font-weight:500;color:var(--fg)}\n"
+    "tr:hover td{background:rgba(255,255,255,.02)}\n"
+    ".kv td:first-child{color:var(--fg3);font-size:11.5px;white-space:nowrap}\n"
+    ".kv td:last-child{font-family:var(--mono);font-size:11.5px;"
+    "text-align:right;color:var(--fg)}\n"
+    "\n"
+    "/* ── Colors ── */\n"
+    ".c-acc{color:var(--acc)}.c-grn{color:var(--grn)}.c-red{color:var(--red)}\n"
+    ".c-ylw{color:var(--ylw)}.c-orn{color:var(--orn)}.c-blu{color:var(--blu)}\n"
+    ".c-fg2{color:var(--fg2)}\n"
+    "\n"
+    "/* ── Bar cells ── */\n"
+    ".bar-cell{position:relative}\n"
+    ".bar{position:absolute;left:0;top:0;bottom:0;border-radius:2px}\n"
+    ".bar-acc{background:var(--acc)}.bar-grn{background:var(--grn)}\n"
+    ".bar-blu{background:var(--blu)}.bar-ylw{background:var(--ylw)}\n"
+    ".bar-orn{background:var(--orn)}.bar-red{background:var(--red)}\n"
+    ".bar-label{position:relative;z-index:1}\n"
+    "\n"
+    "/* ── Anim ── */\n"
+    "@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}"
+    "to{opacity:1;transform:none}}\n"
+    ".card{animation:fadeUp .4s ease both}\n"
+    ".card:nth-child(1){animation-delay:.05s}\n"
+    ".card:nth-child(2){animation-delay:.1s}\n"
+    ".card:nth-child(3){animation-delay:.15s}\n"
+    ".card:nth-child(4){animation-delay:.2s}\n"
+    ".card:nth-child(5){animation-delay:.25s}\n"
+    ".card:nth-child(6){animation-delay:.3s}\n"
+    ".card:nth-child(7){animation-delay:.35s}\n"
+    ".card:nth-child(8){animation-delay:.4s}\n"
+    ".card:nth-child(9){animation-delay:.45s}\n"
+    ".card:nth-child(10){animation-delay:.5s}\n"
+    "\n"
+    "/* ── Misc ── */\n"
+    "svg text{font-family:var(--sans)}\n"
+    ".slider-row{display:flex;align-items:center;gap:10px;margin:6px 0 10px;"
+    "font-size:12px;color:var(--fg3)}\n"
+    ".slider-row input[type=range]{width:180px;accent-color:var(--acc)}\n"
+    ".slider-row button{font-size:10px;padding:3px 9px;border:1px solid var(--bdr2);"
+    "border-radius:4px;background:var(--bg3);color:var(--fg2);cursor:pointer;"
+    "font-family:var(--sans)}\n"
+    ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
+    "\n"
+    "/* ── Inspect panel ── */\n"
+    "#cmap-detail,#attr-detail,#bfreq-detail,#bigram-detail{display:none;margin-top:14px;padding:14px 18px;"
+    "background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;"
+    "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
+    "#cmap-detail .cd-head,#attr-detail .cd-head,#bfreq-detail .cd-head,#bigram-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
+    "margin-bottom:10px}\n"
+    "#cmap-detail .cd-byte,#attr-detail .cd-byte,#bfreq-detail .cd-byte,#bigram-detail .cd-byte{font-family:var(--mono);font-size:18px;"
+    "font-weight:600;color:var(--fg)}\n"
+    "#cmap-detail .cd-sub,#attr-detail .cd-sub,#bfreq-detail .cd-sub,#bigram-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
+    "#cmap-detail .cd-cost,#attr-detail .cd-cost,#bfreq-detail .cd-cost,#bigram-detail .cd-cost{font-family:var(--mono);font-size:14px;"
+    "font-weight:600}\n"
+    "#cmap-detail .cd-bar,#attr-detail .cd-bar,#bfreq-detail .cd-bar,#bigram-detail .cd-bar{display:flex;align-items:center;gap:8px;"
+    "margin:3px 0;font-size:11px}\n"
+    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl,#bfreq-detail .cd-bar-lbl,#bigram-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
+    "color:var(--fg3);flex-shrink:0}\n"
+    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track,#bfreq-detail .cd-bar-track,#bigram-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
+    "border-radius:3px;position:relative;overflow:hidden}\n"
+    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill,#bfreq-detail .cd-bar-fill,#bigram-detail .cd-bar-fill{height:100%%;border-radius:3px;"
+    "position:absolute;left:0;top:0;transition:width .2s}\n"
+    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val,#bfreq-detail .cd-bar-val,#bigram-detail .cd-bar-val{font-family:var(--mono);width:70px;"
+    "text-align:right;flex-shrink:0}\n"
+    ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
+    "</style></head><body>\n"
+    "<nav class=\"sidebar\" id=\"sidebar\">\n"
+    "<div class=\"sb-title\">Sections</div>\n"
+    "<a href=\"#sec-params\">Parameters</a>\n"
+    "<a href=\"#sec-output\">Output Breakdown</a>\n"
+    "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
+    "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
+    "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
+    "<a href=\"#sec-attr\">Model Attribution</a>\n"
+    "<a href=\"#sec-dominance\">Model Dominance</a>\n"
+    "<a href=\"#sec-surprises\">Top Surprises</a>\n"
+    "<a href=\"#sec-cost\">Cost Over Position</a>\n"
+    "<a href=\"#sec-search\">Search Trajectory</a>\n"
+    "<a href=\"#sec-models\">Model Statistics</a>\n"
+    "<a href=\"#sec-conf\">Pred. Confidence</a>\n"
+    "<a href=\"#sec-bytepos\">Byte Position</a>\n"
+    "<a href=\"#sec-hash\">Hash Table</a>\n"
+    "<a href=\"#sec-sat\">Counter Saturation</a>\n"
+    "</nav>\n"
+    "<div class=\"wrap\">\n",
+    s->input_file);
+
+  /* ── Hero section with ring gauge ── */
+  {
+    /* ring gauge: SVG donut */
+    int ring_r = 60, ring_stroke = 10;
+    double circumf = 2.0 * 3.14159265 * ring_r;
+    double fill_len = circumf * savings / 100.0;
+    double gap_len = circumf - fill_len;
+    const char *ring_color = savings > 60 ? "#22d3ee"
+                           : savings > 40 ? "#34d399"
+                           : savings > 20 ? "#fbbf24"
+                                          : "#f87171";
+
+    fprintf(f, "<div class=\"hero\">\n");
+    fprintf(f,
+      "<div class=\"hero-ring\">\n"
+      "<svg width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\">\n"
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"#1a1e2b\" stroke-width=\"%d\"/>\n"
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"%s\" stroke-width=\"%d\" "
+      "stroke-dasharray=\"%.1f %.1f\" stroke-dashoffset=\"%.1f\" "
+      "stroke-linecap=\"round\" "
+      "style=\"transform:rotate(-90deg);transform-origin:center;"
+      "filter:drop-shadow(0 0 8px %s40)\"/>\n"
+      "</svg>\n"
+      "<div class=\"hero-pct\">"
+      "<span class=\"big\" style=\"color:%s\">%.0f%%</span>"
+      "<span class=\"lbl\">saved</span></div>\n"
+      "</div>\n",
+      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
+      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
+      ring_r + ring_stroke, ring_r + ring_stroke, ring_r, ring_stroke,
+      ring_r + ring_stroke, ring_r + ring_stroke, ring_r,
+      ring_color, ring_stroke, fill_len, gap_len, circumf * 0.25,
+      ring_color, ring_color, savings);
+
+    fprintf(f,
+      "<div class=\"hero-info\">\n"
+      "<h1>Compression Report</h1>\n"
+      "<p class=\"sub\">%s &middot; context-mixing arithmetic coder</p>\n"
+      "<div class=\"hero-stats\">\n"
+      "<div class=\"hero-stat\"><div class=\"val\">%d</div>"
+      "<div class=\"lbl\">Input bytes</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val c-acc\">%d</div>"
+      "<div class=\"lbl\">Output bytes</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val c-grn\">%.2f%%</div>"
+      "<div class=\"lbl\">Ratio</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val\" style=\"color:%s\">%+.3f</div>"
+      "<div class=\"lbl\">H\xe2\x82\x80 gain</div></div>\n"
+      "</div></div></div>\n\n",
+      s->input_file, s->input_size, s->total_bytes, ratio,
+      context_gain > 0 ? "#34d399" : "#f87171", context_gain);
+  }
+
+  fprintf(f, "<div class=\"grid\">\n");
+
+  /* ── Summary card ── */
+  fprintf(f,
+    "<div class=\"card\" id=\"sec-params\">\n"
+    "<h2>Parameters</h2>\n"
+    "<p class=\"desc\">Compression settings and entropy metrics.</p>\n"
+    "<table class=\"kv\">\n");
+  fprintf(f, "<tr><td>Search</td><td>beam %d%s%s</td></tr>\n",
+    s->beam, s->simple ? " simple" : "", s->extreme ? " extreme" : "");
+  fprintf(f, "<tr><td>Base probability</td><td>%d</td></tr>\n", s->base_prob);
+  fprintf(f, "<tr><td>Models</td><td style=\"font-size:10.5px\">%s</td></tr>\n",
+    s->model_string);
+  fprintf(f, "<tr><td>Compressed bits</td><td>%d</td></tr>\n",
+    s->compressed_bits);
+  fprintf(f, "<tr><td>Header</td><td>%d bytes</td></tr>\n", s->header_bytes);
+  fprintf(f, "<tr><td>Estimated (pre-encode)</td><td>%.3f bytes</td></tr>\n",
+    s->estimated_bytes);
+  fprintf(f,
+    "<tr><td>Estimator delta</td>"
+    "<td class=\"%s\">%+.1f bytes (%+.1f%%)</td></tr>\n",
+    (est_delta < 2 && est_delta > -2) ? "c-grn"
+    : (est_delta < 5 && est_delta > -5) ? "c-ylw" : "c-orn",
+    est_delta, est_delta_pct);
+  fprintf(f,
+    "<tr><td>Shannon H\xe2\x82\x80</td>"
+    "<td>%.3f bits/byte</td></tr>\n", s->entropy);
+  fprintf(f,
+    "<tr><td>Actual (incl. header)</td>"
+    "<td class=\"%s\">%.3f bits/byte</td></tr>\n",
+    actual_bpb < s->entropy ? "c-grn"
+    : actual_bpb < s->entropy * 1.1 ? "c-blu"
+    : actual_bpb < s->entropy * 1.3 ? "c-ylw" : "c-orn",
+    actual_bpb);
+  fprintf(f,
+    "<tr><td>Prediction cost</td>"
+    "<td>%.1f bits (%.1f B)</td></tr>\n",
+    s->total_cost, s->total_cost / 8.0);
+  fprintf(f,
+    "<tr><td>Arith coder min range</td>"
+    "<td>0x%08X</td></tr>\n", s->min_range);
+  fprintf(f, "</table></div>\n\n");
+
+  /* ── Output Breakdown card ── */
+  {
+    int payload_bytes = s->total_bytes - s->header_bytes;
+    int padding_bits = payload_bytes * 8 - s->compressed_bits;
+    float total = (float)s->total_bytes;
+    float f_hdr = s->header_bytes / total * 100;
+    float f_pay = (payload_bytes * 8 - padding_bits) / 8.0f / total * 100;
+    float f_pad = padding_bits / 8.0f / total * 100;
+
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-output\">\n"
+      "<h2>Output Breakdown</h2>\n"
+      "<p class=\"desc\">Where the compressed bytes go.</p>\n");
+
+    int bar_w = 460;
+    fprintf(f,
+      "<svg width=\"100%%\" viewBox=\"0 0 %d 54\" "
+      "style=\"display:block;margin-bottom:10px;overflow:visible\">\n",
+      bar_w + 4);
+
+    int x = 2;
+    struct { const char *label; float pct; const char *fill; int bytes; } segs[] = {
+      {"Header", f_hdr, "#6b7186", s->header_bytes},
+      {"Payload", f_pay, "#22d3ee",
+       (int)((payload_bytes * 8 - padding_bits + 7) / 8)},
+      {"Padding", f_pad, "#2a2f3f", (padding_bits + 7) / 8},
+    };
+    int nsegs = padding_bits > 0 ? 3 : 2;
+
+    for (int i = 0; i < nsegs; i++) {
+      int w = (int)(segs[i].pct * bar_w / 100);
+      if (w < 1 && segs[i].pct > 0) w = 1;
+      if (i == nsegs - 1) w = bar_w - (x - 2);
+      fprintf(f,
+        "<rect x=\"%d\" y=\"2\" width=\"%d\" height=\"22\" "
+        "fill=\"%s\" rx=\"%s\"/>\n",
+        x, w, segs[i].fill,
+        i == 0 ? (nsegs == 1 ? "4" : "4 0 0 4")
+        : i == nsegs - 1 ? "0 4 4 0" : "0");
+      if (w > 55) {
+        fprintf(f,
+          "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
+          "font-size=\"10\" fill=\"%s\" font-weight=\"500\" "
+          "font-family=\"var(--sans)\">"
+          "%s %d B</text>\n",
+          x + w / 2, i == 1 ? "#0c0e14" : "#e8eaf0",
+          segs[i].label, segs[i].bytes);
+      }
+      x += w;
+    }
+
+    /* legend */
+    x = 2;
+    for (int i = 0; i < nsegs; i++) {
+      fprintf(f,
+        "<rect x=\"%d\" y=\"34\" width=\"10\" height=\"10\" "
+        "rx=\"2\" fill=\"%s\"/>",
+        x, segs[i].fill);
+      fprintf(f,
+        "<text x=\"%d\" y=\"43\" font-size=\"10\" "
+        "fill=\"#6b7186\">%s (%d B, %.1f%%)</text>",
+        x + 14, segs[i].label, segs[i].bytes, segs[i].pct);
+      x += 14 + 9 * (int)strlen(segs[i].label) + 75;
+    }
+    fprintf(f, "</svg></div>\n\n");
+  }
+
+  /* ── Byte Frequency Heatmap ── */
+  {
+    unsigned int fmax = 0;
+    int nunique = 0;
+    for (int i = 0; i < 256; i++) {
+      if (s->byte_freq[i] > fmax) fmax = s->byte_freq[i];
+      if (s->byte_freq[i] > 0) nunique++;
+    }
+    float log_fmax = fmax > 1 ? fast_log2f((float)fmax) : 1;
+
+    int cell = 28, gap = 1;
+    int grid = cell * 16 + gap * 15;
+    int hdr = 18, row_lbl = 24;
+    int svg_w = row_lbl + grid + 4;
+    int svg_h = hdr + grid + 4;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-bytefreq\">\n"
+      "<h2>Byte Frequency</h2>\n"
+      "<p class=\"desc\">16&times;16 grid of all 256 byte values. "
+      "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
+      nunique, fmax);
+    fprintf(f,
+      "<svg id=\"bfreq-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"font-family:var(--mono);display:block\">\n",
+      svg_w, svg_h);
+
+    for (int c2 = 0; c2 < 16; c2++) {
+      int x = row_lbl + c2 * (cell + gap) + cell / 2;
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+        "font-size=\"8\" fill=\"#6b7186\">%X</text>\n", x, hdr - 5, c2);
+    }
+
+    for (int r = 0; r < 16; r++) {
+      int y = hdr + r * (cell + gap);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+        "font-size=\"8\" fill=\"#6b7186\">%X_</text>\n",
+        row_lbl - 4, y + cell / 2 + 3, r);
+      for (int c2 = 0; c2 < 16; c2++) {
+        int byte_val = r * 16 + c2;
+        unsigned int freq = s->byte_freq[byte_val];
+        int x = row_lbl + c2 * (cell + gap);
+        float intensity = 0;
+        if (freq > 0 && fmax > 0) {
+          intensity = (fast_log2f((float)freq) + 1) / (log_fmax + 1);
+          if (intensity < 0.08f) intensity = 0.08f;
+          if (intensity > 1.0f) intensity = 1.0f;
+        }
+        int cr, cg, cb;
+        if (freq == 0) {
+          cr = 26; cg = 30; cb = 43; /* var(--bg3) */
+        } else {
+          /* dark teal to bright cyan */
+          cr = (int)(13 + (34 - 13) * intensity);
+          cg = (int)(40 + (211 - 40) * intensity);
+          cb = (int)(60 + (238 - 60) * intensity);
+        }
+        char label[8] = "";
+        if (byte_val >= 0x20 && byte_val <= 0x7E && byte_val != '<' &&
+            byte_val != '>' && byte_val != '&' && byte_val != '"')
+          snprintf(label, sizeof(label), "%c", byte_val);
+
+        fprintf(f,
+          "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+          "rx=\"2\" fill=\"rgb(%d,%d,%d)\" data-b=\"%d\" style=\"cursor:pointer\">"
+          "<title>0x%02X",
+          x, y, cell, cell, cr, cg, cb, byte_val, byte_val);
+        if (byte_val >= 0x20 && byte_val <= 0x7E)
+          fprintf(f, " '%c'", byte_val);
+        fprintf(f, ": %u (%.1f%%)</title></rect>\n", freq,
+          s->input_size > 0 ? 100.0 * freq / s->input_size : 0.0);
+
+        if (label[0]) {
+          int text_bright = intensity > 0.35f;
+          fprintf(f,
+            "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+            "font-size=\"9\" fill=\"%s\" pointer-events=\"none\">%s</text>\n",
+            x + cell / 2, y + cell / 2 + 3,
+            text_bright ? "#0c0e14" : "#6b7186", label);
+        }
+      }
+    }
+    fprintf(f, "</svg>\n");
+
+    /* ── Detail panel ── */
+    fprintf(f, "<div id=\"bfreq-detail\"></div>\n");
+
+    /* ── Emit frequency data + click handler ── */
+    fprintf(f, "<script>\nvar BF=[");
+    for (int i = 0; i < 256; i++)
+      fprintf(f, "%s%u", i ? "," : "", s->byte_freq[i]);
+    fprintf(f, "];\n");
+    fprintf(f, "var BF_TOTAL=%d;\n", s->input_size);
+
+    fprintf(f,
+      "(function(){\n"
+      "var panel=document.getElementById('bfreq-detail');\n"
+      "var selRect=null;\n"
+      "document.getElementById('bfreq-svg').addEventListener('click',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect') return;\n"
+      "  var bv=r.getAttribute('data-b'); if(bv===null) return;\n"
+      "  bv=parseInt(bv);\n"
+      "  if(selRect) selRect.classList.remove('cmap-sel');\n"
+      "  r.classList.add('cmap-sel'); selRect=r;\n"
+      "  var freq=BF[bv];\n"
+      "  var pct=BF_TOTAL>0?(100*freq/BF_TOTAL):0;\n"
+      "  var ch=(bv>=0x20&&bv<=0x7E)?String.fromCharCode(bv):null;\n"
+      "  var selfInfo=freq>0?-Math.log2(freq/BF_TOTAL):0;\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\">0x'+(bv<16?'0':'')+bv.toString(16).toUpperCase();\n"
+      "  if(ch) h+=\" '\"+ch+\"'\";\n"
+      "  h+='</span>';\n"
+      "  h+='<span class=\"cd-sub\">decimal '+bv+'</span>';\n"
+      "  h+='</div>';\n"
+      /* stats table */
+      "  h+='<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px;"
+      "margin:10px 0;font-size:12px\">';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Count</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+freq+'</span></div>';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Frequency</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+pct.toFixed(2)+'%%</span></div>';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Self-information</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+(freq>0?selfInfo.toFixed(2):'\\u221e')+' bits</span></div>';\n"
+      "  h+='</div>';\n"
+      /* avg encoding cost from BD */
+      "  if(typeof BD!=='undefined' && BD.length>0){\n"
+      "    var hex=(bv<16?'0':'')+bv.toString(16).toUpperCase();\n"
+      "    var sum=0,cnt=0,offsets=[];\n"
+      "    for(var i=0;i<BD.length;i++){\n"
+      "      if(BD[i].h===hex){sum+=BD[i].c;cnt++;if(offsets.length<12)offsets.push(BD[i].o);}\n"
+      "    }\n"
+      "    if(cnt>0){\n"
+      "      var avg=sum/cnt;\n"
+      "      var avgClr=avg<3?'#34d399':avg<6?'#fbbf24':'#f87171';\n"
+      "      h+='<div style=\"margin:6px 0;font-size:12px\">';\n"
+      "      h+='<span style=\"color:var(--fg3)\">Avg encoding cost: </span>';\n"
+      "      h+='<span style=\"font-family:var(--mono);font-weight:600;color:'+avgClr+'\">'+avg.toFixed(2)+' bits/byte</span>';\n"
+      "      h+=' <span style=\"color:var(--fg3)\">('+selfInfo.toFixed(2)+' H\\u2080)</span>';\n"
+      "      h+='</div>';\n"
+      "      if(offsets.length>0){\n"
+      "        h+='<div style=\"margin-top:6px;font-size:11px;color:var(--fg3)\">Offsets: ';\n"
+      "        h+='<span style=\"font-family:var(--mono);color:var(--fg2)\">';\n"
+      "        for(var j=0;j<offsets.length;j++){\n"
+      "          if(j>0) h+=', ';\n"
+      "          h+=offsets[j];\n"
+      "        }\n"
+      "        if(cnt>offsets.length) h+=', \\u2026 ('+(cnt-offsets.length)+' more)';\n"
+      "        h+='</span></div>';\n"
+      "      }\n"
+      "    }\n"
+      "  }\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n"
+      "})();\n");
+
+    fprintf(f, "</script>\n");
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Byte Bigram Matrix ── */
+  if (s->input_data && s->input_size > 1) {
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-bigram\">\n"
+      "<h2>Byte Bigram Matrix</h2>\n"
+      "<p class=\"desc\">256&times;256 matrix of byte pair frequencies. "
+      "Row = preceding byte, column = following byte. "
+      "Intensity = log frequency. Click to inspect.</p>\n");
+
+    /* axis labels above canvas */
+    fprintf(f,
+      "<div id=\"bigram-wrap\">\n");
+
+    /* top axis */
+    fprintf(f,
+      "<div style=\"margin-left:44px;display:flex;margin-bottom:2px;"
+      "font-family:var(--mono);font-size:8px;color:var(--fg3)\">");
+    for (int c = 0; c < 16; c++)
+      fprintf(f, "<span style=\"flex:1;text-align:center\">%X0</span>", c);
+    fprintf(f, "</div>\n");
+
+    /* canvas with row labels */
+    fprintf(f,
+      "<div style=\"display:flex;align-items:stretch;gap:4px\">\n"
+      "<div style=\"width:40px;flex-shrink:0;font-family:var(--mono);"
+      "font-size:8px;color:var(--fg3);display:flex;flex-direction:column\">\n");
+    for (int r = 0; r < 16; r++)
+      fprintf(f, "<div style=\"flex:1;display:flex;align-items:center;"
+              "justify-content:flex-end\">%X0</div>\n", r);
+    fprintf(f, "</div>\n");
+
+    fprintf(f,
+      "<canvas id=\"bigram-cv\" width=\"512\" height=\"512\" "
+      "style=\"flex:1;min-width:0;aspect-ratio:1;cursor:crosshair;"
+      "image-rendering:pixelated;border:1px solid var(--bdr)\"></canvas>\n"
+      "</div>\n"
+      "</div>\n");
+
+    /* detail panel */
+    fprintf(f, "<div id=\"bigram-detail\"></div>\n");
+
+    /* emit bigram counts as flat array */
+    fprintf(f, "<script>\n");
+
+    /* compute bigrams in C for efficiency */
+    fprintf(f, "var BG=new Uint32Array(65536);\n");
+    {
+      unsigned int *bg = (unsigned int *)calloc(65536, sizeof(unsigned int));
+      unsigned int bg_max = 0;
+      unsigned int bg_total = 0;
+      for (int i = 0; i + 1 < s->input_size; i++) {
+        unsigned int idx = s->input_data[i] * 256 + s->input_data[i + 1];
+        bg[idx]++;
+        if (bg[idx] > bg_max) bg_max = bg[idx];
+        bg_total++;
+      }
+      /* emit only nonzero entries for compactness */
+      fprintf(f, "var BG_MAX=%u,BG_TOTAL=%u;\n", bg_max, bg_total);
+      for (int i = 0; i < 65536; i++) {
+        if (bg[i] > 0)
+          fprintf(f, "BG[%d]=%u;\n", i, bg[i]);
+      }
+      free(bg);
+    }
+
+    /* render + interact */
+    fprintf(f,
+      "(function(){\n"
+      "var cv=document.getElementById('bigram-cv');\n"
+      "var ctx=cv.getContext('2d');\n"
+      "var img=ctx.createImageData(512,512);\n"
+      "var d=img.data;\n"
+      "var logMax=BG_MAX>1?Math.log2(BG_MAX):1;\n"
+      "for(var r=0;r<256;r++){\n"
+      "  for(var c=0;c<256;c++){\n"
+      "    var v=BG[r*256+c];\n"
+      "    var t=0;\n"
+      "    if(v>0) t=Math.min((Math.log2(v)+1)/(logMax+1),1);\n"
+      "    if(v>0&&t<0.1) t=0.1;\n"
+      /* 2x2 pixel per cell */
+      "    var cr,cg,cb;\n"
+      "    if(v===0){cr=26;cg=30;cb=43;}\n"
+      "    else{cr=13+(34-13)*t|0;cg=40+(211-40)*t|0;cb=60+(238-60)*t|0;}\n"
+      "    for(var dy=0;dy<2;dy++)for(var dx=0;dx<2;dx++){\n"
+      "      var px=((r*2+dy)*512+(c*2+dx))*4;\n"
+      "      d[px]=cr;d[px+1]=cg;d[px+2]=cb;d[px+3]=255;\n"
+      "    }\n"
+      "  }\n"
+      "}\n"
+      "ctx.putImageData(img,0,0);\n"
+      "\n"
+      /* hover crosshair + click */
+      "var panel=document.getElementById('bigram-detail');\n"
+      "function fmtByte(b){\n"
+      "  var h=(b<16?'0':'')+b.toString(16).toUpperCase();\n"
+      "  var ch=(b>=0x20&&b<=0x7E)?\" '\"+String.fromCharCode(b)+\"'\":'';\n"
+      "  return '0x'+h+ch;\n"
+      "}\n"
+      "cv.addEventListener('click',function(e){\n"
+      "  var rect=cv.getBoundingClientRect();\n"
+      "  var sx=(e.clientX-rect.left)/rect.width;\n"
+      "  var sy=(e.clientY-rect.top)/rect.height;\n"
+      "  var row=Math.floor(sy*256);\n"
+      "  var col=Math.floor(sx*256);\n"
+      "  if(row<0)row=0;if(row>255)row=255;\n"
+      "  if(col<0)col=0;if(col>255)col=255;\n"
+      "  var freq=BG[row*256+col];\n"
+      "  var pct=BG_TOTAL>0?(100*freq/BG_TOTAL):0;\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\">'+fmtByte(row)+' \\u2192 '+fmtByte(col)+'</span>';\n"
+      "  h+='</div>';\n"
+      "  h+='<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px;"
+      "margin:10px 0;font-size:12px\">';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Count</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+freq+'</span></div>';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Of all bigrams</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+pct.toFixed(3)+'%%</span></div>';\n"
+      /* conditional probability P(col|row) */
+      "  var rowTotal=0;\n"
+      "  for(var c=0;c<256;c++) rowTotal+=BG[row*256+c];\n"
+      "  var condProb=rowTotal>0?(100*freq/rowTotal):0;\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">P('+fmtByte(col).split(' ')[0]+' | '+fmtByte(row).split(' ')[0]+')</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+condProb.toFixed(1)+'%%</span></div>';\n"
+      "  h+='</div>';\n"
+      /* top successors for this row byte */
+      "  if(rowTotal>0){\n"
+      "    var succs=[];\n"
+      "    for(var c=0;c<256;c++){var f=BG[row*256+c];if(f>0)succs.push({b:c,f:f});}\n"
+      "    succs.sort(function(a,b){return b.f-a.f;});\n"
+      "    h+='<div style=\"margin-top:8px;font-size:11px\">';\n"
+      "    h+='<span style=\"color:var(--fg3)\">Top successors of '+fmtByte(row)+': </span>';\n"
+      "    var shown=Math.min(succs.length,8);\n"
+      "    for(var i=0;i<shown;i++){\n"
+      "      var s=succs[i];\n"
+      "      var sp=100*s.f/rowTotal;\n"
+      "      var isThis=s.b===col;\n"
+      "      h+=(i>0?', ':'');\n"
+      "      if(isThis) h+='<strong style=\"color:var(--acc)\">';\n"
+      "      h+='<span style=\"font-family:var(--mono)\">'+fmtByte(s.b).split(' ')[0]+'</span>';\n"
+      "      h+=' <span style=\"color:var(--fg3)\">('+sp.toFixed(1)+'%%)</span>';\n"
+      "      if(isThis) h+='</strong>';\n"
+      "    }\n"
+      "    if(succs.length>shown) h+=', \\u2026';\n"
+      "    h+='</div>';\n"
+      "  }\n"
+      /* top predecessors for this col byte */
+      "  var colTotal=0;\n"
+      "  for(var r=0;r<256;r++) colTotal+=BG[r*256+col];\n"
+      "  if(colTotal>0){\n"
+      "    var preds=[];\n"
+      "    for(var r=0;r<256;r++){var f=BG[r*256+col];if(f>0)preds.push({b:r,f:f});}\n"
+      "    preds.sort(function(a,b){return b.f-a.f;});\n"
+      "    h+='<div style=\"margin-top:4px;font-size:11px\">';\n"
+      "    h+='<span style=\"color:var(--fg3)\">Top predecessors of '+fmtByte(col)+': </span>';\n"
+      "    var shown=Math.min(preds.length,8);\n"
+      "    for(var i=0;i<shown;i++){\n"
+      "      var p=preds[i];\n"
+      "      var pp=100*p.f/colTotal;\n"
+      "      var isThis=p.b===row;\n"
+      "      h+=(i>0?', ':'');\n"
+      "      if(isThis) h+='<strong style=\"color:var(--acc)\">';\n"
+      "      h+='<span style=\"font-family:var(--mono)\">'+fmtByte(p.b).split(' ')[0]+'</span>';\n"
+      "      h+=' <span style=\"color:var(--fg3)\">('+pp.toFixed(1)+'%%)</span>';\n"
+      "      if(isThis) h+='</strong>';\n"
+      "    }\n"
+      "    if(preds.length>shown) h+=', \\u2026';\n"
+      "    h+='</div>';\n"
+      "  }\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n"
+      "})();\n");
+
+    fprintf(f, "</script>\n");
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Compressibility Map ── */
+  if (s->byte_costs && s->num_data_bytes > 0) {
+    int nb = s->num_data_bytes;
+    float cmin = 1e9f, cmax = -1e9f;
+    for (int i = 0; i < nb; i++) {
+      if (s->byte_costs[i] < cmin) cmin = s->byte_costs[i];
+      if (s->byte_costs[i] > cmax) cmax = s->byte_costs[i];
+    }
+    if (cmax <= cmin) cmax = cmin + 1;
+
+    int cols, cell;
+    if (nb <= 64) { cols = nb < 16 ? nb : 16; cell = 16; }
+    else if (nb <= 512)  { cols = 32; cell = 14; }
+    else if (nb <= 2048) { cols = 64; cell = 10; }
+    else if (nb <= 4096) { cols = 64; cell = 8; }
+    else if (nb <= 8192) { cols = 96; cell = 6; }
+    else { cols = 128; cell = 4; }
+    int rows = (nb + cols - 1) / cols;
+    int cg = cell >= 6 ? 1 : 0;
+    int stride = cell + cg;
+    int svg_w = cols * stride - cg + 2;
+    int svg_h = rows * stride - cg + 2;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-cmap\">\n"
+      "<h2>Compressibility Map</h2>\n"
+      "<p class=\"desc\">Each cell = one byte. "
+      "<span style=\"color:#34d399\">\xe2\x96\x88</span> green = "
+      "compressible, "
+      "<span style=\"color:#f87171\">\xe2\x96\x88</span> red = "
+      "hard to compress. "
+      "%d bytes, %d&times;%d grid.</p>\n", nb, cols, rows);
+
+    fprintf(f,
+      "<div class=\"slider-row\">"
+      "<span>Scale max:</span>"
+      "<input type=\"range\" id=\"cmap-slider\" min=\"1\" max=\"%.0f\" "
+      "value=\"%.0f\" step=\"0.5\">"
+      "<span id=\"cmap-val\" style=\"font-family:var(--mono);"
+      "min-width:70px\">%.1f bits</span>"
+      "<button onclick=\"document.getElementById('cmap-slider').value=8;"
+      "document.getElementById('cmap-slider').dispatchEvent("
+      "new Event('input'))\">8.0 (H\xe2\x82\x80)</button>"
+      "<button onclick=\"document.getElementById('cmap-slider').value=%.0f;"
+      "document.getElementById('cmap-slider').dispatchEvent("
+      "new Event('input'))\">Auto (%.1f)</button>"
+      "</div>\n",
+      cmax + 1, cmax, cmax, cmax, cmax);
+
+    fprintf(f,
+      "<svg id=\"cmap-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"display:block\">\n", svg_w, svg_h);
+
+    for (int i = 0; i < nb; i++) {
+      int col = i % cols, row2 = i / cols;
+      int x = 1 + col * stride, y = 1 + row2 * stride;
+      float cost = s->byte_costs[i];
+      float t = cost / cmax;
+      if (t < 0) t = 0; if (t > 1) t = 1;
+      int cr, ccg, cb;
+      if (t < 0.5f) {
+        float u = t * 2;
+        cr = (int)(16 + (180 - 16) * u);
+        ccg = (int)(185 + (140 - 185) * u);
+        cb = (int)(129 + (40 - 129) * u);
+      } else {
+        float u = (t - 0.5f) * 2;
+        cr = (int)(180 + (248 - 180) * u);
+        ccg = (int)(140 + (113 - 140) * u);
+        cb = (int)(40 + (113 - 40) * u);
+      }
+      unsigned char bval = s->input_data ? s->input_data[i] : 0;
+      fprintf(f,
+        "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+        "fill=\"rgb(%d,%d,%d)\" data-c=\"%.2f\" data-i=\"%d\" "
+        "style=\"cursor:pointer\"",
+        x, y, cell, cell, cr, ccg, cb, cost, i);
+      fprintf(f, "><title>%d: 0x%02X", i, bval);
+      if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
+      fprintf(f, " (%.2f bits)</title></rect>\n", cost);
+      if (cell >= 6 && bval >= 0x20 && bval <= 0x7E && bval != '<'
+          && bval != '>' && bval != '&' && bval != '"') {
+        int bright = t < 0.6f;
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+          "font-size=\"%d\" fill=\"%s\" pointer-events=\"none\" "
+          "opacity=\".8\">%c</text>\n",
+          x + cell / 2, y + cell / 2 + (cell >= 10 ? 3 : cell >= 8 ? 2 : 2),
+          cell >= 10 ? 7 : cell >= 8 ? 6 : 5,
+          bright ? "#0c0e14" : "rgba(255,255,255,.7)",
+          bval);
+      }
+    }
+    fprintf(f, "</svg>\n");
+
+    /* ── Detail panel HTML ── */
+    fprintf(f, "<div id=\"cmap-detail\"></div>\n");
+
+    /* ── Emit byte data as JS ── */
+    fprintf(f, "<script>\n");
+    fprintf(f, "var BD=[\n");
+    for (int i = 0; i < nb; i++) {
+      unsigned char bval = s->input_data ? s->input_data[i] : 0;
+      float cost = s->byte_costs[i];
+      fprintf(f, "{o:%d,h:'%02X',c:%.2f", i, bval, cost);
+      /* printable ASCII character */
+      if (bval >= 0x20 && bval <= 0x7E && bval != '\'' && bval != '\\')
+        fprintf(f, ",ch:'%c'", bval);
+      else if (bval == '\'')
+        fprintf(f, ",ch:\"'\"");
+      else if (bval == '\\')
+        fprintf(f, ",ch:'\\\\'");
+      else
+        fprintf(f, ",ch:null");
+      /* per-model contributions */
+      if (s->byte_model_contrib) {
+        fprintf(f, ",m:[");
+        for (int m = 0; m < s->num_models; m++) {
+          float v = s->byte_model_contrib[i * s->num_models + m];
+          fprintf(f, "%s%.2f", m ? "," : "", v);
+        }
+        fprintf(f, "]");
+      }
+      fprintf(f, "}%s\n", i < nb - 1 ? "," : "");
+    }
+    fprintf(f, "];\n");
+
+    /* model info */
+    fprintf(f, "var MI=[");
+    for (int m = 0; m < s->num_models; m++)
+      fprintf(f, "%s{mask:'%02X',w:%d}", m ? "," : "",
+              s->model_masks[m], s->model_weights[m]);
+    fprintf(f, "];\n");
+
+    /* slider logic */
+    fprintf(f,
+      "var sl=document.getElementById('cmap-slider');\n"
+      "var lbl=document.getElementById('cmap-val');\n"
+      "var rects=document.querySelectorAll('#cmap-svg rect[data-c]');\n"
+      "sl.addEventListener('input',function(){\n"
+      "  var mx=parseFloat(sl.value);\n"
+      "  lbl.textContent=mx.toFixed(1)+' bits';\n"
+      "  for(var i=0;i<rects.length;i++){\n"
+      "    var c=parseFloat(rects[i].getAttribute('data-c'));\n"
+      "    var t=c/mx; if(t<0)t=0; if(t>1)t=1;\n"
+      "    var r,g,b;\n"
+      "    if(t<0.5){var u=t*2;\n"
+      "      r=16+(180-16)*u;g=185+(140-185)*u;b=129+(40-129)*u;\n"
+      "    }else{var u=(t-0.5)*2;\n"
+      "      r=180+(248-180)*u;g=140+(113-140)*u;b=40+(113-40)*u;\n"
+      "    }\n"
+      "    rects[i].setAttribute('fill',\n"
+      "      'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')');\n"
+      "  }\n"
+      "});\n");
+
+    /* click-to-inspect logic */
+    fprintf(f,
+      "var panel=document.getElementById('cmap-detail');\n"
+      "var selRect=null;\n"
+      "document.getElementById('cmap-svg').addEventListener('click',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect') return;\n"
+      "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
+      "  idx=parseInt(idx); var d=BD[idx]; if(!d) return;\n"
+      "  if(selRect) selRect.classList.remove('cmap-sel');\n"
+      "  r.classList.add('cmap-sel'); selRect=r;\n"
+      "  var ch=d.ch?\" '\"+ d.ch +\"'\":'';\n"
+      "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\">0x'+d.h+ch+'</span>';\n"
+      "  h+='<span class=\"cd-sub\">offset '+d.o+'</span>';\n"
+      "  h+='<span class=\"cd-cost\" style=\"color:'+costClr+'\">'+d.c.toFixed(2)+' bits</span>';\n"
+      "  h+='</div>';\n"
+      "  if(d.m && MI.length){\n"
+      "    var mx=0;\n"
+      "    for(var i=0;i<d.m.length;i++){var a=Math.abs(d.m[i]);if(a>mx)mx=a;}\n"
+      "    if(mx<0.01)mx=1;\n"
+      "    for(var i=0;i<d.m.length;i++){\n"
+      "      var v=d.m[i]; /* positive = bits saved */\n"
+      "      var pct=Math.min(Math.abs(v)/mx*100,100);\n"
+      "      var clr=v>0.01?'#34d399':v<-0.01?'#f87171':'#353b4f';\n"
+      "      var sign=v>0?'+':'';\n"
+      "      h+='<div class=\"cd-bar\">';\n"
+      "      h+='<span class=\"cd-bar-lbl\">'+MI[i].mask+':'+MI[i].w+'</span>';\n"
+      "      h+='<span class=\"cd-bar-track\"><span class=\"cd-bar-fill\" style=\"width:'+pct.toFixed(0)+'%%;background:'+clr+'\"></span></span>';\n"
+      "      h+='<span class=\"cd-bar-val\" style=\"color:'+clr+'\">'+sign+v.toFixed(2)+' bits</span>';\n"
+      "      h+='</div>';\n"
+      "    }\n"
+      "  }\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n");
+
+    fprintf(f, "</script>\n");
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Model Attribution Map ── */
+  if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 0
+      && s->num_models > 0) {
+    int nb = s->num_data_bytes;
+    int nm = s->num_models;
+    /* reuse same grid sizing as compressibility map */
+    int cols, cell;
+    if (nb <= 64) { cols = nb < 16 ? nb : 16; cell = 16; }
+    else if (nb <= 512)  { cols = 32; cell = 14; }
+    else if (nb <= 2048) { cols = 64; cell = 10; }
+    else if (nb <= 4096) { cols = 64; cell = 8; }
+    else if (nb <= 8192) { cols = 96; cell = 6; }
+    else { cols = 128; cell = 4; }
+    int rows = (nb + cols - 1) / cols;
+    int gap = 1;
+    int stride = cell + gap;
+    int cg = cell >= 6 ? 1 : 0;
+    int svg_w = cols * stride - cg + 2;
+    int svg_h = rows * stride - cg + 2;
+
+    /* distinct color palette for up to MAX_SEARCH models */
+    static const int palette[][3] = {
+      {34,211,238},   /* cyan     */
+      {251,146,60},   /* orange   */
+      {167,139,250},  /* purple   */
+      {52,211,153},   /* emerald  */
+      {251,191,36},   /* amber    */
+      {248,113,113},  /* red      */
+      {96,165,250},   /* blue     */
+      {232,121,249},  /* fuchsia  */
+      {163,230,53},   /* lime     */
+      {244,114,182},  /* pink     */
+      {45,212,191},   /* teal     */
+      {253,186,116},  /* peach    */
+      {134,239,172},  /* mint     */
+      {196,181,253},  /* lavender */
+      {252,211,77},   /* gold     */
+      {125,211,252},  /* sky      */
+      {249,168,212},  /* rose     */
+      {190,242,100},  /* chartreuse */
+      {253,164,175},  /* salmon   */
+      {110,231,183},  /* seafoam  */
+      {217,70,239},   /* magenta  */
+    };
+    int npal = (int)(sizeof(palette) / sizeof(palette[0]));
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-attr\">\n"
+      "<h2>Model Attribution Map</h2>\n"
+      "<p class=\"desc\">Each cell = one byte. Color = model that saved the most bits. "
+      "Brightness = strength of contribution. Gray = no model helped. "
+      "%d bytes, %d&times;%d grid.</p>\n",
+      nb, cols, rows);
+
+    /* legend */
+    fprintf(f, "<div style=\"display:flex;flex-wrap:wrap;gap:8px 16px;"
+      "margin-bottom:12px;font-size:11px;font-family:var(--mono)\">\n");
+    for (int m = 0; m < nm && m < npal; m++) {
+      fprintf(f, "<span style=\"display:inline-flex;align-items:center;gap:4px\">"
+        "<span style=\"display:inline-block;width:12px;height:12px;"
+        "border-radius:2px;background:rgb(%d,%d,%d)\"></span>"
+        "%02X:%d</span>\n",
+        palette[m % npal][0], palette[m % npal][1], palette[m % npal][2],
+        s->model_masks[m], s->model_weights[m]);
+    }
+    fprintf(f, "<span style=\"display:inline-flex;align-items:center;gap:4px\">"
+      "<span style=\"display:inline-block;width:12px;height:12px;"
+      "border-radius:2px;background:rgb(40,44,60)\"></span>"
+      "none</span>\n");
+    fprintf(f, "</div>\n");
+
+    fprintf(f,
+      "<svg id=\"attr-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"display:block\">\n", svg_w, svg_h);
+
+    /* find global max contribution for normalization */
+    float global_max = 0.01f;
+    for (int i = 0; i < nb; i++) {
+      for (int m = 0; m < nm; m++) {
+        float v = s->byte_model_contrib[i * nm + m];
+        if (v > global_max) global_max = v;
+      }
+    }
+
+    for (int i = 0; i < nb; i++) {
+      int col = i % cols, row2 = i / cols;
+      int x = 1 + col * stride, y = 1 + row2 * stride;
+
+      /* find dominant model (most bits saved, i.e. most positive value) */
+      int best_m = -1;
+      float best_v = 0.0f;
+      for (int m = 0; m < nm; m++) {
+        float v = s->byte_model_contrib[i * nm + m];
+        if (v > best_v) { best_v = v; best_m = m; }
+      }
+
+      int cr, cg, cb;
+      if (best_m >= 0 && best_v > 0.001f) {
+        /* blend between dark bg and model color based on contribution strength */
+        float t = best_v / global_max;
+        if (t > 1.0f) t = 1.0f;
+        /* apply a concave curve so weak contributions are still visible */
+        t = 1.0f - (1.0f - t) * (1.0f - t);
+        int pi = best_m % npal;
+        cr = (int)(30 + (palette[pi][0] - 30) * t);
+        cg = (int)(33 + (palette[pi][1] - 33) * t);
+        cb = (int)(45 + (palette[pi][2] - 45) * t);
+      } else {
+        /* no model helped — dark gray */
+        cr = 40; cg = 44; cb = 60;
+      }
+
+      unsigned char bval = s->input_data ? s->input_data[i] : 0;
+      fprintf(f,
+        "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+        "fill=\"rgb(%d,%d,%d)\" data-i=\"%d\" style=\"cursor:pointer\">",
+        x, y, cell, cell, cr, cg, cb, i);
+      fprintf(f, "<title>%d: 0x%02X", i, bval);
+      if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
+      if (best_m >= 0)
+        fprintf(f, " | best: %02X:%d (%.2f bits)",
+                s->model_masks[best_m], s->model_weights[best_m], best_v);
+      else
+        fprintf(f, " | no model");
+      fprintf(f, "</title></rect>\n");
+      if (cell >= 6 && bval >= 0x20 && bval <= 0x7E && bval != '<'
+          && bval != '>' && bval != '&' && bval != '"') {
+        int lum = (cr * 299 + cg * 587 + cb * 114) / 1000;
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+          "font-size=\"%d\" fill=\"%s\" pointer-events=\"none\" "
+          "opacity=\".8\">%c</text>\n",
+          x + cell / 2, y + cell / 2 + (cell >= 10 ? 3 : cell >= 8 ? 2 : 2),
+          cell >= 10 ? 7 : cell >= 8 ? 6 : 5,
+          lum > 120 ? "#0c0e14" : "rgba(255,255,255,.7)",
+          bval);
+      }
+    }
+    fprintf(f, "</svg>\n");
+
+    /* ── Detail panel ── */
+    fprintf(f, "<div id=\"attr-detail\"></div>\n");
+
+    /* ── Emit palette as JS + click handler ── */
+    fprintf(f, "<script>\n");
+    fprintf(f, "var ATTR_PAL=[");
+    for (int m = 0; m < nm && m < npal; m++)
+      fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
+              palette[m % npal][0], palette[m % npal][1], palette[m % npal][2]);
+    fprintf(f, "];\n");
+
+    fprintf(f,
+      "(function(){\n"
+      "var panel=document.getElementById('attr-detail');\n"
+      "var selRect=null;\n"
+      "document.getElementById('attr-svg').addEventListener('click',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect') return;\n"
+      "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
+      "  idx=parseInt(idx); var d=BD[idx]; if(!d) return;\n"
+      "  if(selRect) selRect.classList.remove('cmap-sel');\n"
+      "  r.classList.add('cmap-sel'); selRect=r;\n"
+      "  var ch=d.ch?\" '\"+ d.ch +\"'\":'';\n"
+      "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\">0x'+d.h+ch+'</span>';\n"
+      "  h+='<span class=\"cd-sub\">offset '+d.o+'</span>';\n"
+      "  h+='<span class=\"cd-cost\" style=\"color:'+costClr+'\">'+d.c.toFixed(2)+' bits</span>';\n"
+      "  h+='</div>';\n"
+      "  if(d.m && MI.length){\n"
+      "    var mx=0;\n"
+      "    for(var i=0;i<d.m.length;i++){var a=Math.abs(d.m[i]);if(a>mx)mx=a;}\n"
+      "    if(mx<0.01)mx=1;\n"
+      "    for(var i=0;i<d.m.length;i++){\n"
+      "      var v=d.m[i];\n"
+      "      var pct=Math.min(Math.abs(v)/mx*100,100);\n"
+      "      var pc=ATTR_PAL[i]||[100,100,100];\n"
+      "      var clr='rgb('+pc[0]+','+pc[1]+','+pc[2]+')';\n"
+      "      if(v<-0.01) clr='#f87171';\n"
+      "      else if(v<0.01) clr='#353b4f';\n"
+      "      var sign=v>0?'+':'';\n"
+      "      h+='<div class=\"cd-bar\">';\n"
+      "      h+='<span class=\"cd-bar-lbl\">'+MI[i].mask+':'+MI[i].w+'</span>';\n"
+      "      h+='<span class=\"cd-bar-track\"><span class=\"cd-bar-fill\" style=\"width:'+pct.toFixed(0)+'%%;background:'+clr+'\"></span></span>';\n"
+      "      h+='<span class=\"cd-bar-val\" style=\"color:'+clr+'\">'+sign+v.toFixed(2)+' bits</span>';\n"
+      "      h+='</div>';\n"
+      "    }\n"
+      "  }\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n"
+      "})();\n");
+
+    fprintf(f, "</script>\n");
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Model Dominance Timeline ── */
+  if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1
+      && s->num_models > 0) {
+    int nb = s->num_data_bytes;
+    int nm = s->num_models;
+    int win = nb / 64;
+    if (win < 4) win = 4;
+    if (win > 64) win = 64;
+    int npts = nb - win + 1;
+    if (npts < 2) npts = 2;
+
+    /* compute rolling window contribution per model (positive only = bits saved) */
+    float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
+    float *stacked = (float *)calloc((size_t)npts * nm, sizeof(float));
+    float smax = 0;
+
+    for (int i = 0; i < npts; i++) {
+      int end = i + win;
+      if (end > nb) end = nb;
+      int cnt = end - i;
+      float row_total = 0;
+      for (int m = 0; m < nm; m++) {
+        float sum = 0;
+        for (int j = i; j < end; j++) {
+          float v = s->byte_model_contrib[j * nm + m];
+          if (v > 0) sum += v;
+        }
+        mdata[i * nm + m] = sum / cnt; /* avg bits saved per byte in window */
+        row_total += mdata[i * nm + m];
+      }
+      /* build stacked values */
+      float cumul = 0;
+      for (int m = 0; m < nm; m++) {
+        cumul += mdata[i * nm + m];
+        stacked[i * nm + m] = cumul;
+      }
+      if (cumul > smax) smax = cumul;
+    }
+    if (smax < 0.01f) smax = 1.0f;
+
+    /* palette - same as attribution map */
+    static const int dom_pal[][3] = {
+      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
+      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
+      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
+      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
+      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
+      {217,70,239},
+    };
+    int dom_npal = (int)(sizeof(dom_pal) / sizeof(dom_pal[0]));
+
+    int svg_w = 960, svg_h = 200;
+    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
+    int plot_w = svg_w - pad_l - pad_r;
+    int plot_h = svg_h - pad_t - pad_b;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-dominance\">\n"
+      "<h2>Model Dominance Timeline</h2>\n"
+      "<p class=\"desc\">Stacked area: each model's contribution (bits saved/byte) "
+      "over file position. Window = %d bytes.</p>\n", win);
+
+    /* legend */
+    fprintf(f, "<div style=\"display:flex;flex-wrap:wrap;gap:6px 14px;"
+      "margin-bottom:10px;font-size:11px;font-family:var(--mono)\">\n");
+    for (int m = 0; m < nm && m < dom_npal; m++) {
+      fprintf(f, "<span style=\"display:inline-flex;align-items:center;gap:4px\">"
+        "<span style=\"display:inline-block;width:10px;height:10px;"
+        "border-radius:2px;background:rgb(%d,%d,%d)\"></span>"
+        "%02X:%d</span>\n",
+        dom_pal[m % dom_npal][0], dom_pal[m % dom_npal][1],
+        dom_pal[m % dom_npal][2],
+        s->model_masks[m], s->model_weights[m]);
+    }
+    fprintf(f, "</div>\n");
+
+    fprintf(f,
+      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" style=\"display:block\">\n",
+      svg_w, svg_h);
+
+    /* bg */
+    fprintf(f,
+      "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
+
+    /* y gridlines */
+    int nyticks = 4;
+    for (int i = 0; i <= nyticks; i++) {
+      float val = smax * (nyticks - i) / nyticks;
+      int y = pad_t + plot_h * i / nyticks;
+      fprintf(f,
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+        pad_l, y, pad_l + plot_w, y);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+        "font-size=\"9\" fill=\"#6b7186\">%.1f</text>\n",
+        pad_l - 5, y + 3, val);
+    }
+
+    /* x axis labels */
+    int nxticks = 5;
+    for (int i = 0; i <= nxticks; i++) {
+      int offset = (int)((long)(nb - 1) * i / nxticks);
+      int x = pad_l + (int)((long)plot_w * i / nxticks);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+        "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+        x, pad_t + plot_h + 16, offset);
+    }
+
+    /* stacked area paths - render from top model down so model 0 is on top */
+    for (int m = nm - 1; m >= 0; m--) {
+      int pi = m % dom_npal;
+      /* top edge: stacked[m], bottom edge: stacked[m-1] or 0 */
+      fprintf(f, "<path d=\"");
+      /* forward along top */
+      for (int i = 0; i < npts; i++) {
+        int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
+        float top = stacked[i * nm + m];
+        int y = pad_t + (int)(plot_h * (1.0f - top / smax));
+        if (y < pad_t) y = pad_t;
+        fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
+      }
+      /* backward along bottom */
+      for (int i = npts - 1; i >= 0; i--) {
+        int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
+        float bot = m > 0 ? stacked[i * nm + (m - 1)] : 0;
+        int y = pad_t + (int)(plot_h * (1.0f - bot / smax));
+        if (y > pad_t + plot_h) y = pad_t + plot_h;
+        fprintf(f, "L%d,%d ", x, y);
+      }
+      fprintf(f, "Z\" fill=\"rgb(%d,%d,%d)\" fill-opacity=\".75\"/>\n",
+        dom_pal[pi][0], dom_pal[pi][1], dom_pal[pi][2]);
+    }
+
+    /* thin white line at top of stack for total */
+    fprintf(f, "<path d=\"");
+    for (int i = 0; i < npts; i++) {
+      int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
+      float top = stacked[i * nm + (nm - 1)];
+      int y = pad_t + (int)(plot_h * (1.0f - top / smax));
+      if (y < pad_t) y = pad_t;
+      fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
+    }
+    fprintf(f, "\" fill=\"none\" stroke=\"rgba(255,255,255,.2)\" "
+      "stroke-width=\"0.5\"/>\n");
+
+    fprintf(f, "</svg>\n");
+    fprintf(f, "</div>\n\n");
+
+    free(mdata);
+    free(stacked);
+  }
+
+  /* ── Top Surprises ── */
+  if (s->byte_costs && s->num_data_bytes > 0 && s->num_models > 0) {
+    int nb = s->num_data_bytes;
+    int topn = 20;
+    if (topn > nb) topn = nb;
+
+    /* sort indices by cost descending */
+    int *idx = (int *)malloc(nb * sizeof(int));
+    for (int i = 0; i < nb; i++) idx[i] = i;
+    /* simple selection sort for top N */
+    for (int i = 0; i < topn; i++) {
+      int best = i;
+      for (int j = i + 1; j < nb; j++)
+        if (s->byte_costs[idx[j]] > s->byte_costs[idx[best]]) best = j;
+      if (best != i) { int t = idx[i]; idx[i] = idx[best]; idx[best] = t; }
+    }
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-surprises\">\n"
+      "<h2>Top Surprises</h2>\n"
+      "<p class=\"desc\">The %d most expensive bytes to encode &mdash; "
+      "where the compressor was most surprised.</p>\n", topn);
+
+    fprintf(f, "<table><thead><tr>"
+      "<th>Rank</th><th class=\"r\">Offset</th>"
+      "<th>Byte</th><th class=\"r\">Cost (bits)</th>"
+      "<th>Context</th>"
+      "<th>Dominant Model</th>"
+      "</tr></thead><tbody>\n");
+
+    for (int i = 0; i < topn; i++) {
+      int bi = idx[i];
+      float cost = s->byte_costs[bi];
+      unsigned char bval = s->input_data ? s->input_data[bi] : 0;
+
+      /* color */
+      const char *clr = cost >= 8.0f ? "#f87171" : cost >= 5.0f ? "#fb923c" :
+                         cost >= 3.0f ? "#fbbf24" : "#34d399";
+
+      /* byte display */
+      char bytebuf[80];
+      if (bval >= 0x20 && bval <= 0x7E && bval != '<' && bval != '>'
+          && bval != '&' && bval != '"')
+        snprintf(bytebuf, sizeof(bytebuf), "0x%02X <span style=\"color:var(--fg)\">('%c')</span>", bval, bval);
+      else
+        snprintf(bytebuf, sizeof(bytebuf), "0x%02X", bval);
+
+      /* context: show a few bytes before and after */
+      char ctxbuf[128] = "";
+      {
+        int cstart = bi - 3;
+        if (cstart < 0) cstart = 0;
+        int cend = bi + 4;
+        if (cend > s->input_size) cend = s->input_size;
+        int pos = 0;
+        for (int j = cstart; j < cend && pos < 100; j++) {
+          unsigned char cv = s->input_data[j];
+          if (j == bi)
+            pos += snprintf(ctxbuf + pos, sizeof(ctxbuf) - pos,
+              "<span style=\"color:var(--red);font-weight:700\">%02X</span> ", cv);
+          else
+            pos += snprintf(ctxbuf + pos, sizeof(ctxbuf) - pos, "%02X ", cv);
+        }
+      }
+
+      /* dominant model for this byte */
+      char modelbuf[64] = "—";
+      if (s->byte_model_contrib) {
+        int best_m = -1;
+        float best_v = 0;
+        for (int m = 0; m < s->num_models; m++) {
+          float v = s->byte_model_contrib[bi * s->num_models + m];
+          if (v > best_v) { best_v = v; best_m = m; }
+        }
+        if (best_m >= 0)
+          snprintf(modelbuf, sizeof(modelbuf), "%02X:%d <span style=\"color:var(--fg3)\">(%.2f bits)</span>",
+                   s->model_masks[best_m], s->model_weights[best_m], best_v);
+      }
+
+      fprintf(f,
+        "<tr><td class=\"r\">%d</td><td class=\"r\">%d</td>"
+        "<td style=\"font-family:var(--mono);font-size:11.5px\">%s</td>"
+        "<td class=\"r\" style=\"color:%s;font-weight:600\">%.2f</td>"
+        "<td style=\"font-family:var(--mono);font-size:10px;color:var(--fg3)\">%s</td>"
+        "<td style=\"font-family:var(--mono);font-size:11.5px\">%s</td>"
+        "</tr>\n",
+        i + 1, bi, bytebuf, clr, cost, ctxbuf, modelbuf);
+    }
+
+    fprintf(f, "</tbody></table>\n");
+    fprintf(f, "</div>\n\n");
+    free(idx);
+  }
+
+  /* ── Cost Over File Position ── */
+  if (s->byte_costs && s->num_data_bytes > 1) {
+    int nb = s->num_data_bytes;
+    int win = nb / 64;
+    if (win < 4) win = 4;
+    if (win > 64) win = 64;
+    int npts = nb - win + 1;
+    if (npts < 2) npts = 2;
+    float *rolling = (float *)malloc(npts * sizeof(float));
+    float rmin = 1e9f, rmax = -1e9f;
+    for (int i = 0; i < npts; i++) {
+      float sum = 0;
+      int end = i + win;
+      if (end > nb) end = nb;
+      for (int j = i; j < end; j++) sum += s->byte_costs[j];
+      rolling[i] = sum / (end - i);
+      if (rolling[i] < rmin) rmin = rolling[i];
+      if (rolling[i] > rmax) rmax = rolling[i];
+    }
+    if (rmax <= rmin) rmax = rmin + 1;
+
+    int svg_w = 960, svg_h = 160;
+    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
+    int plot_w = svg_w - pad_l - pad_r;
+    int plot_h = svg_h - pad_t - pad_b;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-cost\">\n"
+      "<h2>Cost Over File Position</h2>\n"
+      "<p class=\"desc\">Rolling avg encoding cost (bits/byte). "
+      "Window = %d bytes. H\xe2\x82\x80 = %.2f.</p>\n", win, s->entropy);
+    fprintf(f,
+      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"display:block\">\n", svg_w, svg_h);
+
+    /* bg */
+    fprintf(f,
+      "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
+
+    /* y gridlines */
+    int nyticks = 4;
+    for (int i = 0; i <= nyticks; i++) {
+      float val = rmin + (rmax - rmin) * (nyticks - i) / nyticks;
+      int y = pad_t + plot_h * i / nyticks;
+      fprintf(f,
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+        pad_l, y, pad_l + plot_w, y);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+        "font-size=\"9\" fill=\"#6b7186\">%.1f</text>\n",
+        pad_l - 5, y + 3, val);
+    }
+
+    /* H0 line */
+    if (s->entropy >= rmin && s->entropy <= rmax) {
+      int h0y = pad_t + (int)(plot_h * (rmax - s->entropy) / (rmax - rmin));
+      fprintf(f,
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#f87171\" stroke-width=\"1\" stroke-dasharray=\"5,3\" "
+        "opacity=\".6\"/>\n", pad_l, h0y, pad_l + plot_w, h0y);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" font-size=\"9\" fill=\"#f87171\" "
+        "opacity=\".8\">H\xe2\x82\x80</text>\n",
+        pad_l + plot_w + 3, h0y + 3);
+    }
+    /* 8.0 line */
+    if (8.0 >= rmin && 8.0 <= rmax) {
+      int y8 = pad_t + (int)(plot_h * (rmax - 8.0) / (rmax - rmin));
+      fprintf(f,
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#6b7186\" stroke-width=\"0.5\" stroke-dasharray=\"3,3\" "
+        "opacity=\".4\"/>\n", pad_l, y8, pad_l + plot_w, y8);
+    }
+
+    /* area fill with gradient */
+    fprintf(f,
+      "<defs><linearGradient id=\"cfill\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">"
+      "<stop offset=\"0\" stop-color=\"#22d3ee\" stop-opacity=\".2\"/>"
+      "<stop offset=\"1\" stop-color=\"#22d3ee\" stop-opacity=\".02\"/>"
+      "</linearGradient></defs>\n");
+    fprintf(f, "<path d=\"M%d,%d ", pad_l, pad_t + plot_h);
+    for (int i = 0; i < npts; i++) {
+      int x = pad_l + (int)((long)i * plot_w / (npts - 1));
+      int y = pad_t + (int)(plot_h * (rmax - rolling[i]) / (rmax - rmin));
+      fprintf(f, "L%d,%d ", x, y);
+    }
+    fprintf(f, "L%d,%d Z\" fill=\"url(#cfill)\"/>\n",
+      pad_l + plot_w, pad_t + plot_h);
+
+    /* line */
+    fprintf(f, "<path d=\"");
+    for (int i = 0; i < npts; i++) {
+      int x = pad_l + (int)((long)i * plot_w / (npts - 1));
+      int y = pad_t + (int)(plot_h * (rmax - rolling[i]) / (rmax - rmin));
+      fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
+    }
+    fprintf(f,
+      "\" fill=\"none\" stroke=\"#22d3ee\" stroke-width=\"1.5\" "
+      "stroke-linejoin=\"round\"/>\n");
+
+    /* x-axis */
+    int nxticks = 5;
+    for (int i = 0; i <= nxticks; i++) {
+      int x = pad_l + plot_w * i / nxticks;
+      int byte_pos = (int)((long)i * (nb - 1) / nxticks);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+        "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+        x, svg_h - 4, byte_pos);
+    }
+    fprintf(f, "</svg></div>\n\n");
+    free(rolling);
+  }
+
+  /* ── Search Trajectory ── */
+  if (s->search_best && s->search_len > 0) {
+    int npts = s->search_len;
+    float smin = 1e9f, smax = -1e9f;
+    for (int i = 0; i < npts; i++) {
+      if (s->search_best[i] < smin) smin = s->search_best[i];
+      if (s->search_best[i] > smax) smax = s->search_best[i];
+    }
+    for (int e = 0; e < s->search_nevents; e++) {
+      float v = s->search_events[e].est_bytes;
+      if (v < smin) smin = v;
+      if (v > smax) smax = v;
+    }
+    if (smin < 1) smin = 1;
+    if (smax <= smin) smax = smin * 2;
+
+    float xlog_max = fast_log2f((float)npts);
+    float xlog_min = 0;
+    float xlog_range = xlog_max - xlog_min;
+    if (xlog_range < 1) xlog_range = 1;
+    float ylog_min = fast_log2f(smin) - 0.1f;
+    float ylog_max = fast_log2f(smax) + 0.1f;
+    float ylog_range = ylog_max - ylog_min;
+    if (ylog_range < 0.5f) ylog_range = 0.5f;
+
+    int svg_w = 960, svg_h = 200;
+    int pad_l = 54, pad_r = 12, pad_t = 14, pad_b = 30;
+    int plot_w = svg_w - pad_l - pad_r;
+    int plot_h = svg_h - pad_t - pad_b;
+
+#define LOGX(idx) \
+  (pad_l + (int)(plot_w * (fast_log2f((float)(idx) + 1) - xlog_min) / xlog_range))
+#define LOGY(val) \
+  (pad_t + (int)(plot_h * (ylog_max - fast_log2f((val) > 0.5f ? (val) : 0.5f)) / ylog_range))
+#define CLAMP(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-search\">\n"
+      "<h2>Model Search Trajectory</h2>\n"
+      "<p class=\"desc\">Best estimated size (log-log) over 256 context masks. "
+      "<span style=\"color:#34d399\">\xe2\x97\x8f</span> addition, "
+      "<span style=\"color:#f87171\">\xe2\x97\x8f</span> removal.</p>\n");
+    fprintf(f,
+      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" style=\"display:block\">\n",
+      svg_w, svg_h);
+
+    fprintf(f,
+      "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
+
+    /* y gridlines */
+    {
+      float nice_ticks[64]; int nticks = 0;
+      float base = 1;
+      while (base * 10 < smin) base *= 10;
+      while (base * 0.1f < smax * 2 && nticks < 60) {
+        float muls[] = {1, 1.2f, 1.5f, 2, 2.5f, 3, 4, 5, 6, 7, 8};
+        for (int mi2 = 0; mi2 < 11 && nticks < 60; mi2++) {
+          float val = base * muls[mi2];
+          if (val >= smin * 0.95f && val <= smax * 1.05f)
+            nice_ticks[nticks++] = val;
+        }
+        base *= 10;
+      }
+      for (int i = 0; i < nticks; i++) {
+        int y = CLAMP(LOGY(nice_ticks[i]), pad_t, pad_t + plot_h);
+        fprintf(f,
+          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+          "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+          pad_l, y, pad_l + plot_w, y);
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+          "font-size=\"9\" fill=\"#6b7186\">%g</text>\n",
+          pad_l - 5, y + 3, nice_ticks[i]);
+      }
+    }
+
+    /* x gridlines */
+    {
+      int xticks[] = {1, 2, 4, 8, 16, 32, 64, 128, 256};
+      for (int i = 0; i < 9; i++) {
+        if (xticks[i] > npts) break;
+        int x = CLAMP(LOGX(xticks[i] - 1), pad_l, pad_l + plot_w);
+        fprintf(f,
+          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+          "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+          x, pad_t, x, pad_t + plot_h);
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+          "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+          x, svg_h - 6, xticks[i] - 1);
+      }
+    }
+
+    /* area fill */
+    fprintf(f,
+      "<defs><linearGradient id=\"sfill\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">"
+      "<stop offset=\"0\" stop-color=\"#60a5fa\" stop-opacity=\".15\"/>"
+      "<stop offset=\"1\" stop-color=\"#60a5fa\" stop-opacity=\".01\"/>"
+      "</linearGradient></defs>\n");
+    fprintf(f, "<path d=\"M%d,%d ", pad_l, pad_t + plot_h);
+    for (int i = 0; i < npts; i++) {
+      int x = CLAMP(LOGX(i), pad_l, pad_l + plot_w);
+      int y = CLAMP(LOGY(s->search_best[i]), pad_t, pad_t + plot_h);
+      if (i > 0) {
+        int py = CLAMP(LOGY(s->search_best[i - 1]), pad_t, pad_t + plot_h);
+        fprintf(f, "L%d,%d ", x, py);
+      }
+      fprintf(f, "L%d,%d ", x, y);
+    }
+    fprintf(f, "L%d,%d Z\" fill=\"url(#sfill)\"/>\n",
+      pad_l + plot_w, pad_t + plot_h);
+
+    /* step stroke */
+    fprintf(f, "<path d=\"");
+    for (int i = 0; i < npts; i++) {
+      int x = CLAMP(LOGX(i), pad_l, pad_l + plot_w);
+      int y = CLAMP(LOGY(s->search_best[i]), pad_t, pad_t + plot_h);
+      if (i == 0) { fprintf(f, "M%d,%d ", x, y); }
+      else {
+        int py = CLAMP(LOGY(s->search_best[i - 1]), pad_t, pad_t + plot_h);
+        fprintf(f, "L%d,%d L%d,%d ", x, py, x, y);
+      }
+    }
+    fprintf(f,
+      "\" fill=\"none\" stroke=\"#60a5fa\" stroke-width=\"1.5\"/>\n");
+
+    /* event dots */
+    for (int e = 0; e < s->search_nevents; e++) {
+      int mi = s->search_events[e].mask_idx;
+      if (mi >= npts) continue;
+      int x = CLAMP(LOGX(mi), pad_l, pad_l + plot_w);
+      float est = s->search_events[e].est_bytes;
+      int y = CLAMP(LOGY(est), pad_t, pad_t + plot_h);
+      const char *col = s->search_events[e].is_removal ? "#f87171" : "#34d399";
+      fprintf(f,
+        "<circle cx=\"%d\" cy=\"%d\" r=\"3.5\" fill=\"%s\" opacity=\".8\">"
+        "<title>%s %02X (%d models, %.1f B)</title></circle>\n",
+        x, y, col, s->search_events[e].is_removal ? "Remove" : "Add",
+        s->search_events[e].mask, s->search_events[e].num_models, est);
+    }
+
+#undef LOGX
+#undef LOGY
+#undef CLAMP
+
+    /* axis labels */
+    fprintf(f,
+      "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"10\" fill=\"#6b7186\">mask index (log)</text>\n",
+      pad_l + plot_w / 2, svg_h);
+    fprintf(f,
+      "<text x=\"14\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"10\" fill=\"#6b7186\" "
+      "transform=\"rotate(-90,14,%d)\">est. bytes (log)</text>\n",
+      pad_t + plot_h / 2, pad_t + plot_h / 2);
+    fprintf(f, "</svg></div>\n\n");
+  }
+
+  /* ── Per-Model Statistics ── */
+  {
+    int order[MAX_SEARCH];
+    for (int m = 0; m < s->num_models; m++) order[m] = m;
+    for (int i = 0; i < s->num_models - 1; i++)
+      for (int j = i + 1; j < s->num_models; j++)
+        if (s->model_bits_saved[order[i]] < s->model_bits_saved[order[j]]) {
+          int tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+        }
+
+    double max_saved = 0;
+    for (int m = 0; m < s->num_models; m++) {
+      double v = s->model_bits_saved[m];
+      if (v > max_saved) max_saved = v;
+      if (-v > max_saved) max_saved = -v;
+    }
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-models\">\n"
+      "<h2>Per-Model Statistics</h2>\n"
+      "<p class=\"desc\">Sorted by contribution. Positive bits saved = model helped.</p>\n"
+      "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
+      "<th class=\"r\">Hits</th><th class=\"r\">Hit %%</th>"
+      "<th class=\"r\">Unique Ctx</th>"
+      "<th class=\"r\">Bits Saved</th>"
+      "<th class=\"r\">Bytes Saved</th></tr>\n");
+
+    double total_saved = 0;
+    for (int i = 0; i < s->num_models; i++) {
+      int m = order[i];
+      unsigned int tot = s->model_hits[m] + s->model_misses[m];
+      double pct = tot ? 100.0 * s->model_hits[m] / tot : 0.0;
+      double bits = s->model_bits_saved[m];
+      total_saved += bits;
+      double abs_bits = bits < 0 ? -bits : bits;
+      double bar_w = max_saved > 0 ? 100.0 * abs_bits / max_saved : 0;
+      const char *cls = bits > max_saved * 0.3 ? "c-grn"
+                      : bits > max_saved * 0.1 ? "c-acc"
+                      : bits > 0 ? "c-ylw" : "c-red";
+      const char *bcls = bits > 0 ? "bar-grn" : "bar-red";
+
+      fprintf(f,
+        "<tr><td class=\"r\">%d</td>"
+        "<td class=\"n\" style=\"white-space:nowrap\">%02X <svg "
+        "width=\"66\" height=\"12\" "
+        "style=\"vertical-align:middle;display:inline-block\">",
+        m, s->model_masks[m]);
+      for (int b = 7; b >= 0; b--) {
+        int on = (s->model_masks[m] >> b) & 1;
+        int bx = (7 - b) * 8 + 1;
+        fprintf(f,
+          "<rect x=\"%d\" y=\"1\" width=\"7\" height=\"10\" rx=\"1\" "
+          "fill=\"%s\" stroke=\"%s\" stroke-width=\"0.5\"/>",
+          bx, on ? "#22d3ee" : "#1a1e2b", "#2a2f3f");
+      }
+      fprintf(f,
+        "</svg></td>"
+        "<td class=\"r\">%d</td><td class=\"r\">%u</td>"
+        "<td class=\"r\">%.1f</td><td class=\"r\">%u</td>"
+        "<td class=\"r bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.18\"></div>"
+        "<span class=\"bar-label %s\">%.1f</span></td>"
+        "<td class=\"r\">%.1f</td></tr>\n",
+        s->model_weights[m], s->model_hits[m], pct, s->model_misses[m],
+        bcls, bar_w, cls, bits, bits / 8.0);
+    }
+    fprintf(f,
+      "<tr style=\"border-top:2px solid var(--bdr2)\">"
+      "<td colspan=\"6\" class=\"n\">Total</td>"
+      "<td class=\"r c-grn\" style=\"font-weight:600\">%.1f</td>"
+      "<td class=\"r c-grn\" style=\"font-weight:600\">%.1f</td></tr>\n",
+      total_saved, total_saved / 8.0);
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  /* ── Prediction Confidence ── */
+  {
+    unsigned int max_conf = 0;
+    for (int i = 0; i < 11; i++)
+      if (s->conf_hist[i] > max_conf) max_conf = s->conf_hist[i];
+
+    const char *conf_labels[] = {"&lt;50%%", "50-55%%", "55-60%%", "60-65%%",
+      "65-70%%", "70-75%%", "75-80%%", "80-85%%", "85-90%%", "90-95%%", "95-100%%"};
+
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-conf\">\n"
+      "<h2>Prediction Confidence</h2>\n"
+      "<p class=\"desc\">Confidence distribution when encoding each bit.</p>\n"
+      "<table><tr><th>Range</th><th class=\"r\">Bits</th>"
+      "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
+
+    for (int i = 0; i < 11; i++) {
+      if (s->conf_hist[i] == 0) continue;
+      double pct = 100.0 * s->conf_hist[i] / s->total_bits;
+      double bar_w = max_conf > 0 ? 100.0 * s->conf_hist[i] / max_conf : 0;
+      const char *bcls = i >= 8 ? "bar-grn"
+                       : i >= 5 ? "bar-acc"
+                       : i >= 2 ? "bar-ylw"
+                       : i >= 1 ? "bar-orn" : "bar-red";
+      fprintf(f,
+        "<tr><td class=\"n\">%s</td>"
+        "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
+        "<td class=\"bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
+        "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+        conf_labels[i], s->conf_hist[i], pct, bcls, bar_w);
+    }
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  /* ── Byte Position Analysis ── */
+  {
+    double max_bpc = 0;
+    for (int i = 0; i < 8; i++) {
+      if (s->bytepos_count[i] > 0) {
+        double c2 = s->bytepos_cost[i] / s->bytepos_count[i];
+        if (c2 > max_bpc) max_bpc = c2;
+      }
+    }
+
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-bytepos\">\n"
+      "<h2>Byte Position Analysis</h2>\n"
+      "<p class=\"desc\">Average encoding cost per bit position within each byte.</p>\n"
+      "<table><tr><th>Bit</th><th class=\"r\">Count</th>"
+      "<th class=\"r\">Avg Cost</th><th>Cost</th></tr>\n");
+
+    for (int i = 0; i < 8; i++) {
+      if (s->bytepos_count[i] == 0) continue;
+      double avg = s->bytepos_cost[i] / s->bytepos_count[i];
+      double bar_w = max_bpc > 0 ? 100.0 * avg / max_bpc : 0;
+      const char *cls = avg < max_bpc * 0.4 ? "c-grn"
+                      : avg < max_bpc * 0.6 ? "c-blu"
+                      : avg < max_bpc * 0.8 ? "c-ylw" : "c-orn";
+      const char *bcls = avg < max_bpc * 0.4 ? "bar-grn"
+                       : avg < max_bpc * 0.6 ? "bar-acc"
+                       : avg < max_bpc * 0.8 ? "bar-ylw" : "bar-orn";
+      fprintf(f,
+        "<tr><td class=\"n\">Bit %d</td>"
+        "<td class=\"r\">%u</td>"
+        "<td class=\"r %s\">%.3f</td>"
+        "<td class=\"bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.2\"></div>"
+        "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+        i, s->bytepos_count[i], cls, avg, bcls, bar_w);
+    }
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  /* ── Hash Table ── */
+  {
+    double load = s->ht_size ? 100.0 * s->ht_occupied / s->ht_size : 0;
+
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-hash\">\n"
+      "<h2>Hash Table</h2>\n"
+      "<p class=\"desc\">Context hash table occupancy and probe stats.</p>\n"
+      "<table class=\"kv\">\n");
+    fprintf(f, "<tr><td>Table size</td><td>%u slots</td></tr>\n", s->ht_size);
+    fprintf(f,
+      "<tr><td>Occupied</td><td class=\"%s\">%u (%.1f%%)</td></tr>\n",
+      load < 50 ? "c-grn" : load < 75 ? "c-ylw" : "c-orn",
+      s->ht_occupied, load);
+    fprintf(f,
+      "<tr><td>Max probe chain</td><td>%u</td></tr>\n", s->ht_max_chain);
+    fprintf(f,
+      "<tr><td>Avg displacement</td><td>%.2f</td></tr>\n",
+      s->ht_avg_displacement);
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  /* ── Counter Saturation ── */
+  {
+    unsigned int total_sat =
+      s->sat_lopsided + s->sat_strong + s->sat_balanced + s->sat_mixed;
+
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-sat\">\n"
+      "<h2>Counter Saturation</h2>\n"
+      "<p class=\"desc\">Probability counter balance distribution.</p>\n"
+      "<table><tr><th>Category</th><th class=\"r\">Count</th>"
+      "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
+
+    struct { const char *name; unsigned int count; const char *bcls; } cats[] = {
+      {"Lopsided (one=0)", s->sat_lopsided, "bar-grn"},
+      {"Strong (&gt;4:1)", s->sat_strong, "bar-acc"},
+      {"Balanced (&lt;2:1)", s->sat_balanced, "bar-ylw"},
+      {"Mixed (2:1\xe2\x80\x93" "4:1)", s->sat_mixed, "bar-orn"},
+    };
+    unsigned int max_sat = 0;
+    for (int i = 0; i < 4; i++)
+      if (cats[i].count > max_sat) max_sat = cats[i].count;
+
+    for (int i = 0; i < 4; i++) {
+      if (cats[i].count == 0) continue;
+      double pct = total_sat ? 100.0 * cats[i].count / total_sat : 0;
+      double bar_w = max_sat ? 100.0 * cats[i].count / max_sat : 0;
+      fprintf(f,
+        "<tr><td class=\"n\">%s</td>"
+        "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
+        "<td class=\"bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.2\"></div>"
+        "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+        cats[i].name, cats[i].count, pct, cats[i].bcls, bar_w);
+    }
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  fprintf(f, "</div><!-- grid -->\n");
+
+  /* footer */
+  fprintf(f,
+    "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid #2a2f3f;"
+    "font-size:11px;color:#4a5068;text-align:center\">"
+    "Generated by context-mixing arithmetic compressor"
+    "</div>\n");
+
+  fprintf(f, "</div><!-- wrap -->\n"
+    "<script>\n"
+    "(function(){\n"
+    "  var links=document.querySelectorAll('#sidebar a');\n"
+    "  var sections=[];\n"
+    "  links.forEach(function(a){\n"
+    "    var id=a.getAttribute('href').slice(1);\n"
+    "    var el=document.getElementById(id);\n"
+    "    if(el) sections.push({el:el,link:a});\n"
+    "  });\n"
+    "  function update(){\n"
+    "    var scrollY=window.scrollY||window.pageYOffset;\n"
+    "    var current=null;\n"
+    "    for(var i=0;i<sections.length;i++){\n"
+    "      if(sections[i].el.offsetTop<=scrollY+80) current=i;\n"
+    "    }\n"
+    "    links.forEach(function(a){a.classList.remove('active')});\n"
+    "    if(current!==null) sections[current].link.classList.add('active');\n"
+    "  }\n"
+    "  window.addEventListener('scroll',update,{passive:true});\n"
+    "  update();\n"
+    "})();\n"
+    "</script>\n"
+    "</body></html>\n");
+  fclose(f);
 }
 
 static unsigned char *read_file(const char *path, int *out_size) {
@@ -1223,6 +3270,7 @@ static void print_usage(const char *prog) {
   printf("  -w           Optimize weights on explicit models from -m\n");
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
   printf("  -e           Extreme: use real compression during search\n");
+  printf("  -H <file>    Write HTML stats report to file\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
   printf("  -h           Show this help\n");
@@ -1240,7 +3288,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:k:sdwehv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:sdwehv")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1257,6 +3305,9 @@ int main(int argc, char *argv[]) {
       break;
     case 's':
       simple = 1;
+      break;
+    case 'H':
+      html_output = optarg;
       break;
     case 'm': {
       int n = parse_models(optarg, &explicit_models);
@@ -1386,6 +3437,7 @@ int main(int argc, char *argv[]) {
   unsigned char ctx[MAX_CTX] = {};
   int est_size = 0;
   ModelSet ml;
+  CompStats cstats = {0};
 
   if (have_explicit_models) {
     ml = explicit_models;
@@ -1409,14 +3461,15 @@ int main(int argc, char *argv[]) {
     }
   } else {
     ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
-                            &est_size, NULL);
+                            &est_size, NULL,
+                            html_output ? &cstats : NULL);
 
     for (int pass = 2; pass <= max_passes; pass++) {
       int prev_size = est_size;
       if (verbose)
         printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
       ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
-                              &est_size, &ml);
+                              &est_size, &ml, NULL);
       if (est_size >= prev_size) {
         if (verbose)
           printf("  No improvement, stopping.\n");
@@ -1435,7 +3488,8 @@ int main(int argc, char *argv[]) {
 
   int max_out = data_size + 1024;
   unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
-  int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
+  int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob,
+                              html_output ? &cstats : NULL);
   int comp_bytes = (comp_bits + 7) / 8;
 
   unsigned char ordered_masks[MAX_SEARCH];
@@ -1473,6 +3527,42 @@ int main(int argc, char *argv[]) {
   fclose(fout);
 
   printf("Output:      %s (%d bytes)\n", output_file, total_bytes);
+
+  if (html_output && cstats.valid) {
+    snprintf(cstats.input_file, sizeof(cstats.input_file), "%s", input_file);
+    cstats.input_size = data_size;
+    cstats.beam = beam;
+    cstats.simple = simple;
+    cstats.extreme = extreme;
+    cstats.base_prob = base_prob;
+    cstats.compressed_bits = comp_bits;
+    cstats.header_bytes = header_bytes;
+    cstats.total_bytes = total_bytes;
+    cstats.estimated_bytes = est_size / (float)(BIT_PREC * 8);
+    model_set_sprint(&ml, cstats.model_string, sizeof(cstats.model_string));
+
+    /* compute Shannon H0 entropy */
+    unsigned int freq[256] = {};
+    for (int i = 0; i < data_size; i++)
+      freq[data[i]]++;
+    double h0 = 0;
+    for (int i = 0; i < 256; i++) {
+      if (freq[i] > 0) {
+        double p = (double)freq[i] / data_size;
+        h0 -= p * fast_log2f((float)p);
+      }
+    }
+    cstats.entropy = h0;
+    memcpy(cstats.byte_freq, freq, sizeof(freq));
+
+    cstats.input_data = data;
+    write_html_report(html_output, &cstats);
+    printf("HTML report: %s\n", html_output);
+    free(cstats.byte_costs);
+    free(cstats.byte_model_contrib);
+    free(cstats.search_best);
+    free(cstats.search_events);
+  }
 
   free(out_buf);
   free(data);
