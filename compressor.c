@@ -1462,25 +1462,25 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
     "\n"
     "/* ── Inspect panel ── */\n"
-    "#cmap-detail,#attr-detail,#bfreq-detail{display:none;margin-top:14px;padding:14px 18px;"
+    "#cmap-detail,#attr-detail,#bfreq-detail,#bigram-detail{display:none;margin-top:14px;padding:14px 18px;"
     "background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;"
     "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
-    "#cmap-detail .cd-head,#attr-detail .cd-head,#bfreq-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
+    "#cmap-detail .cd-head,#attr-detail .cd-head,#bfreq-detail .cd-head,#bigram-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
     "margin-bottom:10px}\n"
-    "#cmap-detail .cd-byte,#attr-detail .cd-byte,#bfreq-detail .cd-byte{font-family:var(--mono);font-size:18px;"
+    "#cmap-detail .cd-byte,#attr-detail .cd-byte,#bfreq-detail .cd-byte,#bigram-detail .cd-byte{font-family:var(--mono);font-size:18px;"
     "font-weight:600;color:var(--fg)}\n"
-    "#cmap-detail .cd-sub,#attr-detail .cd-sub,#bfreq-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
-    "#cmap-detail .cd-cost,#attr-detail .cd-cost,#bfreq-detail .cd-cost{font-family:var(--mono);font-size:14px;"
+    "#cmap-detail .cd-sub,#attr-detail .cd-sub,#bfreq-detail .cd-sub,#bigram-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
+    "#cmap-detail .cd-cost,#attr-detail .cd-cost,#bfreq-detail .cd-cost,#bigram-detail .cd-cost{font-family:var(--mono);font-size:14px;"
     "font-weight:600}\n"
-    "#cmap-detail .cd-bar,#attr-detail .cd-bar,#bfreq-detail .cd-bar{display:flex;align-items:center;gap:8px;"
+    "#cmap-detail .cd-bar,#attr-detail .cd-bar,#bfreq-detail .cd-bar,#bigram-detail .cd-bar{display:flex;align-items:center;gap:8px;"
     "margin:3px 0;font-size:11px}\n"
-    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl,#bfreq-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
+    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl,#bfreq-detail .cd-bar-lbl,#bigram-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
     "color:var(--fg3);flex-shrink:0}\n"
-    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track,#bfreq-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
+    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track,#bfreq-detail .cd-bar-track,#bigram-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
     "border-radius:3px;position:relative;overflow:hidden}\n"
-    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill,#bfreq-detail .cd-bar-fill{height:100%%;border-radius:3px;"
+    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill,#bfreq-detail .cd-bar-fill,#bigram-detail .cd-bar-fill{height:100%%;border-radius:3px;"
     "position:absolute;left:0;top:0;transition:width .2s}\n"
-    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val,#bfreq-detail .cd-bar-val{font-family:var(--mono);width:70px;"
+    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val,#bfreq-detail .cd-bar-val,#bigram-detail .cd-bar-val{font-family:var(--mono);width:70px;"
     "text-align:right;flex-shrink:0}\n"
     ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
     "</style></head><body>\n"
@@ -1489,6 +1489,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-params\">Parameters</a>\n"
     "<a href=\"#sec-output\">Output Breakdown</a>\n"
     "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
+    "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
     "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
     "<a href=\"#sec-attr\">Model Attribution</a>\n"
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
@@ -1817,6 +1818,183 @@ static void write_html_report(const char *path, const CompStats *s) {
       "        h+='</span></div>';\n"
       "      }\n"
       "    }\n"
+      "  }\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n"
+      "})();\n");
+
+    fprintf(f, "</script>\n");
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Byte Bigram Matrix ── */
+  if (s->input_data && s->input_size > 1) {
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-bigram\">\n"
+      "<h2>Byte Bigram Matrix</h2>\n"
+      "<p class=\"desc\">256&times;256 matrix of byte pair frequencies. "
+      "Row = preceding byte, column = following byte. "
+      "Intensity = log frequency. Click to inspect.</p>\n");
+
+    /* axis labels above canvas */
+    fprintf(f,
+      "<div id=\"bigram-wrap\" style=\"max-width:560px\">\n");
+
+    /* top axis */
+    fprintf(f,
+      "<div style=\"margin-left:44px;display:flex;margin-bottom:2px;"
+      "font-family:var(--mono);font-size:8px;color:var(--fg3)\">");
+    for (int c = 0; c < 16; c++)
+      fprintf(f, "<span style=\"flex:1;text-align:center\">%X0</span>", c);
+    fprintf(f, "</div>\n");
+
+    /* canvas with row labels */
+    fprintf(f,
+      "<div style=\"display:flex;align-items:stretch;gap:4px\">\n"
+      "<div style=\"width:40px;flex-shrink:0;font-family:var(--mono);"
+      "font-size:8px;color:var(--fg3);display:flex;flex-direction:column\">\n");
+    for (int r = 0; r < 16; r++)
+      fprintf(f, "<div style=\"flex:1;display:flex;align-items:center;"
+              "justify-content:flex-end\">%X0</div>\n", r);
+    fprintf(f, "</div>\n");
+
+    fprintf(f,
+      "<canvas id=\"bigram-cv\" width=\"512\" height=\"512\" "
+      "style=\"width:100%%;aspect-ratio:1;cursor:crosshair;"
+      "image-rendering:pixelated;border:1px solid var(--bdr)\"></canvas>\n"
+      "</div>\n"
+      "</div>\n");
+
+    /* detail panel */
+    fprintf(f, "<div id=\"bigram-detail\"></div>\n");
+
+    /* emit bigram counts as flat array */
+    fprintf(f, "<script>\n");
+
+    /* compute bigrams in C for efficiency */
+    fprintf(f, "var BG=new Uint32Array(65536);\n");
+    {
+      unsigned int *bg = (unsigned int *)calloc(65536, sizeof(unsigned int));
+      unsigned int bg_max = 0;
+      unsigned int bg_total = 0;
+      for (int i = 0; i + 1 < s->input_size; i++) {
+        unsigned int idx = s->input_data[i] * 256 + s->input_data[i + 1];
+        bg[idx]++;
+        if (bg[idx] > bg_max) bg_max = bg[idx];
+        bg_total++;
+      }
+      /* emit only nonzero entries for compactness */
+      fprintf(f, "var BG_MAX=%u,BG_TOTAL=%u;\n", bg_max, bg_total);
+      for (int i = 0; i < 65536; i++) {
+        if (bg[i] > 0)
+          fprintf(f, "BG[%d]=%u;\n", i, bg[i]);
+      }
+      free(bg);
+    }
+
+    /* render + interact */
+    fprintf(f,
+      "(function(){\n"
+      "var cv=document.getElementById('bigram-cv');\n"
+      "var ctx=cv.getContext('2d');\n"
+      "var img=ctx.createImageData(512,512);\n"
+      "var d=img.data;\n"
+      "var logMax=BG_MAX>1?Math.log2(BG_MAX):1;\n"
+      "for(var r=0;r<256;r++){\n"
+      "  for(var c=0;c<256;c++){\n"
+      "    var v=BG[r*256+c];\n"
+      "    var t=0;\n"
+      "    if(v>0) t=Math.min((Math.log2(v)+1)/(logMax+1),1);\n"
+      "    if(v>0&&t<0.1) t=0.1;\n"
+      /* 2x2 pixel per cell */
+      "    var cr,cg,cb;\n"
+      "    if(v===0){cr=26;cg=30;cb=43;}\n"
+      "    else{cr=13+(34-13)*t|0;cg=40+(211-40)*t|0;cb=60+(238-60)*t|0;}\n"
+      "    for(var dy=0;dy<2;dy++)for(var dx=0;dx<2;dx++){\n"
+      "      var px=((r*2+dy)*512+(c*2+dx))*4;\n"
+      "      d[px]=cr;d[px+1]=cg;d[px+2]=cb;d[px+3]=255;\n"
+      "    }\n"
+      "  }\n"
+      "}\n"
+      "ctx.putImageData(img,0,0);\n"
+      "\n"
+      /* hover crosshair + click */
+      "var panel=document.getElementById('bigram-detail');\n"
+      "function fmtByte(b){\n"
+      "  var h=(b<16?'0':'')+b.toString(16).toUpperCase();\n"
+      "  var ch=(b>=0x20&&b<=0x7E)?\" '\"+String.fromCharCode(b)+\"'\":'';\n"
+      "  return '0x'+h+ch;\n"
+      "}\n"
+      "cv.addEventListener('click',function(e){\n"
+      "  var rect=cv.getBoundingClientRect();\n"
+      "  var sx=(e.clientX-rect.left)/rect.width;\n"
+      "  var sy=(e.clientY-rect.top)/rect.height;\n"
+      "  var row=Math.floor(sy*256);\n"
+      "  var col=Math.floor(sx*256);\n"
+      "  if(row<0)row=0;if(row>255)row=255;\n"
+      "  if(col<0)col=0;if(col>255)col=255;\n"
+      "  var freq=BG[row*256+col];\n"
+      "  var pct=BG_TOTAL>0?(100*freq/BG_TOTAL):0;\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\">'+fmtByte(row)+' \\u2192 '+fmtByte(col)+'</span>';\n"
+      "  h+='</div>';\n"
+      "  h+='<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px;"
+      "margin:10px 0;font-size:12px\">';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Count</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+freq+'</span></div>';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Of all bigrams</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+pct.toFixed(3)+'%%</span></div>';\n"
+      /* conditional probability P(col|row) */
+      "  var rowTotal=0;\n"
+      "  for(var c=0;c<256;c++) rowTotal+=BG[row*256+c];\n"
+      "  var condProb=rowTotal>0?(100*freq/rowTotal):0;\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">P('+fmtByte(col).split(' ')[0]+' | '+fmtByte(row).split(' ')[0]+')</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+condProb.toFixed(1)+'%%</span></div>';\n"
+      "  h+='</div>';\n"
+      /* top successors for this row byte */
+      "  if(rowTotal>0){\n"
+      "    var succs=[];\n"
+      "    for(var c=0;c<256;c++){var f=BG[row*256+c];if(f>0)succs.push({b:c,f:f});}\n"
+      "    succs.sort(function(a,b){return b.f-a.f;});\n"
+      "    h+='<div style=\"margin-top:8px;font-size:11px\">';\n"
+      "    h+='<span style=\"color:var(--fg3)\">Top successors of '+fmtByte(row)+': </span>';\n"
+      "    var shown=Math.min(succs.length,8);\n"
+      "    for(var i=0;i<shown;i++){\n"
+      "      var s=succs[i];\n"
+      "      var sp=100*s.f/rowTotal;\n"
+      "      var isThis=s.b===col;\n"
+      "      h+=(i>0?', ':'');\n"
+      "      if(isThis) h+='<strong style=\"color:var(--acc)\">';\n"
+      "      h+='<span style=\"font-family:var(--mono)\">'+fmtByte(s.b).split(' ')[0]+'</span>';\n"
+      "      h+=' <span style=\"color:var(--fg3)\">('+sp.toFixed(1)+'%%)</span>';\n"
+      "      if(isThis) h+='</strong>';\n"
+      "    }\n"
+      "    if(succs.length>shown) h+=', \\u2026';\n"
+      "    h+='</div>';\n"
+      "  }\n"
+      /* top predecessors for this col byte */
+      "  var colTotal=0;\n"
+      "  for(var r=0;r<256;r++) colTotal+=BG[r*256+col];\n"
+      "  if(colTotal>0){\n"
+      "    var preds=[];\n"
+      "    for(var r=0;r<256;r++){var f=BG[r*256+col];if(f>0)preds.push({b:r,f:f});}\n"
+      "    preds.sort(function(a,b){return b.f-a.f;});\n"
+      "    h+='<div style=\"margin-top:4px;font-size:11px\">';\n"
+      "    h+='<span style=\"color:var(--fg3)\">Top predecessors of '+fmtByte(col)+': </span>';\n"
+      "    var shown=Math.min(preds.length,8);\n"
+      "    for(var i=0;i<shown;i++){\n"
+      "      var p=preds[i];\n"
+      "      var pp=100*p.f/colTotal;\n"
+      "      var isThis=p.b===row;\n"
+      "      h+=(i>0?', ':'');\n"
+      "      if(isThis) h+='<strong style=\"color:var(--acc)\">';\n"
+      "      h+='<span style=\"font-family:var(--mono)\">'+fmtByte(p.b).split(' ')[0]+'</span>';\n"
+      "      h+=' <span style=\"color:var(--fg3)\">('+pp.toFixed(1)+'%%)</span>';\n"
+      "      if(isThis) h+='</strong>';\n"
+      "    }\n"
+      "    if(preds.length>shown) h+=', \\u2026';\n"
+      "    h+='</div>';\n"
       "  }\n"
       "  panel.innerHTML=h;\n"
       "  panel.style.display='block';\n"
