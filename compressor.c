@@ -1839,7 +1839,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     /* axis labels above canvas */
     fprintf(f,
-      "<div id=\"bigram-wrap\" style=\"max-width:560px\">\n");
+      "<div id=\"bigram-wrap\">\n");
 
     /* top axis */
     fprintf(f,
@@ -1861,7 +1861,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<canvas id=\"bigram-cv\" width=\"512\" height=\"512\" "
-      "style=\"width:100%%;aspect-ratio:1;cursor:crosshair;"
+      "style=\"flex:1;min-width:0;aspect-ratio:1;cursor:crosshair;"
       "image-rendering:pixelated;border:1px solid var(--bdr)\"></canvas>\n"
       "</div>\n"
       "</div>\n");
