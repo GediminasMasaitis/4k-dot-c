@@ -145,6 +145,7 @@ typedef struct {
   double entropy; /* Shannon H0 in bits/byte */
   unsigned int byte_freq[256];
   float *byte_costs; /* cost per data byte during encoding */
+  float *byte_model_contrib; /* [num_data_bytes * num_models] per-byte per-model */
   int num_data_bytes;
   const unsigned char
       *input_data; /* pointer to original input (valid during report write) */
@@ -750,8 +751,11 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
   /* per-byte cost tracking for position curve */
   int num_data_bytes = (total_bits > 1) ? (total_bits - 1 + 7) / 8 : 0;
   float *byte_costs = NULL;
+  float *byte_model_contrib = NULL;
   if (stats && num_data_bytes > 0) {
     byte_costs = (float *)calloc(num_data_bytes, sizeof(float));
+    byte_model_contrib = (float *)calloc(
+        (size_t)num_data_bytes * num, sizeof(float));
   }
   for (int bp = 0; bp < total_bits; bp++) {
     int bit = hb->bits[bp];
@@ -767,9 +771,15 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
           unsigned int before_total = p0_before + p1_before;
           unsigned int after_correct = probs[bit];
           unsigned int after_total = probs[0] + probs[1];
-          model_bits_saved[m] +=
+          float delta =
               fast_log2f((float)after_correct / after_total) -
               fast_log2f((float)before_correct / before_total);
+          model_bits_saved[m] += delta;
+          if (byte_model_contrib && bp > 0) {
+            int byte_idx = (bp - 1) / 8;
+            if (byte_idx < num_data_bytes)
+              byte_model_contrib[byte_idx * num + m] += delta;
+          }
         } else {
           model_misses[m]++;
         }
@@ -934,10 +944,12 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
     stats->ht_avg_displacement =
         stats->ht_occupied ? (double)total_disp / stats->ht_occupied : 0.0;
     stats->byte_costs = byte_costs;
+    stats->byte_model_contrib = byte_model_contrib;
     stats->num_data_bytes = num_data_bytes;
     stats->valid = 1;
   } else {
     free(byte_costs);
+    free(byte_model_contrib);
   }
 }
 
@@ -1448,6 +1460,29 @@ static void write_html_report(const char *path, const CompStats *s) {
     "border-radius:4px;background:var(--bg3);color:var(--fg2);cursor:pointer;"
     "font-family:var(--sans)}\n"
     ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
+    "\n"
+    "/* ── Inspect panel ── */\n"
+    "#cmap-detail{display:none;margin-top:14px;padding:14px 18px;"
+    "background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;"
+    "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
+    "#cmap-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
+    "margin-bottom:10px}\n"
+    "#cmap-detail .cd-byte{font-family:var(--mono);font-size:18px;"
+    "font-weight:600;color:var(--fg)}\n"
+    "#cmap-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
+    "#cmap-detail .cd-cost{font-family:var(--mono);font-size:14px;"
+    "font-weight:600}\n"
+    "#cmap-detail .cd-bar{display:flex;align-items:center;gap:8px;"
+    "margin:3px 0;font-size:11px}\n"
+    "#cmap-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
+    "color:var(--fg3);flex-shrink:0}\n"
+    "#cmap-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
+    "border-radius:3px;position:relative;overflow:hidden}\n"
+    "#cmap-detail .cd-bar-fill{height:100%%;border-radius:3px;"
+    "position:absolute;left:0;top:0;transition:width .2s}\n"
+    "#cmap-detail .cd-bar-val{font-family:var(--mono);width:70px;"
+    "text-align:right;flex-shrink:0}\n"
+    ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
     "</style></head><body>\n"
     "<nav class=\"sidebar\" id=\"sidebar\">\n"
     "<div class=\"sb-title\">Sections</div>\n"
@@ -1790,38 +1825,114 @@ static void write_html_report(const char *path, const CompStats *s) {
       unsigned char bval = s->input_data ? s->input_data[i] : 0;
       fprintf(f,
         "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-        "fill=\"rgb(%d,%d,%d)\" data-c=\"%.2f\"",
-        x, y, cell, cell, cr, ccg, cb, cost);
+        "fill=\"rgb(%d,%d,%d)\" data-c=\"%.2f\" data-i=\"%d\" "
+        "style=\"cursor:pointer\"",
+        x, y, cell, cell, cr, ccg, cb, cost, i);
       fprintf(f, "><title>%d: 0x%02X", i, bval);
       if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
       fprintf(f, " (%.2f bits)</title></rect>\n", cost);
     }
     fprintf(f, "</svg>\n");
 
+    /* ── Detail panel HTML ── */
+    fprintf(f, "<div id=\"cmap-detail\"></div>\n");
+
+    /* ── Emit byte data as JS ── */
+    fprintf(f, "<script>\n(function(){\n");
+    fprintf(f, "var BD=[\n");
+    for (int i = 0; i < nb; i++) {
+      unsigned char bval = s->input_data ? s->input_data[i] : 0;
+      float cost = s->byte_costs[i];
+      fprintf(f, "{o:%d,h:'%02X',c:%.2f", i, bval, cost);
+      /* printable ASCII character */
+      if (bval >= 0x20 && bval <= 0x7E && bval != '\'' && bval != '\\')
+        fprintf(f, ",ch:'%c'", bval);
+      else if (bval == '\'')
+        fprintf(f, ",ch:\"'\"");
+      else if (bval == '\\')
+        fprintf(f, ",ch:'\\\\'");
+      else
+        fprintf(f, ",ch:null");
+      /* per-model contributions */
+      if (s->byte_model_contrib) {
+        fprintf(f, ",m:[");
+        for (int m = 0; m < s->num_models; m++) {
+          float v = s->byte_model_contrib[i * s->num_models + m];
+          fprintf(f, "%s%.2f", m ? "," : "", v);
+        }
+        fprintf(f, "]");
+      }
+      fprintf(f, "}%s\n", i < nb - 1 ? "," : "");
+    }
+    fprintf(f, "];\n");
+
+    /* model info */
+    fprintf(f, "var MI=[");
+    for (int m = 0; m < s->num_models; m++)
+      fprintf(f, "%s{mask:'%02X',w:%d}", m ? "," : "",
+              s->model_masks[m], s->model_weights[m]);
+    fprintf(f, "];\n");
+
+    /* slider logic */
     fprintf(f,
-      "<script>\n"
-      "(function(){\n"
-      "  var sl=document.getElementById('cmap-slider');\n"
-      "  var lbl=document.getElementById('cmap-val');\n"
-      "  var rects=document.querySelectorAll('#cmap-svg rect[data-c]');\n"
-      "  sl.addEventListener('input',function(){\n"
-      "    var mx=parseFloat(sl.value);\n"
-      "    lbl.textContent=mx.toFixed(1)+' bits';\n"
-      "    for(var i=0;i<rects.length;i++){\n"
-      "      var c=parseFloat(rects[i].getAttribute('data-c'));\n"
-      "      var t=c/mx; if(t<0)t=0; if(t>1)t=1;\n"
-      "      var r,g,b;\n"
-      "      if(t<0.5){var u=t*2;\n"
-      "        r=16+(180-16)*u;g=185+(140-185)*u;b=129+(40-129)*u;\n"
-      "      }else{var u=(t-0.5)*2;\n"
-      "        r=180+(248-180)*u;g=140+(113-140)*u;b=40+(113-40)*u;\n"
-      "      }\n"
-      "      rects[i].setAttribute('fill',\n"
-      "        'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')');\n"
+      "var sl=document.getElementById('cmap-slider');\n"
+      "var lbl=document.getElementById('cmap-val');\n"
+      "var rects=document.querySelectorAll('#cmap-svg rect[data-c]');\n"
+      "sl.addEventListener('input',function(){\n"
+      "  var mx=parseFloat(sl.value);\n"
+      "  lbl.textContent=mx.toFixed(1)+' bits';\n"
+      "  for(var i=0;i<rects.length;i++){\n"
+      "    var c=parseFloat(rects[i].getAttribute('data-c'));\n"
+      "    var t=c/mx; if(t<0)t=0; if(t>1)t=1;\n"
+      "    var r,g,b;\n"
+      "    if(t<0.5){var u=t*2;\n"
+      "      r=16+(180-16)*u;g=185+(140-185)*u;b=129+(40-129)*u;\n"
+      "    }else{var u=(t-0.5)*2;\n"
+      "      r=180+(248-180)*u;g=140+(113-140)*u;b=40+(113-40)*u;\n"
       "    }\n"
-      "  });\n"
-      "})();\n"
-      "</script>\n");
+      "    rects[i].setAttribute('fill',\n"
+      "      'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')');\n"
+      "  }\n"
+      "});\n");
+
+    /* click-to-inspect logic */
+    fprintf(f,
+      "var panel=document.getElementById('cmap-detail');\n"
+      "var selRect=null;\n"
+      "document.getElementById('cmap-svg').addEventListener('click',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect') return;\n"
+      "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
+      "  idx=parseInt(idx); var d=BD[idx]; if(!d) return;\n"
+      "  if(selRect) selRect.classList.remove('cmap-sel');\n"
+      "  r.classList.add('cmap-sel'); selRect=r;\n"
+      "  var ch=d.ch?\" '\"+ d.ch +\"'\":'';\n"
+      "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\">0x'+d.h+ch+'</span>';\n"
+      "  h+='<span class=\"cd-sub\">offset '+d.o+'</span>';\n"
+      "  h+='<span class=\"cd-cost\" style=\"color:'+costClr+'\">'+d.c.toFixed(2)+' bits</span>';\n"
+      "  h+='</div>';\n"
+      "  if(d.m && MI.length){\n"
+      "    var mx=0;\n"
+      "    for(var i=0;i<d.m.length;i++){var a=Math.abs(d.m[i]);if(a>mx)mx=a;}\n"
+      "    if(mx<0.01)mx=1;\n"
+      "    for(var i=0;i<d.m.length;i++){\n"
+      "      var v=-d.m[i]; /* negate: positive = bits saved */\n"
+      "      var pct=Math.min(Math.abs(v)/mx*100,100);\n"
+      "      var clr=v>0.01?'#34d399':v<-0.01?'#f87171':'#353b4f';\n"
+      "      var sign=v>0?'+':'';\n"
+      "      h+='<div class=\"cd-bar\">';\n"
+      "      h+='<span class=\"cd-bar-lbl\">'+MI[i].mask+':'+MI[i].w+'</span>';\n"
+      "      h+='<span class=\"cd-bar-track\"><span class=\"cd-bar-fill\" style=\"width:'+pct.toFixed(0)+'%%;background:'+clr+'\"></span></span>';\n"
+      "      h+='<span class=\"cd-bar-val\" style=\"color:'+clr+'\">'+sign+v.toFixed(2)+' bits</span>';\n"
+      "      h+='</div>';\n"
+      "    }\n"
+      "  }\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n");
+
+    fprintf(f, "})();\n</script>\n");
     fprintf(f, "</div>\n\n");
   }
 
@@ -2681,6 +2792,7 @@ int main(int argc, char *argv[]) {
     write_html_report(html_output, &cstats);
     printf("HTML report: %s\n", html_output);
     free(cstats.byte_costs);
+    free(cstats.byte_model_contrib);
     free(cstats.search_best);
     free(cstats.search_events);
   }
