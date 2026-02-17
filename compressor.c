@@ -1373,7 +1373,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "border-radius:10px;padding:22px 24px;overflow:hidden}\n"
     ".card h2{font-size:14px;font-weight:600;color:var(--fg);"
     "margin-bottom:2px;display:flex;align-items:center;gap:8px}\n"
-    ".card h2 .icon{font-size:15px;opacity:.6}\n"
+    ""
     ".card .desc{font-size:11.5px;color:var(--fg3);margin-bottom:16px}\n"
     "\n"
     "/* ── Tables ── */\n"
@@ -1491,7 +1491,7 @@ static void write_html_report(const char *path, const CompStats *s) {
   /* ── Summary card ── */
   fprintf(f,
     "<div class=\"card\">\n"
-    "<h2><span class=\"icon\">\xe2\x9a\x99</span> Parameters</h2>\n"
+    "<h2>Parameters</h2>\n"
     "<p class=\"desc\">Compression settings and entropy metrics.</p>\n"
     "<table class=\"kv\">\n");
   fprintf(f, "<tr><td>Level</td><td>%d</td></tr>\n", s->level);
@@ -1539,7 +1539,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\x93\xa6</span> Output Breakdown</h2>\n"
+      "<h2>Output Breakdown</h2>\n"
       "<p class=\"desc\">Where the compressed bytes go.</p>\n");
 
     int bar_w = 460;
@@ -1613,7 +1613,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card full\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\x94\xa2</span> Byte Frequency</h2>\n"
+      "<h2>Byte Frequency</h2>\n"
       "<p class=\"desc\">16&times;16 grid of all 256 byte values. "
       "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
       nunique, fmax);
@@ -1707,7 +1707,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card full\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\x97\xba</span> Compressibility Map</h2>\n"
+      "<h2>Compressibility Map</h2>\n"
       "<p class=\"desc\">Each cell = one byte. "
       "<span style=\"color:#34d399\">\xe2\x96\x88</span> green = "
       "compressible, "
@@ -1819,7 +1819,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card full\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\x93\x88</span> Cost Over File Position</h2>\n"
+      "<h2>Cost Over File Position</h2>\n"
       "<p class=\"desc\">Rolling avg encoding cost (bits/byte). "
       "Window = %d bytes. H\xe2\x82\x80 = %.2f.</p>\n", win, s->entropy);
     fprintf(f,
@@ -1945,7 +1945,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card full\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\x94\x8d</span> Model Search Trajectory</h2>\n"
+      "<h2>Model Search Trajectory</h2>\n"
       "<p class=\"desc\">Best estimated size (log-log) over 256 context masks. "
       "<span style=\"color:#34d399\">\xe2\x97\x8f</span> addition, "
       "<span style=\"color:#f87171\">\xe2\x97\x8f</span> removal.</p>\n");
@@ -2085,7 +2085,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card full\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\xa7\xa9</span> Per-Model Statistics</h2>\n"
+      "<h2>Per-Model Statistics</h2>\n"
       "<p class=\"desc\">Sorted by contribution. Positive bits saved = model helped.</p>\n"
       "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
       "<th class=\"r\">Hits</th><th class=\"r\">Hit %%</th>"
@@ -2152,7 +2152,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\x8e\xaf</span> Prediction Confidence</h2>\n"
+      "<h2>Prediction Confidence</h2>\n"
       "<p class=\"desc\">Confidence distribution when encoding each bit.</p>\n"
       "<table><tr><th>Range</th><th class=\"r\">Bits</th>"
       "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
@@ -2188,7 +2188,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card\">\n"
-      "<h2><span class=\"icon\">\xf0\x9f\x94\xa2</span> Byte Position Analysis</h2>\n"
+      "<h2>Byte Position Analysis</h2>\n"
       "<p class=\"desc\">Average encoding cost per bit position within each byte.</p>\n"
       "<table><tr><th>Bit</th><th class=\"r\">Count</th>"
       "<th class=\"r\">Avg Cost</th><th>Cost</th></tr>\n");
@@ -2221,7 +2221,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card\">\n"
-      "<h2><span class=\"icon\">#</span> Hash Table</h2>\n"
+      "<h2>Hash Table</h2>\n"
       "<p class=\"desc\">Context hash table occupancy and probe stats.</p>\n"
       "<table class=\"kv\">\n");
     fprintf(f, "<tr><td>Table size</td><td>%u slots</td></tr>\n", s->ht_size);
@@ -2244,7 +2244,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<div class=\"card\">\n"
-      "<h2><span class=\"icon\">\xe2\x9a\x96</span> Counter Saturation</h2>\n"
+      "<h2>Counter Saturation</h2>\n"
       "<p class=\"desc\">Probability counter balance distribution.</p>\n"
       "<table><tr><th>Category</th><th class=\"r\">Count</th>"
       "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
