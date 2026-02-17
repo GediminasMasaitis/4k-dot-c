@@ -1310,225 +1310,289 @@ static void write_html_report(const char *path, const CompStats *s) {
   }
 
   double ratio = 100.0 * s->total_bytes / (double)s->input_size;
-
-  fprintf(f,
-          "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">\n"
-          "<title>Compression Report &ndash; %s</title>\n<style>\n"
-          "*{margin:0;padding:0;box-sizing:border-box}\n"
-          "body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;"
-          "color:#1f2328;padding:32px;max-width:960px}\n"
-          "h1{font-size:22px;font-weight:600;margin-bottom:6px}\n"
-          ".sub{color:#656d76;font-size:13px;margin-bottom:28px}\n"
-          ".sec{margin-bottom:36px}\n"
-          ".sec h2{font-size:15px;font-weight:600;margin-bottom:4px}\n"
-          ".sec .d{font-size:12px;color:#656d76;margin-bottom:12px}\n"
-          "table{border-collapse:collapse;width:100%%;font-size:12.5px;"
-          "font-variant-numeric:tabular-nums}\n"
-          "th{background:#f6f8fa;color:#656d76;font-weight:600;"
-          "text-transform:uppercase;font-size:10.5px;letter-spacing:.5px;"
-          "padding:8px 12px;text-align:left;border-bottom:2px solid #d0d7de}\n"
-          "th.r{text-align:right}\n"
-          "td{padding:6px 12px;border-bottom:1px solid #d0d7de}\n"
-          "td.r{text-align:right;font-family:'JetBrains Mono','Cascadia Code',"
-          "'Consolas',monospace;font-size:12px}\n"
-          "td.n{font-weight:500}\n"
-          "tr:hover td{background:#f6f8fa}\n"
-          ".B{color:#1a7f37;font-weight:700}\n"
-          ".G{color:#0969da}\n"
-          ".M{color:#9a6700}\n"
-          ".D{color:#bc4c00}\n"
-          ".W{color:#cf222e}\n"
-          ".kvtbl{max-width:420px}\n"
-          ".kvtbl td:first-child{color:#656d76;font-size:12px}\n"
-          ".bar-cell{position:relative}\n"
-          ".bar{position:absolute;left:0;top:0;bottom:0;opacity:.12;border-"
-          "radius:2px}\n"
-          ".bar-g{background:#1a7f37}.bar-b{background:#0969da}"
-          ".bar-y{background:#9a6700}.bar-o{background:#bc4c00}"
-          ".bar-r{background:#cf222e}\n"
-          ".bar-label{position:relative;z-index:1}\n"
-          "</style></head><body>\n",
-          s->input_file);
-
-  fprintf(f, "<h1>Compression Report</h1>\n");
-  fprintf(f,
-          "<p class=\"sub\">%s &middot; context-mixing arithmetic coder</p>\n",
-          s->input_file);
-
-  /* ── Summary ── */
-  fprintf(f, "<div class=\"sec\"><h2>Summary</h2>\n"
-             "<p class=\"d\">Compression parameters and results.</p>\n"
-             "<table class=\"kvtbl\"><tr><th>Parameter</th><th "
-             "class=\"r\">Value</th></tr>\n");
-  fprintf(f,
-          "<tr><td class=\"n\">Input file</td>"
-          "<td class=\"r\">%s</td></tr>\n",
-          s->input_file);
-  fprintf(f,
-          "<tr><td class=\"n\">Input size</td>"
-          "<td class=\"r\">%d bytes</td></tr>\n",
-          s->input_size);
-  fprintf(f,
-          "<tr><td class=\"n\">Compressed size</td>"
-          "<td class=\"r\">%d bytes</td></tr>\n",
-          s->total_bytes);
-  fprintf(f,
-          "<tr><td class=\"n\">Ratio</td>"
-          "<td class=\"r %s\">%.2f%%</td></tr>\n",
-          ratio < 50    ? "B"
-          : ratio < 75  ? "G"
-          : ratio < 100 ? "M"
-                        : "W",
-          ratio);
-  fprintf(f,
-          "<tr><td class=\"n\">Compressed bits</td>"
-          "<td class=\"r\">%d</td></tr>\n",
-          s->compressed_bits);
-  fprintf(f,
-          "<tr><td class=\"n\">Header</td>"
-          "<td class=\"r\">%d bytes</td></tr>\n",
-          s->header_bytes);
-  fprintf(f,
-          "<tr><td class=\"n\">Level</td>"
-          "<td class=\"r\">%d</td></tr>\n",
-          s->level);
-  fprintf(f,
-          "<tr><td class=\"n\">Base probability</td>"
-          "<td class=\"r\">%d</td></tr>\n",
-          s->base_prob);
-  fprintf(f,
-          "<tr><td class=\"n\">Estimated (pre-encode)</td>"
-          "<td class=\"r\">%.3f bytes</td></tr>\n",
-          s->estimated_bytes);
+  double savings = 100.0 - ratio;
   float actual_bpb =
       s->input_size > 0 ? (float)s->total_bytes * 8.0f / s->input_size : 0;
   float est_delta = (float)s->total_bytes - s->estimated_bytes;
   float est_delta_pct =
       s->estimated_bytes > 0 ? 100.0f * est_delta / s->estimated_bytes : 0;
-  fprintf(f,
-          "<tr><td class=\"n\">Estimator delta</td>"
-          "<td class=\"r %s\">%+.1f bytes (%+.1f%%)</td></tr>\n",
-          (est_delta < 2 && est_delta > -2)   ? "G"
-          : (est_delta < 5 && est_delta > -5) ? "M"
-                                              : "D",
-          est_delta, est_delta_pct);
-  fprintf(f,
-          "<tr><td class=\"n\">Shannon H\xe2\x82\x80</td>"
-          "<td class=\"r\">%.3f bits/byte</td></tr>\n",
-          s->entropy);
-  fprintf(f,
-          "<tr><td class=\"n\">Actual (incl. header)</td>"
-          "<td class=\"r %s\">%.3f bits/byte</td></tr>\n",
-          actual_bpb < s->entropy         ? "B"
-          : actual_bpb < s->entropy * 1.1 ? "G"
-          : actual_bpb < s->entropy * 1.3 ? "M"
-                                          : "D",
-          actual_bpb);
   float context_gain = (float)s->entropy - actual_bpb;
-  fprintf(f,
-          "<tr><td class=\"n\">Context gain over H\xe2\x82\x80</td>"
-          "<td class=\"r %s\">%+.3f bits/byte</td></tr>\n",
-          context_gain > 0 ? "B" : "W", context_gain);
-  fprintf(f,
-          "<tr><td class=\"n\">Models</td>"
-          "<td class=\"r\">%s</td></tr>\n",
-          s->model_string);
-  fprintf(f,
-          "<tr><td class=\"n\">Prediction cost</td>"
-          "<td class=\"r\">%.1f bits (%.1f bytes)</td></tr>\n",
-          s->total_cost, s->total_cost / 8.0);
-  fprintf(f,
-          "<tr><td class=\"n\">Arith coder min range</td>"
-          "<td class=\"r\">0x%08X</td></tr>\n",
-          s->min_range);
-  fprintf(f, "</table></div>\n");
 
-  /* ── Compression Waterfall ── */
+  /* ── HTML head + CSS ── */
+  fprintf(f,
+    "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">\n"
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+    "<title>Compression Report &ndash; %s</title>\n"
+    "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n"
+    "<link href=\"https://fonts.googleapis.com/css2?"
+    "family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400"
+    "&family=JetBrains+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">\n"
+    "<style>\n"
+    ":root{\n"
+    "  --bg:#0c0e14;--bg2:#13161f;--bg3:#1a1e2b;--bg4:#242938;\n"
+    "  --bdr:#2a2f3f;--bdr2:#353b4f;\n"
+    "  --fg:#e8eaf0;--fg2:#a0a6b8;--fg3:#6b7186;\n"
+    "  --acc:#22d3ee;--acc2:#06b6d4;--acc3:#0891b2;\n"
+    "  --grn:#34d399;--grn2:#10b981;\n"
+    "  --red:#f87171;--red2:#ef4444;\n"
+    "  --ylw:#fbbf24;--ylw2:#f59e0b;\n"
+    "  --orn:#fb923c;--blu:#60a5fa;\n"
+    "  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code','Consolas',monospace;\n"
+    "  --sans:'DM Sans',system-ui,-apple-system,sans-serif;\n"
+    "}\n"
+    "*{margin:0;padding:0;box-sizing:border-box}\n"
+    "body{font-family:var(--sans);background:var(--bg);color:var(--fg);"
+    "line-height:1.6;-webkit-font-smoothing:antialiased}\n"
+    ".wrap{max-width:1060px;margin:0 auto;padding:24px 28px 64px}\n"
+    "\n"
+    "/* ── Hero ── */\n"
+    ".hero{display:flex;align-items:center;gap:40px;padding:40px 0 36px;"
+    "border-bottom:1px solid var(--bdr)}\n"
+    ".hero-ring{position:relative;flex-shrink:0}\n"
+    ".hero-ring svg{display:block}\n"
+    ".hero-pct{position:absolute;inset:0;display:flex;flex-direction:column;"
+    "align-items:center;justify-content:center}\n"
+    ".hero-pct .big{font-size:32px;font-weight:700;letter-spacing:-1px;"
+    "color:var(--acc);line-height:1}\n"
+    ".hero-pct .lbl{font-size:11px;color:var(--fg3);text-transform:uppercase;"
+    "letter-spacing:1.5px;margin-top:4px}\n"
+    ".hero-info h1{font-size:20px;font-weight:600;color:var(--fg);"
+    "margin-bottom:4px}\n"
+    ".hero-info .sub{font-size:13px;color:var(--fg3)}\n"
+    ".hero-stats{display:flex;gap:32px;margin-top:18px}\n"
+    ".hero-stat .val{font-family:var(--mono);font-size:20px;font-weight:600;"
+    "line-height:1}\n"
+    ".hero-stat .lbl{font-size:11px;color:var(--fg3);margin-top:3px;"
+    "text-transform:uppercase;letter-spacing:.5px}\n"
+    "\n"
+    "/* ── Cards ── */\n"
+    ".grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;"
+    "margin-top:28px}\n"
+    ".grid .full{grid-column:1/-1}\n"
+    ".card{background:var(--bg2);border:1px solid var(--bdr);"
+    "border-radius:10px;padding:22px 24px;overflow:hidden}\n"
+    ".card h2{font-size:14px;font-weight:600;color:var(--fg);"
+    "margin-bottom:2px;display:flex;align-items:center;gap:8px}\n"
+    ".card h2 .icon{font-size:15px;opacity:.6}\n"
+    ".card .desc{font-size:11.5px;color:var(--fg3);margin-bottom:16px}\n"
+    "\n"
+    "/* ── Tables ── */\n"
+    "table{border-collapse:collapse;width:100%%;font-size:12.5px;"
+    "font-variant-numeric:tabular-nums}\n"
+    "th{color:var(--fg3);font-weight:600;text-transform:uppercase;"
+    "font-size:10px;letter-spacing:.6px;padding:7px 10px;text-align:left;"
+    "border-bottom:1px solid var(--bdr2)}\n"
+    "th.r{text-align:right}\n"
+    "td{padding:6px 10px;border-bottom:1px solid var(--bdr);color:var(--fg2)}\n"
+    "td.r{text-align:right;font-family:var(--mono);font-size:11.5px}\n"
+    "td.n{font-weight:500;color:var(--fg)}\n"
+    "tr:hover td{background:rgba(255,255,255,.02)}\n"
+    ".kv td:first-child{color:var(--fg3);font-size:11.5px;white-space:nowrap}\n"
+    ".kv td:last-child{font-family:var(--mono);font-size:11.5px;"
+    "text-align:right;color:var(--fg)}\n"
+    "\n"
+    "/* ── Colors ── */\n"
+    ".c-acc{color:var(--acc)}.c-grn{color:var(--grn)}.c-red{color:var(--red)}\n"
+    ".c-ylw{color:var(--ylw)}.c-orn{color:var(--orn)}.c-blu{color:var(--blu)}\n"
+    ".c-fg2{color:var(--fg2)}\n"
+    "\n"
+    "/* ── Bar cells ── */\n"
+    ".bar-cell{position:relative}\n"
+    ".bar{position:absolute;left:0;top:0;bottom:0;border-radius:2px}\n"
+    ".bar-acc{background:var(--acc)}.bar-grn{background:var(--grn)}\n"
+    ".bar-blu{background:var(--blu)}.bar-ylw{background:var(--ylw)}\n"
+    ".bar-orn{background:var(--orn)}.bar-red{background:var(--red)}\n"
+    ".bar-label{position:relative;z-index:1}\n"
+    "\n"
+    "/* ── Anim ── */\n"
+    "@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}"
+    "to{opacity:1;transform:none}}\n"
+    ".card{animation:fadeUp .4s ease both}\n"
+    ".card:nth-child(1){animation-delay:.05s}\n"
+    ".card:nth-child(2){animation-delay:.1s}\n"
+    ".card:nth-child(3){animation-delay:.15s}\n"
+    ".card:nth-child(4){animation-delay:.2s}\n"
+    ".card:nth-child(5){animation-delay:.25s}\n"
+    ".card:nth-child(6){animation-delay:.3s}\n"
+    ".card:nth-child(7){animation-delay:.35s}\n"
+    ".card:nth-child(8){animation-delay:.4s}\n"
+    ".card:nth-child(9){animation-delay:.45s}\n"
+    ".card:nth-child(10){animation-delay:.5s}\n"
+    "\n"
+    "/* ── Misc ── */\n"
+    "svg text{font-family:var(--sans)}\n"
+    ".slider-row{display:flex;align-items:center;gap:10px;margin:6px 0 10px;"
+    "font-size:12px;color:var(--fg3)}\n"
+    ".slider-row input[type=range]{width:180px;accent-color:var(--acc)}\n"
+    ".slider-row button{font-size:10px;padding:3px 9px;border:1px solid var(--bdr2);"
+    "border-radius:4px;background:var(--bg3);color:var(--fg2);cursor:pointer;"
+    "font-family:var(--sans)}\n"
+    ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
+    "</style></head><body>\n"
+    "<div class=\"wrap\">\n",
+    s->input_file);
+
+  /* ── Hero section with ring gauge ── */
+  {
+    /* ring gauge: SVG donut */
+    int ring_r = 60, ring_stroke = 10;
+    double circumf = 2.0 * 3.14159265 * ring_r;
+    double fill_len = circumf * savings / 100.0;
+    double gap_len = circumf - fill_len;
+    const char *ring_color = savings > 60 ? "#22d3ee"
+                           : savings > 40 ? "#34d399"
+                           : savings > 20 ? "#fbbf24"
+                                          : "#f87171";
+
+    fprintf(f, "<div class=\"hero\">\n");
+    fprintf(f,
+      "<div class=\"hero-ring\">\n"
+      "<svg width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\">\n"
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"#1a1e2b\" stroke-width=\"%d\"/>\n"
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"%s\" stroke-width=\"%d\" "
+      "stroke-dasharray=\"%.1f %.1f\" stroke-dashoffset=\"%.1f\" "
+      "stroke-linecap=\"round\" "
+      "style=\"transform:rotate(-90deg);transform-origin:center;"
+      "filter:drop-shadow(0 0 8px %s40)\"/>\n"
+      "</svg>\n"
+      "<div class=\"hero-pct\">"
+      "<span class=\"big\" style=\"color:%s\">%.0f%%</span>"
+      "<span class=\"lbl\">saved</span></div>\n"
+      "</div>\n",
+      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
+      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
+      ring_r + ring_stroke, ring_r + ring_stroke, ring_r, ring_stroke,
+      ring_r + ring_stroke, ring_r + ring_stroke, ring_r,
+      ring_color, ring_stroke, fill_len, gap_len, circumf * 0.25,
+      ring_color, ring_color, savings);
+
+    fprintf(f,
+      "<div class=\"hero-info\">\n"
+      "<h1>Compression Report</h1>\n"
+      "<p class=\"sub\">%s &middot; context-mixing arithmetic coder</p>\n"
+      "<div class=\"hero-stats\">\n"
+      "<div class=\"hero-stat\"><div class=\"val\">%d</div>"
+      "<div class=\"lbl\">Input bytes</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val c-acc\">%d</div>"
+      "<div class=\"lbl\">Output bytes</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val c-grn\">%.2f%%</div>"
+      "<div class=\"lbl\">Ratio</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val\" style=\"color:%s\">%+.3f</div>"
+      "<div class=\"lbl\">H\xe2\x82\x80 gain</div></div>\n"
+      "</div></div></div>\n\n",
+      s->input_file, s->input_size, s->total_bytes, ratio,
+      context_gain > 0 ? "#34d399" : "#f87171", context_gain);
+  }
+
+  fprintf(f, "<div class=\"grid\">\n");
+
+  /* ── Summary card ── */
+  fprintf(f,
+    "<div class=\"card\">\n"
+    "<h2><span class=\"icon\">\xe2\x9a\x99</span> Parameters</h2>\n"
+    "<p class=\"desc\">Compression settings and entropy metrics.</p>\n"
+    "<table class=\"kv\">\n");
+  fprintf(f, "<tr><td>Level</td><td>%d</td></tr>\n", s->level);
+  fprintf(f, "<tr><td>Base probability</td><td>%d</td></tr>\n", s->base_prob);
+  fprintf(f, "<tr><td>Models</td><td style=\"font-size:10.5px\">%s</td></tr>\n",
+    s->model_string);
+  fprintf(f, "<tr><td>Compressed bits</td><td>%d</td></tr>\n",
+    s->compressed_bits);
+  fprintf(f, "<tr><td>Header</td><td>%d bytes</td></tr>\n", s->header_bytes);
+  fprintf(f, "<tr><td>Estimated (pre-encode)</td><td>%.3f bytes</td></tr>\n",
+    s->estimated_bytes);
+  fprintf(f,
+    "<tr><td>Estimator delta</td>"
+    "<td class=\"%s\">%+.1f bytes (%+.1f%%)</td></tr>\n",
+    (est_delta < 2 && est_delta > -2) ? "c-grn"
+    : (est_delta < 5 && est_delta > -5) ? "c-ylw" : "c-orn",
+    est_delta, est_delta_pct);
+  fprintf(f,
+    "<tr><td>Shannon H\xe2\x82\x80</td>"
+    "<td>%.3f bits/byte</td></tr>\n", s->entropy);
+  fprintf(f,
+    "<tr><td>Actual (incl. header)</td>"
+    "<td class=\"%s\">%.3f bits/byte</td></tr>\n",
+    actual_bpb < s->entropy ? "c-grn"
+    : actual_bpb < s->entropy * 1.1 ? "c-blu"
+    : actual_bpb < s->entropy * 1.3 ? "c-ylw" : "c-orn",
+    actual_bpb);
+  fprintf(f,
+    "<tr><td>Prediction cost</td>"
+    "<td>%.1f bits (%.1f B)</td></tr>\n",
+    s->total_cost, s->total_cost / 8.0);
+  fprintf(f,
+    "<tr><td>Arith coder min range</td>"
+    "<td>0x%08X</td></tr>\n", s->min_range);
+  fprintf(f, "</table></div>\n\n");
+
+  /* ── Output Breakdown card ── */
   {
     int payload_bytes = s->total_bytes - s->header_bytes;
     int padding_bits = payload_bytes * 8 - s->compressed_bits;
     float total = (float)s->total_bytes;
-
-    /* fractions */
     float f_hdr = s->header_bytes / total * 100;
     float f_pay = (payload_bytes * 8 - padding_bits) / 8.0f / total * 100;
     float f_pad = padding_bits / 8.0f / total * 100;
 
-    int bar_w = 760;
-
     fprintf(f,
-            "<div class=\"sec\"><h2>Output Breakdown</h2>\n"
-            "<p class=\"d\">Where the compressed bytes go.</p>\n"
-            "<svg width=\"%d\" height=\"48\" "
-            "style=\"font-family:'Segoe UI',system-ui,sans-serif;display:block;"
-            "margin-bottom:8px\">\n",
-            bar_w + 4);
+      "<div class=\"card\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\x93\xa6</span> Output Breakdown</h2>\n"
+      "<p class=\"desc\">Where the compressed bytes go.</p>\n");
+
+    int bar_w = 460;
+    fprintf(f,
+      "<svg width=\"%d\" height=\"54\" "
+      "style=\"display:block;margin-bottom:10px;overflow:visible\">\n",
+      bar_w + 4);
 
     int x = 2;
-    /* segments: header, payload, padding */
-    struct {
-      const char *label;
-      float pct;
-      const char *fill;
-      int bytes;
-    } segs[] = {
-        {"Header", f_hdr, "#6e7781", s->header_bytes},
-        {"Payload", f_pay, "#0969da",
-         (int)((payload_bytes * 8 - padding_bits + 7) / 8)},
-        {"Padding", f_pad, "#d0d7de", (padding_bits + 7) / 8},
+    struct { const char *label; float pct; const char *fill; int bytes; } segs[] = {
+      {"Header", f_hdr, "#6b7186", s->header_bytes},
+      {"Payload", f_pay, "#22d3ee",
+       (int)((payload_bytes * 8 - padding_bits + 7) / 8)},
+      {"Padding", f_pad, "#2a2f3f", (padding_bits + 7) / 8},
     };
-    int nsegs = 3;
-    /* skip padding if zero */
-    if (padding_bits == 0)
-      nsegs = 2;
+    int nsegs = padding_bits > 0 ? 3 : 2;
 
     for (int i = 0; i < nsegs; i++) {
       int w = (int)(segs[i].pct * bar_w / 100);
-      if (w < 1 && segs[i].pct > 0)
-        w = 1;
-      /* last segment takes remainder */
-      if (i == nsegs - 1)
-        w = bar_w - (x - 2);
-
+      if (w < 1 && segs[i].pct > 0) w = 1;
+      if (i == nsegs - 1) w = bar_w - (x - 2);
       fprintf(f,
-              "<rect x=\"%d\" y=\"2\" width=\"%d\" height=\"22\" "
-              "fill=\"%s\" rx=\"%s\"/>\n",
-              x, w, segs[i].fill,
-              i == 0           ? (nsegs == 1 ? "3" : "3 0 0 3")
-              : i == nsegs - 1 ? "0 3 3 0"
-                               : "0");
-
-      /* label inside if wide enough */
-      if (w > 60) {
+        "<rect x=\"%d\" y=\"2\" width=\"%d\" height=\"22\" "
+        "fill=\"%s\" rx=\"%s\"/>\n",
+        x, w, segs[i].fill,
+        i == 0 ? (nsegs == 1 ? "4" : "4 0 0 4")
+        : i == nsegs - 1 ? "0 4 4 0" : "0");
+      if (w > 55) {
         fprintf(f,
-                "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
-                "font-size=\"10\" fill=\"#fff\" font-weight=\"500\">"
-                "%s %d B (%.0f%%)</text>\n",
-                x + w / 2, segs[i].label, segs[i].bytes, segs[i].pct);
-      } else if (w > 30) {
-        fprintf(f,
-                "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
-                "font-size=\"9\" fill=\"#fff\">%d B</text>\n",
-                x + w / 2, segs[i].bytes);
+          "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
+          "font-size=\"10\" fill=\"%s\" font-weight=\"500\" "
+          "font-family=\"var(--sans)\">"
+          "%s %d B</text>\n",
+          x + w / 2, i == 1 ? "#0c0e14" : "#e8eaf0",
+          segs[i].label, segs[i].bytes);
       }
       x += w;
     }
 
-    /* legend below */
+    /* legend */
     x = 2;
     for (int i = 0; i < nsegs; i++) {
       fprintf(f,
-              "<rect x=\"%d\" y=\"32\" width=\"10\" height=\"10\" "
-              "rx=\"2\" fill=\"%s\"/>",
-              x, segs[i].fill);
+        "<rect x=\"%d\" y=\"34\" width=\"10\" height=\"10\" "
+        "rx=\"2\" fill=\"%s\"/>",
+        x, segs[i].fill);
       fprintf(f,
-              "<text x=\"%d\" y=\"41\" font-size=\"9\" "
-              "fill=\"#656d76\">%s (%d B, %.1f%%)</text>",
-              x + 14, segs[i].label, segs[i].bytes, segs[i].pct);
-      x += 14 + 10 * (int)strlen(segs[i].label) + 80;
+        "<text x=\"%d\" y=\"43\" font-size=\"10\" "
+        "fill=\"#6b7186\">%s (%d B, %.1f%%)</text>",
+        x + 14, segs[i].label, segs[i].bytes, segs[i].pct);
+      x += 14 + 9 * (int)strlen(segs[i].label) + 75;
     }
-
-    fprintf(f, "</svg></div>\n");
+    fprintf(f, "</svg></div>\n\n");
   }
 
   /* ── Byte Frequency Heatmap ── */
@@ -1536,107 +1600,86 @@ static void write_html_report(const char *path, const CompStats *s) {
     unsigned int fmax = 0;
     int nunique = 0;
     for (int i = 0; i < 256; i++) {
-      if (s->byte_freq[i] > fmax)
-        fmax = s->byte_freq[i];
-      if (s->byte_freq[i] > 0)
-        nunique++;
+      if (s->byte_freq[i] > fmax) fmax = s->byte_freq[i];
+      if (s->byte_freq[i] > 0) nunique++;
     }
     float log_fmax = fmax > 1 ? fast_log2f((float)fmax) : 1;
 
     int cell = 28, gap = 1;
     int grid = cell * 16 + gap * 15;
-    int hdr = 18;     /* space for column headers */
-    int row_lbl = 22; /* space for row labels */
+    int hdr = 18, row_lbl = 24;
     int svg_w = row_lbl + grid + 4;
     int svg_h = hdr + grid + 4;
 
     fprintf(f,
-            "<div class=\"sec\"><h2>Byte Frequency</h2>\n"
-            "<p class=\"d\">16&times;16 grid of all 256 byte values. "
-            "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
-            nunique, fmax);
+      "<div class=\"card full\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\x94\xa2</span> Byte Frequency</h2>\n"
+      "<p class=\"desc\">16&times;16 grid of all 256 byte values. "
+      "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
+      nunique, fmax);
     fprintf(f,
-            "<svg width=\"%d\" height=\"%d\" "
-            "style=\"font-family:'JetBrains Mono','Cascadia Code','Consolas',"
-            "monospace;display:block;margin-bottom:8px\">\n",
-            svg_w, svg_h);
+      "<svg width=\"%d\" height=\"%d\" "
+      "style=\"font-family:var(--mono);display:block\">\n",
+      svg_w, svg_h);
 
-    /* column headers (low nibble) */
-    for (int c = 0; c < 16; c++) {
-      int x = row_lbl + c * (cell + gap) + cell / 2;
+    for (int c2 = 0; c2 < 16; c2++) {
+      int x = row_lbl + c2 * (cell + gap) + cell / 2;
       fprintf(f,
-              "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-              "font-size=\"8\" fill=\"#656d76\">%X</text>\n",
-              x, hdr - 5, c);
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+        "font-size=\"8\" fill=\"#6b7186\">%X</text>\n", x, hdr - 5, c2);
     }
 
     for (int r = 0; r < 16; r++) {
       int y = hdr + r * (cell + gap);
-
-      /* row label (high nibble) */
       fprintf(f,
-              "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
-              "font-size=\"8\" fill=\"#656d76\">%X_</text>\n",
-              row_lbl - 4, y + cell / 2 + 3, r);
-
-      for (int c = 0; c < 16; c++) {
-        int byte_val = r * 16 + c;
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+        "font-size=\"8\" fill=\"#6b7186\">%X_</text>\n",
+        row_lbl - 4, y + cell / 2 + 3, r);
+      for (int c2 = 0; c2 < 16; c2++) {
+        int byte_val = r * 16 + c2;
         unsigned int freq = s->byte_freq[byte_val];
-        int x = row_lbl + c * (cell + gap);
-
-        /* color: log-scale intensity */
+        int x = row_lbl + c2 * (cell + gap);
         float intensity = 0;
         if (freq > 0 && fmax > 0) {
           intensity = (fast_log2f((float)freq) + 1) / (log_fmax + 1);
-          if (intensity < 0.08f)
-            intensity = 0.08f;
-          if (intensity > 1.0f)
-            intensity = 1.0f;
+          if (intensity < 0.08f) intensity = 0.08f;
+          if (intensity > 1.0f) intensity = 1.0f;
         }
-
-        /* map intensity to color: 0 = #f6f8fa, low = light blue, high = dark
-         * blue */
         int cr, cg, cb;
         if (freq == 0) {
-          cr = 246;
-          cg = 248;
-          cb = 250; /* empty: near-white */
+          cr = 26; cg = 30; cb = 43; /* var(--bg3) */
         } else {
-          /* interpolate from light (#dbeafe) to dark (#1e40af) */
-          cr = (int)(219 + (30 - 219) * intensity);
-          cg = (int)(234 + (64 - 234) * intensity);
-          cb = (int)(254 + (175 - 254) * intensity);
+          /* dark teal to bright cyan */
+          cr = (int)(13 + (34 - 13) * intensity);
+          cg = (int)(40 + (211 - 40) * intensity);
+          cb = (int)(60 + (238 - 60) * intensity);
         }
-
-        /* printable character label */
         char label[8] = "";
         if (byte_val >= 0x20 && byte_val <= 0x7E && byte_val != '<' &&
             byte_val != '>' && byte_val != '&' && byte_val != '"')
           snprintf(label, sizeof(label), "%c", byte_val);
 
         fprintf(f,
-                "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-                "rx=\"2\" fill=\"rgb(%d,%d,%d)\">"
-                "<title>0x%02X",
-                x, y, cell, cell, cr, cg, cb, byte_val);
+          "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+          "rx=\"2\" fill=\"rgb(%d,%d,%d)\">"
+          "<title>0x%02X",
+          x, y, cell, cell, cr, cg, cb, byte_val);
         if (byte_val >= 0x20 && byte_val <= 0x7E)
           fprintf(f, " '%c'", byte_val);
         fprintf(f, ": %u (%.1f%%)</title></rect>\n", freq,
-                s->input_size > 0 ? 100.0 * freq / s->input_size : 0.0);
+          s->input_size > 0 ? 100.0 * freq / s->input_size : 0.0);
 
-        /* show printable char or nothing */
         if (label[0]) {
-          int text_bright = intensity > 0.5f;
-          fprintf(
-              f,
-              "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-              "font-size=\"9\" fill=\"%s\" pointer-events=\"none\">%s</text>\n",
-              x + cell / 2, y + cell / 2 + 3, text_bright ? "#fff" : "#656d76",
-              label);
+          int text_bright = intensity > 0.35f;
+          fprintf(f,
+            "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+            "font-size=\"9\" fill=\"%s\" pointer-events=\"none\">%s</text>\n",
+            x + cell / 2, y + cell / 2 + 3,
+            text_bright ? "#0c0e14" : "#6b7186", label);
         }
       }
     }
-    fprintf(f, "</svg></div>\n");
+    fprintf(f, "</svg></div>\n\n");
   }
 
   /* ── Compressibility Map ── */
@@ -1644,257 +1687,200 @@ static void write_html_report(const char *path, const CompStats *s) {
     int nb = s->num_data_bytes;
     float cmin = 1e9f, cmax = -1e9f;
     for (int i = 0; i < nb; i++) {
-      if (s->byte_costs[i] < cmin)
-        cmin = s->byte_costs[i];
-      if (s->byte_costs[i] > cmax)
-        cmax = s->byte_costs[i];
+      if (s->byte_costs[i] < cmin) cmin = s->byte_costs[i];
+      if (s->byte_costs[i] > cmax) cmax = s->byte_costs[i];
     }
-    if (cmax <= cmin)
-      cmax = cmin + 1;
+    if (cmax <= cmin) cmax = cmin + 1;
 
-    /* adaptive grid: target ~800px wide, cell size 2-16px */
     int cols, cell;
-    if (nb <= 64) {
-      cols = nb < 16 ? nb : 16;
-      cell = 16;
-    } else if (nb <= 512) {
-      cols = 32;
-      cell = 14;
-    } else if (nb <= 2048) {
-      cols = 64;
-      cell = 10;
-    } else if (nb <= 4096) {
-      cols = 64;
-      cell = 8;
-    } else if (nb <= 8192) {
-      cols = 96;
-      cell = 6;
-    } else {
-      cols = 128;
-      cell = 4;
-    }
+    if (nb <= 64) { cols = nb < 16 ? nb : 16; cell = 16; }
+    else if (nb <= 512)  { cols = 32; cell = 14; }
+    else if (nb <= 2048) { cols = 64; cell = 10; }
+    else if (nb <= 4096) { cols = 64; cell = 8; }
+    else if (nb <= 8192) { cols = 96; cell = 6; }
+    else { cols = 128; cell = 4; }
     int rows = (nb + cols - 1) / cols;
-    int gap = cell >= 6 ? 1 : 0;
-    int stride = cell + gap;
-    int svg_w = cols * stride - gap + 2;
-    int svg_h = rows * stride - gap + 2;
+    int cg = cell >= 6 ? 1 : 0;
+    int stride = cell + cg;
+    int svg_w = cols * stride - cg + 2;
+    int svg_h = rows * stride - cg + 2;
 
     fprintf(f,
-            "<div class=\"sec\"><h2>Compressibility Map</h2>\n"
-            "<p class=\"d\">Each cell = one byte of input. "
-            "<span style=\"color:#1a7f37\">\xe2\x96\x88</span> green = "
-            "highly compressible (low cost), "
-            "<span style=\"color:#cf222e\">\xe2\x96\x88</span> red = "
-            "hard to compress (high cost). "
-            "%d bytes, %d&times;%d grid.</p>\n",
-            nb, cols, rows);
-
-    /* slider control */
-    fprintf(
-        f,
-        "<div style=\"display:flex;align-items:center;gap:10px;"
-        "margin:6px 0 8px;font-size:13px;color:#656d76\">"
-        "<span>Scale max:</span>"
-        "<input type=\"range\" id=\"cmap-slider\" min=\"1\" max=\"%.0f\" "
-        "value=\"%.0f\" step=\"0.5\" "
-        "style=\"width:200px;accent-color:#0969da\">"
-        "<span id=\"cmap-val\" style=\"font-variant-numeric:tabular-nums;"
-        "min-width:80px\">%.1f bits</span>"
-        "<button onclick=\"document.getElementById('cmap-slider').value=8;"
-        "document.getElementById('cmap-slider').dispatchEvent("
-        "new Event('input'))\" "
-        "style=\"font-size:11px;padding:2px 8px;border:1px solid #d0d7de;"
-        "border-radius:4px;background:#f6f8fa;cursor:pointer\">"
-        "8.0 (H\xe2\x82\x80 max)</button>"
-        "<button onclick=\"document.getElementById('cmap-slider').value=%.0f;"
-        "document.getElementById('cmap-slider').dispatchEvent("
-        "new Event('input'))\" "
-        "style=\"font-size:11px;padding:2px 8px;border:1px solid #d0d7de;"
-        "border-radius:4px;background:#f6f8fa;cursor:pointer\">"
-        "Auto (%.1f)</button>"
-        "</div>\n",
-        cmax + 1, cmax, cmax, cmax, cmax);
+      "<div class=\"card full\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\x97\xba</span> Compressibility Map</h2>\n"
+      "<p class=\"desc\">Each cell = one byte. "
+      "<span style=\"color:#34d399\">\xe2\x96\x88</span> green = "
+      "compressible, "
+      "<span style=\"color:#f87171\">\xe2\x96\x88</span> red = "
+      "hard to compress. "
+      "%d bytes, %d&times;%d grid.</p>\n", nb, cols, rows);
 
     fprintf(f,
-            "<svg id=\"cmap-svg\" width=\"%d\" height=\"%d\" "
-            "style=\"display:block;margin-bottom:8px\">\n",
-            svg_w, svg_h);
+      "<div class=\"slider-row\">"
+      "<span>Scale max:</span>"
+      "<input type=\"range\" id=\"cmap-slider\" min=\"1\" max=\"%.0f\" "
+      "value=\"%.0f\" step=\"0.5\">"
+      "<span id=\"cmap-val\" style=\"font-family:var(--mono);"
+      "min-width:70px\">%.1f bits</span>"
+      "<button onclick=\"document.getElementById('cmap-slider').value=8;"
+      "document.getElementById('cmap-slider').dispatchEvent("
+      "new Event('input'))\">8.0 (H\xe2\x82\x80)</button>"
+      "<button onclick=\"document.getElementById('cmap-slider').value=%.0f;"
+      "document.getElementById('cmap-slider').dispatchEvent("
+      "new Event('input'))\">Auto (%.1f)</button>"
+      "</div>\n",
+      cmax + 1, cmax, cmax, cmax, cmax);
+
+    fprintf(f,
+      "<svg id=\"cmap-svg\" width=\"%d\" height=\"%d\" "
+      "style=\"display:block\">\n", svg_w, svg_h);
 
     for (int i = 0; i < nb; i++) {
-      int col = i % cols;
-      int row = i / cols;
-      int x = 1 + col * stride;
-      int y = 1 + row * stride;
-
+      int col = i % cols, row2 = i / cols;
+      int x = 1 + col * stride, y = 1 + row2 * stride;
       float cost = s->byte_costs[i];
-      /* initial color at current max */
       float t = cost / cmax;
-      if (t < 0)
-        t = 0;
-      if (t > 1)
-        t = 1;
-      int cr, cg, cb;
+      if (t < 0) t = 0; if (t > 1) t = 1;
+      int cr, ccg, cb;
       if (t < 0.5f) {
         float u = t * 2;
-        cr = (int)(34 + (234 - 34) * u);
-        cg = (int)(197 + (179 - 197) * u);
-        cb = (int)(94 + (8 - 94) * u);
+        cr = (int)(16 + (180 - 16) * u);
+        ccg = (int)(185 + (140 - 185) * u);
+        cb = (int)(129 + (40 - 129) * u);
       } else {
         float u = (t - 0.5f) * 2;
-        cr = (int)(234 + (239 - 234) * u);
-        cg = (int)(179 + (68 - 179) * u);
-        cb = (int)(8 + (68 - 8) * u);
+        cr = (int)(180 + (248 - 180) * u);
+        ccg = (int)(140 + (113 - 140) * u);
+        cb = (int)(40 + (113 - 40) * u);
       }
-
       unsigned char bval = s->input_data ? s->input_data[i] : 0;
       fprintf(f,
-              "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-              "fill=\"rgb(%d,%d,%d)\" data-c=\"%.2f\"",
-              x, y, cell, cell, cr, cg, cb, cost);
+        "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+        "fill=\"rgb(%d,%d,%d)\" data-c=\"%.2f\"",
+        x, y, cell, cell, cr, ccg, cb, cost);
       fprintf(f, "><title>%d: 0x%02X", i, bval);
-      if (bval >= 0x20 && bval <= 0x7E)
-        fprintf(f, " '%c'", bval);
+      if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
       fprintf(f, " (%.2f bits)</title></rect>\n", cost);
     }
-
     fprintf(f, "</svg>\n");
 
-    /* inline JS for slider */
     fprintf(f,
-            "<script>\n"
-            "(function(){\n"
-            "  var sl=document.getElementById('cmap-slider');\n"
-            "  var lbl=document.getElementById('cmap-val');\n"
-            "  var rects=document.querySelectorAll('#cmap-svg rect[data-c]');\n"
-            "  sl.addEventListener('input',function(){\n"
-            "    var mx=parseFloat(sl.value);\n"
-            "    lbl.textContent=mx.toFixed(1)+' bits';\n"
-            "    for(var i=0;i<rects.length;i++){\n"
-            "      var c=parseFloat(rects[i].getAttribute('data-c'));\n"
-            "      var t=c/mx; if(t<0)t=0; if(t>1)t=1;\n"
-            "      var r,g,b;\n"
-            "      if(t<0.5){var u=t*2;\n"
-            "        r=34+(234-34)*u;g=197+(179-197)*u;b=94+(8-94)*u;\n"
-            "      }else{var u=(t-0.5)*2;\n"
-            "        r=234+(239-234)*u;g=179+(68-179)*u;b=8+(68-8)*u;\n"
-            "      }\n"
-            "      rects[i].setAttribute('fill',\n"
-            "        "
-            "'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')');\n"
-            "    }\n"
-            "  });\n"
-            "})();\n"
-            "</script>\n");
-
-    fprintf(f, "</div>\n");
+      "<script>\n"
+      "(function(){\n"
+      "  var sl=document.getElementById('cmap-slider');\n"
+      "  var lbl=document.getElementById('cmap-val');\n"
+      "  var rects=document.querySelectorAll('#cmap-svg rect[data-c]');\n"
+      "  sl.addEventListener('input',function(){\n"
+      "    var mx=parseFloat(sl.value);\n"
+      "    lbl.textContent=mx.toFixed(1)+' bits';\n"
+      "    for(var i=0;i<rects.length;i++){\n"
+      "      var c=parseFloat(rects[i].getAttribute('data-c'));\n"
+      "      var t=c/mx; if(t<0)t=0; if(t>1)t=1;\n"
+      "      var r,g,b;\n"
+      "      if(t<0.5){var u=t*2;\n"
+      "        r=16+(180-16)*u;g=185+(140-185)*u;b=129+(40-129)*u;\n"
+      "      }else{var u=(t-0.5)*2;\n"
+      "        r=180+(248-180)*u;g=140+(113-140)*u;b=40+(113-40)*u;\n"
+      "      }\n"
+      "      rects[i].setAttribute('fill',\n"
+      "        'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')');\n"
+      "    }\n"
+      "  });\n"
+      "})();\n"
+      "</script>\n");
+    fprintf(f, "</div>\n\n");
   }
 
   /* ── Cost Over File Position ── */
   if (s->byte_costs && s->num_data_bytes > 1) {
     int nb = s->num_data_bytes;
-    /* compute rolling average with adaptive window */
     int win = nb / 64;
-    if (win < 4)
-      win = 4;
-    if (win > 64)
-      win = 64;
+    if (win < 4) win = 4;
+    if (win > 64) win = 64;
     int npts = nb - win + 1;
-    if (npts < 2)
-      npts = 2;
+    if (npts < 2) npts = 2;
     float *rolling = (float *)malloc(npts * sizeof(float));
     float rmin = 1e9f, rmax = -1e9f;
     for (int i = 0; i < npts; i++) {
       float sum = 0;
       int end = i + win;
-      if (end > nb)
-        end = nb;
-      for (int j = i; j < end; j++)
-        sum += s->byte_costs[j];
+      if (end > nb) end = nb;
+      for (int j = i; j < end; j++) sum += s->byte_costs[j];
       rolling[i] = sum / (end - i);
-      if (rolling[i] < rmin)
-        rmin = rolling[i];
-      if (rolling[i] > rmax)
-        rmax = rolling[i];
+      if (rolling[i] < rmin) rmin = rolling[i];
+      if (rolling[i] > rmax) rmax = rolling[i];
     }
-    if (rmax <= rmin)
-      rmax = rmin + 1;
+    if (rmax <= rmin) rmax = rmin + 1;
 
-    int svg_w = 820, svg_h = 140;
-    int pad_l = 40, pad_r = 10, pad_t = 10, pad_b = 25;
+    int svg_w = 960, svg_h = 160;
+    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
     int plot_w = svg_w - pad_l - pad_r;
     int plot_h = svg_h - pad_t - pad_b;
 
     fprintf(f,
-            "<div class=\"sec\"><h2>Cost Over File Position</h2>\n"
-            "<p class=\"d\">Rolling average encoding cost (bits/byte) across "
-            "the input. "
-            "Window = %d bytes. Lower is better. "
-            "H\xe2\x82\x80 = %.2f shown as reference.</p>\n",
-            win, s->entropy);
+      "<div class=\"card full\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\x93\x88</span> Cost Over File Position</h2>\n"
+      "<p class=\"desc\">Rolling avg encoding cost (bits/byte). "
+      "Window = %d bytes. H\xe2\x82\x80 = %.2f.</p>\n", win, s->entropy);
     fprintf(f,
-            "<svg width=\"%d\" height=\"%d\" "
-            "style=\"font-family:'Segoe UI',system-ui,sans-serif;display:block;"
-            "margin-bottom:8px\">\n",
-            svg_w, svg_h);
+      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"display:block\">\n", svg_w, svg_h);
 
-    /* background */
+    /* bg */
     fprintf(f,
-            "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-            "fill=\"#f6f8fa\" rx=\"3\"/>\n",
-            pad_l, pad_t, plot_w, plot_h);
+      "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
 
-    /* y-axis gridlines + labels */
+    /* y gridlines */
     int nyticks = 4;
     for (int i = 0; i <= nyticks; i++) {
       float val = rmin + (rmax - rmin) * (nyticks - i) / nyticks;
       int y = pad_t + plot_h * i / nyticks;
       fprintf(f,
-              "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-              "stroke=\"#d0d7de\" stroke-width=\"0.5\"/>\n",
-              pad_l, y, pad_l + plot_w, y);
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+        pad_l, y, pad_l + plot_w, y);
       fprintf(f,
-              "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
-              "font-size=\"9\" fill=\"#656d76\">%.1f</text>\n",
-              pad_l - 4, y + 3, val);
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+        "font-size=\"9\" fill=\"#6b7186\">%.1f</text>\n",
+        pad_l - 5, y + 3, val);
     }
 
-    /* H0 reference line */
+    /* H0 line */
     if (s->entropy >= rmin && s->entropy <= rmax) {
       int h0y = pad_t + (int)(plot_h * (rmax - s->entropy) / (rmax - rmin));
-      fprintf(
-          f,
-          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-          "stroke=\"#cf222e\" stroke-width=\"1\" stroke-dasharray=\"4,3\"/>\n",
-          pad_l, h0y, pad_l + plot_w, h0y);
       fprintf(f,
-              "<text x=\"%d\" y=\"%d\" font-size=\"9\" "
-              "fill=\"#cf222e\">H\xe2\x82\x80</text>\n",
-              pad_l + plot_w + 2, h0y + 3);
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#f87171\" stroke-width=\"1\" stroke-dasharray=\"5,3\" "
+        "opacity=\".6\"/>\n", pad_l, h0y, pad_l + plot_w, h0y);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" font-size=\"9\" fill=\"#f87171\" "
+        "opacity=\".8\">H\xe2\x82\x80</text>\n",
+        pad_l + plot_w + 3, h0y + 3);
     }
-
-    /* 8.0 reference line (uncompressible) */
+    /* 8.0 line */
     if (8.0 >= rmin && 8.0 <= rmax) {
       int y8 = pad_t + (int)(plot_h * (rmax - 8.0) / (rmax - rmin));
       fprintf(f,
-              "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-              "stroke=\"#656d76\" stroke-width=\"0.5\" "
-              "stroke-dasharray=\"2,3\"/>\n",
-              pad_l, y8, pad_l + plot_w, y8);
-      fprintf(f,
-              "<text x=\"%d\" y=\"%d\" font-size=\"8\" "
-              "fill=\"#656d76\">8.0</text>\n",
-              pad_l + plot_w + 2, y8 + 3);
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#6b7186\" stroke-width=\"0.5\" stroke-dasharray=\"3,3\" "
+        "opacity=\".4\"/>\n", pad_l, y8, pad_l + plot_w, y8);
     }
 
-    /* area fill */
+    /* area fill with gradient */
+    fprintf(f,
+      "<defs><linearGradient id=\"cfill\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">"
+      "<stop offset=\"0\" stop-color=\"#22d3ee\" stop-opacity=\".2\"/>"
+      "<stop offset=\"1\" stop-color=\"#22d3ee\" stop-opacity=\".02\"/>"
+      "</linearGradient></defs>\n");
     fprintf(f, "<path d=\"M%d,%d ", pad_l, pad_t + plot_h);
     for (int i = 0; i < npts; i++) {
       int x = pad_l + (int)((long)i * plot_w / (npts - 1));
       int y = pad_t + (int)(plot_h * (rmax - rolling[i]) / (rmax - rmin));
       fprintf(f, "L%d,%d ", x, y);
     }
-    fprintf(f, "L%d,%d Z\" fill=\"#0969da\" opacity=\"0.08\"/>\n",
-            pad_l + plot_w, pad_t + plot_h);
+    fprintf(f, "L%d,%d Z\" fill=\"url(#cfill)\"/>\n",
+      pad_l + plot_w, pad_t + plot_h);
 
     /* line */
     fprintf(f, "<path d=\"");
@@ -1903,99 +1889,79 @@ static void write_html_report(const char *path, const CompStats *s) {
       int y = pad_t + (int)(plot_h * (rmax - rolling[i]) / (rmax - rmin));
       fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
     }
-    fprintf(f, "\" fill=\"none\" stroke=\"#0969da\" stroke-width=\"1.5\"/>\n");
+    fprintf(f,
+      "\" fill=\"none\" stroke=\"#22d3ee\" stroke-width=\"1.5\" "
+      "stroke-linejoin=\"round\"/>\n");
 
-    /* x-axis labels */
-    int nxticks = 4;
+    /* x-axis */
+    int nxticks = 5;
     for (int i = 0; i <= nxticks; i++) {
       int x = pad_l + plot_w * i / nxticks;
       int byte_pos = (int)((long)i * (nb - 1) / nxticks);
       fprintf(f,
-              "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-              "font-size=\"9\" fill=\"#656d76\">%d</text>\n",
-              x, svg_h - 3, byte_pos);
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+        "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+        x, svg_h - 4, byte_pos);
     }
-
-    fprintf(f, "</svg></div>\n");
+    fprintf(f, "</svg></div>\n\n");
     free(rolling);
   }
 
-  /* ── Search Trajectory (log-log) ── */
+  /* ── Search Trajectory ── */
   if (s->search_best && s->search_len > 0) {
     int npts = s->search_len;
     float smin = 1e9f, smax = -1e9f;
     for (int i = 0; i < npts; i++) {
-      if (s->search_best[i] < smin)
-        smin = s->search_best[i];
-      if (s->search_best[i] > smax)
-        smax = s->search_best[i];
+      if (s->search_best[i] < smin) smin = s->search_best[i];
+      if (s->search_best[i] > smax) smax = s->search_best[i];
     }
     for (int e = 0; e < s->search_nevents; e++) {
       float v = s->search_events[e].est_bytes;
-      if (v < smin)
-        smin = v;
-      if (v > smax)
-        smax = v;
+      if (v < smin) smin = v;
+      if (v > smax) smax = v;
     }
-    if (smin < 1)
-      smin = 1;
-    if (smax <= smin)
-      smax = smin * 2;
+    if (smin < 1) smin = 1;
+    if (smax <= smin) smax = smin * 2;
 
-    /* log2 ranges with margin — x uses 1..npts, y uses data range */
     float xlog_max = fast_log2f((float)npts);
-    float xlog_min = 0; /* log2(1) = 0 */
+    float xlog_min = 0;
     float xlog_range = xlog_max - xlog_min;
-    if (xlog_range < 1)
-      xlog_range = 1;
-
+    if (xlog_range < 1) xlog_range = 1;
     float ylog_min = fast_log2f(smin) - 0.1f;
     float ylog_max = fast_log2f(smax) + 0.1f;
     float ylog_range = ylog_max - ylog_min;
-    if (ylog_range < 0.5f)
-      ylog_range = 0.5f;
+    if (ylog_range < 0.5f) ylog_range = 0.5f;
 
-    int svg_w = 820, svg_h = 180;
-    int pad_l = 50, pad_r = 10, pad_t = 14, pad_b = 28;
+    int svg_w = 960, svg_h = 200;
+    int pad_l = 54, pad_r = 12, pad_t = 14, pad_b = 30;
     int plot_w = svg_w - pad_l - pad_r;
     int plot_h = svg_h - pad_t - pad_b;
 
-#define LOGX(idx)                                                              \
-  (pad_l +                                                                     \
-   (int)(plot_w * (fast_log2f((float)(idx) + 1) - xlog_min) / xlog_range))
-#define LOGY(val)                                                              \
-  (pad_t +                                                                     \
-   (int)(plot_h * (ylog_max - fast_log2f((val) > 0.5f ? (val) : 0.5f)) /       \
-         ylog_range))
+#define LOGX(idx) \
+  (pad_l + (int)(plot_w * (fast_log2f((float)(idx) + 1) - xlog_min) / xlog_range))
+#define LOGY(val) \
+  (pad_t + (int)(plot_h * (ylog_max - fast_log2f((val) > 0.5f ? (val) : 0.5f)) / ylog_range))
 #define CLAMP(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
 
-    fprintf(f, "<div class=\"sec\"><h2>Model Search Trajectory</h2>\n"
-               "<p class=\"d\">Best estimated size (log-log) as the search "
-               "iterates over "
-               "256 context masks (bit-reversed order). "
-               "Dots mark accepted model additions "
-               "(<span style=\"color:#1a7f37\">\xe2\x97\x8f</span>) "
-               "and removals "
-               "(<span style=\"color:#cf222e\">\xe2\x97\x8f</span>).</p>\n");
     fprintf(f,
-            "<svg width=\"%d\" height=\"%d\" "
-            "style=\"font-family:'Segoe UI',system-ui,sans-serif;display:block;"
-            "margin-bottom:8px\">\n",
-            svg_w, svg_h);
-
-    /* background */
+      "<div class=\"card full\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\x94\x8d</span> Model Search Trajectory</h2>\n"
+      "<p class=\"desc\">Best estimated size (log-log) over 256 context masks. "
+      "<span style=\"color:#34d399\">\xe2\x97\x8f</span> addition, "
+      "<span style=\"color:#f87171\">\xe2\x97\x8f</span> removal.</p>\n");
     fprintf(f,
-            "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-            "fill=\"#f6f8fa\" rx=\"3\"/>\n",
-            pad_l, pad_t, plot_w, plot_h);
+      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" style=\"display:block\">\n",
+      svg_w, svg_h);
 
-    /* y-axis gridlines (log scale, nice values) */
+    fprintf(f,
+      "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
+
+    /* y gridlines */
     {
-      float nice_ticks[64];
-      int nticks = 0;
+      float nice_ticks[64]; int nticks = 0;
       float base = 1;
-      while (base * 10 < smin)
-        base *= 10;
+      while (base * 10 < smin) base *= 10;
       while (base * 0.1f < smax * 2 && nticks < 60) {
         float muls[] = {1, 1.2f, 1.5f, 2, 2.5f, 3, 4, 5, 6, 7, 8};
         for (int mi2 = 0; mi2 < 11 && nticks < 60; mi2++) {
@@ -2008,35 +1974,39 @@ static void write_html_report(const char *path, const CompStats *s) {
       for (int i = 0; i < nticks; i++) {
         int y = CLAMP(LOGY(nice_ticks[i]), pad_t, pad_t + plot_h);
         fprintf(f,
-                "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-                "stroke=\"#d0d7de\" stroke-width=\"0.5\"/>\n",
-                pad_l, y, pad_l + plot_w, y);
+          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+          "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+          pad_l, y, pad_l + plot_w, y);
         fprintf(f,
-                "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
-                "font-size=\"9\" fill=\"#656d76\">%g</text>\n",
-                pad_l - 4, y + 3, nice_ticks[i]);
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+          "font-size=\"9\" fill=\"#6b7186\">%g</text>\n",
+          pad_l - 5, y + 3, nice_ticks[i]);
       }
     }
 
-    /* x-axis gridlines (log scale) */
+    /* x gridlines */
     {
       int xticks[] = {1, 2, 4, 8, 16, 32, 64, 128, 256};
       for (int i = 0; i < 9; i++) {
-        if (xticks[i] > npts)
-          break;
+        if (xticks[i] > npts) break;
         int x = CLAMP(LOGX(xticks[i] - 1), pad_l, pad_l + plot_w);
         fprintf(f,
-                "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-                "stroke=\"#d0d7de\" stroke-width=\"0.5\"/>\n",
-                x, pad_t, x, pad_t + plot_h);
+          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+          "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+          x, pad_t, x, pad_t + plot_h);
         fprintf(f,
-                "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-                "font-size=\"9\" fill=\"#656d76\">%d</text>\n",
-                x, svg_h - 5, xticks[i] - 1);
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+          "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+          x, svg_h - 6, xticks[i] - 1);
       }
     }
 
-    /* step line — area fill */
+    /* area fill */
+    fprintf(f,
+      "<defs><linearGradient id=\"sfill\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">"
+      "<stop offset=\"0\" stop-color=\"#60a5fa\" stop-opacity=\".15\"/>"
+      "<stop offset=\"1\" stop-color=\"#60a5fa\" stop-opacity=\".01\"/>"
+      "</linearGradient></defs>\n");
     fprintf(f, "<path d=\"M%d,%d ", pad_l, pad_t + plot_h);
     for (int i = 0; i < npts; i++) {
       int x = CLAMP(LOGX(i), pad_l, pad_l + plot_w);
@@ -2047,37 +2017,36 @@ static void write_html_report(const char *path, const CompStats *s) {
       }
       fprintf(f, "L%d,%d ", x, y);
     }
-    fprintf(f, "L%d,%d Z\" fill=\"#0969da\" opacity=\"0.06\"/>\n",
-            pad_l + plot_w, pad_t + plot_h);
+    fprintf(f, "L%d,%d Z\" fill=\"url(#sfill)\"/>\n",
+      pad_l + plot_w, pad_t + plot_h);
 
-    /* step line — stroke */
+    /* step stroke */
     fprintf(f, "<path d=\"");
     for (int i = 0; i < npts; i++) {
       int x = CLAMP(LOGX(i), pad_l, pad_l + plot_w);
       int y = CLAMP(LOGY(s->search_best[i]), pad_t, pad_t + plot_h);
-      if (i == 0) {
-        fprintf(f, "M%d,%d ", x, y);
-      } else {
+      if (i == 0) { fprintf(f, "M%d,%d ", x, y); }
+      else {
         int py = CLAMP(LOGY(s->search_best[i - 1]), pad_t, pad_t + plot_h);
         fprintf(f, "L%d,%d L%d,%d ", x, py, x, y);
       }
     }
-    fprintf(f, "\" fill=\"none\" stroke=\"#0969da\" stroke-width=\"1.5\"/>\n");
+    fprintf(f,
+      "\" fill=\"none\" stroke=\"#60a5fa\" stroke-width=\"1.5\"/>\n");
 
     /* event dots */
     for (int e = 0; e < s->search_nevents; e++) {
       int mi = s->search_events[e].mask_idx;
-      if (mi >= npts)
-        continue;
+      if (mi >= npts) continue;
       int x = CLAMP(LOGX(mi), pad_l, pad_l + plot_w);
       float est = s->search_events[e].est_bytes;
       int y = CLAMP(LOGY(est), pad_t, pad_t + plot_h);
-      const char *col = s->search_events[e].is_removal ? "#cf222e" : "#1a7f37";
+      const char *col = s->search_events[e].is_removal ? "#f87171" : "#34d399";
       fprintf(f,
-              "<circle cx=\"%d\" cy=\"%d\" r=\"3\" fill=\"%s\" opacity=\"0.7\">"
-              "<title>%s %02X (%d models, %.1f bytes)</title></circle>\n",
-              x, y, col, s->search_events[e].is_removal ? "Remove" : "Add",
-              s->search_events[e].mask, s->search_events[e].num_models, est);
+        "<circle cx=\"%d\" cy=\"%d\" r=\"3.5\" fill=\"%s\" opacity=\".8\">"
+        "<title>%s %02X (%d models, %.1f B)</title></circle>\n",
+        x, y, col, s->search_events[e].is_removal ? "Remove" : "Add",
+        s->search_events[e].mask, s->search_events[e].num_models, est);
     }
 
 #undef LOGX
@@ -2086,258 +2055,235 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     /* axis labels */
     fprintf(f,
-            "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-            "font-size=\"10\" fill=\"#656d76\">mask index (log)</text>\n",
-            pad_l + plot_w / 2, svg_h + 1);
+      "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"10\" fill=\"#6b7186\">mask index (log)</text>\n",
+      pad_l + plot_w / 2, svg_h);
     fprintf(f,
-            "<text x=\"12\" y=\"%d\" text-anchor=\"middle\" "
-            "font-size=\"10\" fill=\"#656d76\" "
-            "transform=\"rotate(-90,12,%d)\">est. bytes (log)</text>\n",
-            pad_t + plot_h / 2, pad_t + plot_h / 2);
-
-    fprintf(f, "</svg></div>\n");
+      "<text x=\"14\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"10\" fill=\"#6b7186\" "
+      "transform=\"rotate(-90,14,%d)\">est. bytes (log)</text>\n",
+      pad_t + plot_h / 2, pad_t + plot_h / 2);
+    fprintf(f, "</svg></div>\n\n");
   }
 
   /* ── Per-Model Statistics ── */
-  /* sort by bits saved descending */
-  int order[MAX_SEARCH];
-  for (int m = 0; m < s->num_models; m++)
-    order[m] = m;
-  for (int i = 0; i < s->num_models - 1; i++)
-    for (int j = i + 1; j < s->num_models; j++)
-      if (s->model_bits_saved[order[i]] < s->model_bits_saved[order[j]]) {
-        int tmp = order[i];
-        order[i] = order[j];
-        order[j] = tmp;
-      }
+  {
+    int order[MAX_SEARCH];
+    for (int m = 0; m < s->num_models; m++) order[m] = m;
+    for (int i = 0; i < s->num_models - 1; i++)
+      for (int j = i + 1; j < s->num_models; j++)
+        if (s->model_bits_saved[order[i]] < s->model_bits_saved[order[j]]) {
+          int tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+        }
 
-  double max_saved = 0;
-  for (int m = 0; m < s->num_models; m++) {
-    double v = s->model_bits_saved[m]; /* positive = model helped */
-    if (v > max_saved)
-      max_saved = v;
-    if (-v > max_saved)
-      max_saved = -v;
-  }
+    double max_saved = 0;
+    for (int m = 0; m < s->num_models; m++) {
+      double v = s->model_bits_saved[m];
+      if (v > max_saved) max_saved = v;
+      if (-v > max_saved) max_saved = -v;
+    }
 
-  fprintf(f, "<div class=\"sec\"><h2>Per-Model Statistics</h2>\n"
-             "<p class=\"d\">Sorted by contribution. Mask selects preceding "
-             "context bytes; "
-             "weight controls blend strength. Positive bits saved = model "
-             "helped.</p>\n"
-             "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
-             "<th class=\"r\">Hits</th><th class=\"r\">Hit %%</th>"
-             "<th class=\"r\">Unique Ctx</th>"
-             "<th class=\"r\">Bits Saved</th>"
-             "<th class=\"r\">Bytes Saved</th></tr>\n");
-
-  double total_saved = 0;
-  for (int i = 0; i < s->num_models; i++) {
-    int m = order[i];
-    unsigned int tot = s->model_hits[m] + s->model_misses[m];
-    double pct = tot ? 100.0 * s->model_hits[m] / tot : 0.0;
-    double bits = s->model_bits_saved[m]; /* positive = helped */
-    total_saved += bits;
-    double abs_bits = bits < 0 ? -bits : bits;
-    double bar_w = max_saved > 0 ? 100.0 * abs_bits / max_saved : 0;
-    const char *cls = bits > max_saved * 0.3   ? "B"
-                      : bits > max_saved * 0.1 ? "G"
-                      : bits > 0               ? "M"
-                                               : "W";
-    const char *bcls = bits > 0 ? "bar-g" : "bar-r";
     fprintf(f,
-            "<tr><td class=\"r\">%d</td>"
-            "<td class=\"n\" style=\"white-space:nowrap\">%02X <svg "
-            "width=\"66\" height=\"12\" "
-            "style=\"vertical-align:middle;display:inline-block\">",
-            m, s->model_masks[m]);
-    /* draw 8 cells for each preceding byte, MSB (byte -8) on left */
-    for (int b = 7; b >= 0; b--) {
-      int on = (s->model_masks[m] >> b) & 1;
-      int bx = (7 - b) * 8 + 1;
+      "<div class=\"card full\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\xa7\xa9</span> Per-Model Statistics</h2>\n"
+      "<p class=\"desc\">Sorted by contribution. Positive bits saved = model helped.</p>\n"
+      "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
+      "<th class=\"r\">Hits</th><th class=\"r\">Hit %%</th>"
+      "<th class=\"r\">Unique Ctx</th>"
+      "<th class=\"r\">Bits Saved</th>"
+      "<th class=\"r\">Bytes Saved</th></tr>\n");
+
+    double total_saved = 0;
+    for (int i = 0; i < s->num_models; i++) {
+      int m = order[i];
+      unsigned int tot = s->model_hits[m] + s->model_misses[m];
+      double pct = tot ? 100.0 * s->model_hits[m] / tot : 0.0;
+      double bits = s->model_bits_saved[m];
+      total_saved += bits;
+      double abs_bits = bits < 0 ? -bits : bits;
+      double bar_w = max_saved > 0 ? 100.0 * abs_bits / max_saved : 0;
+      const char *cls = bits > max_saved * 0.3 ? "c-grn"
+                      : bits > max_saved * 0.1 ? "c-acc"
+                      : bits > 0 ? "c-ylw" : "c-red";
+      const char *bcls = bits > 0 ? "bar-grn" : "bar-red";
+
       fprintf(f,
-              "<rect x=\"%d\" y=\"1\" width=\"7\" height=\"10\" rx=\"1\" "
-              "fill=\"%s\" stroke=\"#d0d7de\" stroke-width=\"0.5\"/>",
-              bx, on ? "#0969da" : "#f6f8fa");
+        "<tr><td class=\"r\">%d</td>"
+        "<td class=\"n\" style=\"white-space:nowrap\">%02X <svg "
+        "width=\"66\" height=\"12\" "
+        "style=\"vertical-align:middle;display:inline-block\">",
+        m, s->model_masks[m]);
+      for (int b = 7; b >= 0; b--) {
+        int on = (s->model_masks[m] >> b) & 1;
+        int bx = (7 - b) * 8 + 1;
+        fprintf(f,
+          "<rect x=\"%d\" y=\"1\" width=\"7\" height=\"10\" rx=\"1\" "
+          "fill=\"%s\" stroke=\"%s\" stroke-width=\"0.5\"/>",
+          bx, on ? "#22d3ee" : "#1a1e2b", "#2a2f3f");
+      }
+      fprintf(f,
+        "</svg></td>"
+        "<td class=\"r\">%d</td><td class=\"r\">%u</td>"
+        "<td class=\"r\">%.1f</td><td class=\"r\">%u</td>"
+        "<td class=\"r bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.18\"></div>"
+        "<span class=\"bar-label %s\">%.1f</span></td>"
+        "<td class=\"r\">%.1f</td></tr>\n",
+        s->model_weights[m], s->model_hits[m], pct, s->model_misses[m],
+        bcls, bar_w, cls, bits, bits / 8.0);
     }
     fprintf(f,
-            "</svg></td>"
-            "<td class=\"r\">%d</td><td class=\"r\">%u</td>"
-            "<td class=\"r\">%.1f</td><td class=\"r\">%u</td>"
-            "<td class=\"r bar-cell\">"
-            "<div class=\"bar %s\" style=\"width:%.0f%%\"></div>"
-            "<span class=\"bar-label %s\">%.1f</span></td>"
-            "<td class=\"r\">%.1f</td></tr>\n",
-            s->model_weights[m], s->model_hits[m], pct, s->model_misses[m],
-            bcls, bar_w, cls, bits, bits / 8.0);
+      "<tr style=\"border-top:2px solid var(--bdr2)\">"
+      "<td colspan=\"6\" class=\"n\">Total</td>"
+      "<td class=\"r c-grn\" style=\"font-weight:600\">%.1f</td>"
+      "<td class=\"r c-grn\" style=\"font-weight:600\">%.1f</td></tr>\n",
+      total_saved, total_saved / 8.0);
+    fprintf(f, "</table></div>\n\n");
   }
-  fprintf(f,
-          "<tr style=\"border-top:2px solid #d0d7de\">"
-          "<td colspan=\"6\" class=\"n\">Total</td>"
-          "<td class=\"r B\">%.1f</td><td class=\"r B\">%.1f</td></tr>\n",
-          total_saved, total_saved / 8.0);
-  fprintf(f, "</table></div>\n");
 
   /* ── Prediction Confidence ── */
-  unsigned int max_conf = 0;
-  for (int i = 0; i < 11; i++)
-    if (s->conf_hist[i] > max_conf)
-      max_conf = s->conf_hist[i];
+  {
+    unsigned int max_conf = 0;
+    for (int i = 0; i < 11; i++)
+      if (s->conf_hist[i] > max_conf) max_conf = s->conf_hist[i];
 
-  const char *conf_labels[] = {"&lt;50%", "50-55%", "55-60%", "60-65%",
-                               "65-70%",  "70-75%", "75-80%", "80-85%",
-                               "85-90%",  "90-95%", "95-100%"};
+    const char *conf_labels[] = {"&lt;50%%", "50-55%%", "55-60%%", "60-65%%",
+      "65-70%%", "70-75%%", "75-80%%", "80-85%%", "85-90%%", "90-95%%", "95-100%%"};
 
-  fprintf(f, "<div class=\"sec\"><h2>Prediction Confidence</h2>\n"
-             "<p class=\"d\">Distribution of prediction confidence when "
-             "encoding each bit. "
-             "Higher confidence means better prediction.</p>\n"
-             "<table style=\"max-width:520px\">"
-             "<tr><th>Confidence</th><th class=\"r\">Bits</th>"
-             "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
-
-  for (int i = 0; i < 11; i++) {
-    if (s->conf_hist[i] == 0)
-      continue;
-    double pct = 100.0 * s->conf_hist[i] / s->total_bits;
-    double bar_w = max_conf > 0 ? 100.0 * s->conf_hist[i] / max_conf : 0;
-    const char *cls = i >= 8   ? "B"
-                      : i >= 5 ? "G"
-                      : i >= 2 ? "M"
-                      : i >= 1 ? "D"
-                               : "W";
-    const char *bcls = i >= 8   ? "bar-g"
-                       : i >= 5 ? "bar-b"
-                       : i >= 2 ? "bar-y"
-                       : i >= 1 ? "bar-o"
-                                : "bar-r";
     fprintf(f,
-            "<tr><td class=\"n\">%s</td>"
-            "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
-            "<td class=\"bar-cell\">"
-            "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
-            "<span class=\"bar-label %s\">&nbsp;</span></td></tr>\n",
-            conf_labels[i], s->conf_hist[i], pct, bcls, bar_w, cls);
-  }
-  fprintf(f, "</table></div>\n");
-
-  /* ── Byte Position Analysis ── */
-  double max_bpc = 0;
-  for (int i = 0; i < 8; i++) {
-    if (s->bytepos_count[i] > 0) {
-      double c = s->bytepos_cost[i] / s->bytepos_count[i];
-      if (c > max_bpc)
-        max_bpc = c;
-    }
-  }
-
-  fprintf(
-      f,
-      "<div class=\"sec\"><h2>Byte Position Analysis</h2>\n"
-      "<p class=\"d\">Average encoding cost per bit position within each byte. "
-      "Lower is better.</p>\n"
-      "<table style=\"max-width:520px\">"
-      "<tr><th>Bit Position</th><th class=\"r\">Count</th>"
-      "<th class=\"r\">Avg Cost</th><th>Cost</th></tr>\n");
-
-  for (int i = 0; i < 8; i++) {
-    if (s->bytepos_count[i] == 0)
-      continue;
-    double avg = s->bytepos_cost[i] / s->bytepos_count[i];
-    double bar_w = max_bpc > 0 ? 100.0 * avg / max_bpc : 0;
-    const char *cls = avg < max_bpc * 0.4   ? "B"
-                      : avg < max_bpc * 0.6 ? "G"
-                      : avg < max_bpc * 0.8 ? "M"
-                                            : "D";
-    const char *bcls = avg < max_bpc * 0.4   ? "bar-g"
-                       : avg < max_bpc * 0.6 ? "bar-b"
-                       : avg < max_bpc * 0.8 ? "bar-y"
-                                             : "bar-o";
-    fprintf(f,
-            "<tr><td class=\"n\">Bit %d</td>"
-            "<td class=\"r\">%u</td>"
-            "<td class=\"r %s\">%.3f bits</td>"
-            "<td class=\"bar-cell\">"
-            "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
-            "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
-            i, s->bytepos_count[i], cls, avg, bcls, bar_w);
-  }
-  fprintf(f, "</table></div>\n");
-
-  /* ── Hash Table Statistics ── */
-  double load = s->ht_size ? 100.0 * s->ht_occupied / s->ht_size : 0;
-  unsigned int total_sat =
-      s->sat_lopsided + s->sat_strong + s->sat_balanced + s->sat_mixed;
-
-  fprintf(
-      f,
-      "<div class=\"sec\"><h2>Hash Table</h2>\n"
-      "<p class=\"d\">Context hash table occupancy and probe statistics.</p>\n"
-      "<table class=\"kvtbl\">"
-      "<tr><th>Metric</th><th class=\"r\">Value</th></tr>\n");
-  fprintf(f,
-          "<tr><td class=\"n\">Table size</td>"
-          "<td class=\"r\">%u slots</td></tr>\n",
-          s->ht_size);
-  fprintf(f,
-          "<tr><td class=\"n\">Occupied</td>"
-          "<td class=\"r %s\">%u (%.1f%%)</td></tr>\n",
-          load < 50   ? "G"
-          : load < 75 ? "M"
-                      : "D",
-          s->ht_occupied, load);
-  fprintf(f,
-          "<tr><td class=\"n\">Max probe chain</td>"
-          "<td class=\"r\">%u</td></tr>\n",
-          s->ht_max_chain);
-  fprintf(f,
-          "<tr><td class=\"n\">Avg displacement</td>"
-          "<td class=\"r\">%.2f</td></tr>\n",
-          s->ht_avg_displacement);
-  fprintf(f, "</table></div>\n");
-
-  /* ── Counter Saturation ── */
-  fprintf(
-      f,
-      "<div class=\"sec\"><h2>Counter Saturation</h2>\n"
-      "<p class=\"d\">Distribution of probability counter balance across hash "
-      "table entries.</p>\n"
-      "<table style=\"max-width:520px\">"
-      "<tr><th>Category</th><th class=\"r\">Count</th>"
+      "<div class=\"card\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\x8e\xaf</span> Prediction Confidence</h2>\n"
+      "<p class=\"desc\">Confidence distribution when encoding each bit.</p>\n"
+      "<table><tr><th>Range</th><th class=\"r\">Bits</th>"
       "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
 
-  struct {
-    const char *name;
-    unsigned int count;
-    const char *cls;
-    const char *bcls;
-  } cats[] = {
-      {"Lopsided (one side = 0)", s->sat_lopsided, "B", "bar-g"},
-      {"Strong (&gt;4:1)", s->sat_strong, "G", "bar-b"},
-      {"Balanced (&lt;2:1)", s->sat_balanced, "M", "bar-y"},
-      {"Mixed (2:1 to 4:1)", s->sat_mixed, "D", "bar-o"},
-  };
-  unsigned int max_sat = 0;
-  for (int i = 0; i < 4; i++)
-    if (cats[i].count > max_sat)
-      max_sat = cats[i].count;
-
-  for (int i = 0; i < 4; i++) {
-    if (cats[i].count == 0)
-      continue;
-    double pct = total_sat ? 100.0 * cats[i].count / total_sat : 0;
-    double bar_w = max_sat ? 100.0 * cats[i].count / max_sat : 0;
-    fprintf(f,
-            "<tr><td class=\"n\">%s</td>"
-            "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
-            "<td class=\"bar-cell\">"
-            "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
-            "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
-            cats[i].name, cats[i].count, pct, cats[i].bcls, bar_w);
+    for (int i = 0; i < 11; i++) {
+      if (s->conf_hist[i] == 0) continue;
+      double pct = 100.0 * s->conf_hist[i] / s->total_bits;
+      double bar_w = max_conf > 0 ? 100.0 * s->conf_hist[i] / max_conf : 0;
+      const char *bcls = i >= 8 ? "bar-grn"
+                       : i >= 5 ? "bar-acc"
+                       : i >= 2 ? "bar-ylw"
+                       : i >= 1 ? "bar-orn" : "bar-red";
+      fprintf(f,
+        "<tr><td class=\"n\">%s</td>"
+        "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
+        "<td class=\"bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
+        "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+        conf_labels[i], s->conf_hist[i], pct, bcls, bar_w);
+    }
+    fprintf(f, "</table></div>\n\n");
   }
-  fprintf(f, "</table></div>\n");
 
-  fprintf(f, "</body></html>\n");
+  /* ── Byte Position Analysis ── */
+  {
+    double max_bpc = 0;
+    for (int i = 0; i < 8; i++) {
+      if (s->bytepos_count[i] > 0) {
+        double c2 = s->bytepos_cost[i] / s->bytepos_count[i];
+        if (c2 > max_bpc) max_bpc = c2;
+      }
+    }
+
+    fprintf(f,
+      "<div class=\"card\">\n"
+      "<h2><span class=\"icon\">\xf0\x9f\x94\xa2</span> Byte Position Analysis</h2>\n"
+      "<p class=\"desc\">Average encoding cost per bit position within each byte.</p>\n"
+      "<table><tr><th>Bit</th><th class=\"r\">Count</th>"
+      "<th class=\"r\">Avg Cost</th><th>Cost</th></tr>\n");
+
+    for (int i = 0; i < 8; i++) {
+      if (s->bytepos_count[i] == 0) continue;
+      double avg = s->bytepos_cost[i] / s->bytepos_count[i];
+      double bar_w = max_bpc > 0 ? 100.0 * avg / max_bpc : 0;
+      const char *cls = avg < max_bpc * 0.4 ? "c-grn"
+                      : avg < max_bpc * 0.6 ? "c-blu"
+                      : avg < max_bpc * 0.8 ? "c-ylw" : "c-orn";
+      const char *bcls = avg < max_bpc * 0.4 ? "bar-grn"
+                       : avg < max_bpc * 0.6 ? "bar-acc"
+                       : avg < max_bpc * 0.8 ? "bar-ylw" : "bar-orn";
+      fprintf(f,
+        "<tr><td class=\"n\">Bit %d</td>"
+        "<td class=\"r\">%u</td>"
+        "<td class=\"r %s\">%.3f</td>"
+        "<td class=\"bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.2\"></div>"
+        "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+        i, s->bytepos_count[i], cls, avg, bcls, bar_w);
+    }
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  /* ── Hash Table ── */
+  {
+    double load = s->ht_size ? 100.0 * s->ht_occupied / s->ht_size : 0;
+
+    fprintf(f,
+      "<div class=\"card\">\n"
+      "<h2><span class=\"icon\">#</span> Hash Table</h2>\n"
+      "<p class=\"desc\">Context hash table occupancy and probe stats.</p>\n"
+      "<table class=\"kv\">\n");
+    fprintf(f, "<tr><td>Table size</td><td>%u slots</td></tr>\n", s->ht_size);
+    fprintf(f,
+      "<tr><td>Occupied</td><td class=\"%s\">%u (%.1f%%)</td></tr>\n",
+      load < 50 ? "c-grn" : load < 75 ? "c-ylw" : "c-orn",
+      s->ht_occupied, load);
+    fprintf(f,
+      "<tr><td>Max probe chain</td><td>%u</td></tr>\n", s->ht_max_chain);
+    fprintf(f,
+      "<tr><td>Avg displacement</td><td>%.2f</td></tr>\n",
+      s->ht_avg_displacement);
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  /* ── Counter Saturation ── */
+  {
+    unsigned int total_sat =
+      s->sat_lopsided + s->sat_strong + s->sat_balanced + s->sat_mixed;
+
+    fprintf(f,
+      "<div class=\"card\">\n"
+      "<h2><span class=\"icon\">\xe2\x9a\x96</span> Counter Saturation</h2>\n"
+      "<p class=\"desc\">Probability counter balance distribution.</p>\n"
+      "<table><tr><th>Category</th><th class=\"r\">Count</th>"
+      "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
+
+    struct { const char *name; unsigned int count; const char *bcls; } cats[] = {
+      {"Lopsided (one=0)", s->sat_lopsided, "bar-grn"},
+      {"Strong (&gt;4:1)", s->sat_strong, "bar-acc"},
+      {"Balanced (&lt;2:1)", s->sat_balanced, "bar-ylw"},
+      {"Mixed (2:1\xe2\x80\x93" "4:1)", s->sat_mixed, "bar-orn"},
+    };
+    unsigned int max_sat = 0;
+    for (int i = 0; i < 4; i++)
+      if (cats[i].count > max_sat) max_sat = cats[i].count;
+
+    for (int i = 0; i < 4; i++) {
+      if (cats[i].count == 0) continue;
+      double pct = total_sat ? 100.0 * cats[i].count / total_sat : 0;
+      double bar_w = max_sat ? 100.0 * cats[i].count / max_sat : 0;
+      fprintf(f,
+        "<tr><td class=\"n\">%s</td>"
+        "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
+        "<td class=\"bar-cell\">"
+        "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.2\"></div>"
+        "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+        cats[i].name, cats[i].count, pct, cats[i].bcls, bar_w);
+    }
+    fprintf(f, "</table></div>\n\n");
+  }
+
+  fprintf(f, "</div><!-- grid -->\n");
+
+  /* footer */
+  fprintf(f,
+    "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid #2a2f3f;"
+    "font-size:11px;color:#4a5068;text-align:center\">"
+    "Generated by context-mixing arithmetic compressor"
+    "</div>\n");
+
+  fprintf(f, "</div><!-- wrap -->\n</body></html>\n");
   fclose(f);
 }
 
