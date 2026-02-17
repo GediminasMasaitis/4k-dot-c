@@ -1341,9 +1341,29 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  --sans:'DM Sans',system-ui,-apple-system,sans-serif;\n"
     "}\n"
     "*{margin:0;padding:0;box-sizing:border-box}\n"
+    "html{scroll-behavior:smooth}\n"
+    ".card[id]{scroll-margin-top:20px}\n"
     "body{font-family:var(--sans);background:var(--bg);color:var(--fg);"
     "line-height:1.6;-webkit-font-smoothing:antialiased}\n"
-    ".wrap{max-width:1060px;margin:0 auto;padding:24px 28px 64px}\n"
+    ".wrap{max-width:1060px;margin:0 auto;padding:24px 28px 64px 28px;"
+    "margin-left:200px}\n"
+    "\n"
+    "/* ── Sidebar ── */\n"
+    ".sidebar{position:fixed;top:0;left:0;width:184px;height:100vh;"
+    "background:var(--bg2);border-right:1px solid var(--bdr);"
+    "padding:20px 0;overflow-y:auto;z-index:100;"
+    "display:flex;flex-direction:column}\n"
+    ".sidebar .sb-title{font-size:10px;font-weight:600;color:var(--fg3);"
+    "text-transform:uppercase;letter-spacing:1.2px;padding:0 16px;"
+    "margin-bottom:12px}\n"
+    ".sidebar a{display:block;padding:6px 16px 6px 14px;font-size:12px;"
+    "color:var(--fg3);text-decoration:none;border-left:2px solid transparent;"
+    "transition:color .15s,border-color .15s,background .15s;"
+    "line-height:1.4}\n"
+    ".sidebar a:hover{color:var(--fg2);background:rgba(255,255,255,.02)}\n"
+    ".sidebar a.active{color:var(--acc);border-left-color:var(--acc);"
+    "background:rgba(34,211,238,.04)}\n"
+    "@media(max-width:900px){.sidebar{display:none}.wrap{margin-left:0}}\n"
     "\n"
     "/* ── Hero ── */\n"
     ".hero{display:flex;align-items:center;gap:40px;padding:40px 0 36px;"
@@ -1429,6 +1449,20 @@ static void write_html_report(const char *path, const CompStats *s) {
     "font-family:var(--sans)}\n"
     ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
     "</style></head><body>\n"
+    "<nav class=\"sidebar\" id=\"sidebar\">\n"
+    "<div class=\"sb-title\">Sections</div>\n"
+    "<a href=\"#sec-params\">Parameters</a>\n"
+    "<a href=\"#sec-output\">Output Breakdown</a>\n"
+    "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
+    "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
+    "<a href=\"#sec-cost\">Cost Over Position</a>\n"
+    "<a href=\"#sec-search\">Search Trajectory</a>\n"
+    "<a href=\"#sec-models\">Model Statistics</a>\n"
+    "<a href=\"#sec-conf\">Pred. Confidence</a>\n"
+    "<a href=\"#sec-bytepos\">Byte Position</a>\n"
+    "<a href=\"#sec-hash\">Hash Table</a>\n"
+    "<a href=\"#sec-sat\">Counter Saturation</a>\n"
+    "</nav>\n"
     "<div class=\"wrap\">\n",
     s->input_file);
 
@@ -1490,7 +1524,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
   /* ── Summary card ── */
   fprintf(f,
-    "<div class=\"card\">\n"
+    "<div class=\"card\" id=\"sec-params\">\n"
     "<h2>Parameters</h2>\n"
     "<p class=\"desc\">Compression settings and entropy metrics.</p>\n"
     "<table class=\"kv\">\n");
@@ -1538,7 +1572,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     float f_pad = padding_bits / 8.0f / total * 100;
 
     fprintf(f,
-      "<div class=\"card\">\n"
+      "<div class=\"card\" id=\"sec-output\">\n"
       "<h2>Output Breakdown</h2>\n"
       "<p class=\"desc\">Where the compressed bytes go.</p>\n");
 
@@ -1612,7 +1646,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     int svg_h = hdr + grid + 4;
 
     fprintf(f,
-      "<div class=\"card full\">\n"
+      "<div class=\"card full\" id=\"sec-bytefreq\">\n"
       "<h2>Byte Frequency</h2>\n"
       "<p class=\"desc\">16&times;16 grid of all 256 byte values. "
       "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
@@ -1706,7 +1740,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     int svg_h = rows * stride - cg + 2;
 
     fprintf(f,
-      "<div class=\"card full\">\n"
+      "<div class=\"card full\" id=\"sec-cmap\">\n"
       "<h2>Compressibility Map</h2>\n"
       "<p class=\"desc\">Each cell = one byte. "
       "<span style=\"color:#34d399\">\xe2\x96\x88</span> green = "
@@ -1818,7 +1852,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     int plot_h = svg_h - pad_t - pad_b;
 
     fprintf(f,
-      "<div class=\"card full\">\n"
+      "<div class=\"card full\" id=\"sec-cost\">\n"
       "<h2>Cost Over File Position</h2>\n"
       "<p class=\"desc\">Rolling avg encoding cost (bits/byte). "
       "Window = %d bytes. H\xe2\x82\x80 = %.2f.</p>\n", win, s->entropy);
@@ -1944,7 +1978,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 #define CLAMP(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
 
     fprintf(f,
-      "<div class=\"card full\">\n"
+      "<div class=\"card full\" id=\"sec-search\">\n"
       "<h2>Model Search Trajectory</h2>\n"
       "<p class=\"desc\">Best estimated size (log-log) over 256 context masks. "
       "<span style=\"color:#34d399\">\xe2\x97\x8f</span> addition, "
@@ -2084,7 +2118,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     }
 
     fprintf(f,
-      "<div class=\"card full\">\n"
+      "<div class=\"card full\" id=\"sec-models\">\n"
       "<h2>Per-Model Statistics</h2>\n"
       "<p class=\"desc\">Sorted by contribution. Positive bits saved = model helped.</p>\n"
       "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
@@ -2151,7 +2185,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "65-70%%", "70-75%%", "75-80%%", "80-85%%", "85-90%%", "90-95%%", "95-100%%"};
 
     fprintf(f,
-      "<div class=\"card\">\n"
+      "<div class=\"card\" id=\"sec-conf\">\n"
       "<h2>Prediction Confidence</h2>\n"
       "<p class=\"desc\">Confidence distribution when encoding each bit.</p>\n"
       "<table><tr><th>Range</th><th class=\"r\">Bits</th>"
@@ -2187,7 +2221,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     }
 
     fprintf(f,
-      "<div class=\"card\">\n"
+      "<div class=\"card\" id=\"sec-bytepos\">\n"
       "<h2>Byte Position Analysis</h2>\n"
       "<p class=\"desc\">Average encoding cost per bit position within each byte.</p>\n"
       "<table><tr><th>Bit</th><th class=\"r\">Count</th>"
@@ -2220,7 +2254,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     double load = s->ht_size ? 100.0 * s->ht_occupied / s->ht_size : 0;
 
     fprintf(f,
-      "<div class=\"card\">\n"
+      "<div class=\"card\" id=\"sec-hash\">\n"
       "<h2>Hash Table</h2>\n"
       "<p class=\"desc\">Context hash table occupancy and probe stats.</p>\n"
       "<table class=\"kv\">\n");
@@ -2243,7 +2277,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       s->sat_lopsided + s->sat_strong + s->sat_balanced + s->sat_mixed;
 
     fprintf(f,
-      "<div class=\"card\">\n"
+      "<div class=\"card\" id=\"sec-sat\">\n"
       "<h2>Counter Saturation</h2>\n"
       "<p class=\"desc\">Probability counter balance distribution.</p>\n"
       "<table><tr><th>Category</th><th class=\"r\">Count</th>"
@@ -2283,7 +2317,30 @@ static void write_html_report(const char *path, const CompStats *s) {
     "Generated by context-mixing arithmetic compressor"
     "</div>\n");
 
-  fprintf(f, "</div><!-- wrap -->\n</body></html>\n");
+  fprintf(f, "</div><!-- wrap -->\n"
+    "<script>\n"
+    "(function(){\n"
+    "  var links=document.querySelectorAll('#sidebar a');\n"
+    "  var sections=[];\n"
+    "  links.forEach(function(a){\n"
+    "    var id=a.getAttribute('href').slice(1);\n"
+    "    var el=document.getElementById(id);\n"
+    "    if(el) sections.push({el:el,link:a});\n"
+    "  });\n"
+    "  function update(){\n"
+    "    var scrollY=window.scrollY||window.pageYOffset;\n"
+    "    var current=null;\n"
+    "    for(var i=0;i<sections.length;i++){\n"
+    "      if(sections[i].el.offsetTop<=scrollY+80) current=i;\n"
+    "    }\n"
+    "    links.forEach(function(a){a.classList.remove('active')});\n"
+    "    if(current!==null) sections[current].link.classList.add('active');\n"
+    "  }\n"
+    "  window.addEventListener('scroll',update,{passive:true});\n"
+    "  update();\n"
+    "})();\n"
+    "</script>\n"
+    "</body></html>\n");
   fclose(f);
 }
 
