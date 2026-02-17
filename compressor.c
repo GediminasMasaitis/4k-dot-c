@@ -142,6 +142,10 @@ typedef struct {
   unsigned int sat_balanced;
   unsigned int sat_mixed;
 
+  double entropy;    /* Shannon H0 in bits/byte */
+  float *byte_costs; /* cost per data byte during encoding */
+  int num_data_bytes;
+
   int valid;
 } CompStats;
 
@@ -728,6 +732,12 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
 
   HashEntry *matched[MAX_SEARCH];
   int hpos = 0;
+  /* per-byte cost tracking for position curve */
+  int num_data_bytes = (total_bits > 1) ? (total_bits - 1 + 7) / 8 : 0;
+  float *byte_costs = NULL;
+  if (stats && num_data_bytes > 0) {
+    byte_costs = (float *)calloc(num_data_bytes, sizeof(float));
+  }
   for (int bp = 0; bp < total_bits; bp++) {
     int bit = hb->bits[bp];
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
@@ -762,6 +772,11 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
       int bpos = bp & 7;
       bytepos_count[bpos]++;
       bytepos_cost[bpos] += bit_cost;
+      if (byte_costs && bp > 0) {
+        int byte_idx = (bp - 1) / 8;
+        if (byte_idx < num_data_bytes)
+          byte_costs[byte_idx] += bit_cost;
+      }
     }
     arith_encode(ac, probs[1], probs[0], 1 - bit);
     if (collect && ac->range < min_range)
@@ -903,7 +918,11 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
     }
     stats->ht_avg_displacement =
         stats->ht_occupied ? (double)total_disp / stats->ht_occupied : 0.0;
+    stats->byte_costs = byte_costs;
+    stats->num_data_bytes = num_data_bytes;
     stats->valid = 1;
+  } else {
+    free(byte_costs);
   }
 }
 
@@ -1317,6 +1336,35 @@ static void write_html_report(const char *path, const CompStats *s) {
           "<tr><td class=\"n\">Estimated (pre-encode)</td>"
           "<td class=\"r\">%.3f bytes</td></tr>\n",
           s->estimated_bytes);
+  float actual_bpb =
+      s->input_size > 0 ? (float)s->total_bytes * 8.0f / s->input_size : 0;
+  float est_delta = (float)s->total_bytes - s->estimated_bytes;
+  float est_delta_pct =
+      s->estimated_bytes > 0 ? 100.0f * est_delta / s->estimated_bytes : 0;
+  fprintf(f,
+          "<tr><td class=\"n\">Estimator delta</td>"
+          "<td class=\"r %s\">%+.1f bytes (%+.1f%%)</td></tr>\n",
+          (est_delta < 2 && est_delta > -2)   ? "G"
+          : (est_delta < 5 && est_delta > -5) ? "M"
+                                              : "D",
+          est_delta, est_delta_pct);
+  fprintf(f,
+          "<tr><td class=\"n\">Shannon H\xe2\x82\x80</td>"
+          "<td class=\"r\">%.3f bits/byte</td></tr>\n",
+          s->entropy);
+  fprintf(f,
+          "<tr><td class=\"n\">Actual (incl. header)</td>"
+          "<td class=\"r %s\">%.3f bits/byte</td></tr>\n",
+          actual_bpb < s->entropy         ? "B"
+          : actual_bpb < s->entropy * 1.1 ? "G"
+          : actual_bpb < s->entropy * 1.3 ? "M"
+                                          : "D",
+          actual_bpb);
+  float context_gain = (float)s->entropy - actual_bpb;
+  fprintf(f,
+          "<tr><td class=\"n\">Context gain over H\xe2\x82\x80</td>"
+          "<td class=\"r %s\">%+.3f bits/byte</td></tr>\n",
+          context_gain > 0 ? "B" : "W", context_gain);
   fprintf(f,
           "<tr><td class=\"n\">Models</td>"
           "<td class=\"r\">%s</td></tr>\n",
@@ -1330,6 +1378,137 @@ static void write_html_report(const char *path, const CompStats *s) {
           "<td class=\"r\">0x%08X</td></tr>\n",
           s->min_range);
   fprintf(f, "</table></div>\n");
+
+  /* ── Cost Over File Position ── */
+  if (s->byte_costs && s->num_data_bytes > 1) {
+    int nb = s->num_data_bytes;
+    /* compute rolling average with adaptive window */
+    int win = nb / 64;
+    if (win < 4)
+      win = 4;
+    if (win > 64)
+      win = 64;
+    int npts = nb - win + 1;
+    if (npts < 2)
+      npts = 2;
+    float *rolling = (float *)malloc(npts * sizeof(float));
+    float rmin = 1e9f, rmax = -1e9f;
+    for (int i = 0; i < npts; i++) {
+      float sum = 0;
+      int end = i + win;
+      if (end > nb)
+        end = nb;
+      for (int j = i; j < end; j++)
+        sum += s->byte_costs[j];
+      rolling[i] = sum / (end - i);
+      if (rolling[i] < rmin)
+        rmin = rolling[i];
+      if (rolling[i] > rmax)
+        rmax = rolling[i];
+    }
+    if (rmax <= rmin)
+      rmax = rmin + 1;
+
+    int svg_w = 820, svg_h = 140;
+    int pad_l = 40, pad_r = 10, pad_t = 10, pad_b = 25;
+    int plot_w = svg_w - pad_l - pad_r;
+    int plot_h = svg_h - pad_t - pad_b;
+
+    fprintf(f,
+            "<div class=\"sec\"><h2>Cost Over File Position</h2>\n"
+            "<p class=\"d\">Rolling average encoding cost (bits/byte) across "
+            "the input. "
+            "Window = %d bytes. Lower is better. "
+            "H\xe2\x82\x80 = %.2f shown as reference.</p>\n",
+            win, s->entropy);
+    fprintf(f,
+            "<svg width=\"%d\" height=\"%d\" "
+            "style=\"font-family:'Segoe UI',system-ui,sans-serif;display:block;"
+            "margin-bottom:8px\">\n",
+            svg_w, svg_h);
+
+    /* background */
+    fprintf(f,
+            "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+            "fill=\"#f6f8fa\" rx=\"3\"/>\n",
+            pad_l, pad_t, plot_w, plot_h);
+
+    /* y-axis gridlines + labels */
+    int nyticks = 4;
+    for (int i = 0; i <= nyticks; i++) {
+      float val = rmin + (rmax - rmin) * (nyticks - i) / nyticks;
+      int y = pad_t + plot_h * i / nyticks;
+      fprintf(f,
+              "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+              "stroke=\"#d0d7de\" stroke-width=\"0.5\"/>\n",
+              pad_l, y, pad_l + plot_w, y);
+      fprintf(f,
+              "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+              "font-size=\"9\" fill=\"#656d76\">%.1f</text>\n",
+              pad_l - 4, y + 3, val);
+    }
+
+    /* H0 reference line */
+    if (s->entropy >= rmin && s->entropy <= rmax) {
+      int h0y = pad_t + (int)(plot_h * (rmax - s->entropy) / (rmax - rmin));
+      fprintf(
+          f,
+          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+          "stroke=\"#cf222e\" stroke-width=\"1\" stroke-dasharray=\"4,3\"/>\n",
+          pad_l, h0y, pad_l + plot_w, h0y);
+      fprintf(f,
+              "<text x=\"%d\" y=\"%d\" font-size=\"9\" "
+              "fill=\"#cf222e\">H\xe2\x82\x80</text>\n",
+              pad_l + plot_w + 2, h0y + 3);
+    }
+
+    /* 8.0 reference line (uncompressible) */
+    if (8.0 >= rmin && 8.0 <= rmax) {
+      int y8 = pad_t + (int)(plot_h * (rmax - 8.0) / (rmax - rmin));
+      fprintf(f,
+              "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+              "stroke=\"#656d76\" stroke-width=\"0.5\" "
+              "stroke-dasharray=\"2,3\"/>\n",
+              pad_l, y8, pad_l + plot_w, y8);
+      fprintf(f,
+              "<text x=\"%d\" y=\"%d\" font-size=\"8\" "
+              "fill=\"#656d76\">8.0</text>\n",
+              pad_l + plot_w + 2, y8 + 3);
+    }
+
+    /* area fill */
+    fprintf(f, "<path d=\"M%d,%d ", pad_l, pad_t + plot_h);
+    for (int i = 0; i < npts; i++) {
+      int x = pad_l + (int)((long)i * plot_w / (npts - 1));
+      int y = pad_t + (int)(plot_h * (rmax - rolling[i]) / (rmax - rmin));
+      fprintf(f, "L%d,%d ", x, y);
+    }
+    fprintf(f, "L%d,%d Z\" fill=\"#0969da\" opacity=\"0.08\"/>\n",
+            pad_l + plot_w, pad_t + plot_h);
+
+    /* line */
+    fprintf(f, "<path d=\"");
+    for (int i = 0; i < npts; i++) {
+      int x = pad_l + (int)((long)i * plot_w / (npts - 1));
+      int y = pad_t + (int)(plot_h * (rmax - rolling[i]) / (rmax - rmin));
+      fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
+    }
+    fprintf(f, "\" fill=\"none\" stroke=\"#0969da\" stroke-width=\"1.5\"/>\n");
+
+    /* x-axis labels */
+    int nxticks = 4;
+    for (int i = 0; i <= nxticks; i++) {
+      int x = pad_l + plot_w * i / nxticks;
+      int byte_pos = (int)((long)i * (nb - 1) / nxticks);
+      fprintf(f,
+              "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+              "font-size=\"9\" fill=\"#656d76\">%d</text>\n",
+              x, svg_h - 3, byte_pos);
+    }
+
+    fprintf(f, "</svg></div>\n");
+    free(rolling);
+  }
 
   /* ── Per-Model Statistics ── */
   /* sort by bits saved descending */
@@ -1877,8 +2056,23 @@ int main(int argc, char *argv[]) {
     cstats.total_bytes = total_bytes;
     cstats.estimated_bytes = est_size / (float)(BIT_PREC * 8);
     model_set_sprint(&ml, cstats.model_string, sizeof(cstats.model_string));
+
+    /* compute Shannon H0 entropy */
+    unsigned int freq[256] = {};
+    for (int i = 0; i < data_size; i++)
+      freq[data[i]]++;
+    double h0 = 0;
+    for (int i = 0; i < 256; i++) {
+      if (freq[i] > 0) {
+        double p = (double)freq[i] / data_size;
+        h0 -= p * fast_log2f((float)p);
+      }
+    }
+    cstats.entropy = h0;
+
     write_html_report(html_output, &cstats);
     printf("HTML report: %s\n", html_output);
+    free(cstats.byte_costs);
   }
 
   free(out_buf);
