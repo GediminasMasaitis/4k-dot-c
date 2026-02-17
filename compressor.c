@@ -1679,18 +1679,44 @@ static void write_html_report(const char *path, const CompStats *s) {
     int svg_w = cols * stride - gap + 2;
     int svg_h = rows * stride - gap + 2;
 
+    fprintf(f,
+            "<div class=\"sec\"><h2>Compressibility Map</h2>\n"
+            "<p class=\"d\">Each cell = one byte of input. "
+            "<span style=\"color:#1a7f37\">\xe2\x96\x88</span> green = "
+            "highly compressible (low cost), "
+            "<span style=\"color:#cf222e\">\xe2\x96\x88</span> red = "
+            "hard to compress (high cost). "
+            "%d bytes, %d&times;%d grid.</p>\n",
+            nb, cols, rows);
+
+    /* slider control */
     fprintf(
         f,
-        "<div class=\"sec\"><h2>Compressibility Map</h2>\n"
-        "<p class=\"d\">Each cell = one byte of input. "
-        "<span style=\"color:#1a7f37\">\xe2\x96\x88</span> green = "
-        "highly compressible (low cost), "
-        "<span style=\"color:#cf222e\">\xe2\x96\x88</span> red = "
-        "hard to compress (high cost). "
-        "%d bytes, %d&times;%d grid, %.1f&ndash;%.1f bits/byte range.</p>\n",
-        nb, cols, rows, cmin, cmax);
+        "<div style=\"display:flex;align-items:center;gap:10px;"
+        "margin:6px 0 8px;font-size:13px;color:#656d76\">"
+        "<span>Scale max:</span>"
+        "<input type=\"range\" id=\"cmap-slider\" min=\"1\" max=\"%.0f\" "
+        "value=\"%.0f\" step=\"0.5\" "
+        "style=\"width:200px;accent-color:#0969da\">"
+        "<span id=\"cmap-val\" style=\"font-variant-numeric:tabular-nums;"
+        "min-width:80px\">%.1f bits</span>"
+        "<button onclick=\"document.getElementById('cmap-slider').value=8;"
+        "document.getElementById('cmap-slider').dispatchEvent("
+        "new Event('input'))\" "
+        "style=\"font-size:11px;padding:2px 8px;border:1px solid #d0d7de;"
+        "border-radius:4px;background:#f6f8fa;cursor:pointer\">"
+        "8.0 (H\xe2\x82\x80 max)</button>"
+        "<button onclick=\"document.getElementById('cmap-slider').value=%.0f;"
+        "document.getElementById('cmap-slider').dispatchEvent("
+        "new Event('input'))\" "
+        "style=\"font-size:11px;padding:2px 8px;border:1px solid #d0d7de;"
+        "border-radius:4px;background:#f6f8fa;cursor:pointer\">"
+        "Auto (%.1f)</button>"
+        "</div>\n",
+        cmax + 1, cmax, cmax, cmax, cmax);
+
     fprintf(f,
-            "<svg width=\"%d\" height=\"%d\" "
+            "<svg id=\"cmap-svg\" width=\"%d\" height=\"%d\" "
             "style=\"display:block;margin-bottom:8px\">\n",
             svg_w, svg_h);
 
@@ -1701,43 +1727,66 @@ static void write_html_report(const char *path, const CompStats *s) {
       int y = 1 + row * stride;
 
       float cost = s->byte_costs[i];
-      /* normalize 0..1 where 0 = most compressible, 1 = least */
-      float t = (cost - cmin) / (cmax - cmin);
+      /* initial color at current max */
+      float t = cost / cmax;
       if (t < 0)
         t = 0;
       if (t > 1)
         t = 1;
-
-      /* color: green (compressible) -> yellow -> red (expensive)
-         green = rgb(34,197,94), yellow = rgb(234,179,8), red = rgb(239,68,68)
-       */
       int cr, cg, cb;
       if (t < 0.5f) {
-        float u = t * 2; /* 0..1 within green->yellow */
+        float u = t * 2;
         cr = (int)(34 + (234 - 34) * u);
         cg = (int)(197 + (179 - 197) * u);
         cb = (int)(94 + (8 - 94) * u);
       } else {
-        float u = (t - 0.5f) * 2; /* 0..1 within yellow->red */
+        float u = (t - 0.5f) * 2;
         cr = (int)(234 + (239 - 234) * u);
         cg = (int)(179 + (68 - 179) * u);
         cb = (int)(8 + (68 - 8) * u);
       }
 
+      unsigned char bval = s->input_data ? s->input_data[i] : 0;
       fprintf(f,
               "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-              "fill=\"rgb(%d,%d,%d)\"",
-              x, y, cell, cell, cr, cg, cb);
-
-      /* tooltip: offset, byte value, char, cost */
-      unsigned char bval = s->input_data ? s->input_data[i] : 0;
+              "fill=\"rgb(%d,%d,%d)\" data-c=\"%.2f\"",
+              x, y, cell, cell, cr, cg, cb, cost);
       fprintf(f, "><title>%d: 0x%02X", i, bval);
       if (bval >= 0x20 && bval <= 0x7E)
         fprintf(f, " '%c'", bval);
       fprintf(f, " (%.2f bits)</title></rect>\n", cost);
     }
 
-    fprintf(f, "</svg></div>\n");
+    fprintf(f, "</svg>\n");
+
+    /* inline JS for slider */
+    fprintf(f,
+            "<script>\n"
+            "(function(){\n"
+            "  var sl=document.getElementById('cmap-slider');\n"
+            "  var lbl=document.getElementById('cmap-val');\n"
+            "  var rects=document.querySelectorAll('#cmap-svg rect[data-c]');\n"
+            "  sl.addEventListener('input',function(){\n"
+            "    var mx=parseFloat(sl.value);\n"
+            "    lbl.textContent=mx.toFixed(1)+' bits';\n"
+            "    for(var i=0;i<rects.length;i++){\n"
+            "      var c=parseFloat(rects[i].getAttribute('data-c'));\n"
+            "      var t=c/mx; if(t<0)t=0; if(t>1)t=1;\n"
+            "      var r,g,b;\n"
+            "      if(t<0.5){var u=t*2;\n"
+            "        r=34+(234-34)*u;g=197+(179-197)*u;b=94+(8-94)*u;\n"
+            "      }else{var u=(t-0.5)*2;\n"
+            "        r=234+(239-234)*u;g=179+(68-179)*u;b=8+(68-8)*u;\n"
+            "      }\n"
+            "      rects[i].setAttribute('fill',\n"
+            "        "
+            "'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')');\n"
+            "    }\n"
+            "  });\n"
+            "})();\n"
+            "</script>\n");
+
+    fprintf(f, "</div>\n");
   }
 
   /* ── Cost Over File Position ── */
