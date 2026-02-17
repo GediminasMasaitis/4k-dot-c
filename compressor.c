@@ -1462,25 +1462,25 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
     "\n"
     "/* ── Inspect panel ── */\n"
-    "#cmap-detail,#attr-detail{display:none;margin-top:14px;padding:14px 18px;"
+    "#cmap-detail,#attr-detail,#bfreq-detail{display:none;margin-top:14px;padding:14px 18px;"
     "background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;"
     "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
-    "#cmap-detail .cd-head,#attr-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
+    "#cmap-detail .cd-head,#attr-detail .cd-head,#bfreq-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
     "margin-bottom:10px}\n"
-    "#cmap-detail .cd-byte,#attr-detail .cd-byte{font-family:var(--mono);font-size:18px;"
+    "#cmap-detail .cd-byte,#attr-detail .cd-byte,#bfreq-detail .cd-byte{font-family:var(--mono);font-size:18px;"
     "font-weight:600;color:var(--fg)}\n"
-    "#cmap-detail .cd-sub,#attr-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
-    "#cmap-detail .cd-cost,#attr-detail .cd-cost{font-family:var(--mono);font-size:14px;"
+    "#cmap-detail .cd-sub,#attr-detail .cd-sub,#bfreq-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
+    "#cmap-detail .cd-cost,#attr-detail .cd-cost,#bfreq-detail .cd-cost{font-family:var(--mono);font-size:14px;"
     "font-weight:600}\n"
-    "#cmap-detail .cd-bar,#attr-detail .cd-bar{display:flex;align-items:center;gap:8px;"
+    "#cmap-detail .cd-bar,#attr-detail .cd-bar,#bfreq-detail .cd-bar{display:flex;align-items:center;gap:8px;"
     "margin:3px 0;font-size:11px}\n"
-    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
+    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl,#bfreq-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
     "color:var(--fg3);flex-shrink:0}\n"
-    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
+    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track,#bfreq-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
     "border-radius:3px;position:relative;overflow:hidden}\n"
-    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill{height:100%%;border-radius:3px;"
+    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill,#bfreq-detail .cd-bar-fill{height:100%%;border-radius:3px;"
     "position:absolute;left:0;top:0;transition:width .2s}\n"
-    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val{font-family:var(--mono);width:70px;"
+    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val,#bfreq-detail .cd-bar-val{font-family:var(--mono);width:70px;"
     "text-align:right;flex-shrink:0}\n"
     ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
     "</style></head><body>\n"
@@ -1688,7 +1688,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
       nunique, fmax);
     fprintf(f,
-      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "<svg id=\"bfreq-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"font-family:var(--mono);display:block\">\n",
       svg_w, svg_h);
 
@@ -1731,9 +1731,9 @@ static void write_html_report(const char *path, const CompStats *s) {
 
         fprintf(f,
           "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-          "rx=\"2\" fill=\"rgb(%d,%d,%d)\">"
+          "rx=\"2\" fill=\"rgb(%d,%d,%d)\" data-b=\"%d\" style=\"cursor:pointer\">"
           "<title>0x%02X",
-          x, y, cell, cell, cr, cg, cb, byte_val);
+          x, y, cell, cell, cr, cg, cb, byte_val, byte_val);
         if (byte_val >= 0x20 && byte_val <= 0x7E)
           fprintf(f, " '%c'", byte_val);
         fprintf(f, ": %u (%.1f%%)</title></rect>\n", freq,
@@ -1749,7 +1749,82 @@ static void write_html_report(const char *path, const CompStats *s) {
         }
       }
     }
-    fprintf(f, "</svg></div>\n\n");
+    fprintf(f, "</svg>\n");
+
+    /* ── Detail panel ── */
+    fprintf(f, "<div id=\"bfreq-detail\"></div>\n");
+
+    /* ── Emit frequency data + click handler ── */
+    fprintf(f, "<script>\nvar BF=[");
+    for (int i = 0; i < 256; i++)
+      fprintf(f, "%s%u", i ? "," : "", s->byte_freq[i]);
+    fprintf(f, "];\n");
+    fprintf(f, "var BF_TOTAL=%d;\n", s->input_size);
+
+    fprintf(f,
+      "(function(){\n"
+      "var panel=document.getElementById('bfreq-detail');\n"
+      "var selRect=null;\n"
+      "document.getElementById('bfreq-svg').addEventListener('click',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect') return;\n"
+      "  var bv=r.getAttribute('data-b'); if(bv===null) return;\n"
+      "  bv=parseInt(bv);\n"
+      "  if(selRect) selRect.classList.remove('cmap-sel');\n"
+      "  r.classList.add('cmap-sel'); selRect=r;\n"
+      "  var freq=BF[bv];\n"
+      "  var pct=BF_TOTAL>0?(100*freq/BF_TOTAL):0;\n"
+      "  var ch=(bv>=0x20&&bv<=0x7E)?String.fromCharCode(bv):null;\n"
+      "  var selfInfo=freq>0?-Math.log2(freq/BF_TOTAL):0;\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\">0x'+(bv<16?'0':'')+bv.toString(16).toUpperCase();\n"
+      "  if(ch) h+=\" '\"+ch+\"'\";\n"
+      "  h+='</span>';\n"
+      "  h+='<span class=\"cd-sub\">decimal '+bv+'</span>';\n"
+      "  h+='</div>';\n"
+      /* stats table */
+      "  h+='<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px;"
+      "margin:10px 0;font-size:12px\">';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Count</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+freq+'</span></div>';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Frequency</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+pct.toFixed(2)+'%%</span></div>';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Self-information</span><br>'"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;color:var(--acc)\">'+(freq>0?selfInfo.toFixed(2):'\\u221e')+' bits</span></div>';\n"
+      "  h+='</div>';\n"
+      /* avg encoding cost from BD */
+      "  if(typeof BD!=='undefined' && BD.length>0){\n"
+      "    var hex=(bv<16?'0':'')+bv.toString(16).toUpperCase();\n"
+      "    var sum=0,cnt=0,offsets=[];\n"
+      "    for(var i=0;i<BD.length;i++){\n"
+      "      if(BD[i].h===hex){sum+=BD[i].c;cnt++;if(offsets.length<12)offsets.push(BD[i].o);}\n"
+      "    }\n"
+      "    if(cnt>0){\n"
+      "      var avg=sum/cnt;\n"
+      "      var avgClr=avg<3?'#34d399':avg<6?'#fbbf24':'#f87171';\n"
+      "      h+='<div style=\"margin:6px 0;font-size:12px\">';\n"
+      "      h+='<span style=\"color:var(--fg3)\">Avg encoding cost: </span>';\n"
+      "      h+='<span style=\"font-family:var(--mono);font-weight:600;color:'+avgClr+'\">'+avg.toFixed(2)+' bits/byte</span>';\n"
+      "      h+=' <span style=\"color:var(--fg3)\">('+selfInfo.toFixed(2)+' H\\u2080)</span>';\n"
+      "      h+='</div>';\n"
+      "      if(offsets.length>0){\n"
+      "        h+='<div style=\"margin-top:6px;font-size:11px;color:var(--fg3)\">Offsets: ';\n"
+      "        h+='<span style=\"font-family:var(--mono);color:var(--fg2)\">';\n"
+      "        for(var j=0;j<offsets.length;j++){\n"
+      "          if(j>0) h+=', ';\n"
+      "          h+=offsets[j];\n"
+      "        }\n"
+      "        if(cnt>offsets.length) h+=', \\u2026 ('+(cnt-offsets.length)+' more)';\n"
+      "        h+='</span></div>';\n"
+      "      }\n"
+      "    }\n"
+      "  }\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n"
+      "})();\n");
+
+    fprintf(f, "</script>\n");
+    fprintf(f, "</div>\n\n");
   }
 
   /* ── Compressibility Map ── */
