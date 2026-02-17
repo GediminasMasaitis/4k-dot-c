@@ -1544,7 +1544,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     int bar_w = 460;
     fprintf(f,
-      "<svg width=\"%d\" height=\"54\" "
+      "<svg width=\"100%%\" viewBox=\"0 0 %d 54\" "
       "style=\"display:block;margin-bottom:10px;overflow:visible\">\n",
       bar_w + 4);
 
@@ -1618,7 +1618,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
       nunique, fmax);
     fprintf(f,
-      "<svg width=\"%d\" height=\"%d\" "
+      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"font-family:var(--mono);display:block\">\n",
       svg_w, svg_h);
 
@@ -1732,7 +1732,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       cmax + 1, cmax, cmax, cmax, cmax);
 
     fprintf(f,
-      "<svg id=\"cmap-svg\" width=\"%d\" height=\"%d\" "
+      "<svg id=\"cmap-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"display:block\">\n", svg_w, svg_h);
 
     for (int i = 0; i < nb; i++) {
