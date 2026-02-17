@@ -103,6 +103,50 @@ typedef struct CompState {
   Evaluator *eval;
 } CompState;
 
+typedef struct {
+  char input_file[512];
+  int input_size;
+  int level;
+  int base_prob;
+
+  int compressed_bits;
+  int header_bytes;
+  int total_bytes;
+  float estimated_bytes;
+
+  int num_models;
+  unsigned char model_masks[MAX_SEARCH];
+  int model_weights[MAX_SEARCH];
+  char model_string[512];
+
+  unsigned int model_hits[MAX_SEARCH];
+  unsigned int model_misses[MAX_SEARCH];
+  double model_bits_saved[MAX_SEARCH];
+
+  unsigned int conf_hist[11];
+  int total_bits;
+
+  unsigned int bytepos_count[8];
+  double bytepos_cost[8];
+  double total_cost;
+
+  unsigned int min_range;
+
+  unsigned int ht_occupied;
+  unsigned int ht_size;
+  unsigned int ht_max_chain;
+  double ht_avg_displacement;
+
+  unsigned int sat_lopsided;
+  unsigned int sat_strong;
+  unsigned int sat_balanced;
+  unsigned int sat_mixed;
+
+  int valid;
+} CompStats;
+
+static const char *html_output = NULL;
+
 static inline v4f v4f_splat(float x) { return (v4f){x, x, x, x}; }
 static inline v4u v4u_splat(uint32_t x) { return (v4u){x, x, x, x}; }
 
@@ -665,12 +709,13 @@ static void print_hash_table_stats(const HashEntry *ht,
 }
 
 static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
-                               HashEntry *ht, int base_prob,
-                               const ModelSet *ml) {
+                               HashEntry *ht, int base_prob, const ModelSet *ml,
+                               CompStats *stats) {
   int num = hb->num_weights;
   int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
   unsigned int tmask = hb->table_size - 1;
   memset(ht, 0, hb->table_size * sizeof(HashEntry));
+  int collect = verbose || (stats != NULL);
 
   unsigned int model_hits[MAX_SEARCH] = {};
   unsigned int model_misses[MAX_SEARCH] = {};
@@ -690,7 +735,7 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
       unsigned int p0_before = probs[0], p1_before = probs[1];
       matched[m] =
           hash_probe(ht, tmask, hb->hashes[hpos++], hb->weights[m], probs);
-      if (verbose) {
+      if (collect) {
         if (matched[m]->prob[0] || matched[m]->prob[1]) {
           model_hits[m]++;
           unsigned int before_correct = bit ? p1_before : p0_before;
@@ -705,7 +750,7 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
         }
       }
     }
-    if (verbose) {
+    if (collect) {
       float conf = (float)probs[bit] / (probs[0] + probs[1]);
       int bucket = (conf < 0.5f) ? 0 : (int)((conf - 0.5f) * 20) + 1;
       if (bucket > 10)
@@ -719,7 +764,7 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
       bytepos_cost[bpos] += bit_cost;
     }
     arith_encode(ac, probs[1], probs[0], 1 - bit);
-    if (verbose && ac->range < min_range)
+    if (collect && ac->range < min_range)
       min_range = ac->range;
     for (int m = 0; m < num; m++)
       counter_update(matched[m]->prob, bit);
@@ -810,10 +855,60 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
     printf("    Mixed (2:1 to 4:1):    %u (%.1f%%)\n", sat_other,
            ht_occupied ? 100.0 * sat_other / ht_occupied : 0.0);
   }
+
+  if (stats) {
+    int snum = num < MAX_SEARCH ? num : MAX_SEARCH;
+    stats->num_models = snum;
+    stats->total_bits = total_bits;
+    stats->total_cost = total_cost;
+    stats->min_range = min_range;
+    memcpy(stats->conf_hist, conf_hist, sizeof(conf_hist));
+    memcpy(stats->bytepos_count, bytepos_count, sizeof(bytepos_count));
+    memcpy(stats->bytepos_cost, bytepos_cost, sizeof(bytepos_cost));
+    for (int m = 0; m < snum; m++) {
+      stats->model_masks[m] = ml->models[m].mask;
+      stats->model_weights[m] = ml->models[m].weight;
+      stats->model_hits[m] = model_hits[m];
+      stats->model_misses[m] = model_misses[m];
+      stats->model_bits_saved[m] = model_bits_saved[m];
+    }
+    /* hash table + saturation stats */
+    stats->ht_size = hb->table_size;
+    stats->ht_occupied = 0;
+    stats->ht_max_chain = 0;
+    stats->sat_lopsided = 0;
+    stats->sat_strong = 0;
+    stats->sat_balanced = 0;
+    stats->sat_mixed = 0;
+    unsigned long total_disp = 0;
+    unsigned int htmask = hb->table_size - 1;
+    for (unsigned int i = 0; i < hb->table_size; i++) {
+      if (ht[i].hash) {
+        stats->ht_occupied++;
+        unsigned int ideal = (ht[i].hash + 1) & htmask;
+        unsigned int disp = (i - ideal) & htmask;
+        if (disp > stats->ht_max_chain)
+          stats->ht_max_chain = disp;
+        total_disp += disp;
+        unsigned int p0 = ht[i].prob[0], p1 = ht[i].prob[1];
+        if (p0 == 0 || p1 == 0)
+          stats->sat_lopsided++;
+        else if (p0 > p1 * 4 || p1 > p0 * 4)
+          stats->sat_strong++;
+        else if (p0 <= p1 * 2 && p1 <= p0 * 2)
+          stats->sat_balanced++;
+        else
+          stats->sat_mixed++;
+      }
+    }
+    stats->ht_avg_displacement =
+        stats->ht_occupied ? (double)total_disp / stats->ht_occupied : 0.0;
+    stats->valid = 1;
+  }
 }
 
 static int compress_4k(const unsigned char *data, int size, unsigned char *out,
-                       const ModelSet *ml, int base_prob) {
+                       const ModelSet *ml, int base_prob, CompStats *stats) {
   unsigned char ctx[MAX_CTX] = {};
   HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
   if (verbose) {
@@ -824,7 +919,7 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
   HashEntry *ht = (HashEntry *)calloc(hb.table_size, sizeof(HashEntry));
   ArithCoder ac;
   arith_init(&ac, out);
-  encode_from_stream(&ac, &hb, ht, base_prob, ml);
+  encode_from_stream(&ac, &hb, ht, base_prob, ml, stats);
   int total = arith_finish(&ac);
 
   if (verbose)
@@ -1124,6 +1219,346 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   return best;
 }
 
+static void write_html_report(const char *path, const CompStats *s) {
+  FILE *f = fopen(path, "w");
+  if (!f) {
+    fprintf(stderr, "Failed to open HTML output '%s'\n", path);
+    return;
+  }
+
+  double ratio = 100.0 * s->total_bytes / (double)s->input_size;
+
+  fprintf(f,
+          "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">\n"
+          "<title>Compression Report &ndash; %s</title>\n<style>\n"
+          "*{margin:0;padding:0;box-sizing:border-box}\n"
+          "body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;"
+          "color:#1f2328;padding:32px;max-width:960px}\n"
+          "h1{font-size:22px;font-weight:600;margin-bottom:6px}\n"
+          ".sub{color:#656d76;font-size:13px;margin-bottom:28px}\n"
+          ".sec{margin-bottom:36px}\n"
+          ".sec h2{font-size:15px;font-weight:600;margin-bottom:4px}\n"
+          ".sec .d{font-size:12px;color:#656d76;margin-bottom:12px}\n"
+          "table{border-collapse:collapse;width:100%%;font-size:12.5px;"
+          "font-variant-numeric:tabular-nums}\n"
+          "th{background:#f6f8fa;color:#656d76;font-weight:600;"
+          "text-transform:uppercase;font-size:10.5px;letter-spacing:.5px;"
+          "padding:8px 12px;text-align:left;border-bottom:2px solid #d0d7de}\n"
+          "th.r{text-align:right}\n"
+          "td{padding:6px 12px;border-bottom:1px solid #d0d7de}\n"
+          "td.r{text-align:right;font-family:'JetBrains Mono','Cascadia Code',"
+          "'Consolas',monospace;font-size:12px}\n"
+          "td.n{font-weight:500}\n"
+          "tr:hover td{background:#f6f8fa}\n"
+          ".B{color:#1a7f37;font-weight:700}\n"
+          ".G{color:#0969da}\n"
+          ".M{color:#9a6700}\n"
+          ".D{color:#bc4c00}\n"
+          ".W{color:#cf222e}\n"
+          ".kvtbl{max-width:420px}\n"
+          ".kvtbl td:first-child{color:#656d76;font-size:12px}\n"
+          ".bar-cell{position:relative}\n"
+          ".bar{position:absolute;left:0;top:0;bottom:0;opacity:.12;border-"
+          "radius:2px}\n"
+          ".bar-g{background:#1a7f37}.bar-b{background:#0969da}"
+          ".bar-y{background:#9a6700}.bar-o{background:#bc4c00}"
+          ".bar-r{background:#cf222e}\n"
+          ".bar-label{position:relative;z-index:1}\n"
+          "</style></head><body>\n",
+          s->input_file);
+
+  fprintf(f, "<h1>Compression Report</h1>\n");
+  fprintf(f,
+          "<p class=\"sub\">%s &middot; context-mixing arithmetic coder</p>\n",
+          s->input_file);
+
+  /* ── Summary ── */
+  fprintf(f, "<div class=\"sec\"><h2>Summary</h2>\n"
+             "<p class=\"d\">Compression parameters and results.</p>\n"
+             "<table class=\"kvtbl\"><tr><th>Parameter</th><th "
+             "class=\"r\">Value</th></tr>\n");
+  fprintf(f,
+          "<tr><td class=\"n\">Input file</td>"
+          "<td class=\"r\">%s</td></tr>\n",
+          s->input_file);
+  fprintf(f,
+          "<tr><td class=\"n\">Input size</td>"
+          "<td class=\"r\">%d bytes</td></tr>\n",
+          s->input_size);
+  fprintf(f,
+          "<tr><td class=\"n\">Compressed size</td>"
+          "<td class=\"r\">%d bytes</td></tr>\n",
+          s->total_bytes);
+  fprintf(f,
+          "<tr><td class=\"n\">Ratio</td>"
+          "<td class=\"r %s\">%.2f%%</td></tr>\n",
+          ratio < 50    ? "B"
+          : ratio < 75  ? "G"
+          : ratio < 100 ? "M"
+                        : "W",
+          ratio);
+  fprintf(f,
+          "<tr><td class=\"n\">Compressed bits</td>"
+          "<td class=\"r\">%d</td></tr>\n",
+          s->compressed_bits);
+  fprintf(f,
+          "<tr><td class=\"n\">Header</td>"
+          "<td class=\"r\">%d bytes</td></tr>\n",
+          s->header_bytes);
+  fprintf(f,
+          "<tr><td class=\"n\">Level</td>"
+          "<td class=\"r\">%d</td></tr>\n",
+          s->level);
+  fprintf(f,
+          "<tr><td class=\"n\">Base probability</td>"
+          "<td class=\"r\">%d</td></tr>\n",
+          s->base_prob);
+  fprintf(f,
+          "<tr><td class=\"n\">Estimated (pre-encode)</td>"
+          "<td class=\"r\">%.3f bytes</td></tr>\n",
+          s->estimated_bytes);
+  fprintf(f,
+          "<tr><td class=\"n\">Models</td>"
+          "<td class=\"r\">%s</td></tr>\n",
+          s->model_string);
+  fprintf(f,
+          "<tr><td class=\"n\">Prediction cost</td>"
+          "<td class=\"r\">%.1f bits (%.1f bytes)</td></tr>\n",
+          s->total_cost, s->total_cost / 8.0);
+  fprintf(f,
+          "<tr><td class=\"n\">Arith coder min range</td>"
+          "<td class=\"r\">0x%08X</td></tr>\n",
+          s->min_range);
+  fprintf(f, "</table></div>\n");
+
+  /* ── Per-Model Statistics ── */
+  /* sort by bits saved descending */
+  int order[MAX_SEARCH];
+  for (int m = 0; m < s->num_models; m++)
+    order[m] = m;
+  for (int i = 0; i < s->num_models - 1; i++)
+    for (int j = i + 1; j < s->num_models; j++)
+      if (s->model_bits_saved[order[i]] < s->model_bits_saved[order[j]]) {
+        int tmp = order[i];
+        order[i] = order[j];
+        order[j] = tmp;
+      }
+
+  double max_saved = 0;
+  for (int m = 0; m < s->num_models; m++) {
+    double v = s->model_bits_saved[m]; /* positive = model helped */
+    if (v > max_saved)
+      max_saved = v;
+    if (-v > max_saved)
+      max_saved = -v;
+  }
+
+  fprintf(f, "<div class=\"sec\"><h2>Per-Model Statistics</h2>\n"
+             "<p class=\"d\">Sorted by contribution. Mask selects preceding "
+             "context bytes; "
+             "weight controls blend strength. Positive bits saved = model "
+             "helped.</p>\n"
+             "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
+             "<th class=\"r\">Hits</th><th class=\"r\">Hit %%</th>"
+             "<th class=\"r\">Unique Ctx</th>"
+             "<th class=\"r\">Bits Saved</th>"
+             "<th class=\"r\">Bytes Saved</th></tr>\n");
+
+  double total_saved = 0;
+  for (int i = 0; i < s->num_models; i++) {
+    int m = order[i];
+    unsigned int tot = s->model_hits[m] + s->model_misses[m];
+    double pct = tot ? 100.0 * s->model_hits[m] / tot : 0.0;
+    double bits = s->model_bits_saved[m]; /* positive = helped */
+    total_saved += bits;
+    double abs_bits = bits < 0 ? -bits : bits;
+    double bar_w = max_saved > 0 ? 100.0 * abs_bits / max_saved : 0;
+    const char *cls = bits > max_saved * 0.3   ? "B"
+                      : bits > max_saved * 0.1 ? "G"
+                      : bits > 0               ? "M"
+                                               : "W";
+    const char *bcls = bits > 0 ? "bar-g" : "bar-r";
+    fprintf(f,
+            "<tr><td class=\"r\">%d</td><td class=\"n\">%02X</td>"
+            "<td class=\"r\">%d</td><td class=\"r\">%u</td>"
+            "<td class=\"r\">%.1f</td><td class=\"r\">%u</td>"
+            "<td class=\"r bar-cell\">"
+            "<div class=\"bar %s\" style=\"width:%.0f%%\"></div>"
+            "<span class=\"bar-label %s\">%.1f</span></td>"
+            "<td class=\"r\">%.1f</td></tr>\n",
+            m, s->model_masks[m], s->model_weights[m], s->model_hits[m], pct,
+            s->model_misses[m], bcls, bar_w, cls, bits, bits / 8.0);
+  }
+  fprintf(f,
+          "<tr style=\"border-top:2px solid #d0d7de\">"
+          "<td colspan=\"6\" class=\"n\">Total</td>"
+          "<td class=\"r B\">%.1f</td><td class=\"r B\">%.1f</td></tr>\n",
+          total_saved, total_saved / 8.0);
+  fprintf(f, "</table></div>\n");
+
+  /* ── Prediction Confidence ── */
+  unsigned int max_conf = 0;
+  for (int i = 0; i < 11; i++)
+    if (s->conf_hist[i] > max_conf)
+      max_conf = s->conf_hist[i];
+
+  const char *conf_labels[] = {"&lt;50%", "50-55%", "55-60%", "60-65%",
+                               "65-70%",  "70-75%", "75-80%", "80-85%",
+                               "85-90%",  "90-95%", "95-100%"};
+
+  fprintf(f, "<div class=\"sec\"><h2>Prediction Confidence</h2>\n"
+             "<p class=\"d\">Distribution of prediction confidence when "
+             "encoding each bit. "
+             "Higher confidence means better prediction.</p>\n"
+             "<table style=\"max-width:520px\">"
+             "<tr><th>Confidence</th><th class=\"r\">Bits</th>"
+             "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
+
+  for (int i = 0; i < 11; i++) {
+    if (s->conf_hist[i] == 0)
+      continue;
+    double pct = 100.0 * s->conf_hist[i] / s->total_bits;
+    double bar_w = max_conf > 0 ? 100.0 * s->conf_hist[i] / max_conf : 0;
+    const char *cls = i >= 8   ? "B"
+                      : i >= 5 ? "G"
+                      : i >= 2 ? "M"
+                      : i >= 1 ? "D"
+                               : "W";
+    const char *bcls = i >= 8   ? "bar-g"
+                       : i >= 5 ? "bar-b"
+                       : i >= 2 ? "bar-y"
+                       : i >= 1 ? "bar-o"
+                                : "bar-r";
+    fprintf(f,
+            "<tr><td class=\"n\">%s</td>"
+            "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
+            "<td class=\"bar-cell\">"
+            "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
+            "<span class=\"bar-label %s\">&nbsp;</span></td></tr>\n",
+            conf_labels[i], s->conf_hist[i], pct, bcls, bar_w, cls);
+  }
+  fprintf(f, "</table></div>\n");
+
+  /* ── Byte Position Analysis ── */
+  double max_bpc = 0;
+  for (int i = 0; i < 8; i++) {
+    if (s->bytepos_count[i] > 0) {
+      double c = s->bytepos_cost[i] / s->bytepos_count[i];
+      if (c > max_bpc)
+        max_bpc = c;
+    }
+  }
+
+  fprintf(
+      f,
+      "<div class=\"sec\"><h2>Byte Position Analysis</h2>\n"
+      "<p class=\"d\">Average encoding cost per bit position within each byte. "
+      "Lower is better.</p>\n"
+      "<table style=\"max-width:520px\">"
+      "<tr><th>Bit Position</th><th class=\"r\">Count</th>"
+      "<th class=\"r\">Avg Cost</th><th>Cost</th></tr>\n");
+
+  for (int i = 0; i < 8; i++) {
+    if (s->bytepos_count[i] == 0)
+      continue;
+    double avg = s->bytepos_cost[i] / s->bytepos_count[i];
+    double bar_w = max_bpc > 0 ? 100.0 * avg / max_bpc : 0;
+    const char *cls = avg < max_bpc * 0.4   ? "B"
+                      : avg < max_bpc * 0.6 ? "G"
+                      : avg < max_bpc * 0.8 ? "M"
+                                            : "D";
+    const char *bcls = avg < max_bpc * 0.4   ? "bar-g"
+                       : avg < max_bpc * 0.6 ? "bar-b"
+                       : avg < max_bpc * 0.8 ? "bar-y"
+                                             : "bar-o";
+    fprintf(f,
+            "<tr><td class=\"n\">Bit %d</td>"
+            "<td class=\"r\">%u</td>"
+            "<td class=\"r %s\">%.3f bits</td>"
+            "<td class=\"bar-cell\">"
+            "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
+            "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+            i, s->bytepos_count[i], cls, avg, bcls, bar_w);
+  }
+  fprintf(f, "</table></div>\n");
+
+  /* ── Hash Table Statistics ── */
+  double load = s->ht_size ? 100.0 * s->ht_occupied / s->ht_size : 0;
+  unsigned int total_sat =
+      s->sat_lopsided + s->sat_strong + s->sat_balanced + s->sat_mixed;
+
+  fprintf(
+      f,
+      "<div class=\"sec\"><h2>Hash Table</h2>\n"
+      "<p class=\"d\">Context hash table occupancy and probe statistics.</p>\n"
+      "<table class=\"kvtbl\">"
+      "<tr><th>Metric</th><th class=\"r\">Value</th></tr>\n");
+  fprintf(f,
+          "<tr><td class=\"n\">Table size</td>"
+          "<td class=\"r\">%u slots</td></tr>\n",
+          s->ht_size);
+  fprintf(f,
+          "<tr><td class=\"n\">Occupied</td>"
+          "<td class=\"r %s\">%u (%.1f%%)</td></tr>\n",
+          load < 50   ? "G"
+          : load < 75 ? "M"
+                      : "D",
+          s->ht_occupied, load);
+  fprintf(f,
+          "<tr><td class=\"n\">Max probe chain</td>"
+          "<td class=\"r\">%u</td></tr>\n",
+          s->ht_max_chain);
+  fprintf(f,
+          "<tr><td class=\"n\">Avg displacement</td>"
+          "<td class=\"r\">%.2f</td></tr>\n",
+          s->ht_avg_displacement);
+  fprintf(f, "</table></div>\n");
+
+  /* ── Counter Saturation ── */
+  fprintf(
+      f,
+      "<div class=\"sec\"><h2>Counter Saturation</h2>\n"
+      "<p class=\"d\">Distribution of probability counter balance across hash "
+      "table entries.</p>\n"
+      "<table style=\"max-width:520px\">"
+      "<tr><th>Category</th><th class=\"r\">Count</th>"
+      "<th class=\"r\">%%</th><th>Distribution</th></tr>\n");
+
+  struct {
+    const char *name;
+    unsigned int count;
+    const char *cls;
+    const char *bcls;
+  } cats[] = {
+      {"Lopsided (one side = 0)", s->sat_lopsided, "B", "bar-g"},
+      {"Strong (&gt;4:1)", s->sat_strong, "G", "bar-b"},
+      {"Balanced (&lt;2:1)", s->sat_balanced, "M", "bar-y"},
+      {"Mixed (2:1 to 4:1)", s->sat_mixed, "D", "bar-o"},
+  };
+  unsigned int max_sat = 0;
+  for (int i = 0; i < 4; i++)
+    if (cats[i].count > max_sat)
+      max_sat = cats[i].count;
+
+  for (int i = 0; i < 4; i++) {
+    if (cats[i].count == 0)
+      continue;
+    double pct = total_sat ? 100.0 * cats[i].count / total_sat : 0;
+    double bar_w = max_sat ? 100.0 * cats[i].count / max_sat : 0;
+    fprintf(f,
+            "<tr><td class=\"n\">%s</td>"
+            "<td class=\"r\">%u</td><td class=\"r\">%.1f</td>"
+            "<td class=\"bar-cell\">"
+            "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.25\"></div>"
+            "<span class=\"bar-label\">&nbsp;</span></td></tr>\n",
+            cats[i].name, cats[i].count, pct, cats[i].bcls, bar_w);
+  }
+  fprintf(f, "</table></div>\n");
+
+  fprintf(f, "</body></html>\n");
+  fclose(f);
+}
+
 static unsigned char *read_file(const char *path, int *out_size) {
   FILE *f = fopen(path, "rb");
   if (!f)
@@ -1184,6 +1619,7 @@ static void print_usage(const char *prog) {
          "C0:3\")\n");
   printf("  -w           Optimize weights on explicit models from -m\n");
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
+  printf("  -H <file>    Write HTML stats report to file\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
   printf("  -h           Show this help\n");
@@ -1200,7 +1636,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:123dwhv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:H:123dwhv")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1216,6 +1652,9 @@ int main(int argc, char *argv[]) {
       break;
     case '3':
       level = 3;
+      break;
+    case 'H':
+      html_output = optarg;
       break;
     case 'm': {
       int n = parse_models(optarg, &explicit_models);
@@ -1387,7 +1826,9 @@ int main(int argc, char *argv[]) {
 
   int max_out = data_size + 1024;
   unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
-  int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
+  CompStats cstats = {0};
+  int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob,
+                              html_output ? &cstats : NULL);
   int comp_bytes = (comp_bits + 7) / 8;
 
   unsigned char ordered_masks[MAX_SEARCH];
@@ -1425,6 +1866,20 @@ int main(int argc, char *argv[]) {
   fclose(fout);
 
   printf("Output:      %s (%d bytes)\n", output_file, total_bytes);
+
+  if (html_output && cstats.valid) {
+    snprintf(cstats.input_file, sizeof(cstats.input_file), "%s", input_file);
+    cstats.input_size = data_size;
+    cstats.level = level;
+    cstats.base_prob = base_prob;
+    cstats.compressed_bits = comp_bits;
+    cstats.header_bytes = header_bytes;
+    cstats.total_bytes = total_bytes;
+    cstats.estimated_bytes = est_size / (float)(BIT_PREC * 8);
+    model_set_sprint(&ml, cstats.model_string, sizeof(cstats.model_string));
+    write_html_report(html_output, &cstats);
+    printf("HTML report: %s\n", html_output);
+  }
 
   free(out_buf);
   free(data);
