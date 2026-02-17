@@ -1443,6 +1443,94 @@ static void write_html_report(const char *path, const CompStats *s) {
           s->min_range);
   fprintf(f, "</table></div>\n");
 
+  /* ── Compression Waterfall ── */
+  {
+    int payload_bytes = s->total_bytes - s->header_bytes;
+    int padding_bits = payload_bytes * 8 - s->compressed_bits;
+    float total = (float)s->total_bytes;
+
+    /* fractions */
+    float f_hdr = s->header_bytes / total * 100;
+    float f_pay = (payload_bytes * 8 - padding_bits) / 8.0f / total * 100;
+    float f_pad = padding_bits / 8.0f / total * 100;
+
+    int bar_w = 760;
+
+    fprintf(f,
+            "<div class=\"sec\"><h2>Output Breakdown</h2>\n"
+            "<p class=\"d\">Where the compressed bytes go.</p>\n"
+            "<svg width=\"%d\" height=\"48\" "
+            "style=\"font-family:'Segoe UI',system-ui,sans-serif;display:block;"
+            "margin-bottom:8px\">\n",
+            bar_w + 4);
+
+    int x = 2;
+    /* segments: header, payload, padding */
+    struct {
+      const char *label;
+      float pct;
+      const char *fill;
+      int bytes;
+    } segs[] = {
+        {"Header", f_hdr, "#6e7781", s->header_bytes},
+        {"Payload", f_pay, "#0969da",
+         (int)((payload_bytes * 8 - padding_bits + 7) / 8)},
+        {"Padding", f_pad, "#d0d7de", (padding_bits + 7) / 8},
+    };
+    int nsegs = 3;
+    /* skip padding if zero */
+    if (padding_bits == 0)
+      nsegs = 2;
+
+    for (int i = 0; i < nsegs; i++) {
+      int w = (int)(segs[i].pct * bar_w / 100);
+      if (w < 1 && segs[i].pct > 0)
+        w = 1;
+      /* last segment takes remainder */
+      if (i == nsegs - 1)
+        w = bar_w - (x - 2);
+
+      fprintf(f,
+              "<rect x=\"%d\" y=\"2\" width=\"%d\" height=\"22\" "
+              "fill=\"%s\" rx=\"%s\"/>\n",
+              x, w, segs[i].fill,
+              i == 0           ? (nsegs == 1 ? "3" : "3 0 0 3")
+              : i == nsegs - 1 ? "0 3 3 0"
+                               : "0");
+
+      /* label inside if wide enough */
+      if (w > 60) {
+        fprintf(f,
+                "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
+                "font-size=\"10\" fill=\"#fff\" font-weight=\"500\">"
+                "%s %d B (%.0f%%)</text>\n",
+                x + w / 2, segs[i].label, segs[i].bytes, segs[i].pct);
+      } else if (w > 30) {
+        fprintf(f,
+                "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
+                "font-size=\"9\" fill=\"#fff\">%d B</text>\n",
+                x + w / 2, segs[i].bytes);
+      }
+      x += w;
+    }
+
+    /* legend below */
+    x = 2;
+    for (int i = 0; i < nsegs; i++) {
+      fprintf(f,
+              "<rect x=\"%d\" y=\"32\" width=\"10\" height=\"10\" "
+              "rx=\"2\" fill=\"%s\"/>",
+              x, segs[i].fill);
+      fprintf(f,
+              "<text x=\"%d\" y=\"41\" font-size=\"9\" "
+              "fill=\"#656d76\">%s (%d B, %.1f%%)</text>",
+              x + 14, segs[i].label, segs[i].bytes, segs[i].pct);
+      x += 14 + 10 * (int)strlen(segs[i].label) + 80;
+    }
+
+    fprintf(f, "</svg></div>\n");
+  }
+
   /* ── Byte Frequency Heatmap ── */
   {
     unsigned int fmax = 0;
@@ -2009,15 +2097,30 @@ static void write_html_report(const char *path, const CompStats *s) {
                                                : "W";
     const char *bcls = bits > 0 ? "bar-g" : "bar-r";
     fprintf(f,
-            "<tr><td class=\"r\">%d</td><td class=\"n\">%02X</td>"
+            "<tr><td class=\"r\">%d</td>"
+            "<td class=\"n\" style=\"white-space:nowrap\">%02X <svg "
+            "width=\"66\" height=\"12\" "
+            "style=\"vertical-align:middle;display:inline-block\">",
+            m, s->model_masks[m]);
+    /* draw 8 cells for each preceding byte, MSB (byte -8) on left */
+    for (int b = 7; b >= 0; b--) {
+      int on = (s->model_masks[m] >> b) & 1;
+      int bx = (7 - b) * 8 + 1;
+      fprintf(f,
+              "<rect x=\"%d\" y=\"1\" width=\"7\" height=\"10\" rx=\"1\" "
+              "fill=\"%s\" stroke=\"#d0d7de\" stroke-width=\"0.5\"/>",
+              bx, on ? "#0969da" : "#f6f8fa");
+    }
+    fprintf(f,
+            "</svg></td>"
             "<td class=\"r\">%d</td><td class=\"r\">%u</td>"
             "<td class=\"r\">%.1f</td><td class=\"r\">%u</td>"
             "<td class=\"r bar-cell\">"
             "<div class=\"bar %s\" style=\"width:%.0f%%\"></div>"
             "<span class=\"bar-label %s\">%.1f</span></td>"
             "<td class=\"r\">%.1f</td></tr>\n",
-            m, s->model_masks[m], s->model_weights[m], s->model_hits[m], pct,
-            s->model_misses[m], bcls, bar_w, cls, bits, bits / 8.0);
+            s->model_weights[m], s->model_hits[m], pct, s->model_misses[m],
+            bcls, bar_w, cls, bits, bits / 8.0);
   }
   fprintf(f,
           "<tr style=\"border-top:2px solid #d0d7de\">"
