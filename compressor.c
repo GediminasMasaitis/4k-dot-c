@@ -1917,7 +1917,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    for(var i=0;i<d.m.length;i++){var a=Math.abs(d.m[i]);if(a>mx)mx=a;}\n"
       "    if(mx<0.01)mx=1;\n"
       "    for(var i=0;i<d.m.length;i++){\n"
-      "      var v=-d.m[i]; /* negate: positive = bits saved */\n"
+      "      var v=d.m[i]; /* positive = bits saved */\n"
       "      var pct=Math.min(Math.abs(v)/mx*100,100);\n"
       "      var clr=v>0.01?'#34d399':v<-0.01?'#f87171':'#353b4f';\n"
       "      var sign=v>0?'+':'';\n"
