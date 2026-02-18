@@ -1492,6 +1492,8 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
     "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
     "<a href=\"#sec-attr\">Model Attribution</a>\n"
+    "<a href=\"#sec-dominance\">Model Dominance</a>\n"
+    "<a href=\"#sec-surprises\">Top Surprises</a>\n"
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
     "<a href=\"#sec-search\">Search Trajectory</a>\n"
     "<a href=\"#sec-models\">Model Statistics</a>\n"
@@ -2372,6 +2374,255 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</script>\n");
     fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Model Dominance Timeline ── */
+  if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1
+      && s->num_models > 0) {
+    int nb = s->num_data_bytes;
+    int nm = s->num_models;
+    int win = nb / 64;
+    if (win < 4) win = 4;
+    if (win > 64) win = 64;
+    int npts = nb - win + 1;
+    if (npts < 2) npts = 2;
+
+    /* compute rolling window contribution per model (positive only = bits saved) */
+    float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
+    float *stacked = (float *)calloc((size_t)npts * nm, sizeof(float));
+    float smax = 0;
+
+    for (int i = 0; i < npts; i++) {
+      int end = i + win;
+      if (end > nb) end = nb;
+      int cnt = end - i;
+      float row_total = 0;
+      for (int m = 0; m < nm; m++) {
+        float sum = 0;
+        for (int j = i; j < end; j++) {
+          float v = s->byte_model_contrib[j * nm + m];
+          if (v > 0) sum += v;
+        }
+        mdata[i * nm + m] = sum / cnt; /* avg bits saved per byte in window */
+        row_total += mdata[i * nm + m];
+      }
+      /* build stacked values */
+      float cumul = 0;
+      for (int m = 0; m < nm; m++) {
+        cumul += mdata[i * nm + m];
+        stacked[i * nm + m] = cumul;
+      }
+      if (cumul > smax) smax = cumul;
+    }
+    if (smax < 0.01f) smax = 1.0f;
+
+    /* palette - same as attribution map */
+    static const int dom_pal[][3] = {
+      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
+      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
+      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
+      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
+      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
+      {217,70,239},
+    };
+    int dom_npal = (int)(sizeof(dom_pal) / sizeof(dom_pal[0]));
+
+    int svg_w = 960, svg_h = 200;
+    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
+    int plot_w = svg_w - pad_l - pad_r;
+    int plot_h = svg_h - pad_t - pad_b;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-dominance\">\n"
+      "<h2>Model Dominance Timeline</h2>\n"
+      "<p class=\"desc\">Stacked area: each model's contribution (bits saved/byte) "
+      "over file position. Window = %d bytes.</p>\n", win);
+
+    /* legend */
+    fprintf(f, "<div style=\"display:flex;flex-wrap:wrap;gap:6px 14px;"
+      "margin-bottom:10px;font-size:11px;font-family:var(--mono)\">\n");
+    for (int m = 0; m < nm && m < dom_npal; m++) {
+      fprintf(f, "<span style=\"display:inline-flex;align-items:center;gap:4px\">"
+        "<span style=\"display:inline-block;width:10px;height:10px;"
+        "border-radius:2px;background:rgb(%d,%d,%d)\"></span>"
+        "%02X:%d</span>\n",
+        dom_pal[m % dom_npal][0], dom_pal[m % dom_npal][1],
+        dom_pal[m % dom_npal][2],
+        s->model_masks[m], s->model_weights[m]);
+    }
+    fprintf(f, "</div>\n");
+
+    fprintf(f,
+      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" style=\"display:block\">\n",
+      svg_w, svg_h);
+
+    /* bg */
+    fprintf(f,
+      "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
+
+    /* y gridlines */
+    int nyticks = 4;
+    for (int i = 0; i <= nyticks; i++) {
+      float val = smax * (nyticks - i) / nyticks;
+      int y = pad_t + plot_h * i / nyticks;
+      fprintf(f,
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+        pad_l, y, pad_l + plot_w, y);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
+        "font-size=\"9\" fill=\"#6b7186\">%.1f</text>\n",
+        pad_l - 5, y + 3, val);
+    }
+
+    /* x axis labels */
+    int nxticks = 5;
+    for (int i = 0; i <= nxticks; i++) {
+      int offset = (int)((long)(nb - 1) * i / nxticks);
+      int x = pad_l + (int)((long)plot_w * i / nxticks);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+        "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+        x, pad_t + plot_h + 16, offset);
+    }
+
+    /* stacked area paths - render from top model down so model 0 is on top */
+    for (int m = nm - 1; m >= 0; m--) {
+      int pi = m % dom_npal;
+      /* top edge: stacked[m], bottom edge: stacked[m-1] or 0 */
+      fprintf(f, "<path d=\"");
+      /* forward along top */
+      for (int i = 0; i < npts; i++) {
+        int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
+        float top = stacked[i * nm + m];
+        int y = pad_t + (int)(plot_h * (1.0f - top / smax));
+        if (y < pad_t) y = pad_t;
+        fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
+      }
+      /* backward along bottom */
+      for (int i = npts - 1; i >= 0; i--) {
+        int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
+        float bot = m > 0 ? stacked[i * nm + (m - 1)] : 0;
+        int y = pad_t + (int)(plot_h * (1.0f - bot / smax));
+        if (y > pad_t + plot_h) y = pad_t + plot_h;
+        fprintf(f, "L%d,%d ", x, y);
+      }
+      fprintf(f, "Z\" fill=\"rgb(%d,%d,%d)\" fill-opacity=\".75\"/>\n",
+        dom_pal[pi][0], dom_pal[pi][1], dom_pal[pi][2]);
+    }
+
+    /* thin white line at top of stack for total */
+    fprintf(f, "<path d=\"");
+    for (int i = 0; i < npts; i++) {
+      int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
+      float top = stacked[i * nm + (nm - 1)];
+      int y = pad_t + (int)(plot_h * (1.0f - top / smax));
+      if (y < pad_t) y = pad_t;
+      fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
+    }
+    fprintf(f, "\" fill=\"none\" stroke=\"rgba(255,255,255,.2)\" "
+      "stroke-width=\"0.5\"/>\n");
+
+    fprintf(f, "</svg>\n");
+    fprintf(f, "</div>\n\n");
+
+    free(mdata);
+    free(stacked);
+  }
+
+  /* ── Top Surprises ── */
+  if (s->byte_costs && s->num_data_bytes > 0 && s->num_models > 0) {
+    int nb = s->num_data_bytes;
+    int topn = 20;
+    if (topn > nb) topn = nb;
+
+    /* sort indices by cost descending */
+    int *idx = (int *)malloc(nb * sizeof(int));
+    for (int i = 0; i < nb; i++) idx[i] = i;
+    /* simple selection sort for top N */
+    for (int i = 0; i < topn; i++) {
+      int best = i;
+      for (int j = i + 1; j < nb; j++)
+        if (s->byte_costs[idx[j]] > s->byte_costs[idx[best]]) best = j;
+      if (best != i) { int t = idx[i]; idx[i] = idx[best]; idx[best] = t; }
+    }
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-surprises\">\n"
+      "<h2>Top Surprises</h2>\n"
+      "<p class=\"desc\">The %d most expensive bytes to encode &mdash; "
+      "where the compressor was most surprised.</p>\n", topn);
+
+    fprintf(f, "<table><thead><tr>"
+      "<th>Rank</th><th class=\"r\">Offset</th>"
+      "<th>Byte</th><th class=\"r\">Cost (bits)</th>"
+      "<th>Context</th>"
+      "<th>Dominant Model</th>"
+      "</tr></thead><tbody>\n");
+
+    for (int i = 0; i < topn; i++) {
+      int bi = idx[i];
+      float cost = s->byte_costs[bi];
+      unsigned char bval = s->input_data ? s->input_data[bi] : 0;
+
+      /* color */
+      const char *clr = cost >= 8.0f ? "#f87171" : cost >= 5.0f ? "#fb923c" :
+                         cost >= 3.0f ? "#fbbf24" : "#34d399";
+
+      /* byte display */
+      char bytebuf[80];
+      if (bval >= 0x20 && bval <= 0x7E && bval != '<' && bval != '>'
+          && bval != '&' && bval != '"')
+        snprintf(bytebuf, sizeof(bytebuf), "0x%02X <span style=\"color:var(--fg)\">('%c')</span>", bval, bval);
+      else
+        snprintf(bytebuf, sizeof(bytebuf), "0x%02X", bval);
+
+      /* context: show a few bytes before and after */
+      char ctxbuf[128] = "";
+      {
+        int cstart = bi - 3;
+        if (cstart < 0) cstart = 0;
+        int cend = bi + 4;
+        if (cend > s->input_size) cend = s->input_size;
+        int pos = 0;
+        for (int j = cstart; j < cend && pos < 100; j++) {
+          unsigned char cv = s->input_data[j];
+          if (j == bi)
+            pos += snprintf(ctxbuf + pos, sizeof(ctxbuf) - pos,
+              "<span style=\"color:var(--red);font-weight:700\">%02X</span> ", cv);
+          else
+            pos += snprintf(ctxbuf + pos, sizeof(ctxbuf) - pos, "%02X ", cv);
+        }
+      }
+
+      /* dominant model for this byte */
+      char modelbuf[64] = "—";
+      if (s->byte_model_contrib) {
+        int best_m = -1;
+        float best_v = 0;
+        for (int m = 0; m < s->num_models; m++) {
+          float v = s->byte_model_contrib[bi * s->num_models + m];
+          if (v > best_v) { best_v = v; best_m = m; }
+        }
+        if (best_m >= 0)
+          snprintf(modelbuf, sizeof(modelbuf), "%02X:%d <span style=\"color:var(--fg3)\">(%.2f bits)</span>",
+                   s->model_masks[best_m], s->model_weights[best_m], best_v);
+      }
+
+      fprintf(f,
+        "<tr><td class=\"r\">%d</td><td class=\"r\">%d</td>"
+        "<td style=\"font-family:var(--mono);font-size:11.5px\">%s</td>"
+        "<td class=\"r\" style=\"color:%s;font-weight:600\">%.2f</td>"
+        "<td style=\"font-family:var(--mono);font-size:10px;color:var(--fg3)\">%s</td>"
+        "<td style=\"font-family:var(--mono);font-size:11.5px\">%s</td>"
+        "</tr>\n",
+        i + 1, bi, bytebuf, clr, cost, ctxbuf, modelbuf);
+    }
+
+    fprintf(f, "</tbody></table>\n");
+    fprintf(f, "</div>\n\n");
+    free(idx);
   }
 
   /* ── Cost Over File Position ── */
