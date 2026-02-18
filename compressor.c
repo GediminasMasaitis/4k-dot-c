@@ -2087,6 +2087,18 @@ static void write_html_report(const char *path, const CompStats *s) {
       fprintf(f, "><title>%d: 0x%02X", i, bval);
       if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
       fprintf(f, " (%.2f bits)</title></rect>\n", cost);
+      if (cell >= 6 && bval >= 0x20 && bval <= 0x7E && bval != '<'
+          && bval != '>' && bval != '&' && bval != '"') {
+        int bright = t < 0.6f;
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+          "font-size=\"%d\" fill=\"%s\" pointer-events=\"none\" "
+          "opacity=\".8\">%c</text>\n",
+          x + cell / 2, y + cell / 2 + (cell >= 10 ? 3 : cell >= 8 ? 2 : 2),
+          cell >= 10 ? 7 : cell >= 8 ? 6 : 5,
+          bright ? "#0c0e14" : "rgba(255,255,255,.7)",
+          bval);
+      }
     }
     fprintf(f, "</svg>\n");
 
@@ -2317,6 +2329,18 @@ static void write_html_report(const char *path, const CompStats *s) {
       else
         fprintf(f, " | no model");
       fprintf(f, "</title></rect>\n");
+      if (cell >= 6 && bval >= 0x20 && bval <= 0x7E && bval != '<'
+          && bval != '>' && bval != '&' && bval != '"') {
+        int lum = (cr * 299 + cg * 587 + cb * 114) / 1000;
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+          "font-size=\"%d\" fill=\"%s\" pointer-events=\"none\" "
+          "opacity=\".8\">%c</text>\n",
+          x + cell / 2, y + cell / 2 + (cell >= 10 ? 3 : cell >= 8 ? 2 : 2),
+          cell >= 10 ? 7 : cell >= 8 ? 6 : 5,
+          lum > 120 ? "#0c0e14" : "rgba(255,255,255,.7)",
+          bval);
+      }
     }
     fprintf(f, "</svg>\n");
 
