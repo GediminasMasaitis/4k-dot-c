@@ -837,9 +837,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
                 H(119, 1, i8 mobilities[5];))
   H(118, 1,
-    H(120, 1, i8 protected_pawn;) H(120, 1, i8 king_attacks[5];)
-        H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 passed_pawns[6];)
-            H(120, 1, i8 bishop_pair;) H(120, 1, i8 pst_rank[48];))
+    H(120, 1, i8 bishop_pair;) H(120, 1, i8 king_attacks[5];)
+        H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 protected_pawn;)
+            H(120, 1, i8 pst_rank[48];) H(120, 1, i8 passed_pawns[6];))
   H(118, 1, i8 king_shield[2];)
 } EvalParams;
 
@@ -851,9 +851,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
                 H(119, 2, i32 mobilities[5];))
   H(118, 2,
-    H(120, 2, i32 protected_pawn;) H(120, 2, i32 king_attacks[5];)
-        H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 passed_pawns[6];)
-            H(120, 2, i32 bishop_pair;) H(120, 2, i32 pst_rank[48];))
+    H(120, 2, i32 bishop_pair;) H(120, 2, i32 king_attacks[5];)
+        H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 protected_pawn;)
+            H(120, 2, i32 pst_rank[48];) H(120, 2, i32 passed_pawns[6];))
   H(118, 2, i32 king_shield[2];)
 } EvalParamsMerged;
 
@@ -1170,7 +1170,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 4 };
+enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(165, __attribute__((aligned(4096))) u8
