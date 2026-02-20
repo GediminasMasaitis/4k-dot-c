@@ -1625,6 +1625,8 @@ void iteratively_deepen(
 #else
         putl("info score cp ");
         print_int(score);
+        putl(" depth ");
+        print_int(depth);
         putl(" pv ");
         char move_name[8];
         move_str(H(54, 5, move_name), H(54, 5, &data->stack[0].best_move),
