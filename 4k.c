@@ -1138,8 +1138,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 _Static_assert(sizeof(TTEntry) == 10);
 
 typedef struct [[nodiscard]] {
-#ifdef FULL
   i32 thread_id;
+#ifdef FULL
   u64 nodes;
 #endif
   G(164, Position pos;)
@@ -1157,7 +1157,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(165, S(1) TTEntry tt[tt_length];)
@@ -1580,6 +1580,20 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 }
 #endif
 
+S(1) void print_int(i32 n) {
+  if (n < 0) {
+    putl("-");
+    n = -n;
+  }
+
+  if (n > 9) {
+    print_int(n / 10);
+  }
+
+  const char c[2] = { '0' + n % 10, 0 };
+  putl(c);
+}
+
 S(1)
 void iteratively_deepen(
 #ifdef FULL
@@ -1604,12 +1618,20 @@ void iteratively_deepen(
 #endif
           H(167, 4, &data->pos), H(167, 4, beta), H(167, 4, depth),
           H(167, 4, data), H(167, 4, 0), H(167, 4, false), H(167, 4, alpha));
-#ifdef FULL
       if (data->thread_id == 0) {
+#ifdef FULL
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
                    data->stack[0].best_move, data->max_time);
-      }
+#else
+        putl("info score cp ");
+        print_int(score);
+        putl(" pv ");
+        char move_name[8];
+        move_str(H(54, 5, move_name), H(54, 5, &data->stack[0].best_move),
+          H(54, 5, data->pos.flipped));
+        puts(move_name);
 #endif
+      }
       elapsed = get_time() - start_time;
       G(225, window *= 2;)
       G(
@@ -1675,8 +1697,8 @@ void run_smp() {
         (ThreadHead *)&thread_stacks[i][thread_stack_size - sizeof(ThreadHead)];
     G(228, helper_head->data.pos = main_data->pos;)
     G(228, helper_head->data.max_time = -1LL;)
-#ifdef FULL
     helper_head->data.thread_id = i;
+#ifdef FULL
     pthread_create(&helpers[i - 1], NULL, entry_full, &helper_head->data);
 #else
     helper_head->entry = entry_mini;
