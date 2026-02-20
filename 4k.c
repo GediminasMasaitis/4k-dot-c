@@ -66,6 +66,56 @@ G(
     })
 
 G(
+    1,
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
+
+    [[nodiscard]] S(0) u64 get_time() {
+      timespec ts;
+      ssize_t ret; // Unused
+      asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(4, ts.tv_nsec) +
+             G(4, G(5, ts.tv_sec) * G(5, 1000 * 1000 * 1000ULL));
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+G(
+    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                        const char *restrict rhs) {
+      while (*lhs || *rhs) {
+        if (*lhs != *rhs) {
+          return true;
+        }
+        lhs++;
+        rhs++;
+      }
+      return false;
+    })
+
+G(
     1, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
@@ -90,56 +140,6 @@ G(
 
         string++;
       }
-    })
-
-G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
-    1,
-    typedef struct [[nodiscard]] {
-      ssize_t tv_sec;  // seconds
-      ssize_t tv_nsec; // nanoseconds
-    } timespec;
-
-    [[nodiscard]] S(1) u64 get_time() {
-      timespec ts;
-      ssize_t ret; // Unused
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(228), "D"(1), "S"(&ts)
-                   : "rcx", "r11", "memory");
-      return G(4, ts.tv_nsec) +
-             G(4, G(5, ts.tv_sec) * G(5, 1000 * 1000 * 1000ULL));
-    })
-
-G(
-    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                        const char *restrict rhs) {
-      while (*lhs || *rhs) {
-        if (*lhs != *rhs) {
-          return true;
-        }
-        lhs++;
-        rhs++;
-      }
-      return false;
     })
 
 #else
@@ -197,8 +197,8 @@ enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
   G(6, u8 takes_piece;)
-  G(6, u8 promo;)
   G(6, u8 from; u8 to;)
+  G(6, u8 promo;)
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -223,8 +223,8 @@ typedef struct [[nodiscard]] {
 
 G(
     9,
-    [[nodiscard]] S(1) bool move_string_equal(G(10, const char *restrict lhs),
-                                              G(10, const char *restrict rhs)) {
+    [[nodiscard]] S(1) bool move_string_equal(G(10, const char *restrict rhs),
+                                              G(10, const char *restrict lhs)) {
       return (G(11, *(const u64 *)rhs) ^ G(11, *(const u64 *)lhs)) << 24 == 0;
     })
 
@@ -423,10 +423,10 @@ G(
       G(61, const u64 blockers = theirs | pos->colour[0];)
       return G(62, G(63, (G(64, southwest(pawns)) | G(64, southeast(pawns)))) &
                        G(63, bb)) ||
-             G(62,
-               G(66, king(bb)) & G(66, theirs) & G(66, pos->pieces[King])) ||
              G(62, G(65, knight(bb)) & G(65, theirs) &
                        G(65, pos->pieces[Knight])) ||
+             G(62,
+               G(66, king(bb)) & G(66, theirs) & G(66, pos->pieces[King])) ||
              G(62, G(67, bishop(H(43, 2, blockers), H(43, 2, bb))) &
                        G(67, theirs) &
                        G(67, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
@@ -439,15 +439,15 @@ G(
     59, S(0) void flip_pos(Position *const restrict pos) {
       G(69, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
         pos->colour[0] ^= pos->colour[1];)
+      G(69, u32 *c = (u32 *)pos->castling;
+        *c = G(70, (*c >> 16)) | G(70, (*c << 16));)
+
       G(
           69, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-
       G(69, pos->flipped ^= 1;)
-      G(69, u32 *c = (u32 *)pos->castling;
-        *c = G(70, (*c >> 16)) | G(70, (*c << 16));)
     })
 
 G(
@@ -456,8 +456,8 @@ G(
                                             H(71, 1, const i32 piece)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(72, if (piece == King) { moves = king(bb); })
-      else G(72, if (piece == Knight) { moves = knight(bb); }) else {
+      G(72, if (piece == Knight) { moves = knight(bb); })
+      else G(72, if (piece == King) { moves = king(bb); }) else {
         const u64 blockers = G(73, pos->colour[0]) | G(73, pos->colour[1]);
         G(
             74, if (piece != Rook) {
@@ -832,10 +832,9 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(118, 1,
-    H(119, 1, i8 open_files[12];) H(119, 1, i8 tempo;)
-        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 pst_file[48];)
-            H(119, 1, i8 mobilities[5];)
-                H(119, 1, i8 pawn_attacked_penalty[2];))
+    H(119, 1, i8 open_files[12];) H(119, 1, i8 pawn_attacked_penalty[2];)
+        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 tempo;)
+            H(119, 1, i8 pst_file[48];) H(119, 1, i8 mobilities[5];))
   H(118, 1,
     H(120, 1, i8 protected_pawn;) H(120, 1, i8 king_attacks[5];)
         H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 passed_pawns[6];)
@@ -846,10 +845,9 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(118, 2,
-    H(119, 2, i32 open_files[12];) H(119, 2, i32 tempo;)
-        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 pst_file[48];)
-            H(119, 2, i32 mobilities[5];)
-                H(119, 2, i32 pawn_attacked_penalty[2];))
+    H(119, 2, i32 open_files[12];) H(119, 2, i32 pawn_attacked_penalty[2];)
+        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 tempo;)
+            H(119, 2, i32 pst_file[48];) H(119, 2, i32 mobilities[5];))
   H(118, 2,
     H(120, 2, i32 protected_pawn;) H(120, 2, i32 king_attacks[5];)
         H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 passed_pawns[6];)
@@ -1049,8 +1047,8 @@ S(0) i32 eval(Position *const restrict pos) {
         G(139, copy &= copy - 1;)
         G(139, const u64 piece_bb = 1ULL << sq;)
         G(139, const u64 in_front = 0x101010101010101ULL << sq;)
-        G(139, phase += initial_params.phases[p];)
         G(139, const i32 rank = sq >> 3;)
+        G(139, phase += initial_params.phases[p];)
         G(139, const i32 file = G(140, sq) & G(140, 7);)
         G(95, // MATERIAL
           score += eval_params.material[p];)
@@ -1135,8 +1133,8 @@ S(0) i32 eval(Position *const restrict pos) {
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
-  G(119, Move killer;)
   G(119, i32 num_moves;)
+  G(119, Move killer;)
   G(119, u64 position_hash;)
   G(119, i32 static_eval;)
 } SearchStack;
@@ -1317,8 +1315,8 @@ i32 search(
     // NULL MOVE PRUNING
     if (G(187, depth > 2) && G(187, static_eval >= beta) && G(187, do_null)) {
       Position npos = *pos;
-      G(188, flip_pos(&npos);)
       G(188, npos.ep = 0;)
+      G(188, flip_pos(&npos);)
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1658,7 +1656,7 @@ S(1) void entry_mini(ThreadHead *head) {
 }
 
 #ifndef FULL
-__attribute__((naked)) S(1) long newthread(ThreadHead *head) {
+__attribute__((naked)) S(0) long newthread(ThreadHead *head) {
   __asm__ volatile("mov  rsi, rdi\n"     // arg2 = stack
                    "mov  edi, 0x50f00\n" // arg1 = clone flags
                    "mov  eax, 56\n"      // SYS_clone
