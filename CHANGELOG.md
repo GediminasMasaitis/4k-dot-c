@@ -9323,3 +9323,9 @@ info depth 21 score cp 32 time 4933 nodes 10912214 nps 2212058 pv e2e4
 info depth 22 score cp 28 time 6286 nodes 13794915 nps 2194367 pv e2e4
 13794915 nodes 2194348 nps
 ```
+
+### 7.17
+
+King shield evaluation
+
+// TODO
