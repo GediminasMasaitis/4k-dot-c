@@ -6,30 +6,50 @@ import subprocess
 import os
 import shutil
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
 import threading
 import random
+
+class CountdownEvent:
+    def __init__(self):
+        self._count = 0
+        self._lock = threading.Lock()
+        self._event = threading.Event()
+        self._event.set()
+
+    def increment(self):
+        with self._lock:
+            self._count += 1
+            self._event.clear()
+
+    def decrement(self):
+        with self._lock:
+            self._count -= 1
+            if self._count <= 0:
+                self._event.set()
+
+    def wait(self):
+        self._event.wait()
+
+    def reset(self):
+        with self._lock:
+            self._count = 0
+            self._event.set()
 
 def fmt_bits(bits):
     if bits == float('inf'):
         return 'N/A'
     return f'{bits}b ({bits/8:.3f}B)'
 
-# Maximum number of parallel builds in each pass
+# =============================================
+# Configuration
+# =============================================
 max_parallelism = 12
-
-# When True, each pass begins with a random shuffle of all groups,
-# and members of each group also get shuffled within the group.
 enable_random_shuffle = False
-
-# Random seed for reproducibility. Set to an integer or None.
 random_seed = None
-
-# How many independent "runs" (with fresh shuffles) to perform.
-# Increase if you want more attempts to escape local minima.
 num_runs = 999
 
-# List of files needed for each worker's directory
 files_to_copy = [
     'Makefile',
     '4k.c',
@@ -37,16 +57,16 @@ files_to_copy = [
     'compressor',
 ]
 
-# ---------------------------------------------
-# Globals for tracking the absolute best across all runs
-# ---------------------------------------------
+# =============================================
+# Global best tracking (across all runs)
+# =============================================
 global_best_size = float('inf')
 global_best_src = None
 global_best_lock = threading.Lock()
 
-# ---------------------------------------------
-# Node classes and parsing for nested groups
-# ---------------------------------------------
+# =============================================
+# Node classes and parsing (unchanged)
+# =============================================
 class TextNode:
     __slots__ = ('text',)
     def __init__(self, text):
@@ -202,10 +222,6 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
         rendered.append(render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters))
     return ''.join(rendered)
 
-# ---------------------------------------------
-# Helper functions for file operations and builds
-# ---------------------------------------------
-
 def run_make_and_get_bits(cwd=None):
     try:
         proc = subprocess.run(
@@ -239,236 +255,268 @@ def setup_workers():
         for fname in files_to_copy:
             shutil.copy2(fname, os.path.join(workdir, fname))
 
-def build_worker_tree(root_nodes, group_id, perm, src_path, worker_id, correlated_ids, original_groups):
-    content = render_tree(root_nodes, group_id, correlated_ids, perm, original_groups)
-    workdir = f'worker_{worker_id}'
-    src_dest = os.path.join(workdir, src_path)
-    with open(src_dest, 'w') as f:
-        f.write(content)
-    size = run_make_and_get_bits(cwd=workdir)
-    return size, content, perm
-
-def write_and_build_tree(nodes, src_path):
-    content = render_tree(nodes)
-    size = run_make_and_get_bits(cwd=None)
-    return size, content
-
-# ---------------------------------------------
-# Stage 1: exhaustive G/H reordering
-# ---------------------------------------------
-def stage_one(src_path, iteration, pass_best, stats_prefix):
-    global global_best_size, global_best_src
-    any_improved = False
-    saved_run = pass_best['initial'] - pass_best['best']
-
-    stats_bar = tqdm(
-        total=1,
-        desc=(
-            f'{stats_prefix}   Run best: {fmt_bits(pass_best["best"])}'
-            f'   Global best: {fmt_bits(global_best_size)}'
-            f'   Saved this run: {fmt_bits(saved_run)}'
-        ),
-        bar_format='{desc}',
-        position=0,
-        leave=True
-    )
-    print(f'\n--- {stats_prefix} Stage 1 pass {iteration} start ---')
-
-    text = read_file(src_path)
+def parse_content(content):
     global _uid_counter
     _uid_counter = 0
-    root_nodes, _ = parse_nodes(text)
-
+    root_nodes, _ = parse_nodes(content)
     groups = {}
     collect_groups(root_nodes, groups)
-
-    # prepare H bases
     h_base_to_ids = {}
     for identifier in groups:
         if identifier.startswith('H_'):
             parts = identifier.split('_', 2)
             base = 'H_' + parts[1]
             h_base_to_ids.setdefault(base, []).append(identifier)
+    return root_nodes, groups, h_base_to_ids
 
-    # count total iters for G + H
-    total_iters = 0
-    for identifier in groups:
-        if identifier.startswith('G_'):
-            total_iters += math.factorial(len(groups[identifier]))
-    for base, ids in h_base_to_ids.items():
-        total_iters += math.factorial(len(groups[ids[0]]))
+class SpeculativeEngine:
+    def __init__(self, src_path, max_workers):
+        self.src_path = src_path
+        self.max_workers = max_workers
 
-    total_bar = tqdm(
-        total=total_iters,
-        desc=f'{stats_prefix} pass {iteration} total',
-        unit='it',
-        position=2,
-        leave=False,
-        smoothing=0
-    )
+        self.lock = threading.Lock()
+        self.epoch = 0
+        self.best_size = float('inf')
+        self.best_content = None
 
-    # G groups
-    g_ids = [i for i in groups if i.startswith('G_')]
-    if enable_random_shuffle:
-        random.shuffle(g_ids)
+        self.worker_slots = Queue()
+        for i in range(max_workers):
+            self.worker_slots.put(i)
 
-    for identifier in g_ids:
-        if pass_best.get('best_content') is not None:
-            with open(src_path, 'w') as bf:
-                bf.write(pass_best['best_content'])
-            text = pass_best['best_content']
-            _uid_counter = 0
-            root_nodes, _ = parse_nodes(text)
-            groups = {}
-            collect_groups(root_nodes, groups)
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        self._drain = CountdownEvent()
+        self._completed = 0
+        self._stale_discards = 0
 
-        nodes_list = groups.get(identifier, [])
-        n = len(nodes_list)
-        if n <= 1:
-            continue
-        perms = list(itertools.permutations(range(n)))
+    def shutdown(self):
+        self.executor.shutdown(wait=True)
 
+    def _build_task(self, group_id, corr_ids, perm, task_epoch,
+                    snap_nodes, snap_groups, worker_id):
+        # Check 1: before rendering
+        if task_epoch < self.epoch:
+            return None
+
+        content = render_tree(snap_nodes, group_id, corr_ids, perm, snap_groups)
+
+        # Check 2: before building (the expensive part)
+        if task_epoch < self.epoch:
+            return None
+
+        workdir = f'worker_{worker_id}'
+        with open(os.path.join(workdir, self.src_path), 'w') as f:
+            f.write(content)
+        size = run_make_and_get_bits(cwd=workdir)
+
+        return (size, content, group_id, perm, task_epoch)
+
+    def _on_done(self, future, worker_id, total_bar, group_bar, stats_bar,
+                 stats_prefix, iteration):
+        global global_best_size, global_best_src
+
+        self.worker_slots.put(worker_id)
+
+        try:
+            try:
+                result = future.result()
+            except Exception as e:
+                group_bar.write(f'  Task failed: {e}')
+                with self.lock:
+                    self._completed += 1
+                total_bar.update(1)
+                return
+
+            with self.lock:
+                self._completed += 1
+
+            if result is None:
+                with self.lock:
+                    self._stale_discards += 1
+                total_bar.update(1)
+                return
+
+            size, content, group_id, perm, task_epoch = result
+
+            is_run_best = False
+            is_global_best = False
+            is_stale = False
+
+            with self.lock:
+                if task_epoch < self.epoch:
+                    self._stale_discards += 1
+                    is_stale = True
+                elif size < self.best_size:
+                    self.best_size = size
+                    self.best_content = content
+                    self.epoch += 1
+                    is_run_best = True
+
+                if not is_stale:
+                    with global_best_lock:
+                        if size < global_best_size:
+                            global_best_size = size
+                            global_best_src = content
+                            is_global_best = True
+                            try:
+                                with open('global_best.c', 'w') as gf:
+                                    gf.write(content)
+                            except Exception:
+                                pass
+
+            if is_stale:
+                tag = "(stale)"
+            elif is_global_best:
+                tag = "NEW GLOBAL BEST!"
+            elif is_run_best:
+                tag = "NEW RUN BEST!"
+            else:
+                tag = ""
+            group_bar.write(
+                f'[{stats_prefix} pass {iteration}] {group_id} perm size: '
+                f'{fmt_bits(size)} {tag}')
+
+            if is_run_best and stats_bar is not None:
+                with self.lock:
+                    cur_best = self.best_size
+                    discards = self._stale_discards
+                    saved = self._initial_size - cur_best
+                stats_bar.set_description(
+                    f'{stats_prefix}   Run best: {fmt_bits(cur_best)}'
+                    f'   Global best: {fmt_bits(global_best_size)}'
+                    f'   Saved this run: {fmt_bits(saved)}'
+                )
+
+            total_bar.update(1)
+        finally:
+            self._drain.decrement()
+
+    def run_pass(self, iteration, pass_best, stats_prefix):
+        root_nodes, groups, h_base_to_ids = parse_content(pass_best['best_content'])
+
+        snap_epoch = self.epoch
+        snap_nodes = root_nodes
+        snap_groups = groups
+
+        group_order = []
+
+        g_ids = [i for i in groups if i.startswith('G_')]
+        if enable_random_shuffle:
+            random.shuffle(g_ids)
+        for gid in g_ids:
+            n = len(groups[gid])
+            if n <= 1:
+                continue
+            perms = list(itertools.permutations(range(n)))
+            group_order.append((gid, None, perms))
+
+        h_bases = list(h_base_to_ids.keys())
+        if enable_random_shuffle:
+            random.shuffle(h_bases)
+        for base in h_bases:
+            ids = h_base_to_ids[base]
+            n = len(groups[ids[0]])
+            if n <= 1:
+                continue
+            perms = list(itertools.permutations(range(n)))
+            group_order.append((base, ids, perms))
+
+        total_perms = sum(len(p) for _, _, p in group_order)
+        total_groups = len(group_order)
+
+        if total_perms == 0:
+            return False
+
+        print(f'\n--- {stats_prefix} pass {iteration}: '
+              f'{total_groups} groups, {total_perms} total permutations ---')
+
+        initial_epoch = self.epoch
+        self._completed = 0
+        self._stale_discards = 0
+        self._initial_size = pass_best['initial']
+        self._drain.reset()
+
+        saved_run = pass_best['initial'] - pass_best['best']
+
+        stats_bar = tqdm(
+            total=1,
+            desc=(
+                f'{stats_prefix}   Run best: {fmt_bits(self.best_size)}'
+                f'   Global best: {fmt_bits(global_best_size)}'
+                f'   Saved this run: {fmt_bits(saved_run)}'
+            ),
+            bar_format='{desc}',
+            position=0,
+            leave=True,
+        )
         group_bar = tqdm(
-            total=len(perms),
-            desc=f'{stats_prefix} pass {iteration} {identifier}',
+            total=1,
+            desc=f'{stats_prefix} pass {iteration}',
             unit='it',
             position=1,
             leave=False,
-            smoothing=0
+            smoothing=0,
         )
-
-        with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-            futures = {}
-            for idx, perm in enumerate(perms):
-                fut = execr.submit(
-                    build_worker_tree,
-                    root_nodes, identifier, perm,
-                    src_path, idx % max_parallelism,
-                    None, groups
-                )
-                futures[fut] = perm
-
-            for future in as_completed(futures):
-                size, content, perm = future.result()
-                with global_best_lock:
-                    is_new_run_best = False
-                    if size < pass_best['best']:
-                        pass_best['best'] = size
-                        pass_best['best_content'] = content
-                        any_improved = True
-                        is_new_run_best = True
-                        saved_run = pass_best['initial'] - pass_best['best']
-                        stats_bar.set_description(
-                            f'{stats_prefix}   Run best: {fmt_bits(pass_best["best"])}'
-                            f'   Global best: {fmt_bits(global_best_size)}'
-                            f'   Saved this run: {fmt_bits(saved_run)}'
-                        )
-                    is_new_global = False
-                    if size < global_best_size:
-                        global_best_size = size
-                        global_best_src = content
-                        with open('global_best.c', 'w') as gf:
-                            gf.write(global_best_src)
-                        print(f'*** New GLOBAL best: {fmt_bits(global_best_size)}. Saved to global_best.c ***')
-                        is_new_global = True
-
-                tag = "NEW GLOBAL BEST!" if is_new_global else ("NEW RUN BEST!" if is_new_run_best else "")
-                group_bar.write(f'[{stats_prefix} pass {iteration}] {identifier} perm size: {fmt_bits(size)} {tag}')
-                group_bar.update(1)
-                total_bar.update(1)
-
-        if pass_best.get('best_content') is not None:
-            with open(src_path, 'w') as bf:
-                bf.write(pass_best['best_content'])
-        group_bar.close()
-
-    # H bases
-    h_bases = list(h_base_to_ids.keys())
-    if enable_random_shuffle:
-        random.shuffle(h_bases)
-
-    for base in h_bases:
-        if pass_best.get('best_content') is not None:
-            with open(src_path, 'w') as bf:
-                bf.write(pass_best['best_content'])
-            text = pass_best['best_content']
-            _uid_counter = 0
-            root_nodes, _ = parse_nodes(text)
-            groups = {}
-            collect_groups(root_nodes, groups)
-            h_base_to_ids = {}
-            for identifier in groups:
-                if identifier.startswith('H_'):
-                    parts = identifier.split('_', 2)
-                    kb = 'H_' + parts[1]
-                    h_base_to_ids.setdefault(kb, []).append(identifier)
-
-        ids = h_base_to_ids[base]
-        length = len(groups[ids[0]])
-        if length <= 1:
-            continue
-        perms = list(itertools.permutations(range(length)))
-
-        group_bar = tqdm(
-            total=len(perms),
-            desc=f'{stats_prefix} pass {iteration} {base}',
+        total_bar = tqdm(
+            total=total_perms,
+            desc=f'{stats_prefix} pass {iteration} total',
             unit='it',
-            position=1,
-            leave=False
+            position=2,
+            leave=False,
+            smoothing=0,
         )
 
-        with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-            futures = {}
-            for idx, perm in enumerate(perms):
-                fut = execr.submit(
-                    build_worker_tree,
-                    root_nodes, base, perm,
-                    src_path, idx % max_parallelism,
-                    ids, groups
+        for group_idx, (gid, corr_ids, perms) in enumerate(group_order):
+            group_bar.reset(total=len(perms))
+            group_bar.set_description(
+                f'{stats_prefix} pass {iteration} {gid} ({group_idx+1}/{total_groups})')
+            for perm in perms:
+                wid = self.worker_slots.get()
+                if snap_epoch < self.epoch:
+                    with self.lock:
+                        snap_epoch = self.epoch
+                        latest_content = self.best_content
+
+                    snap_nodes, snap_groups, _ = parse_content(latest_content)
+
+                self._drain.increment()
+                fut = self.executor.submit(
+                    self._build_task,
+                    gid, corr_ids, perm,
+                    snap_epoch, snap_nodes, snap_groups, wid
                 )
-                futures[fut] = perm
 
-            for future in as_completed(futures):
-                size, content, perm = future.result()
-                with global_best_lock:
-                    is_new_run_best = False
-                    if size < pass_best['best']:
-                        pass_best['best'] = size
-                        pass_best['best_content'] = content
-                        any_improved = True
-                        is_new_run_best = True
-                        saved_run = pass_best['initial'] - pass_best['best']
-                        stats_bar.set_description(
-                            f'{stats_prefix}   Run best: {fmt_bits(pass_best["best"])}'
-                            f'   Global best: {fmt_bits(global_best_size)}'
-                            f'   Saved this run: {fmt_bits(saved_run)}'
-                        )
-                    is_new_global = False
-                    if size < global_best_size:
-                        global_best_size = size
-                        global_best_src = content
-                        with open('global_best.c', 'w') as gf:
-                            gf.write(global_best_src)
-                        print(f'*** New GLOBAL best: {fmt_bits(global_best_size)}. Saved to global_best.c ***')
-                        is_new_global = True
-
-                tag = "NEW GLOBAL BEST!" if is_new_global else ("NEW RUN BEST!" if is_new_run_best else "")
-                group_bar.write(f'[{stats_prefix} pass {iteration}] {base} perm size: {fmt_bits(size)} {tag}')
+                fut.add_done_callback(
+                    lambda f, w=wid: self._on_done(
+                        f, w, total_bar, group_bar, stats_bar,
+                        stats_prefix, iteration)
+                )
                 group_bar.update(1)
-                total_bar.update(1)
 
-        if pass_best.get('best_content') is not None:
-            with open(src_path, 'w') as bf:
-                bf.write(pass_best['best_content'])
+        self._drain.wait()
+
+        total_bar.close()
         group_bar.close()
 
-    total_bar.close()
-    stats_bar.close()
-    return any_improved
+        improved = self.epoch > initial_epoch
+        epochs_bumped = self.epoch - initial_epoch
 
-# ---------------------------------------------
-# New Stage: static toggles S(0)/S(1)
-# ---------------------------------------------
+        stats_bar.set_description(
+            f'{stats_prefix}   Run best: {fmt_bits(self.best_size)}'
+            f'   Global best: {fmt_bits(global_best_size)}'
+            f'   Improvements: {epochs_bumped}'
+            f'   Stale discards: {self._stale_discards}'
+            f'   {"IMPROVED" if improved else "no change"}'
+        )
+        stats_bar.close()
+
+        if improved:
+            with open(self.src_path, 'w') as f:
+                f.write(self.best_content)
+            pass_best['best'] = self.best_size
+            pass_best['best_content'] = self.best_content
+
+        return improved
+
 def build_static_option(baseline, span, new_val, src_path, worker_id):
     start, end = span
     variant = baseline[:start] + f'S({new_val})' + baseline[end:]
@@ -479,7 +527,7 @@ def build_static_option(baseline, span, new_val, src_path, worker_id):
     size = run_make_and_get_bits(cwd=workdir)
     return size, variant, span, new_val
 
-def stage_static(src_path, pass_best, stats_prefix):
+def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
     global global_best_size, global_best_src
     baseline = pass_best['best_content']
     matches = list(re.finditer(r'S\(\s*([01])\s*\)', baseline))
@@ -495,19 +543,23 @@ def stage_static(src_path, pass_best, stats_prefix):
         leave=True
     )
 
+    all_futures = []
+
     with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-        futures = {}
         for idx, m in enumerate(matches):
             cur = m.group(1)
             span = m.span()
             new_val = '1' if cur == '0' else '0'
+
+            wid = worker_slot_queue.get()
             fut = execr.submit(
                 build_static_option,
-                baseline, span, new_val, src_path, idx % max_parallelism
+                baseline, span, new_val, src_path, wid
             )
-            futures[fut] = (span, new_val)
+            fut.add_done_callback(lambda f, w=wid: worker_slot_queue.put(w))
+            all_futures.append(fut)
 
-        for future in as_completed(futures):
+        for future in all_futures:
             size, variant, span, new_val = future.result()
             with global_best_lock:
                 run_improved = False
@@ -535,9 +587,56 @@ def stage_static(src_path, pass_best, stats_prefix):
             f.write(pass_best['best_content'])
     return any_improved
 
-# ---------------------------------------------
-# Main logic with multiple runs and repeated static toggles
-# ---------------------------------------------
+def shuffle_tree(root_nodes, src_filename):
+    """Randomly shuffle all G and H groups. Returns shuffled content string."""
+    global _uid_counter
+
+    groups = {}
+    collect_groups(root_nodes, groups)
+
+    h_base_to_ids = {}
+    for identifier in groups:
+        if identifier.startswith('H_'):
+            parts_split = identifier.split('_', 2)
+            key = parts_split[1]
+            base = 'H_' + key
+            h_base_to_ids.setdefault(base, []).append(identifier)
+
+    h_bases = list(h_base_to_ids.keys())
+    random.shuffle(h_bases)
+    for base in h_bases:
+        groups = {}
+        collect_groups(root_nodes, groups)
+        ids = h_base_to_ids[base]
+        length = len(groups[ids[0]])
+        if length > 1:
+            perm = list(range(length))
+            random.shuffle(perm)
+            content = render_tree(root_nodes, base, ids, tuple(perm), groups)
+            _uid_counter = 0
+            root_nodes, _ = parse_nodes(content)
+
+    groups = {}
+    collect_groups(root_nodes, groups)
+    g_identifiers = [i for i in groups if i.startswith('G_')]
+    random.shuffle(g_identifiers)
+    for identifier in g_identifiers:
+        groups = {}
+        collect_groups(root_nodes, groups)
+        group_nodes = groups.get(identifier, [])
+        n = len(group_nodes)
+        if n > 1:
+            perm = list(range(n))
+            random.shuffle(perm)
+            content = render_tree(root_nodes, identifier, None, tuple(perm), groups)
+            _uid_counter = 0
+            root_nodes, _ = parse_nodes(content)
+
+    shuffled_content = render_tree(root_nodes)
+    with open(src_filename, 'w') as f:
+        f.write(shuffled_content)
+    return shuffled_content
+
 def main():
     global global_best_size, global_best_src, _uid_counter
 
@@ -549,12 +648,17 @@ def main():
 
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
 
-    # Build compressor once up front so workers can reuse the binary
     print('Building compressor...')
     subprocess.run(['make', 'compressor'], check=True)
     os.chmod('compressor', 0o755)
 
     setup_workers()
+
+    engine = SpeculativeEngine(src_filename, max_parallelism)
+
+    static_worker_slots = Queue()
+    for i in range(max_parallelism):
+        static_worker_slots.put(i)
 
     for run in range(1, num_runs + 1):
         text = read_file(src_filename)
@@ -562,74 +666,48 @@ def main():
         root_nodes, _ = parse_nodes(text)
 
         if enable_random_shuffle:
-            # Initial shuffle of all groups' members before starting this run
-            groups = {}
-            collect_groups(root_nodes, groups)
+            text = shuffle_tree(root_nodes, src_filename)
 
-            # Identify correlated H keys
-            h_base_to_ids = {}
-            for identifier in groups:
-                if identifier.startswith('H_'):
-                    parts_split = identifier.split('_', 2)
-                    key = parts_split[1]
-                    base = 'H_' + key
-                    h_base_to_ids.setdefault(base, []).append(identifier)
+        # Get initial size
+        with open(src_filename, 'w') as f:
+            f.write(text)
+        initial_size = run_make_and_get_bits(cwd=None)
 
-            # Shuffle H groups first
-            h_bases = list(h_base_to_ids.keys())
-            random.shuffle(h_bases)
-            for base in h_bases:
-                groups = {}
-                collect_groups(root_nodes, groups)
-                ids = h_base_to_ids[base]
-                length = len(groups[ids[0]])
-                if length > 1:
-                    perm = list(range(length))
-                    random.shuffle(perm)
-                    content = render_tree(root_nodes, base, ids, tuple(perm), groups)
-                    _uid_counter = 0
-                    root_nodes, _ = parse_nodes(content)
+        pass_best = {
+            'initial': initial_size,
+            'best': initial_size,
+            'best_content': text,
+        }
 
-            # Shuffle G groups
-            groups = {}
-            collect_groups(root_nodes, groups)
-            g_identifiers = [identifier for identifier in groups if identifier.startswith('G_')]
-            random.shuffle(g_identifiers)
-            for identifier in g_identifiers:
-                groups = {}
-                collect_groups(root_nodes, groups)
-                group_nodes = groups.get(identifier, [])
-                n = len(group_nodes)
-                if n > 1:
-                    perm = list(range(n))
-                    random.shuffle(perm)
-                    content = render_tree(root_nodes, identifier, None, tuple(perm), groups)
-                    _uid_counter = 0
-                    root_nodes, _ = parse_nodes(content)
+        engine.best_size = initial_size
+        engine.best_content = text
+        engine.epoch = 0
 
-            # After shuffling, write the shuffled content back to file
-            shuffled_content = render_tree(root_nodes)
-            with open(src_filename, 'w') as f:
-                f.write(shuffled_content)
-            text = shuffled_content
+        with global_best_lock:
+            if global_best_size == float('inf'):
+                global_best_size = initial_size
+                global_best_src = text
 
-        size, content = write_and_build_tree(root_nodes, src_filename)
-        pass_best = {'initial': size, 'best': size, 'best_content': content}
-
-        print(f'\n=== Starting run {run}/{num_runs} ===')
-        print(f'Run {run} initial size: {fmt_bits(size)}')
-        print(f'Global best so far: {fmt_bits(global_best_size)}')
+        print(f'\n{"="*60}')
+        print(f'Starting run {run}/{num_runs}')
+        print(f'Initial size: {fmt_bits(initial_size)}')
+        print(f'Global best:  {fmt_bits(global_best_size)}')
+        print(f'{"="*60}')
 
         iteration = 1
         while True:
-            improved_perm = stage_one(src_filename, iteration, pass_best, stats_prefix=f'Run {run}')
+            improved_perm = engine.run_pass(iteration, pass_best, stats_prefix=f'Run {run}')
 
-            # run static toggles repeatedly until no more savings
             static_improved = False
             while True:
-                improved = stage_static(src_filename, pass_best, stats_prefix=f'Run {run}')
+                improved = stage_static(
+                    src_filename, pass_best, stats_prefix=f'Run {run}',
+                    worker_slot_queue=static_worker_slots)
                 if improved:
                     static_improved = True
+                    engine.best_size = pass_best['best']
+                    engine.best_content = pass_best['best_content']
+                    engine.epoch += 1
                 else:
                     break
 
@@ -637,8 +715,10 @@ def main():
                 break
             iteration += 1
 
-        print(f'=== Run {run} completed. Run-best size: {fmt_bits(pass_best["best"])} ===')
-        print(f'Global best after run {run}: {fmt_bits(global_best_size)}\n')
+        print(f'\nRun {run} completed. Run-best: {fmt_bits(pass_best["best"])}')
+        print(f'Global best after run {run}: {fmt_bits(global_best_size)}')
+
+    engine.shutdown()
 
     print(f'\nAll runs completed. Global best size: {fmt_bits(global_best_size)}')
     if global_best_src is not None:
