@@ -840,7 +840,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(120, 1, i8 protected_pawn;) H(120, 1, i8 phalanx_pawn;)
         H(120, 1, i8 bishop_pair;) H(120, 1, i8 passed_pawns[6];)
             H(120, 1, i8 pst_rank[48];) H(120, 1, i8 king_attacks[5];))
-  i8 king_shield[2];
+  H(118, 1, i8 king_shield[2];)
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -854,7 +854,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(120, 2, i32 protected_pawn;) H(120, 2, i32 phalanx_pawn;)
         H(120, 2, i32 bishop_pair;) H(120, 2, i32 passed_pawns[6];)
             H(120, 2, i32 pst_rank[48];) H(120, 2, i32 king_attacks[5];))
-  i32 king_shield[2];
+  H(118, 2, i32 king_shield[2];)
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1104,12 +1104,12 @@ S(0) i32 eval(Position *const restrict pos) {
                       G(158, count(G(159, mobility) & G(159, opp_king_zone))) *
                       G(158, eval_params.king_attacks[p - 2]);))
 
-              if (p == King && piece_bb & 0xC3D7) {
+              G(153, if (p == King && piece_bb & 0xC3D7) {
                 const u64 shield = file < 3 ? 0x700 : 0xE000;
                 score += count(shield & own_pawns) * eval_params.king_shield[0];
                 score += count(north(shield) & own_pawns) *
                          eval_params.king_shield[1];
-              }
+              })
             })
 
         G(95, // MATERIAL
@@ -1167,7 +1167,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(165, S(1) TTEntry tt[tt_length];)
