@@ -375,9 +375,9 @@ G(
     })
 
 G(
-    48, S(1) void move_str(H(54, 1, char *restrict str),
-                           H(54, 1, const Move *restrict move),
-                           H(54, 1, const i32 flip)) {
+    48,
+    S(1) void move_str(H(54, 1, const Move *restrict move),
+                       H(54, 1, char *restrict str), H(54, 1, const i32 flip)) {
       assert(move->from >= 0);
       assert(move->from < 64);
       assert(move->to >= 0);
@@ -832,9 +832,10 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(118, 1,
-    H(119, 1, i8 open_files[12];) H(119, 1, i8 pawn_attacked_penalty[2];)
-        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 tempo;)
-            H(119, 1, i8 pst_file[48];) H(119, 1, i8 mobilities[5];))
+    H(119, 1, i8 pawn_attacked_penalty[2];)
+        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 open_files[12];)
+            H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
+                H(119, 1, i8 mobilities[5];))
   H(118, 1,
     H(120, 1, i8 protected_pawn;) H(120, 1, i8 king_attacks[5];)
         H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 passed_pawns[6];)
@@ -845,9 +846,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(118, 2,
-    H(119, 2, i32 open_files[12];) H(119, 2, i32 pawn_attacked_penalty[2];)
-        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 tempo;)
-            H(119, 2, i32 pst_file[48];) H(119, 2, i32 mobilities[5];))
+    H(119, 2, i32 pawn_attacked_penalty[2];)
+        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 open_files[12];)
+            H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
+                H(119, 2, i32 mobilities[5];))
   H(118, 2,
     H(120, 2, i32 protected_pawn;) H(120, 2, i32 king_attacks[5];)
         H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 passed_pawns[6];)
@@ -1133,9 +1135,9 @@ S(0) i32 eval(Position *const restrict pos) {
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
+  G(119, u64 position_hash;)
   G(119, i32 num_moves;)
   G(119, Move killer;)
-  G(119, u64 position_hash;)
   G(119, i32 static_eval;)
 } SearchStack;
 
@@ -1583,7 +1585,7 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
   if (score > alpha && score < beta) {
     putl(" pv ");
     char move_name[8];
-    move_str(H(54, 2, move_name), H(54, 2, &pv_move), H(54, 2, pos->flipped));
+    move_str(H(54, 2, &pv_move), H(54, 2, move_name), H(54, 2, pos->flipped));
     putl(move_name);
   }
 
@@ -1625,7 +1627,7 @@ void iteratively_deepen(
       G(225, window *= 2;)
       G(
           225, if (G(226, elapsed > data->max_time) ||
-                   G(226, (G(227, score > alpha) && G(227, score < beta)))) {
+                   G(226, (G(227, score < beta) && G(227, score > alpha)))) {
             break;
           })
     }
@@ -1711,7 +1713,7 @@ void run_smp() {
   }
 
   char move_name[8];
-  move_str(H(54, 3, move_name), H(54, 3, &main_data->stack[0].best_move),
+  move_str(H(54, 3, &main_data->stack[0].best_move), H(54, 3, move_name),
            H(54, 3, main_data->pos.flipped));
   putl("bestmove ");
   puts(move_name);
@@ -1879,37 +1881,6 @@ S(1) void run() {
     }
 #endif
     G(230, if (G(236, line[0]) == G(236, 'q')) { exit_now(); })
-    else G(230, if (G(232, line[0]) == G(232, 'p')) {
-      G(233, main_data->pos = start_pos;)
-        while (true) {
-          const bool line_continue = getl(line);
-
-#if FULL
-          if (!strcmp(line, "fen")) {
-            getl(line);
-            get_fen(&main_data->pos, line);
-          }
-#endif
-          Move moves[max_moves];
-          const i32 num_moves =
-            movegen(H(97, 4, &main_data->pos), H(97, 4, moves), H(97, 4, false));
-          for (i32 i = 0; i < num_moves; i++) {
-            char move_name[8];
-            move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
-              H(54, 4, main_data->pos.flipped));
-            assert(move_string_equal(line, move_name) ==
-              !strcmp(line, move_name));
-            if (move_string_equal(G(234, move_name), G(234, line))) {
-              makemove(H(82, 4, &main_data->pos), H(82, 4, &moves[i]));
-              break;
-            }
-          }
-          if (!line_continue) {
-            break;
-          }
-        }
-    })
-    else G(230, if (G(231, line[0]) == G(231, 'i')) { puts("readyok"); })
     else G(230, if (G(235, line[0]) == G(235, 'g')) {
       stop = false;
 #ifdef FULL
@@ -1939,6 +1910,37 @@ S(1) void run() {
       start_time = get_time();
       run_smp();
 #endif
+    })
+    else G(230, if (G(231, line[0]) == G(231, 'i')) { puts("readyok"); })
+    else G(230, if (G(232, line[0]) == G(232, 'p')) {
+      G(233, main_data->pos = start_pos;)
+        while (true) {
+          const bool line_continue = getl(line);
+
+#if FULL
+          if (!strcmp(line, "fen")) {
+            getl(line);
+            get_fen(&main_data->pos, line);
+          }
+#endif
+          Move moves[max_moves];
+          const i32 num_moves =
+            movegen(H(97, 4, &main_data->pos), H(97, 4, moves), H(97, 4, false));
+          for (i32 i = 0; i < num_moves; i++) {
+            char move_name[8];
+            move_str(H(54, 4, &moves[i]), H(54, 4, move_name),
+              H(54, 4, main_data->pos.flipped));
+            assert(move_string_equal(line, move_name) ==
+              !strcmp(line, move_name));
+            if (move_string_equal(G(234, move_name), G(234, line))) {
+              makemove(H(82, 4, &main_data->pos), H(82, 4, &moves[i]));
+              break;
+            }
+          }
+          if (!line_continue) {
+            break;
+          }
+        }
     })
   }
 }
