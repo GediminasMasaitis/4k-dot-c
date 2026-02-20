@@ -387,15 +387,15 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(55, str[4] = "\0\0nbrq"[move->promo];)
+      G(55, str[5] = '\0';)
 
+      G(55, str[4] = "\0\0nbrq"[move->promo];)
       G(
           55, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
             G(56, str[i * 2] = 'a' + (&move->from)[i] % 8;)
             G(56, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
           })
-      G(55, str[5] = '\0';)
     })
 
 G(
@@ -437,17 +437,17 @@ G(
 
 G(
     59, S(0) void flip_pos(Position *const restrict pos) {
-      G(69, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
-        pos->colour[0] ^= pos->colour[1];)
+      G(69, pos->flipped ^= 1;)
       G(69, u32 *c = (u32 *)pos->castling;
         *c = G(70, (*c >> 16)) | G(70, (*c << 16));)
 
+      G(69, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
       G(
           69, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-      G(69, pos->flipped ^= 1;)
     })
 
 G(
@@ -557,8 +557,8 @@ G(
 
       // En passant
       if (G(89, piece == Pawn) && G(89, to == pos->ep)) {
-        G(90, pos->pieces[Pawn] ^= to >> 8;)
         G(90, pos->colour[1] ^= to >> 8;)
+        G(90, pos->pieces[Pawn] ^= to >> 8;)
       }
       pos->ep = 0;
 
@@ -685,15 +685,6 @@ enum { max_moves = 218 };
               G(110, (only_captures ? 0xFF00000000000000ull : ~0ull))),
         H(95, 5, movelist));)
   G(
-      100, // SHORT CASTLE
-      if (G(112, !only_captures) && G(112, pos->castling[1]) &&
-          G(112, !(G(113, all) & G(113, 0xEull))) &&
-          G(114, !is_attacked(H(60, 4, pos), H(60, 4, 1ULL << 3))) &&
-          G(114, !is_attacked(H(60, 3, pos), H(60, 3, 1ULL << 4)))) {
-        *movelist++ =
-            (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
-      })
-  G(
       100, // LONG CASTLE
       if (G(115, !only_captures) && G(115, pos->castling[0]) &&
           G(115, !(G(116, all) & G(116, 0x60ull))) &&
@@ -701,6 +692,15 @@ enum { max_moves = 218 };
           G(117, !is_attacked(H(60, 5, pos), H(60, 5, 1ULL << 4)))) {
         *movelist++ =
             (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
+      })
+  G(
+      100, // SHORT CASTLE
+      if (G(112, !only_captures) && G(112, pos->castling[1]) &&
+          G(112, !(G(113, all) & G(113, 0xEull))) &&
+          G(114, !is_attacked(H(60, 4, pos), H(60, 4, 1ULL << 3))) &&
+          G(114, !is_attacked(H(60, 3, pos), H(60, 3, 1ULL << 4)))) {
+        *movelist++ =
+            (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
   movelist = generate_piece_moves(H(77, 2, to_mask), H(77, 2, movelist),
                                   H(77, 2, pos));
