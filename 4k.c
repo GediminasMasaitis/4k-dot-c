@@ -1104,11 +1104,15 @@ S(0) i32 eval(Position *const restrict pos) {
                       G(158, count(G(159, mobility) & G(159, opp_king_zone))) *
                       G(158, eval_params.king_attacks[p - 2]);))
 
-              G(153, if (G(999, G(998, p) == G(998, King)) && G(999, G(997, piece_bb) & G(997, 0xC3D7))) {
-                const u64 shield = file < 3 ? 0x700 : 0xE000;
-                G(996, score += G(995, count(shield & own_pawns)) * G(995, eval_params.king_shield[0]);)
-                G(996, score += G(994, count(north(shield) & own_pawns)) * G(994, eval_params.king_shield[1]);)
-              })
+              G(
+                  153, if (G(999, G(998, p) == G(998, King)) &&
+                           G(999, G(997, piece_bb) & G(997, 0xC3D7))) {
+                    const u64 shield = file < 3 ? 0x700 : 0xE000;
+                    G(996, score += G(995, count(shield & own_pawns)) *
+                                    G(995, eval_params.king_shield[0]);)
+                    G(996, score += G(994, count(north(shield) & own_pawns)) *
+                                    G(994, eval_params.king_shield[1]);)
+                  })
             })
 
         G(95, // MATERIAL
