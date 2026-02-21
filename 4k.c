@@ -1032,27 +1032,25 @@ S(0) i32 eval(Position *const restrict pos) {
                king(G(126, pos->colour[1]) & G(126, pos->pieces[King]));)
 
     G(125,
-      const u64 own_pawns = G(127, pos->colour[0]) & G(127, pos->pieces[Pawn]);)
-    G(125,
-      const u64 opp_pawns = G(128, pos->pieces[Pawn]) & G(128, pos->colour[1]);
+      const u64 pawns[2] = {G(127, pos->colour[0]) & G(127, pos->pieces[Pawn]),
+                            G(128, pos->pieces[Pawn]) & G(128, pos->colour[1])};
       const u64 attacked_by_pawns =
-          G(129, southwest(opp_pawns)) | G(129, southeast(opp_pawns));
+          G(129, southwest(pawns[1])) | G(129, southeast(pawns[1]));
       G(130,
-        const u64 no_passers = G(131, opp_pawns) | G(131, attacked_by_pawns);)
+        const u64 no_passers = G(131, pawns[1]) | G(131, attacked_by_pawns);)
           G(130, // PROTECTED PAWNS
             score -=
             G(132, eval_params.protected_pawn) *
-            G(132, count(G(133, opp_pawns) & G(133, attacked_by_pawns)));)
+            G(132, count(G(133, pawns[1]) & G(133, attacked_by_pawns)));)
               G(130, // PHALANX PAWNS
                 score -=
                 G(134, eval_params.phalanx_pawn) *
-                G(134, count(G(135, opp_pawns) & G(135, west(opp_pawns))));))
+                G(134, count(G(135, pawns[1]) & G(135, west(pawns[1]))));))
     G(
         125, // BISHOP PAIR
         if (count(G(136, pos->pieces[Bishop]) & G(136, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-    const u64 pawns[2] = {own_pawns, opp_pawns};
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(137, pos->colour[0]) & G(137, pos->pieces[p]);
       while (copy) {
@@ -1084,10 +1082,10 @@ S(0) i32 eval(Position *const restrict pos) {
 
         G(
             93, // OPEN FILES / DOUBLED PAWNS
-            if ((G(146, north(in_front)) & G(146, own_pawns)) == 0) {
+            if ((G(146, north(in_front)) & G(146, pawns[0])) == 0) {
               score +=
                   eval_params.open_files[G(147, G(148, !(G(149, in_front) &
-                                                         G(149, opp_pawns))) *
+                                                         G(149, pawns[1]))) *
                                                     G(148, 6)) +
                                          G(147, -1) + G(147, p)];
             })
@@ -1118,10 +1116,10 @@ S(0) i32 eval(Position *const restrict pos) {
                       G(155, G(157, piece_bb) & G(157, 0xC3D7))) {
                     const u64 shield = file < 3 ? 0x700 : 0xE000;
                     G(158, score += G(161, count(G(162, north(shield)) &
-                                                 G(162, own_pawns))) *
+                                                 G(162, pawns[0]))) *
                                     G(161, eval_params.king_shield[1]);)
                     G(158, score +=
-                           G(159, count(G(160, shield) & G(160, own_pawns))) *
+                           G(159, count(G(160, shield) & G(160, pawns[0]))) *
                            G(159, eval_params.king_shield[0]);)
                   })
 
