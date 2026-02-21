@@ -833,7 +833,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(118, 1, i8 king_shield[2];) H(118, 1, i8 pawn_threat[5];)
-        H(118, 1, i8 bishop_pawns[2];))
+        H(118, 1, i8 bishop_pawns[2];) H(118, 1, i8 pawn_passed_protected;))
   H(116, 1,
     H(119, 1, i8 protected_pawn;) H(119, 1, i8 passed_pawns[6];)
         H(119, 1, i8 phalanx_pawn;) H(119, 1, i8 bishop_pair;)
@@ -848,7 +848,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(118, 2, i32 king_shield[2];) H(118, 2, i32 pawn_threat[5];)
-        H(118, 2, i32 bishop_pawns[2];))
+        H(118, 2, i32 bishop_pawns[2];) H(118, 2, i32 pawn_passed_protected;))
   H(116, 2,
     H(119, 2, i32 protected_pawn;) H(119, 2, i32 passed_pawns[6];)
         H(119, 2, i32 phalanx_pawn;) H(119, 2, i32 bishop_pair;)
@@ -1036,6 +1036,8 @@ S(0) i32 eval(Position *const restrict pos) {
                             G(128, pos->pieces[Pawn]) & G(128, pos->colour[1])};
       const u64 attacked_by_pawns =
           G(129, southwest(pawns[1])) | G(129, southeast(pawns[1]));
+      const u64 protected_by_pawns =
+        G(999, northwest(pawns[1])) | G(999, northeast(pawns[1]));
       G(130, // PHALANX PAWNS
         score -= G(134, eval_params.phalanx_pawn) *
                  G(134, count(G(135, pawns[1]) & G(135, west(pawns[1]))));)
@@ -1073,6 +1075,10 @@ S(0) i32 eval(Position *const restrict pos) {
                   142, if (G(143, north(piece_bb)) & G(143, pos->colour[1])) {
                     score += eval_params.passed_blocked_pawns[rank - 1];
                   })
+
+                if (piece_bb & protected_by_pawns) {
+                  score += eval_params.pawn_passed_protected;
+                }
             })
         G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
