@@ -833,7 +833,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(118, 1, i8 king_shield[2];) H(118, 1, i8 pawn_threat[5];)
-        H(118, 1, i8 bishop_pawns[2];))
+        H(118, 1, i8 bishop_pawns[2];) H(118, 1, i8 pawn_passed_king_distance[2];))
   H(116, 1,
     H(119, 1, i8 protected_pawn;) H(119, 1, i8 passed_pawns[6];)
         H(119, 1, i8 phalanx_pawn;) H(119, 1, i8 bishop_pair;)
@@ -848,7 +848,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(118, 2, i32 king_shield[2];) H(118, 2, i32 pawn_threat[5];)
-        H(118, 2, i32 bishop_pawns[2];))
+        H(118, 2, i32 bishop_pawns[2];) H(118, 2, i32 pawn_passed_king_distance[2];))
   H(116, 2,
     H(119, 2, i32 protected_pawn;) H(119, 2, i32 passed_pawns[6];)
         H(119, 2, i32 phalanx_pawn;) H(119, 2, i32 bishop_pair;)
@@ -1022,6 +1022,15 @@ G(
       return G(123, mg_val) + G(123, (eg_val << 16));
     })
 
+S(1) i32 abs_int(const i32 x) {
+  const i32 mask = x >> (sizeof(int) * 8 - 1);
+  return (x + mask) ^ mask;
+}
+
+S(1) i32 max_int(const i32 a, const i32 b) {
+  return (a > b) ? a : b;
+}
+
 S(0) i32 eval(Position *const restrict pos) {
   G(124, i32 score = eval_params.tempo;)
   G(124, i32 phase = 0;)
@@ -1050,6 +1059,9 @@ S(0) i32 eval(Position *const restrict pos) {
         if (count(G(136, pos->pieces[Bishop]) & G(136, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
+
+    const i32 kings[] = { lsb(pos->colour[0] & pos->pieces[King]), lsb(pos->colour[1] & pos->pieces[King]) };
+
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(137, pos->colour[0]) & G(137, pos->pieces[p]);
       while (copy) {
@@ -1073,6 +1085,10 @@ S(0) i32 eval(Position *const restrict pos) {
                   142, if (G(143, north(piece_bb)) & G(143, pos->colour[1])) {
                     score += eval_params.passed_blocked_pawns[rank - 1];
                   })
+
+                for (int i = 0; i < 2; ++i) {
+                  score += eval_params.pawn_passed_king_distance[i] * (rank - 1) * max_int(abs_int((kings[i] / 8) - (rank + 1)), abs_int((kings[i] % 8) - file));
+                }
             })
         G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
