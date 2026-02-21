@@ -835,7 +835,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(118, 1, i8 king_shield[2];) H(118, 1, i8 pawn_threat[5];)
         H(118, 1, i8 bishop_pawns[2];))
   H(116, 1,
-    H(119, 1, i8 protected_pawn;) H(119, 1, i8 passed_pawns[6];)
+    H(119, 1, i8 pawn_protection[6];) H(119, 1, i8 passed_pawns[6];)
         H(119, 1, i8 phalanx_pawn;) H(119, 1, i8 bishop_pair;)
             H(119, 1, i8 king_attacks[5];) H(119, 1, i8 pst_rank[48];))
   H(116, 1,
@@ -850,7 +850,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(118, 2, i32 king_shield[2];) H(118, 2, i32 pawn_threat[5];)
         H(118, 2, i32 bishop_pawns[2];))
   H(116, 2,
-    H(119, 2, i32 protected_pawn;) H(119, 2, i32 passed_pawns[6];)
+    H(119, 2, i32 pawn_protection[6];) H(119, 2, i32 passed_pawns[6];)
         H(119, 2, i32 phalanx_pawn;) H(119, 2, i32 bishop_pair;)
             H(119, 2, i32 king_attacks[5];) H(119, 2, i32 pst_rank[48];))
   H(116, 2,
@@ -870,147 +870,151 @@ G(121, S(0) EvalParamsMerged eval_params;)
 G(121,
   __attribute__((aligned(8))) S(1)
       const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4},
-                                                .mg = {.material = {0, 66, 282,
-                                                                    320, 371,
-                                                                    817},
+                                                .mg = {.material = {0, 65, 281,
+                                                                    320, 370,
+                                                                    816},
                                                        .pst_rank =
                                                            {
-                                                               0,   -15, -17,
-                                                               -5,  8,   29,
+                                                               0,   -16, -16,
+                                                               -4,  7,   29,
                                                                97,  0, // Pawn
-                                                               -16, -5,  6,
-                                                               18,  27,  38,
+                                                               -18, -5,  7,
+                                                               19,  27,  37,
                                                                18,  -85, // Knight
-                                                               -5,  10,  15,
+                                                               -3,  10,  15,
                                                                15,  15,  13,
-                                                               -5,  -59, // Bishop
-                                                               7,   -4,  -10,
-                                                               -14, 2,   11,
-                                                               0,   7, // Rook
-                                                               18,  18,  9,
-                                                               0,   -6,  -4,
-                                                               -23, -12, // Queen
-                                                               -11, -8,  -17,
-                                                               -22, 9,   60,
-                                                               67,  83, // King
+                                                               -5,  -60, // Bishop
+                                                               8,   -3,  -10,
+                                                               -14, 1,   12,
+                                                               0,   6, // Rook
+                                                               19,  19,  10,
+                                                               -1,  -7,  -4,
+                                                               -24, -12, // Queen
+                                                               -8,  -7,  -18,
+                                                               -21, 10,  62,
+                                                               68,  86, // King
                                                            },
                                                        .pst_file =
                                                            {
                                                                -11, -11, -6,
-                                                               3,   9,   13,
-                                                               12,  -8, // Pawn
-                                                               -28, -11, -1,
-                                                               12,  13,  13,
-                                                               6,   -4, // Knight
+                                                               2,   9,   13,
+                                                               12,  -9, // Pawn
+                                                               -27, -11, -1,
+                                                               11,  13,  12,
+                                                               6,   -3, // Knight
                                                                -14, 0,   3,
-                                                               1,   4,   -1,
-                                                               10,  -4, // Bishop
-                                                               -12, -9,  -3,
-                                                               7,   11,  8,
-                                                               5,   -9, // Rook
-                                                               -13, -8,  -4,
+                                                               2,   5,   0,
+                                                               9,   -4, // Bishop
+                                                               -12, -9,  -4,
+                                                               7,   11,  9,
+                                                               6,   -9, // Rook
+                                                               -13, -8,  -5,
                                                                1,   3,   4,
-                                                               11,  7, // Queen
-                                                               -12, 12,  -12,
-                                                               -28, -25, -11,
-                                                               12,  3, // King
+                                                               12,  7, // Queen
+                                                               -10, 12,  -12,
+                                                               -30, -26, -13,
+                                                               11,  6, // King
                                                            },
                                                        .mobilities = {6, 5, 2,
-                                                                      2, -2},
+                                                                      2, -1},
                                                        .king_attacks = {0, 14,
                                                                         19, 14,
                                                                         0},
-                                                       .pawn_threat = {-15, -7,
-                                                                       -7, -7,
+                                                       .pawn_threat = {-16, -7,
+                                                                       -8, -7,
                                                                        -2},
                                                        .open_files =
-                                                           {7, -9, -10, 16, -1,
-                                                            -24, 8, -12, -14,
-                                                            32, -13, -57},
-                                                       .passed_pawns = {-6, -10,
-                                                                        -8, 11,
+                                                           {8, -10, -9, 16, -1,
+                                                            -23, 9, -12, -13,
+                                                            33, -12, -57},
+                                                       .passed_pawns = {-6, -11,
+                                                                        -9, 12,
                                                                         35, 97},
                                                        .passed_blocked_pawns =
-                                                           {0, -3, 3, 12, 14,
+                                                           {0, -3, 3, 11, 14,
                                                             -42},
-                                                       .protected_pawn = 15,
-                                                       .phalanx_pawn = 9,
+                                                       .pawn_protection =
+                                                           {12, 3, -2, -1, -1,
+                                                            5},
+                                                       .phalanx_pawn = 11,
                                                        .bishop_pair = 26,
-                                                       .bishop_pawns = {-6, -5},
-                                                       .king_shield = {28, 20},
+                                                       .bishop_pawns = {-5, -5},
+                                                       .king_shield = {13, 9},
                                                        .pawn_attacked_penalty =
                                                            {-16, -128},
                                                        .tempo = 17},
-                                                .eg = {.material = {0, 88, 391,
-                                                                    430, 719,
+                                                .eg = {.material = {0, 87, 393,
+                                                                    433, 719,
                                                                     1338},
                                                        .pst_rank =
                                                            {
                                                                0,   -5,  -8,
                                                                -7,  0,   20,
                                                                101, 0, // Pawn
-                                                               -33, -20, -7,
-                                                               17,  22,  9,
-                                                               4,   9, // Knight
-                                                               -16, -14, -1,
-                                                               4,   8,   5,
-                                                               4,   9, // Bishop
+                                                               -35, -22, -8,
+                                                               17,  23,  10,
+                                                               4,   10, // Knight
+                                                               -16, -13, 0,
+                                                               5,   8,   5,
+                                                               3,   8, // Bishop
                                                                -17, -19, -12,
                                                                4,   11,  10,
                                                                17,  5, // Rook
-                                                               -59, -43, -15,
-                                                               13,  31,  26,
-                                                               32,  14, // Queen
+                                                               -60, -42, -15,
+                                                               13,  31,  25,
+                                                               33,  15, // Queen
                                                                -42, -1,  7,
-                                                               20,  30,  27,
-                                                               13,  -56, // King
+                                                               19,  29,  27,
+                                                               13,  -57, // King
                                                            },
                                                        .pst_file =
                                                            {
-                                                               11,  11,  -1,
+                                                               11,  10,  -1,
                                                                -11, -5,  -1,
                                                                0,   -4, // Pawn
-                                                               -20, -5,  7,
-                                                               16,  16,  5,
-                                                               -1,  -19, // Knight
-                                                               -11, 0,   5,
-                                                               10,  10,  4,
-                                                               -3,  -15, // Bishop
+                                                               -20, -5,  8,
+                                                               16,  17,  5,
+                                                               -1,  -20, // Knight
+                                                               -12, 1,   5,
+                                                               10,  11,  5,
+                                                               -3,  -16, // Bishop
                                                                1,   6,   6,
-                                                               -3,  -5,  0,
+                                                               -2,  -4,  0,
                                                                0,   -6, // Rook
                                                                -23, -6,  4,
-                                                               7,   14,  14,
-                                                               0,   -10, // Queen
-                                                               -33, 4,   18,
-                                                               25,  25,  16,
-                                                               4,   -40, // King
+                                                               6,   14,  13,
+                                                               0,   -9, // Queen
+                                                               -32, 5,   18,
+                                                               26,  26,  17,
+                                                               4,   -39, // King
                                                            },
-                                                       .mobilities = {5, 3, 4,
+                                                       .mobilities = {4, 3, 4,
                                                                       2, -6},
-                                                       .king_attacks = {0, -3,
+                                                       .king_attacks = {0, -4,
                                                                         -6, 8,
                                                                         0},
-                                                       .pawn_threat = {-3, -5,
-                                                                       -17, -14,
-                                                                       -9},
-                                                       .open_files = {21, 1, 13,
-                                                                      5, 21, 13,
-                                                                      23, -8, 2,
-                                                                      12, 42,
-                                                                      9},
+                                                       .pawn_threat = {-5, -4,
+                                                                       -18, -15,
+                                                                       -8},
+                                                       .open_files = {22, 0, 12,
+                                                                      5, 20, 13,
+                                                                      24, -9, 2,
+                                                                      13, 42,
+                                                                      10},
                                                        .passed_pawns =
-                                                           {9, 15, 40, 67, 115,
+                                                           {8, 13, 39, 66, 114,
                                                             101},
                                                        .passed_blocked_pawns =
-                                                           {-10, -8, -31, -62,
-                                                            -111, -114},
-                                                       .protected_pawn = 16,
-                                                       .phalanx_pawn = 15,
+                                                           {-10, -9, -32, -62,
+                                                            -110, -113},
+                                                       .pawn_protection =
+                                                           {17, 13, -10, 1, 4,
+                                                            -3},
+                                                       .phalanx_pawn = 14,
                                                        .bishop_pair = 62,
                                                        .bishop_pawns = {-11,
                                                                         -1},
-                                                       .king_shield = {-11, -7},
+                                                       .king_shield = {-6, -3},
                                                        .pawn_attacked_penalty =
                                                            {-10, -128},
                                                        .tempo = 7}};)
@@ -1034,17 +1038,19 @@ S(0) i32 eval(Position *const restrict pos) {
     G(125,
       const u64 pawns[2] = {G(127, pos->pieces[Pawn]) & G(127, pos->colour[0]),
                             G(128, pos->pieces[Pawn]) & G(128, pos->colour[1])};
-      const u64 attacked_by_pawns =
-          G(129, southwest(pawns[1])) | G(129, southeast(pawns[1]));
-      G(130, // PHALANX PAWNS
-        score -= G(134, eval_params.phalanx_pawn) *
-                 G(134, count(G(135, pawns[1]) & G(135, west(pawns[1]))));)
-          G(130, const u64 no_passers =
-                     G(131, pawns[1]) | G(131, attacked_by_pawns);)
-              G(130, // PROTECTED PAWNS
+
+      G(800, const u64 attacked_by_pawns =
+                 G(129, southwest(pawns[1])) | G(129, southeast(pawns[1]));)
+
+          G(800, const u64 protected_by_pawns =
+                     G(999, northwest(pawns[0])) | G(999, northeast(pawns[0]));)
+
+              G(130, // PHALANX PAWNS
                 score -=
-                G(132, eval_params.protected_pawn) *
-                G(132, count(G(133, pawns[1]) & G(133, attacked_by_pawns)));))
+                G(134, eval_params.phalanx_pawn) *
+                G(134, count(G(135, pawns[1]) & G(135, west(pawns[1]))));)
+                  G(130, const u64 no_passers =
+                             G(131, pawns[1]) | G(131, attacked_by_pawns);))
     G(
         125, // BISHOP PAIR
         if (count(G(136, pos->pieces[Bishop]) & G(136, pos->colour[0])) > 1) {
@@ -1093,6 +1099,11 @@ S(0) i32 eval(Position *const restrict pos) {
           score +=
           eval_params
               .pst_file[G(150, G(151, (p - 1)) * G(151, 8)) + G(150, file)];)
+
+        // PAWN PROTECTION
+        if (piece_bb & protected_by_pawns) {
+          score += eval_params.pawn_protection[p-1];
+        }
 
         G(
             93, if (p > Pawn) {
