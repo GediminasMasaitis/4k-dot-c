@@ -1255,7 +1255,7 @@ i32 search(
 #endif
     H(175, 1, H(176, 1, Position *const pos), H(176, 1, const i32 beta),
       H(176, 1, i32 depth), H(176, 1, ThreadData *data)),
-    H(175, 1, H(177, 1, const i32 ply), H(177, 1, const bool do_null),
+    H(175, 1, H(177, 1, const bool do_null), H(177, 1, const i32 ply),
       H(177, 1, i32 alpha))) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -1333,15 +1333,15 @@ i32 search(
     // NULL MOVE PRUNING
     if (G(197, depth > 2) && G(197, static_eval >= beta) && G(197, do_null)) {
       Position npos = *pos;
-      G(198, npos.ep = 0;)
       G(198, flip_pos(&npos);)
+      G(198, npos.ep = 0;)
       const i32 score = -search(
 #ifdef FULL
           nodes,
 #endif
           H(175, 2, H(176, 2, &npos), H(176, 2, -alpha),
             H(176, 2, depth - G(199, depth / 4) - G(199, 4)), H(176, 2, data)),
-          H(175, 2, H(177, 2, ply + 1), H(177, 2, false), H(177, 2, -beta)));
+          H(175, 2, H(177, 2, false), H(177, 2, ply + 1), H(177, 2, -beta)));
       if (score >= beta) {
         return score;
       }
@@ -1432,7 +1432,7 @@ i32 search(
 #endif
           H(175, 3, H(176, 3, &npos), H(176, 3, -alpha),
             H(176, 3, depth - G(218, 1) - G(218, reduction)), H(176, 3, data)),
-          H(175, 3, H(177, 3, ply + 1), H(177, 3, true), H(177, 3, low)));
+          H(175, 3, H(177, 3, true), H(177, 3, ply + 1), H(177, 3, low)));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
@@ -1633,7 +1633,7 @@ void iteratively_deepen(
 #endif
           H(175, 4, H(176, 4, &data->pos), H(176, 4, beta), H(176, 4, depth),
             H(176, 4, data)),
-          H(175, 4, H(177, 4, 0), H(177, 4, false), H(177, 4, alpha)));
+          H(175, 4, H(177, 4, false), H(177, 4, 0), H(177, 4, alpha)));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
