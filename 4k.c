@@ -1123,16 +1123,18 @@ S(0) i32 eval(Position *const restrict pos) {
                            G(159, eval_params.king_shield[0]);)
                   })
 
-              // BISHOP COLOUR PAWNS
-              if (p == Bishop) {
-                u64 mask = 0xAA55AA55AA55AA55ull;
-                if (piece_bb & ~mask) {
-                  mask = ~mask;
-                }
-                for (i32 i = 0; i < 2; i++) {
-                  score += eval_params.bishop_pawns[i] * count(pawns[i] & mask);
-                }
-              }
+              G(
+                  152, // BISHOP COLOUR PAWNS
+                  if (G(996, p) == G(996, Bishop)) {
+                    u64 mask = 0xAA55AA55AA55AA55ull;
+                    if (G(997, piece_bb) & G(997, ~mask)) {
+                      mask = ~mask;
+                    }
+                    for (i32 i = 0; i < 2; i++) {
+                      score += G(999, eval_params.bishop_pawns[i]) *
+                               G(999, count(G(998, pawns[i]) & G(998, mask)));
+                    }
+                  })
 
               G(152, const u64 mobility =
                          get_mobility(H(69, 3, pos), H(69, 3, sq), H(69, 3, p));
