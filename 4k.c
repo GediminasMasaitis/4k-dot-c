@@ -206,8 +206,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
   G(6, bool castling[4];)
-  G(6, bool flipped;)
   G(6, u8 padding[11];)
+  G(6, bool flipped;)
 } Position;
 
 #ifdef ASSERTS
@@ -836,13 +836,12 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 1, i8 bishop_pawns[2];))
   H(116, 1,
     H(119, 1, i8 protected_pawn;) H(119, 1, i8 passed_pawns[6];)
-        H(119, 1, i8 phalanx_pawn;) H(119, 1, i8 king_attacks[5];)
-            H(119, 1, i8 bishop_pair;) H(119, 1, i8 pst_rank[48];))
+        H(119, 1, i8 phalanx_pawn;) H(119, 1, i8 bishop_pair;)
+            H(119, 1, i8 king_attacks[5];) H(119, 1, i8 pst_rank[48];))
   H(116, 1,
-    H(117, 1, i8 open_files[12];) H(117, 1, i8 tempo;)
-        H(117, 1, i8 passed_blocked_pawns[6];) H(117, 1, i8 pst_file[48];)
-            H(117, 1, i8 pawn_attacked_penalty[2];)
-                H(117, 1, i8 mobilities[5];))
+    H(117, 1, i8 pawn_attacked_penalty[2];) H(117, 1, i8 tempo;)
+        H(117, 1, i8 pst_file[48];) H(117, 1, i8 passed_blocked_pawns[6];)
+            H(117, 1, i8 open_files[12];) H(117, 1, i8 mobilities[5];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -852,13 +851,12 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 2, i32 bishop_pawns[2];))
   H(116, 2,
     H(119, 2, i32 protected_pawn;) H(119, 2, i32 passed_pawns[6];)
-        H(119, 2, i32 phalanx_pawn;) H(119, 2, i32 king_attacks[5];)
-            H(119, 2, i32 bishop_pair;) H(119, 2, i32 pst_rank[48];))
+        H(119, 2, i32 phalanx_pawn;) H(119, 2, i32 bishop_pair;)
+            H(119, 2, i32 king_attacks[5];) H(119, 2, i32 pst_rank[48];))
   H(116, 2,
-    H(117, 2, i32 open_files[12];) H(117, 2, i32 tempo;)
-        H(117, 2, i32 passed_blocked_pawns[6];) H(117, 2, i32 pst_file[48];)
-            H(117, 2, i32 pawn_attacked_penalty[2];)
-                H(117, 2, i32 mobilities[5];))
+    H(117, 2, i32 pawn_attacked_penalty[2];) H(117, 2, i32 tempo;)
+        H(117, 2, i32 pst_file[48];) H(117, 2, i32 passed_blocked_pawns[6];)
+            H(117, 2, i32 open_files[12];) H(117, 2, i32 mobilities[5];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1057,9 +1055,9 @@ S(0) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(138, const i32 file = G(139, sq) & G(139, 7);)
+        G(138, copy &= copy - 1;)
         G(138, phase += initial_params.phases[p];)
         G(138, const u64 piece_bb = 1ULL << sq;)
-        G(138, copy &= copy - 1;)
         G(138, const i32 rank = sq >> 3;)
         G(138, const u64 in_front = 0x101010101010101ULL << sq;)
         G(93, // MATERIAL
@@ -1204,7 +1202,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 4 };
+enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(177, __attribute__((aligned(4096))) u8
@@ -1390,15 +1388,15 @@ i32 search(
             G(207, move_equal(G(208, &moves[order_index]),
                               G(208, &stack[ply].killer))) *
                 G(207, 829)) +
+          G(180, // MOST VALUABLE VICTIM
+            G(210, moves[order_index].takes_piece) * G(210, 663)) +
           G(180, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
           G(180, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(209, &stack[ply].best_move),
                         G(209, &moves[order_index]))
-             << 30)) +
-          G(180, // MOST VALUABLE VICTIM
-            G(210, moves[order_index].takes_piece) * G(210, 663));
+             << 30));
       if (order_move_score > move_score) {
         G(211, best_index = order_index;)
         G(211, move_score = order_move_score;)
