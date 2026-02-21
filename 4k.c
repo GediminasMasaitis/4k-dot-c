@@ -1100,10 +1100,10 @@ S(0) i32 eval(Position *const restrict pos) {
           eval_params
               .pst_file[G(150, G(151, (p - 1)) * G(151, 8)) + G(150, file)];)
 
-        // PAWN PROTECTION
-        if (piece_bb & protected_by_pawns) {
+        G(93, // PAWN PROTECTION
+        if (G(999, piece_bb) & G(999, protected_by_pawns)) {
           score += eval_params.pawn_protection[p - 1];
-        }
+        })
 
         G(
             93, if (p > Pawn) {
