@@ -840,7 +840,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(120, 1, i8 bishop_pair;) H(120, 1, i8 king_attacks[5];)
         H(120, 1, i8 phalanx_pawn;) H(120, 1, i8 protected_pawn;)
             H(120, 1, i8 pst_rank[48];) H(120, 1, i8 passed_pawns[6];))
-  H(118, 1, i8 king_shield[2]; i8 pawn_threat[5];)
+  H(118, 1, H(750, 1, i8 king_shield[2];) H(750, 1, i8 pawn_threat[5];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -854,7 +854,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(120, 2, i32 bishop_pair;) H(120, 2, i32 king_attacks[5];)
         H(120, 2, i32 phalanx_pawn;) H(120, 2, i32 protected_pawn;)
             H(120, 2, i32 pst_rank[48];) H(120, 2, i32 passed_pawns[6];))
-  H(118, 2, i32 king_shield[2]; i32 pawn_threat[5]);
+  H(118, 2, H(750, 2, i32 king_shield[2];) H(750, 2, i32 pawn_threat[5];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1093,17 +1093,17 @@ S(0) i32 eval(Position *const restrict pos) {
               G(
                   153,
                   // KING SHIELD
-                  if (p == King && piece_bb & 0xC3D7) {
+                  if (G(800, G(801, p) == G(801, King)) && G(800, G(802, piece_bb) & G(802, 0xC3D7))) {
                     const u64 shield = file < 3 ? 0x700 : 0xE000;
-                    score +=
-                        count(shield & own_pawns) * eval_params.king_shield[0];
-                    score += count(north(shield) & own_pawns) *
-                             eval_params.king_shield[1];
+                    G(803, score += G(805, count(G(804, shield) & G(804, own_pawns))) * G(805, eval_params.king_shield[0]);)
+                    G(803, score += G(807, count(G(806, north(shield)) & G(806,own_pawns))) * G(807, eval_params.king_shield[1]);)
                   })
 
-              if (in_front & ~piece_bb & attacked_by_pawns) {
+                G(153,
+                // PAWN PUSH THREATS
+              if (G(810, in_front) & G(810, ~piece_bb) & G(810, attacked_by_pawns)) {
                 score += eval_params.pawn_threat[p - 2];
-              }
+              })
 
               G(153, const u64 mobility =
                          get_mobility(H(71, 3, pos), H(71, 3, sq), H(71, 3, p));
