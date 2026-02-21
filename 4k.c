@@ -871,7 +871,7 @@ G(121,
   __attribute__((aligned(8))) S(1)
       const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4},
                                                 .mg = {.material = {0, 65, 281,
-                                                                    320, 370,
+                                                                    321, 370,
                                                                     816},
                                                        .pst_rank =
                                                            {
@@ -890,9 +890,9 @@ G(121,
                                                                19,  19,  10,
                                                                -1,  -7,  -4,
                                                                -24, -12, // Queen
-                                                               -8,  -7,  -18,
-                                                               -21, 10,  62,
-                                                               68,  86, // King
+                                                               -10, -9,  -19,
+                                                               -23, 8,   60,
+                                                               66,  85, // King
                                                            },
                                                        .pst_file =
                                                            {
@@ -907,17 +907,17 @@ G(121,
                                                                9,   -4, // Bishop
                                                                -12, -9,  -4,
                                                                7,   11,  9,
-                                                               6,   -9, // Rook
+                                                               6,   -8, // Rook
                                                                -13, -8,  -5,
                                                                1,   3,   4,
                                                                12,  7, // Queen
-                                                               -10, 12,  -12,
-                                                               -30, -26, -13,
-                                                               11,  6, // King
+                                                               -10, 11,  -12,
+                                                               -30, -26, -14,
+                                                               10,  5, // King
                                                            },
                                                        .mobilities = {6, 5, 2,
-                                                                      2, -1},
-                                                       .king_attacks = {0, 14,
+                                                                      2, 0},
+                                                       .king_attacks = {0, 15,
                                                                         19, 14,
                                                                         0},
                                                        .pawn_threat = {-16, -7,
@@ -939,12 +939,12 @@ G(121,
                                                        .phalanx_pawn = 11,
                                                        .bishop_pair = 26,
                                                        .bishop_pawns = {-5, -5},
-                                                       .king_shield = {13, 9},
+                                                       .king_shield = {26, 19},
                                                        .pawn_attacked_penalty =
                                                            {-16, -128},
                                                        .tempo = 17},
                                                 .eg = {.material = {0, 87, 393,
-                                                                    433, 719,
+                                                                    434, 719,
                                                                     1338},
                                                        .pst_rank =
                                                            {
@@ -984,8 +984,8 @@ G(121,
                                                                -23, -6,  4,
                                                                6,   14,  13,
                                                                0,   -9, // Queen
-                                                               -32, 5,   18,
-                                                               26,  26,  17,
+                                                               -33, 4,   18,
+                                                               25,  25,  17,
                                                                4,   -39, // King
                                                            },
                                                        .mobilities = {4, 3, 4,
@@ -1008,13 +1008,13 @@ G(121,
                                                            {-10, -9, -32, -62,
                                                             -110, -113},
                                                        .pawn_protection =
-                                                           {17, 13, -10, 1, 4,
+                                                           {17, 12, -10, 1, 4,
                                                             -3},
                                                        .phalanx_pawn = 14,
                                                        .bishop_pair = 62,
                                                        .bishop_pawns = {-11,
                                                                         -1},
-                                                       .king_shield = {-6, -3},
+                                                       .king_shield = {-12, -7},
                                                        .pawn_attacked_penalty =
                                                            {-10, -128},
                                                        .tempo = 7}};)
@@ -1102,7 +1102,7 @@ S(0) i32 eval(Position *const restrict pos) {
 
         // PAWN PROTECTION
         if (piece_bb & protected_by_pawns) {
-          score += eval_params.pawn_protection[p-1];
+          score += eval_params.pawn_protection[p - 1];
         }
 
         G(
