@@ -832,7 +832,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(118, 1, i8 king_shield[2];) H(118, 1, i8 pawn_threat[5];)
+    H(118, 1, i8 king_shield[2];) H(118, 1, i8 pawn_threat[6];)
         H(118, 1, i8 bishop_pawns[2];))
   H(116, 1,
     H(119, 1, i8 protected_pawn;) H(119, 1, i8 passed_pawns[6];)
@@ -847,7 +847,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(118, 2, i32 king_shield[2];) H(118, 2, i32 pawn_threat[5];)
+    H(118, 2, i32 king_shield[2];) H(118, 2, i32 pawn_threat[6];)
         H(118, 2, i32 bishop_pawns[2];))
   H(116, 2,
     H(119, 2, i32 protected_pawn;) H(119, 2, i32 passed_pawns[6];)
@@ -870,34 +870,34 @@ G(121, S(0) EvalParamsMerged eval_params;)
 G(121,
   __attribute__((aligned(8))) S(1)
       const EvalParamsInitial initial_params = {.phases = {0, 0, 1, 1, 2, 4},
-                                                .mg = {.material = {0, 66, 282,
+                                                .mg = {.material = {0, 65, 282,
                                                                     320, 371,
                                                                     817},
                                                        .pst_rank =
                                                            {
-                                                               0,   -15, -17,
-                                                               -5,  8,   29,
+                                                               0,   -15, -18,
+                                                               -5,  8,   30,
                                                                97,  0, // Pawn
                                                                -16, -5,  6,
                                                                18,  27,  38,
                                                                18,  -85, // Knight
                                                                -5,  10,  15,
-                                                               15,  15,  13,
+                                                               16,  15,  13,
                                                                -5,  -59, // Bishop
-                                                               7,   -4,  -10,
-                                                               -14, 2,   11,
+                                                               7,   -4,  -9,
+                                                               -14, 1,   11,
                                                                0,   7, // Rook
-                                                               18,  18,  9,
-                                                               0,   -6,  -4,
+                                                               18,  18,  10,
+                                                               0,   -6,  -5,
                                                                -23, -12, // Queen
                                                                -11, -8,  -17,
                                                                -22, 9,   60,
-                                                               67,  83, // King
+                                                               67,  82, // King
                                                            },
                                                        .pst_file =
                                                            {
-                                                               -11, -11, -6,
-                                                               3,   9,   13,
+                                                               -11, -11, -7,
+                                                               3,   8,   13,
                                                                12,  -8, // Pawn
                                                                -28, -11, -1,
                                                                12,  13,  13,
@@ -911,8 +911,8 @@ G(121,
                                                                -13, -8,  -4,
                                                                1,   3,   4,
                                                                11,  7, // Queen
-                                                               -12, 12,  -12,
-                                                               -28, -25, -11,
+                                                               -13, 12,  -12,
+                                                               -28, -26, -11,
                                                                12,  3, // King
                                                            },
                                                        .mobilities = {6, 5, 2,
@@ -920,18 +920,18 @@ G(121,
                                                        .king_attacks = {0, 14,
                                                                         19, 14,
                                                                         0},
-                                                       .pawn_threat = {-15, -7,
-                                                                       -7, -7,
-                                                                       -2},
+                                                       .pawn_threat = {1, -15,
+                                                                       -7, -8,
+                                                                       -7, -2},
                                                        .open_files =
                                                            {7, -9, -10, 16, -1,
                                                             -24, 8, -12, -14,
                                                             32, -13, -57},
                                                        .passed_pawns = {-6, -10,
-                                                                        -8, 11,
+                                                                        -7, 12,
                                                                         35, 97},
                                                        .passed_blocked_pawns =
-                                                           {0, -3, 3, 12, 14,
+                                                           {0, -3, 4, 12, 14,
                                                             -42},
                                                        .protected_pawn = 15,
                                                        .phalanx_pawn = 9,
@@ -941,19 +941,19 @@ G(121,
                                                        .pawn_attacked_penalty =
                                                            {-16, -128},
                                                        .tempo = 17},
-                                                .eg = {.material = {0, 88, 391,
+                                                .eg = {.material = {0, 83, 391,
                                                                     430, 719,
                                                                     1338},
                                                        .pst_rank =
                                                            {
-                                                               0,   -5,  -8,
-                                                               -7,  0,   20,
-                                                               101, 0, // Pawn
+                                                               0,   -5,  -9,
+                                                               -8,  0,   21,
+                                                               102, 0, // Pawn
                                                                -33, -20, -7,
                                                                17,  22,  9,
                                                                4,   9, // Knight
                                                                -16, -14, -1,
-                                                               4,   8,   5,
+                                                               5,   8,   5,
                                                                4,   9, // Bishop
                                                                -17, -19, -12,
                                                                4,   11,  10,
@@ -967,10 +967,10 @@ G(121,
                                                            },
                                                        .pst_file =
                                                            {
-                                                               11,  11,  -1,
-                                                               -11, -5,  -1,
-                                                               0,   -4, // Pawn
-                                                               -20, -5,  7,
+                                                               12,  12,  -2,
+                                                               -11, -6,  -2,
+                                                               1,   -4, // Pawn
+                                                               -20, -4,  7,
                                                                16,  16,  5,
                                                                -1,  -19, // Knight
                                                                -11, 0,   5,
@@ -981,8 +981,8 @@ G(121,
                                                                0,   -6, // Rook
                                                                -23, -6,  4,
                                                                7,   14,  14,
-                                                               0,   -10, // Queen
-                                                               -33, 4,   18,
+                                                               1,   -10, // Queen
+                                                               -33, 4,   17,
                                                                25,  25,  16,
                                                                4,   -40, // King
                                                            },
@@ -991,26 +991,26 @@ G(121,
                                                        .king_attacks = {0, -3,
                                                                         -6, 8,
                                                                         0},
-                                                       .pawn_threat = {-3, -5,
-                                                                       -17, -14,
-                                                                       -9},
-                                                       .open_files = {21, 1, 13,
+                                                       .pawn_threat = {5, -3,
+                                                                       -5, -17,
+                                                                       -14, -9},
+                                                       .open_files = {22, 1, 13,
                                                                       5, 21, 13,
-                                                                      23, -8, 2,
+                                                                      24, -8, 2,
                                                                       12, 42,
                                                                       9},
                                                        .passed_pawns =
-                                                           {9, 15, 40, 67, 115,
-                                                            101},
+                                                           {11, 18, 43, 69, 116,
+                                                            102},
                                                        .passed_blocked_pawns =
                                                            {-10, -8, -31, -62,
                                                             -111, -114},
-                                                       .protected_pawn = 16,
-                                                       .phalanx_pawn = 15,
+                                                       .protected_pawn = 17,
+                                                       .phalanx_pawn = 16,
                                                        .bishop_pair = 62,
                                                        .bishop_pawns = {-11,
                                                                         -1},
-                                                       .king_shield = {-11, -7},
+                                                       .king_shield = {-12, -7},
                                                        .pawn_attacked_penalty =
                                                            {-10, -128},
                                                        .tempo = 7}};)
@@ -1095,14 +1095,14 @@ S(0) i32 eval(Position *const restrict pos) {
               .pst_file[G(150, G(151, (p - 1)) * G(151, 8)) + G(150, file)];)
 
         G(
-            93, if (p > Pawn) {
-              G(
-                  152, // PAWN PUSH THREATS
-                  if (G(153, in_front) & G(153, ~piece_bb) &
-                      G(153, attacked_by_pawns)) {
-                    score += eval_params.pawn_threat[p - 2];
-                  })
+            93, // PAWN PUSH THREATS
+            if (G(153, in_front) & G(153, ~piece_bb) &
+                G(153, attacked_by_pawns)) {
+              score += eval_params.pawn_threat[p - 1];
+            })
 
+        G(
+            93, if (p > Pawn) {
               G(
                   152, // KING SHIELD
                   if (G(155, G(156, p) == G(156, King)) &&
