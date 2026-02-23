@@ -1075,12 +1075,18 @@ S(0) i32 eval(Position *const restrict pos) {
             93, // PASSED PAWNS
             if (G(139, p == Pawn) &&
                 G(139, !(G(140, in_front) & G(140, no_passers)))) {
-              G(141, score += eval_params.passed_pawns[rank - 1];)
+              G(141,
+                // PASSED PAWN RANK
+                score += eval_params.passed_pawns[rank - 1];)
 
-              score += eval_params.passed_files[file];
+              G(141,
+                // PASSED PAWN FILE
+                score += eval_params.passed_files[file];)
 
               G(
-                  141, if (G(142, north(piece_bb)) & G(142, pos->colour[1])) {
+                  141,
+                  // BLOCKED PASSED PAWN
+                  if (G(142, north(piece_bb)) & G(142, pos->colour[1])) {
                     score += eval_params.passed_blocked_pawns[rank - 1];
                   })
             })
@@ -1212,7 +1218,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(176, __attribute__((aligned(4096))) u8
