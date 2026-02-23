@@ -1056,6 +1056,10 @@ S(0) i32 eval(Position *const restrict pos) {
         })
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(137, pos->colour[0]) & G(137, pos->pieces[p]);
+
+      // PAWN HAT
+      score += count(north(copy) & pawns[0]) * eval_params.pawn_hat[p - 1];
+
       while (copy) {
         const i32 sq = lsb(copy);
         G(138, const i32 file = G(139, sq) & G(139, 7);)
@@ -1098,9 +1102,9 @@ S(0) i32 eval(Position *const restrict pos) {
           eval_params
               .pst_file[G(150, G(151, (p - 1)) * G(151, 8)) + G(150, file)];)
 
-        if (north(piece_bb) & pawns[0]) {
-          score += eval_params.pawn_hat[p];
-        }
+        // if (north(piece_bb) & pawns[0]) {
+        //   score += eval_params.pawn_hat[p - 1];
+        // }
 
         G(
             93, if (p > Pawn) {
