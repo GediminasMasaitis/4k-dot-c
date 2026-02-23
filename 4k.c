@@ -833,7 +833,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat_penalty[5];)
-        H(117, 1, i8 bishop_pawns[2];))
+        H(117, 1, i8 bishop_pawns_penalty[2];))
   H(116, 1,
     H(118, 1, i8 protected_pawn;) H(118, 1, i8 passed_pawns[6];)
         H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 bishop_pair;)
@@ -848,7 +848,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat_penalty[5];)
-        H(117, 2, i32 bishop_pawns[2];))
+        H(117, 2, i32 bishop_pawns_penalty[2];))
   H(116, 2,
     H(118, 2, i32 protected_pawn;) H(118, 2, i32 passed_pawns[6];)
         H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 bishop_pair;)
@@ -936,7 +936,7 @@ G(121,
                                                        .protected_pawn = 15,
                                                        .phalanx_pawn = 9,
                                                        .bishop_pair = 26,
-                                                       .bishop_pawns = {-6, -5},
+                                                       .bishop_pawns_penalty = {6, 5},
                                                        .king_shield = {28, 20},
                                                        .pawn_attacked_penalty =
                                                            {-16, -128},
@@ -1008,8 +1008,8 @@ G(121,
                                                        .protected_pawn = 16,
                                                        .phalanx_pawn = 15,
                                                        .bishop_pair = 62,
-                                                       .bishop_pawns = {-11,
-                                                                        -1},
+                                                       .bishop_pawns_penalty = {11,
+                                                                        1},
                                                        .king_shield = {-11, -7},
                                                        .pawn_attacked_penalty =
                                                            {-10, -128},
@@ -1130,7 +1130,7 @@ S(0) i32 eval(Position *const restrict pos) {
                       mask = ~mask;
                     }
                     for (i32 i = 0; i < 2; i++) {
-                      score += G(164, eval_params.bishop_pawns[i]) *
+                      score -= G(164, eval_params.bishop_pawns_penalty[i]) *
                                G(164, count(G(165, pawns[i]) & G(165, mask)));
                     }
                   })
