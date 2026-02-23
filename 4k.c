@@ -1054,11 +1054,11 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, const i32 file = G(138, sq) & G(138, 7);)
-        G(137, copy &= copy - 1;)
-        G(137, phase += initial_params.phases[p];)
         G(137, const u64 piece_bb = 1ULL << sq;)
+        G(137, phase += initial_params.phases[p];)
         G(137, const i32 rank = sq >> 3;)
+        G(137, copy &= copy - 1;)
+        G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(93, // MATERIAL
           score += eval_params.material[p];)
