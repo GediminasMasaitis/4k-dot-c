@@ -1031,20 +1031,20 @@ S(0) i32 eval(Position *const restrict pos) {
     G(125, const u64 opp_king_zone =
                king(G(126, pos->colour[1]) & G(126, pos->pieces[King]));)
 
-    G(125,
-      const u64 pawns[2] = {G(127, pos->pieces[Pawn]) & G(127, pos->colour[0]),
-                            G(128, pos->pieces[Pawn]) & G(128, pos->colour[1])};
-      const u64 attacked_by_pawns =
-          G(129, southwest(pawns[1])) | G(129, southeast(pawns[1]));
-      G(130, // PHALANX PAWNS
-        score -= G(134, eval_params.phalanx_pawn) *
-                 G(134, count(G(135, pawns[1]) & G(135, west(pawns[1]))));)
-          G(130, const u64 no_passers =
-                     G(131, pawns[1]) | G(131, attacked_by_pawns);)
-              G(130, // PROTECTED PAWNS
-                score -=
-                G(132, eval_params.protected_pawn) *
-                G(132, count(G(133, pawns[1]) & G(133, attacked_by_pawns)));))
+    G(
+        125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
+          pawns[i] = G(127, pos->pieces[Pawn]) & G(127, pos->colour[i]);
+        } const u64 attacked_by_pawns = G(129, southwest(pawns[1])) |
+                                        G(129, southeast(pawns[1]));
+        G(130, // PHALANX PAWNS
+          score -= G(134, eval_params.phalanx_pawn) *
+                   G(134, count(G(135, pawns[1]) & G(135, west(pawns[1]))));)
+            G(130, const u64 no_passers =
+                       G(131, pawns[1]) | G(131, attacked_by_pawns);)
+                G(130, // PROTECTED PAWNS
+                  score -=
+                  G(132, eval_params.protected_pawn) *
+                  G(132, count(G(133, pawns[1]) & G(133, attacked_by_pawns)));))
     G(
         125, // BISHOP PAIR
         if (count(G(136, pos->pieces[Bishop]) & G(136, pos->colour[0])) > 1) {
@@ -1126,7 +1126,7 @@ S(0) i32 eval(Position *const restrict pos) {
                   152, // BISHOP COLOUR PAWNS
                   if (G(163, p) == G(163, Bishop)) {
                     u64 mask = 0xAA55AA55AA55AA55ULL;
-                    if (G(164, piece_bb) & G(164, ~mask)) {
+                    if (!(G(164, piece_bb) & G(164, mask))) {
                       mask = ~mask;
                     }
                     for (i32 i = 0; i < 2; i++) {
@@ -1202,7 +1202,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(177, __attribute__((aligned(4096))) u8
