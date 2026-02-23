@@ -206,8 +206,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
   G(6, bool castling[4];)
-  G(6, bool flipped;)
   G(6, u8 padding[11];)
+  G(6, bool flipped;)
 } Position;
 
 #ifdef ASSERTS
@@ -287,7 +287,7 @@ G(
                          H(10, 5, bb)));
     })
 
-G(25, S(1) u64 diag_mask[64];)
+G(25, S(0) u64 diag_mask[64];)
 
 G(
     25, [[nodiscard]] S(1)
@@ -832,33 +832,31 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 king_shield[2];)
-        H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 passed_files[8];))
+    H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 pawn_threat[5];)
+        H(117, 1, i8 king_shield[2];) H(117, 1, i8 passed_files[8];))
   H(116, 1,
     H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 bishop_pair;)
         H(118, 1, i8 king_attacks[5];) H(118, 1, i8 protected_pawn;)
             H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];))
   H(116, 1,
-    H(119, 1, i8 pst_file[48];) H(119, 1, i8 mobilities[5];)
-        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 tempo;)
-            H(119, 1, i8 open_files[12];)
-                H(119, 1, i8 pawn_attacked_penalty[2];))
+    H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 pst_file[48];)
+        H(119, 1, i8 mobilities[5];) H(119, 1, i8 passed_blocked_pawns[6];)
+            H(119, 1, i8 tempo;) H(119, 1, i8 open_files[12];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 king_shield[2];)
-        H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 passed_files[8];))
+    H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 pawn_threat[5];)
+        H(117, 2, i32 king_shield[2];) H(117, 2, i32 passed_files[8];))
   H(116, 2,
     H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 bishop_pair;)
         H(118, 2, i32 king_attacks[5];) H(118, 2, i32 protected_pawn;)
             H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];))
   H(116, 2,
-    H(119, 2, i32 pst_file[48];) H(119, 2, i32 mobilities[5];)
-        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 tempo;)
-            H(119, 2, i32 open_files[12];)
-                H(119, 2, i32 pawn_attacked_penalty[2];))
+    H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 pst_file[48];)
+        H(119, 2, i32 mobilities[5];) H(119, 2, i32 passed_blocked_pawns[6];)
+            H(119, 2, i32 tempo;) H(119, 2, i32 open_files[12];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1065,11 +1063,11 @@ S(0) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(137, phase += initial_params.phases[p];)
-        G(137, const i32 rank = sq >> 3;)
-        G(137, copy &= copy - 1;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(137, const u64 piece_bb = 1ULL << sq;)
+        G(137, copy &= copy - 1;)
+        G(137, const i32 rank = sq >> 3;)
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
@@ -1218,14 +1216,14 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 4 };
+enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(176, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
 G(176, S(1) TTEntry tt[tt_length];)
-G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
+G(176, S(1) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1310,8 +1308,8 @@ i32 search(
   }
 
   // TT PROBING
-  G(184, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(184, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
+  G(184, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(184, stack[ply].best_move = (Move){0};)
   if (G(185, tt_entry->partial_hash) == G(185, tt_hash_partial)) {
     stack[ply].best_move = tt_entry->move;
