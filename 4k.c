@@ -832,7 +832,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat[5];)
+    H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat_penalty[5];)
         H(117, 1, i8 bishop_pawns[2];))
   H(116, 1,
     H(118, 1, i8 protected_pawn;) H(118, 1, i8 passed_pawns[6];)
@@ -840,14 +840,14 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(118, 1, i8 king_attacks[5];) H(118, 1, i8 pst_rank[48];))
   H(116, 1,
     H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 tempo;)
-        H(119, 1, i8 pst_file[48];) H(119, 1, i8 passed_blocked_pawns[6];)
+        H(119, 1, i8 pst_file[48];) H(119, 1, i8 passed_blocked_pawns_penalty[6];)
             H(119, 1, i8 open_files[12];) H(119, 1, i8 mobilities[5];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat[5];)
+    H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat_penalty[5];)
         H(117, 2, i32 bishop_pawns[2];))
   H(116, 2,
     H(118, 2, i32 protected_pawn;) H(118, 2, i32 passed_pawns[6];)
@@ -855,7 +855,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(118, 2, i32 king_attacks[5];) H(118, 2, i32 pst_rank[48];))
   H(116, 2,
     H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 tempo;)
-        H(119, 2, i32 pst_file[48];) H(119, 2, i32 passed_blocked_pawns[6];)
+        H(119, 2, i32 pst_file[48];) H(119, 2, i32 passed_blocked_pawns_penalty[6];)
             H(119, 2, i32 open_files[12];) H(119, 2, i32 mobilities[5];))
 } EvalParamsMerged;
 
@@ -920,9 +920,9 @@ G(121,
                                                        .king_attacks = {0, 14,
                                                                         19, 14,
                                                                         0},
-                                                       .pawn_threat = {-15, -7,
-                                                                       -7, -7,
-                                                                       -2},
+                                                       .pawn_threat_penalty = {15, 7,
+                                                                       7, 7,
+                                                                       2},
                                                        .open_files =
                                                            {7, -9, -10, 16, -1,
                                                             -24, 8, -12, -14,
@@ -930,9 +930,9 @@ G(121,
                                                        .passed_pawns = {-6, -10,
                                                                         -8, 11,
                                                                         35, 97},
-                                                       .passed_blocked_pawns =
-                                                           {0, -3, 3, 12, 14,
-                                                            -42},
+                                                       .passed_blocked_pawns_penalty =
+                                                           {0, 3, -3, -12, -14,
+                                                            42},
                                                        .protected_pawn = 15,
                                                        .phalanx_pawn = 9,
                                                        .bishop_pair = 26,
@@ -991,9 +991,9 @@ G(121,
                                                        .king_attacks = {0, -3,
                                                                         -6, 8,
                                                                         0},
-                                                       .pawn_threat = {-3, -5,
-                                                                       -17, -14,
-                                                                       -9},
+                                                       .pawn_threat_penalty = {3, 5,
+                                                                       17, 14,
+                                                                       9},
                                                        .open_files = {21, 1, 13,
                                                                       5, 21, 13,
                                                                       23, -8, 2,
@@ -1002,9 +1002,9 @@ G(121,
                                                        .passed_pawns =
                                                            {9, 15, 40, 67, 115,
                                                             101},
-                                                       .passed_blocked_pawns =
-                                                           {-10, -8, -31, -62,
-                                                            -111, -114},
+                                                       .passed_blocked_pawns_penalty =
+                                                           {10, 8, 31, 62,
+                                                            111, 114},
                                                        .protected_pawn = 16,
                                                        .phalanx_pawn = 15,
                                                        .bishop_pair = 62,
@@ -1071,7 +1071,7 @@ S(0) i32 eval(Position *const restrict pos) {
 
               G(
                   141, if (G(142, north(piece_bb)) & G(142, pos->colour[1])) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
+                    score -= eval_params.passed_blocked_pawns_penalty[rank - 1];
                   })
             })
         G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
@@ -1100,7 +1100,7 @@ S(0) i32 eval(Position *const restrict pos) {
                   151, // PAWN PUSH THREATS
                   if (G(152, in_front) & G(152, ~piece_bb) &
                       G(152, attacked_by_pawns)) {
-                    score += eval_params.pawn_threat[p - 2];
+                    score -= eval_params.pawn_threat_penalty[p - 2];
                   })
 
               G(
@@ -1202,7 +1202,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 
 G(176, __attribute__((aligned(4096))) u8
