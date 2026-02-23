@@ -9560,3 +9560,64 @@ Games | N: 12192 W: 3181 L: 3003 D: 6008
 Penta | [166, 1447, 2746, 1517, 220]
 https://gedas.pythonanywhere.com/test/1690/
 ```
+
+### 7.20
+
+Reduce size in eval
+
+4 threads: 3925 bytes (-5)
+MD5: 60a18f0c3ea3939474962c91f2b32836
+
+1 thread: 3869 bytes (-2)
+MD5: 4ac7dc248c8db24505ede1198a965a44
+
+4 threads:
+```py
+Input:       ./build/4kc (5504 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3455.063 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:2 90:2 10:0 50:1 B0:3 88:2 5A:3 23:2 A4:3 A9:4 9D:5
+Compressed:  3463 bytes 27702 bits (62.92%)
+Output:      ./build/4kc.paq (3463 bytes)
+```
+
+1 thread:
+```py
+Input:       ./build/4kc (5381 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3398.469 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:1 90:2 30:0 50:1 B0:3 88:2 48:1 9D:5 A9:4 22:0 5A:3 23:1
+Compressed:  3407 bytes 27250 bits (63.32%)
+Output:      ./build/4kc.paq (3407 bytes)
+```
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 360425
+info depth 1 score cp 26 time 0 nodes 38 nps 368688 pv b1c3
+info depth 2 score cp 17 time 0 nodes 119 nps 445988 pv b1c3
+info depth 3 score cp 23 time 0 nodes 239 nps 689237 pv b1c3
+info depth 4 score cp 17 time 0 nodes 381 nps 792434 pv b1c3
+info depth 5 score cp 10 time 0 nodes 604 nps 898614 pv b1c3
+info depth 6 score cp 11 time 1 nodes 1182 nps 1094702 pv b1c3
+info depth 7 score cp 14 time 3 nodes 4018 nps 1061916 pv b1c3
+info depth 8 score cp 17 time 7 nodes 7806 nps 1042132 pv b1c3
+info depth 9 score cp 21 time 19 nodes 21887 nps 1131292 pv d2d4
+info depth 10 score cp 17 time 34 nodes 41584 nps 1202583 pv d2d4
+info depth 11 score cp 21 time 61 nodes 83753 nps 1369402 pv d2d4
+info depth 12 score cp 16 time 96 nodes 150403 nps 1553900 pv d2d4
+info depth 13 score cp 14 time 242 nodes 463607 nps 1909956 pv d2d4
+info depth 14 score cp 17 time 376 nodes 762678 nps 2023689 pv d2d4
+info depth 15 score cp 18 time 556 nodes 1153316 nps 2072960 pv d2d4
+info depth 16 score cp 21 time 878 nodes 1843033 nps 2097195 pv d2d4
+info depth 17 score cp 16 time 1265 nodes 2646706 nps 2091107 pv d2d4
+info depth 18 score cp 15 time 2256 nodes 4720224 nps 2091848 pv d2d4
+info depth 19 score cp 28 time 3180 nodes 6566117 nps 2064308 pv d2d4
+info depth 20 score cp 22 time 4395 nodes 9056617 nps 2060432 pv d2d4
+info depth 21 score cp 24 time 6005 nodes 12236906 nps 2037762 pv d2d4
+info depth 22 score cp 22 time 10967 nodes 21879843 nps 1995045 pv d2d4
+21879843 nodes 1995037 nps
+```
