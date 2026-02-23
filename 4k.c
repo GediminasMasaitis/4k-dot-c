@@ -1288,7 +1288,7 @@ i32 search(
 #endif
     H(178, 1, H(179, 1, Position *const pos), H(179, 1, const i32 beta),
       H(179, 1, i32 depth), H(179, 1, ThreadData *data)),
-    H(178, 1, H(180, 1, const bool do_null), H(180, 1, const i32 ply),
+    H(178, 1, H(180, 1, const i32 ply), H(180, 1, const bool do_null),
       H(180, 1, i32 alpha))) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -1374,7 +1374,7 @@ i32 search(
 #endif
           H(178, 2, H(179, 2, &npos), H(179, 2, -alpha),
             H(179, 2, depth - G(202, depth / 4) - G(202, 4)), H(179, 2, data)),
-          H(178, 2, H(180, 2, false), H(180, 2, ply + 1), H(180, 2, -beta)));
+          H(178, 2, H(180, 2, ply + 1), H(180, 2, false), H(180, 2, -beta)));
       if (score >= beta) {
         return score;
       }
@@ -1465,7 +1465,7 @@ i32 search(
 #endif
           H(178, 3, H(179, 3, &npos), H(179, 3, -alpha),
             H(179, 3, depth - G(221, 1) - G(221, reduction)), H(179, 3, data)),
-          H(178, 3, H(180, 3, true), H(180, 3, ply + 1), H(180, 3, low)));
+          H(178, 3, H(180, 3, ply + 1), H(180, 3, true), H(180, 3, low)));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
@@ -1666,7 +1666,7 @@ void iteratively_deepen(
 #endif
           H(178, 4, H(179, 4, &data->pos), H(179, 4, beta), H(179, 4, depth),
             H(179, 4, data)),
-          H(178, 4, H(180, 4, false), H(180, 4, 0), H(180, 4, alpha)));
+          H(178, 4, H(180, 4, 0), H(180, 4, false), H(180, 4, alpha)));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
