@@ -441,7 +441,7 @@ G(
         pos->colour[0] ^= pos->colour[1];)
       G(
           67, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
+          // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
 
@@ -1204,10 +1204,12 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
+enum { corrhist_size = 1 << 14 }; // 16384 entries
 
 G(176, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
 G(176, S(1) TTEntry tt[tt_length];)
+G(176, S(1) i32 corrhist[corrhist_size];)
 G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
 
@@ -1230,6 +1232,15 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   hash = __builtin_ia32_aesenc128(hash, hash);
 
   // USE FIRST 64 BITS AS POSITION HASH
+  return hash[0];
+}
+
+[[nodiscard]] __attribute__((target("aes"))) S(1) u64
+    get_pawn_hash(const Position *const pos) {
+  i128 data = {(long long)(pos->pieces[Pawn] & pos->colour[0]),
+               (long long)(pos->pieces[Pawn] & pos->colour[1])};
+  i128 hash = __builtin_ia32_aesenc128((i128){0}, data);
+  hash = __builtin_ia32_aesenc128(hash, hash);
   return hash[0];
 }
 #elif defined(__aarch64__)
@@ -1256,6 +1267,24 @@ get_hash(const Position *const pos) {
   hash = veorq_u8(hash, key);
 
   // USE FIRST 64 BITS AS POSITION HASH
+  u64 result;
+  memcpy(&result, &hash, sizeof(result));
+  return result;
+}
+
+[[nodiscard]] __attribute__((target("+aes"))) u64
+get_pawn_hash(const Position *const pos) {
+  const u64 own_pawns = pos->pieces[Pawn] & pos->colour[0];
+  const u64 opp_pawns = pos->pieces[Pawn] & pos->colour[1];
+  uint8x16_t data;
+  memcpy(&data, &own_pawns, 8);
+  memcpy((char *)&data + 8, &opp_pawns, 8);
+  uint8x16_t hash = vdupq_n_u8(0);
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, data);
+  uint8x16_t key = hash;
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key);
   u64 result;
   memcpy(&result, &hash, sizeof(result));
   return result;
@@ -1312,10 +1341,12 @@ i32 search(
     depth--;
   }
 
-  // STATIC EVAL WITH ADJUSTMENT FROM TT
-  i32 static_eval = eval(pos);
-  assert(static_eval < mate);
-  assert(static_eval > -mate);
+  // STATIC EVAL WITH CORRECTION HISTORY
+  const i32 raw_eval = eval(pos);
+  const u64 pawn_hash = get_pawn_hash(pos);
+  i32 static_eval = raw_eval + corrhist[pawn_hash % corrhist_size] / 256;
+  assert(raw_eval < mate);
+  assert(raw_eval > -mate);
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1535,6 +1566,12 @@ i32 search(
                         .score = best_score,
                         .depth = depth,
                         .flag = tt_flag};
+
+  // UPDATE PAWN CORRECTION HISTORY
+  if (tt_flag == Exact) {
+    i32 *ch = &corrhist[pawn_hash % corrhist_size];
+    *ch += ((best_score - raw_eval) * 256 - *ch) / 1024;
+  }
 
   return best_score;
 }
@@ -1867,6 +1904,7 @@ S(1) void run() {
   G(242, char line[4096];)
   G(242, init();)
   G(242, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
+  G(242, __builtin_memset(corrhist, 0, sizeof(corrhist));)
   G(242, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
 
 #ifdef FULL
@@ -1892,6 +1930,7 @@ S(1) void run() {
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+      __builtin_memset(corrhist, 0, sizeof(corrhist));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
