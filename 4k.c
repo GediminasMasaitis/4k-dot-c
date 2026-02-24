@@ -189,6 +189,9 @@ static void putl(const char *const restrict string) {
 
 #endif
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
 #pragma endregion
 
 #pragma region base
@@ -1204,12 +1207,17 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
+enum { pawn_corrhist_size = 16384 };
+enum { corrhist_scaling = 256 };
+enum { corrhist_keep_part = 256 };
 
 G(176, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
 G(176, S(1) TTEntry tt[tt_length];)
 G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
+
+S(1) i16 pawn_corrhist[2][pawn_corrhist_size];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1225,6 +1233,23 @@ typedef long long __attribute__((__vector_size__(16))) i128;
     __builtin_memcpy(&key, data + G(177, i) * G(177, 16), 16);
     hash = __builtin_ia32_aesenc128(hash, key);
   }
+
+  // FINAL ROUND FOR BIT MIXING
+  hash = __builtin_ia32_aesenc128(hash, hash);
+
+  // USE FIRST 64 BITS AS POSITION HASH
+  return hash[0];
+}
+
+[[nodiscard]] __attribute__((target("aes"))) S(0) u64
+    get_pawn_hash(const Position *const pos) {
+  i128 hash = {0};
+
+  // PAWN HASH
+  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
+  i128 key;
+  __builtin_memcpy(&key, data, 8);
+  hash = __builtin_ia32_aesenc128(hash, key);
 
   // FINAL ROUND FOR BIT MIXING
   hash = __builtin_ia32_aesenc128(hash, hash);
@@ -1261,6 +1286,27 @@ get_hash(const Position *const pos) {
   return result;
 }
 
+[[nodiscard]] __attribute__((target("+aes"))) u64
+get_pawn_hash(const Position *const pos) {
+  uint8x16_t hash = vdupq_n_u8(0);
+
+  // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
+  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
+  uint8x16_t key;
+  memcpy(&key, data, 8);
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key);
+
+  // FINAL ROUND FOR BIT MIXING
+  key = hash;
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key);
+
+  // USE FIRST 64 BITS AS POSITION HASH
+  u64 result;
+  memcpy(&result, &hash, sizeof(result));
+  return result;
+}
 #else
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
@@ -1313,7 +1359,11 @@ i32 search(
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
-  i32 static_eval = eval(pos);
+  const u64 pawn_hash = get_pawn_hash(pos);
+  i32 static_eval =
+      eval(pos) + pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] /
+                      corrhist_scaling;
+
   assert(static_eval < mate);
   assert(static_eval > -mate);
 
@@ -1528,6 +1578,17 @@ i32 search(
   // MATE / STALEMATE DETECTION
   if (G(230, best_score) == G(230, -inf)) {
     return G(231, (ply - mate)) * G(231, in_check);
+  }
+
+  if (!(in_qsearch || in_check || stack[ply].best_move.takes_piece ||
+        (tt_flag == Lower && best_score <= static_eval) ||
+        (tt_flag == Upper && best_score >= static_eval))) {
+    i16 *entry = &pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
+    const i32 old_scaled = *entry * (corrhist_keep_part - depth);
+    const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
+    const i32 new_scaled = scaled_gradient * depth;
+    const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
+    *entry = min(max(updated_value, -8192), 8192);
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
@@ -1871,6 +1932,7 @@ S(1) void run() {
 
 #ifdef FULL
   main_data->pos = start_pos;
+  __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
 #endif
 
 #ifndef FULL
@@ -1892,6 +1954,7 @@ S(1) void run() {
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+      __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
