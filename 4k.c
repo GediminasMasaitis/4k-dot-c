@@ -1165,6 +1165,14 @@ S(0) i32 eval(Position *const restrict pos) {
          24;
 }
 
+enum { tt_length = 1 << 23 }; // 80MB
+enum { Upper = 0, Lower = 1, Exact = 2 };
+enum { max_ply = 96 };
+enum { mate = 31744, inf = 32256 };
+enum { thread_count = 1 };
+enum { thread_stack_size = 1024 * 1024 };
+enum { corrhist_size = 16384 };
+
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
   G(119, i32 num_moves;)
@@ -1191,6 +1199,7 @@ typedef struct [[nodiscard]] {
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
   G(175, i32 move_history[2][6][64][64];)
+  i32 corrhist[corrhist_size];
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1198,18 +1207,10 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
   ThreadData data;
 } ThreadHead;
 
-enum { tt_length = 1 << 23 }; // 80MB
-enum { Upper = 0, Lower = 1, Exact = 2 };
-enum { max_ply = 96 };
-enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
-enum { thread_stack_size = 1024 * 1024 };
-enum { corrhist_size = 1 << 14 }; // 16384 entries
 
 G(176, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
 G(176, S(1) TTEntry tt[tt_length];)
-G(176, S(1) i32 corrhist[corrhist_size];)
 G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
 
@@ -1344,7 +1345,7 @@ i32 search(
   // STATIC EVAL WITH CORRECTION HISTORY
   const i32 raw_eval = eval(pos);
   const u64 pawn_hash = get_pawn_hash(pos);
-  i32 static_eval = raw_eval + corrhist[pawn_hash % corrhist_size] / 256;
+  i32 static_eval = raw_eval + data->corrhist[pawn_hash % corrhist_size] / 256;
   assert(raw_eval < mate);
   assert(raw_eval > -mate);
 
@@ -1573,12 +1574,18 @@ i32 search(
       (tt_flag == Lower && best_score > stack[ply].static_eval)
   )) {
     i32 dd = depth * depth + 2;
-    if (dd > 62) dd = 62;
+    if (dd > 62) {
+      dd = 62;
+    }
     i32 target = best_score - stack[ply].static_eval;
-    if (target > 81) target = 81;
-    if (target < -81) target = -81;
-    i32 *ch = &corrhist[pawn_hash % corrhist_size];
-    *ch = (*ch * (596 - dd) + target * 256 * dd) / 596;
+    if (target > 81) {
+      target = 81;
+    }
+    if (target < -81) {
+      target = -81;
+    }
+    i32 *pawn_entry = &data->corrhist[pawn_hash % corrhist_size];
+    *pawn_entry = (*pawn_entry * (596 - dd) + target * 256 * dd) / 596;
   }
 
   return best_score;
@@ -1912,7 +1919,6 @@ S(1) void run() {
   G(242, char line[4096];)
   G(242, init();)
   G(242, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
-  G(242, __builtin_memset(corrhist, 0, sizeof(corrhist));)
   G(242, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
 
 #ifdef FULL
@@ -1938,7 +1944,6 @@ S(1) void run() {
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
-      __builtin_memset(corrhist, 0, sizeof(corrhist));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
