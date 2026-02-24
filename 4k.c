@@ -221,6 +221,10 @@ typedef struct [[nodiscard]] {
 #define assert(condition)
 #endif
 
+S(1) i16 clamp_i16(i16 val, i16 lo, i16 hi) {
+  return val < lo ? lo : val > hi ? hi : val;
+}
+
 G(
     7,
     [[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict lhs),
@@ -441,7 +445,7 @@ G(
         pos->colour[0] ^= pos->colour[1];)
       G(
           67, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
+          // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
 
@@ -1204,10 +1208,14 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
+enum { pawn_corrhist_size = 16384 };
+enum { corrhist_scaling = 256 };
+enum { corrhist_keep_part = 256 };
 
 G(176, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
 G(176, S(1) TTEntry tt[tt_length];)
+G(176, S(1) i16 pawn_corrhist[2][pawn_corrhist_size];)
 G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
 
@@ -1225,6 +1233,23 @@ typedef long long __attribute__((__vector_size__(16))) i128;
     __builtin_memcpy(&key, data + G(177, i) * G(177, 16), 16);
     hash = __builtin_ia32_aesenc128(hash, key);
   }
+
+  // FINAL ROUND FOR BIT MIXING
+  hash = __builtin_ia32_aesenc128(hash, hash);
+
+  // USE FIRST 64 BITS AS POSITION HASH
+  return hash[0];
+}
+
+[[nodiscard]] __attribute__((target("aes"))) S(1) u64
+    get_pawn_hash(const Position *const pos) {
+  i128 hash = {0};
+
+  // PAWN HASH
+  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
+  i128 key;
+  __builtin_memcpy(&key, data, 8);
+  hash = __builtin_ia32_aesenc128(hash, key);
 
   // FINAL ROUND FOR BIT MIXING
   hash = __builtin_ia32_aesenc128(hash, hash);
@@ -1254,6 +1279,27 @@ get_hash(const Position *const pos) {
   uint8x16_t key = hash;
   hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
   hash = veorq_u8(hash, key);
+
+  // USE FIRST 64 BITS AS POSITION HASH
+  u64 result;
+  memcpy(&result, &hash, sizeof(result));
+  return result;
+}
+
+[[nodiscard]] __attribute__((target("+aes"))) u64
+get_pawn_hash(const Position *const pos) {
+  uint8x16_t hash = vdupq_n_u8(0);
+
+  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
+  uint8x16_t key;
+  memcpy(&key, data, 8);
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key);
+
+  // FINAL ROUND FOR BIT MIXING
+  uint8x16_t key2 = hash;
+  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+  hash = veorq_u8(hash, key2);
 
   // USE FIRST 64 BITS AS POSITION HASH
   u64 result;
@@ -1313,7 +1359,10 @@ i32 search(
   }
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
-  i32 static_eval = eval(pos);
+  const u64 pawn_hash = get_pawn_hash(pos);
+  i32 static_eval =
+      eval(pos) + pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] /
+                      corrhist_scaling;
   assert(static_eval < mate);
   assert(static_eval > -mate);
 
@@ -1528,6 +1577,18 @@ i32 search(
   // MATE / STALEMATE DETECTION
   if (G(230, best_score) == G(230, -inf)) {
     return G(231, (ply - mate)) * G(231, in_check);
+  }
+
+  // UPDATE PAWN CORRECTION HISTORY
+  if (!(in_qsearch || in_check || stack[ply].best_move.takes_piece ||
+        (tt_flag == Lower && best_score <= static_eval) ||
+        (tt_flag == Upper && best_score >= static_eval))) {
+    i16 *entry = &pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
+    const i32 old_scaled = *entry * (corrhist_keep_part - depth);
+    const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
+    const i32 new_scaled = scaled_gradient * depth;
+    const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
+    *entry = clamp_i16(updated_value, -8192, 8192);
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
@@ -1867,6 +1928,7 @@ S(1) void run() {
   G(242, char line[4096];)
   G(242, init();)
   G(242, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
+  G(242, __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));)
   G(242, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
 
 #ifdef FULL
@@ -1892,6 +1954,7 @@ S(1) void run() {
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+      __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
