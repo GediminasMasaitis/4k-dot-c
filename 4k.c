@@ -1360,9 +1360,8 @@ i32 search(
 
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   const u64 pawn_hash = get_pawn_hash(pos);
-  i32 static_eval =
-      eval(pos) + data->pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] /
-                      corrhist_scaling;
+  i16* pawn_entry = &data->pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
+  i32 static_eval = eval(pos) + *pawn_entry / corrhist_scaling;
 
   assert(static_eval < mate);
   assert(static_eval > -mate);
@@ -1583,12 +1582,11 @@ i32 search(
   if (!(in_qsearch || in_check || stack[ply].best_move.takes_piece ||
         (tt_flag == Lower && best_score <= static_eval) ||
         (tt_flag == Upper && best_score >= static_eval))) {
-    i16 *entry = &data->pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
-    const i32 old_scaled = *entry * (corrhist_keep_part - depth);
+    const i32 old_scaled = *pawn_entry * (corrhist_keep_part - depth);
     const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
     const i32 new_scaled = scaled_gradient * depth;
     const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
-    *entry = min(max(updated_value, -8192), 8192);
+    *pawn_entry = min(max(updated_value, -8192), 8192);
   }
 
   *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
