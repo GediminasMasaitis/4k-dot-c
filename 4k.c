@@ -209,8 +209,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
   G(6, bool castling[4];)
-  G(6, u8 padding[11];)
   G(6, bool flipped;)
+  G(6, u8 padding[11];)
 } Position;
 
 #ifdef ASSERTS
@@ -320,7 +320,7 @@ G(
       G(33, const u64 east_bb = east(bb);)
       G(33, const u64 west_bb = west(bb);)
       G(34,
-        const u64 horizontal2 = G(36, west(west_bb)) | G(36, east(east_bb));)
+        const u64 horizontal2 = G(36, east(east_bb)) | G(36, west(west_bb));)
       G(34, const u64 horizontal1 = G(35, west_bb) | G(35, east_bb);)
       return G(37, horizontal1 >> 16) | G(37, horizontal2 >> 8) |
              G(37, horizontal2 << 8) | G(37, horizontal1 << 16);
@@ -461,7 +461,7 @@ G(
       const u64 bb = 1ULL << sq;
       G(70, if (piece == Knight) { moves = knight(bb); })
       else G(70, if (piece == King) { moves = king(bb); }) else {
-        const u64 blockers = G(71, pos->colour[0]) | G(71, pos->colour[1]);
+        const u64 blockers = G(71, pos->colour[1]) | G(71, pos->colour[0]);
         G(
             72, if (piece != Rook) {
               moves |= bishop(H(43, 3, blockers), H(43, 3, bb));
@@ -504,12 +504,12 @@ G(
             assert(to >= 0);
             assert(to < 64);
 
-            G(79, moves &= moves - 1;)
             G(79, *movelist++ = ((Move){
                       .from = from,
                       .to = to,
                       .promo = None,
                       .takes_piece = piece_on(H(55, 2, pos), H(55, 2, to))});)
+            G(79, moves &= moves - 1;)
           }
         }
       }
@@ -1057,11 +1057,11 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, phase += initial_params.phases[p];)
-        G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, copy &= copy - 1;)
         G(137, const i32 rank = sq >> 3;)
+        G(137, const u64 piece_bb = 1ULL << sq;)
+        G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(93, // MATERIAL
           score += eval_params.material[p];)
@@ -1169,8 +1169,8 @@ S(0) i32 eval(Position *const restrict pos) {
 }
 
 typedef struct [[nodiscard]] {
-  G(119, i32 static_eval;)
   G(119, Move best_move;)
+  G(119, i32 static_eval;)
   G(119, i32 num_moves;)
   G(119, u64 position_hash;)
   G(119, Move killer;)
@@ -1179,9 +1179,9 @@ typedef struct [[nodiscard]] {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(174, i16 score;)
   G(174, u16 partial_hash;)
-  G(174, u8 flag;)
-  G(174, Move move;)
   G(174, i8 depth;)
+  G(174, Move move;)
+  G(174, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
