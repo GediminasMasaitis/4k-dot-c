@@ -1185,6 +1185,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
+enum { pawn_corrhist_size = 16384 };
+enum { corrhist_scaling = 256 };
+enum { corrhist_keep_part = 256 };
+
 typedef struct [[nodiscard]] {
 #ifdef FULL
   i32 thread_id;
@@ -1194,6 +1198,7 @@ typedef struct [[nodiscard]] {
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
   G(175, i32 move_history[2][6][64][64];)
+  G(175, i16 pawn_corrhist[2][pawn_corrhist_size];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1207,17 +1212,12 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
-enum { pawn_corrhist_size = 16384 };
-enum { corrhist_scaling = 256 };
-enum { corrhist_keep_part = 256 };
 
 G(176, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
 G(176, S(1) TTEntry tt[tt_length];)
 G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
-
-S(1) i16 pawn_corrhist[2][pawn_corrhist_size];
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1361,7 +1361,7 @@ i32 search(
   // STATIC EVAL WITH ADJUSTMENT FROM TT
   const u64 pawn_hash = get_pawn_hash(pos);
   i32 static_eval =
-      eval(pos) + pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] /
+      eval(pos) + data->pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] /
                       corrhist_scaling;
 
   assert(static_eval < mate);
@@ -1583,7 +1583,7 @@ i32 search(
   if (!(in_qsearch || in_check || stack[ply].best_move.takes_piece ||
         (tt_flag == Lower && best_score <= static_eval) ||
         (tt_flag == Upper && best_score >= static_eval))) {
-    i16 *entry = &pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
+    i16 *entry = &data->pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
     const i32 old_scaled = *entry * (corrhist_keep_part - depth);
     const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
     const i32 new_scaled = scaled_gradient * depth;
@@ -1932,7 +1932,6 @@ S(1) void run() {
 
 #ifdef FULL
   main_data->pos = start_pos;
-  __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
 #endif
 
 #ifndef FULL
@@ -1954,7 +1953,6 @@ S(1) void run() {
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
-      __builtin_memset(pawn_corrhist, 0, sizeof(pawn_corrhist));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
