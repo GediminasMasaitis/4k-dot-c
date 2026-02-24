@@ -833,7 +833,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat[5];)
-        H(117, 1, i8 bishop_pawns[2];))
+        H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 isolate_pawn;))
   H(116, 1,
     H(118, 1, i8 protected_pawn;) H(118, 1, i8 passed_pawns[6];)
         H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 bishop_pair;)
@@ -848,7 +848,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat[5];)
-        H(117, 2, i32 bishop_pawns[2];))
+        H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 isolated_pawn;))
   H(116, 2,
     H(118, 2, i32 protected_pawn;) H(118, 2, i32 passed_pawns[6];)
         H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 bishop_pair;)
@@ -1064,15 +1064,17 @@ S(0) i32 eval(Position *const restrict pos) {
           score += eval_params.material[p];)
 
         G(
-            93, // PASSED PAWNS
-            if (G(139, p == Pawn) &&
-                G(139, !(G(140, in_front) & G(140, no_passers)))) {
-              G(141, score += eval_params.passed_pawns[rank - 1];)
+            93,
+            if (p == Pawn) {
+              if (!(G(140, in_front) & G(140, no_passers))) {
+                // PASSED PAWNS
+                G(141, score += eval_params.passed_pawns[rank - 1];)
 
-              G(
-                  141, if (G(142, north(piece_bb)) & G(142, pos->colour[1])) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
-                  })
+                  G(
+                    141, if (G(142, north(piece_bb)) & G(142, pos->colour[1])) {
+                  score += eval_params.passed_blocked_pawns[rank - 1];
+                })
+              }
             })
         G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
           score +=
