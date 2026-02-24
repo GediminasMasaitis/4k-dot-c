@@ -445,7 +445,7 @@ G(
         pos->colour[0] ^= pos->colour[1];)
       G(
           67, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
+              // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
 
@@ -1244,17 +1244,10 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
     get_pawn_hash(const Position *const pos) {
   i128 hash = {0};
-
-  // PAWN HASH
-  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
-  i128 key;
-  __builtin_memcpy(&key, data, 8);
+  i128 key = {(long long)(pos->pieces[Pawn] & pos->colour[0]),
+              (long long)(pos->pieces[Pawn] & pos->colour[1])};
   hash = __builtin_ia32_aesenc128(hash, key);
-
-  // FINAL ROUND FOR BIT MIXING
   hash = __builtin_ia32_aesenc128(hash, hash);
-
-  // USE FIRST 64 BITS AS POSITION HASH
   return hash[0];
 }
 #elif defined(__aarch64__)
@@ -1289,19 +1282,16 @@ get_hash(const Position *const pos) {
 [[nodiscard]] __attribute__((target("+aes"))) u64
 get_pawn_hash(const Position *const pos) {
   uint8x16_t hash = vdupq_n_u8(0);
-
-  const u8 *const data = (const u8 *)&pos->pieces[Pawn];
+  const u64 own_pawns = pos->pieces[Pawn] & pos->colour[0];
+  const u64 opp_pawns = pos->pieces[Pawn] & pos->colour[1];
   uint8x16_t key;
-  memcpy(&key, data, 8);
+  memcpy(&key, &own_pawns, 8);
+  memcpy((char *)&key + 8, &opp_pawns, 8);
   hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
   hash = veorq_u8(hash, key);
-
-  // FINAL ROUND FOR BIT MIXING
   uint8x16_t key2 = hash;
   hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
   hash = veorq_u8(hash, key2);
-
-  // USE FIRST 64 BITS AS POSITION HASH
   u64 result;
   memcpy(&result, &hash, sizeof(result));
   return result;
@@ -1363,6 +1353,7 @@ i32 search(
   i32 static_eval =
       eval(pos) + pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size] /
                       corrhist_scaling;
+  const i32 corrected_eval = static_eval;
   assert(static_eval < mate);
   assert(static_eval > -mate);
 
@@ -1581,11 +1572,12 @@ i32 search(
 
   // UPDATE PAWN CORRECTION HISTORY
   if (!(in_qsearch || in_check || stack[ply].best_move.takes_piece ||
-        (tt_flag == Lower && best_score <= static_eval) ||
-        (tt_flag == Upper && best_score >= static_eval))) {
+        (tt_flag == Lower && best_score <= corrected_eval) ||
+        (tt_flag == Upper && best_score >= corrected_eval))) {
     i16 *entry = &pawn_corrhist[pos->flipped][pawn_hash % pawn_corrhist_size];
     const i32 old_scaled = *entry * (corrhist_keep_part - depth);
-    const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
+    const i32 scaled_gradient =
+        (best_score - corrected_eval) * corrhist_scaling;
     const i32 new_scaled = scaled_gradient * depth;
     const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
     *entry = clamp_i16(updated_value, -8192, 8192);
