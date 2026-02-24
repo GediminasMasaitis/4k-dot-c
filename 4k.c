@@ -1169,7 +1169,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
@@ -1206,7 +1206,6 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
   void (*entry)(struct ThreadHeadStruct *);
   ThreadData data;
 } ThreadHead;
-
 
 G(176, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
@@ -1344,10 +1343,12 @@ i32 search(
 
   // STATIC EVAL WITH CORRECTION HISTORY
   const i32 raw_eval = eval(pos);
-  const u64 pawn_hash = get_pawn_hash(pos);
-  i32 static_eval = raw_eval + data->corrhist[pawn_hash % corrhist_size] / 256;
   assert(raw_eval < mate);
   assert(raw_eval > -mate);
+
+  const u64 pawn_hash = get_pawn_hash(pos);
+  i32 static_eval = G(999, raw_eval) +
+                    G(999, (data->corrhist[pawn_hash % corrhist_size] / 256));
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1569,21 +1570,22 @@ i32 search(
                         .flag = tt_flag};
 
   // UPDATE PAWN CORRECTION HISTORY
-  if (stack[ply].best_move.takes_piece == None && (
-      (tt_flag == Upper && best_score < stack[ply].static_eval) ||
-      (tt_flag == Lower && best_score > stack[ply].static_eval)
-  )) {
-    i32 dd = depth * depth + 2;
+  if (G(600, stack[ply].best_move.takes_piece == None) &&
+      G(600, (G(500, (G(400, tt_flag == Upper) &&
+                      G(400, best_score < stack[ply].static_eval))) ||
+              G(500, (G(300, tt_flag == Lower) &&
+                      G(300, best_score > stack[ply].static_eval)))))) {
+    i32 dd = G(800, depth * depth) + G(800, 2);
     if (dd > 62) {
       dd = 62;
     }
+
     i32 target = best_score - stack[ply].static_eval;
-    if (target > 81) {
-      target = 81;
-    }
-    if (target < -81) {
-      target = -81;
-    }
+
+    G(700, if (target > 81) { target = 81; })
+
+    G(700, if (target < -81) { target = -81; })
+
     i32 *pawn_entry = &data->corrhist[pawn_hash % corrhist_size];
     *pawn_entry = (*pawn_entry * (596 - dd) + target * 256 * dd) / 596;
   }
