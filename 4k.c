@@ -1580,8 +1580,8 @@ i32 search(
   }
 
   if (!(G(998, in_qsearch) || G(998, in_check) || G(998, stack[ply].best_move.takes_piece) ||
-    G(998, (tt_flag == Lower && best_score <= static_eval)) ||
-    G(998, (tt_flag == Upper && best_score >= static_eval)))) {
+    G(998, (G(997, tt_flag == Lower) && G(997, best_score <= static_eval))) ||
+    G(998, (G(996, tt_flag == Upper) && G(996, best_score >= static_eval))))) {
     G(999, const i32 old_scaled = *pawn_entry * (corrhist_keep_part - depth);)
     G(999,
     const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
