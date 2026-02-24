@@ -1579,12 +1579,14 @@ i32 search(
     return G(231, (ply - mate)) * G(231, in_check);
   }
 
-  if (!(in_qsearch || in_check || stack[ply].best_move.takes_piece ||
-        (tt_flag == Lower && best_score <= static_eval) ||
-        (tt_flag == Upper && best_score >= static_eval))) {
-    const i32 old_scaled = *pawn_entry * (corrhist_keep_part - depth);
+  if (!(G(998, in_qsearch) || G(998, in_check) || G(998, stack[ply].best_move.takes_piece) ||
+    G(998, (tt_flag == Lower && best_score <= static_eval)) ||
+    G(998, (tt_flag == Upper && best_score >= static_eval)))) {
+    G(999, const i32 old_scaled = *pawn_entry * (corrhist_keep_part - depth);)
+    G(999,
     const i32 scaled_gradient = (best_score - static_eval) * corrhist_scaling;
     const i32 new_scaled = scaled_gradient * depth;
+      )
     const i16 updated_value = (old_scaled + new_scaled) / corrhist_keep_part;
     *pawn_entry = min(max(updated_value, -8192), 8192);
   }
