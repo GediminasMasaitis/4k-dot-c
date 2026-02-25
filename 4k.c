@@ -1201,7 +1201,7 @@ typedef struct [[nodiscard]] {
   G(175, Position pos;)
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
-  G(175, i32 corrhist[corrhist_size];)
+  G(175, i32 corrhist[5][corrhist_size];)
   G(175, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1238,13 +1238,15 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   return hash[0];
 }
 
-[[nodiscard]] __attribute__((target("aes"))) S(1) u64
-    get_pawn_hash(const Position *const pos) {
-  i128 data = {(long long)(pos->pieces[Pawn] & pos->colour[0]),
-               (long long)(pos->pieces[Pawn] & pos->colour[1])};
-  i128 hash = __builtin_ia32_aesenc128((i128){0}, data);
-  hash = __builtin_ia32_aesenc128(hash, hash);
-  return hash[0];
+__attribute__((target("aes")))
+S(1) void get_piece_hashes(const Position *const pos, u64 hashes[5]) {
+  for (int p = Pawn; p < King; p++) {
+    i128 data = {(long long)(pos->pieces[p] & pos->colour[0]),
+                 (long long)(pos->pieces[p] & pos->colour[1])};
+    i128 hash = __builtin_ia32_aesenc128((i128){0}, data);
+    hash = __builtin_ia32_aesenc128(hash, hash);
+    hashes[p - 1] = hash[0];
+  }
 }
 #elif defined(__aarch64__)
 
@@ -1275,22 +1277,22 @@ get_hash(const Position *const pos) {
   return result;
 }
 
-[[nodiscard]] __attribute__((target("+aes"))) u64
-get_pawn_hash(const Position *const pos) {
-  const u64 own_pawns = pos->pieces[Pawn] & pos->colour[0];
-  const u64 opp_pawns = pos->pieces[Pawn] & pos->colour[1];
-  uint8x16_t data;
-  memcpy(&data, &own_pawns, 8);
-  memcpy((char *)&data + 8, &opp_pawns, 8);
-  uint8x16_t hash = vdupq_n_u8(0);
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, data);
-  uint8x16_t key = hash;
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, key);
-  u64 result;
-  memcpy(&result, &hash, sizeof(result));
-  return result;
+__attribute__((target("+aes"))) void get_piece_hashes(const Position *const pos,
+                                                      u64 hashes[5]) {
+  for (i32 p = Pawn; p < King; p++) {
+    const u64 own_pawns = pos->pieces[p] & pos->colour[0];
+    const u64 opp_pawns = pos->pieces[p] & pos->colour[1];
+    uint8x16_t data;
+    memcpy(&data, &own_pawns, 8);
+    memcpy((char *)&data + 8, &opp_pawns, 8);
+    uint8x16_t hash = vdupq_n_u8(0);
+    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+    hash = veorq_u8(hash, data);
+    uint8x16_t key = hash;
+    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+    hash = veorq_u8(hash, key);
+    memcpy(&hashes[p - 1], &hash, sizeof(u64));
+  }
 }
 
 #else
@@ -1349,9 +1351,12 @@ i32 search(
   assert(raw_eval < mate);
   assert(raw_eval > -mate);
 
-  const u64 pawn_hash = get_pawn_hash(pos);
-  i32 static_eval = G(189, raw_eval) +
-                    G(189, (data->corrhist[pawn_hash % corrhist_size] / 256));
+  u64 piece_hashes[5];
+  get_piece_hashes(pos, piece_hashes);
+  i32 static_eval = raw_eval;
+  for (i32 p = Pawn - 1; p < King - 1; p++) {
+    static_eval += data->corrhist[p][piece_hashes[p] % corrhist_size] / 256;
+  }
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1578,19 +1583,24 @@ i32 search(
                       G(235, best_score < stack[ply].static_eval))) ||
               G(234, (G(236, tt_flag == Lower) &&
                       G(236, best_score > stack[ply].static_eval)))))) {
+
     i32 dd = G(237, depth * depth) + G(237, 2);
     if (dd > 62) {
       dd = 62;
     }
 
-    i32 target = best_score - stack[ply].static_eval;
+    for (i32 p = Pawn - 1; p < King - 1; p++) {
+      i32 target = best_score - stack[ply].static_eval;
 
-    G(238, if (target < -81) { target = -81; })
+      G(238, if (target < -81) { target = -81; })
 
-    G(238, if (target > 81) { target = 81; })
+      G(238, if (target > 81) { target = 81; })
 
-    i32 *pawn_entry = &data->corrhist[pawn_hash % corrhist_size];
-    *pawn_entry = (*pawn_entry * (596 - dd) + target * 256 * dd) / 596;
+      i32 *correction_entry =
+          &data->corrhist[p][piece_hashes[p] % corrhist_size];
+      *correction_entry =
+          (*correction_entry * (596 - dd) + target * 256 * dd) / 596;
+    }
   }
 
   return best_score;
