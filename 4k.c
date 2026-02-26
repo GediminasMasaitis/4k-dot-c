@@ -1201,7 +1201,7 @@ typedef struct [[nodiscard]] {
   G(175, Position pos;)
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
-  G(175, i32 corrhist[corrhist_size];)
+  G(175, i16 corrhist[corrhist_size];)
   G(175, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1589,7 +1589,7 @@ i32 search(
 
     G(238, if (target > 81) { target = 81; })
 
-    i32 *pawn_entry = &data->corrhist[pawn_hash % corrhist_size];
+    i16 *pawn_entry = &data->corrhist[pawn_hash % corrhist_size];
     *pawn_entry = (*pawn_entry * (596 - dd) + target * 256 * dd) / 596;
   }
 
