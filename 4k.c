@@ -1202,7 +1202,7 @@ typedef struct [[nodiscard]] {
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
   G(175, i16 corrhist[corrhist_size];)
-  G(175, i32 move_history[2][6][64][64];)
+  G(175, i16 move_history[2][6][64][64];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1310,7 +1310,7 @@ i32 search(
   assert(ply >= 0);
 
   SearchStack *const stack = data->stack;
-  i32(*const move_history)[6][64][64] = data->move_history;
+  i16(*const move_history)[6][64][64] = data->move_history;
 
   // IN-CHECK EXTENSION
   const bool in_check = find_in_check(pos);
@@ -1524,7 +1524,7 @@ i32 search(
           G(
               224, if (!in_qsearch) {
                 const i32 bonus = depth * depth;
-                G(225, i32 *const this_hist =
+                G(225, i16 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
                                         [stack[ply].best_move.from]
@@ -1536,7 +1536,7 @@ i32 search(
                     225, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
                       const Move prev = moves[prev_index];
-                      i32 *const prev_hist =
+                      i16 *const prev_hist =
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
