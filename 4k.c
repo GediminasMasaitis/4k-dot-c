@@ -1201,7 +1201,7 @@ typedef struct [[nodiscard]] {
   G(175, Position pos;)
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
-  G(175, i32 corrhist[corrhist_size];)
+  G(175, i32 corrhist[2][corrhist_size];)
   G(175, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1351,7 +1351,7 @@ i32 search(
 
   const u64 pawn_hash = get_pawn_hash(pos);
   i32 static_eval = G(189, raw_eval) +
-                    G(189, (data->corrhist[pawn_hash % corrhist_size] / 256));
+                    G(189, (data->corrhist[pos->flipped][pawn_hash % corrhist_size] / 256));
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1589,7 +1589,7 @@ i32 search(
 
     G(238, if (target > 81) { target = 81; })
 
-    i32 *pawn_entry = &data->corrhist[pawn_hash % corrhist_size];
+    i32 *pawn_entry = &data->corrhist[pos->flipped][pawn_hash % corrhist_size];
     *pawn_entry = (*pawn_entry * (596 - dd) + target * 256 * dd) / 596;
   }
 
