@@ -1239,10 +1239,15 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 }
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
-    get_pawn_hash(const Position *const pos) {
-  i128 data = {(long long)(pos->pieces[Pawn] & pos->colour[0]),
-               (long long)(pos->pieces[Pawn] & pos->colour[1])};
-  i128 hash = __builtin_ia32_aesenc128((i128){0}, data);
+get_material_hash(const Position* const pos) {
+  u64 lo = 0;
+  u64 hi = 0;
+  for (int i = Pawn; i <= King; i++) {
+    lo |= (u64)count(pos->pieces[i] & pos->colour[0]) << (i * 4);
+    hi |= (u64)count(pos->pieces[i] & pos->colour[1]) << (i * 4);
+  }
+  i128 data = { (long long)lo, (long long)hi };
+  i128 hash = __builtin_ia32_aesenc128((i128) { 0 }, data);
   hash = __builtin_ia32_aesenc128(hash, hash);
   return hash[0];
 }
@@ -1276,12 +1281,16 @@ get_hash(const Position *const pos) {
 }
 
 [[nodiscard]] __attribute__((target("+aes"))) u64
-get_pawn_hash(const Position *const pos) {
-  const u64 own_pawns = pos->pieces[Pawn] & pos->colour[0];
-  const u64 opp_pawns = pos->pieces[Pawn] & pos->colour[1];
+get_material_hash(const Position* const pos) {
+  u64 lo = 0;
+  u64 hi = 0;
+  for (int i = Pawn; i <= King; i++) {
+    lo |= (u64)count(pos->pieces[i] & pos->colour[0]) << (i * 4);
+    hi |= (u64)count(pos->pieces[i] & pos->colour[1]) << (i * 4);
+  }
   uint8x16_t data;
-  memcpy(&data, &own_pawns, 8);
-  memcpy((char *)&data + 8, &opp_pawns, 8);
+  memcpy(&data, &lo, 8);
+  memcpy((char*)&data + 8, &hi, 8);
   uint8x16_t hash = vdupq_n_u8(0);
   hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
   hash = veorq_u8(hash, data);
@@ -1349,9 +1358,9 @@ i32 search(
   assert(raw_eval < mate);
   assert(raw_eval > -mate);
 
-  const u64 pawn_hash = get_pawn_hash(pos);
+  const u64 material_hash = get_material_hash(pos);
   i32 static_eval = G(189, raw_eval) +
-                    G(189, (data->corrhist[pos->flipped][pawn_hash % corrhist_size] / 256));
+                    G(189, (data->corrhist[pos->flipped][material_hash % corrhist_size] / 256));
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1589,8 +1598,8 @@ i32 search(
 
     G(238, if (target > 81) { target = 81; })
 
-    i32 *pawn_entry = &data->corrhist[pos->flipped][pawn_hash % corrhist_size];
-    *pawn_entry = (*pawn_entry * (596 - dd) + target * 256 * dd) / 596;
+    i32 *material_entry = &data->corrhist[pos->flipped][material_hash % corrhist_size];
+    *material_entry = (*material_entry * (596 - dd) + target * 256 * dd) / 596;
   }
 
   return best_score;
