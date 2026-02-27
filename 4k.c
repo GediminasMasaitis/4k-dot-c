@@ -1373,6 +1373,8 @@ i32 search(
   G(203, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(95, 3, pos), H(95, 3, moves), H(95, 3, in_qsearch));)
+  const u64 enemy_pawns = pos->pieces[Pawn] & pos->colour[1];
+  const u64 enemy_pawn_attacks = southwest(enemy_pawns) | southeast(enemy_pawns);
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1510,6 +1512,12 @@ i32 search(
           break;
         }
       }
+    }
+
+    if (ply &&
+      (1ULL << moves[move_index].to) & enemy_pawn_attacks &&
+      piece_on(pos, moves[move_index].from) > moves[move_index].takes_piece + depth / 2) {
+      continue;
     }
 
     if (moves[move_index].takes_piece == None) {
