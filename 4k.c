@@ -1348,17 +1348,18 @@ i32 search(
     }
 
     // NULL MOVE PRUNING
-    if (G(200, depth > 2) && G(200, static_eval >= beta) && G(200, do_null)) {
+    if (depth > 2 && static_eval >= beta && do_null) {
       Position npos = *pos;
-      G(201, flip_pos(&npos);)
-      G(201, npos.ep = 0;)
+      flip_pos(&npos);
+      npos.ep = 0;
+
+      const i32 reduction = (static_eval - beta) / 150 + depth / 4 + 4;
+
       const i32 score = -search(
 #ifdef FULL
           nodes,
 #endif
-          H(178, 2, H(179, 2, &npos), H(179, 2, -alpha),
-            H(179, 2, depth - G(202, depth / 4) - G(202, 4)), H(179, 2, data)),
-          H(178, 2, H(180, 2, false), H(180, 2, ply + 1), H(180, 2, -beta)));
+          &npos, -alpha, depth - reduction, data, false, ply + 1, -beta);
       if (score >= beta) {
         return score;
       }
