@@ -1162,14 +1162,17 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
 get_material_hash(const Position* const pos) {
-  i128 data = { 0 };
+  i128 hash = { 0 };
   for(int c = 0; c < 2; c++) {
     for (int p = Pawn; p < King; p++) {
-      data[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
+      hash[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
     }
   }
-  i128 hash = __builtin_ia32_aesenc128((i128) { 0 }, data);
-  hash = __builtin_ia32_aesenc128(hash, hash);
+
+  for(i32 i = 0; i < 2; i++) {
+      hash = __builtin_ia32_aesenc128(hash, hash);
+  }
+
   return hash[0];
 }
 #elif defined(__aarch64__)
@@ -1209,19 +1212,16 @@ get_material_hash(const Position* const pos) {
       datas[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
     }
   }
-  uint8x16_t data;
-  memcpy(&data, &datas[0], 8);
-  memcpy((char*)&data + 8, &datas[2], 8);
+  uint8x16_t hash;
+  memcpy(&hash, &datas[0], 8);
+  memcpy((char*)&hash + 8, &datas[1], 8);
 
   // PERFORM HASH
-  uint8x16_t hash = vdupq_n_u8(0);
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, data);
-
-  // SECOND ROUND FOR BIT MIXING
-  uint8x16_t key = hash;
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, key);
+  for(int i = 0; i < 2; i++) {
+    uint8x16_t key = hash;
+    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+    hash = veorq_u8(hash, key);
+  }
 
   // USE FIRST 64 BITS AS MATERIAL HASH
   u64 result;
