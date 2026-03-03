@@ -1161,16 +1161,16 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 }
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
-get_material_hash(const Position* const pos) {
-  i128 hash = { 0 };
-  for(int c = 0; c < 2; c++) {
-    for (int p = Pawn; p < King; p++) {
+    get_material_hash(const Position *const pos) {
+  i128 hash = {0};
+  for (int c = 0; c < 2; c++) {
+    for (int p = Queen; p >= Pawn; p--) {
       hash[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
     }
   }
 
-  for(i32 i = 0; i < 2; i++) {
-      hash = __builtin_ia32_aesenc128(hash, hash);
+  for (i32 i = 0; i < 2; i++) {
+    hash = __builtin_ia32_aesenc128(hash, hash);
   }
 
   return hash[0];
@@ -1205,19 +1205,19 @@ get_hash(const Position *const pos) {
 }
 
 [[nodiscard]] __attribute__((target("+aes"))) u64
-get_material_hash(const Position* const pos) {
-  u64 datas[2] = { 0 };
-  for(int c = 0; c < 2; c++) {
+get_material_hash(const Position *const pos) {
+  u64 datas[2] = {0};
+  for (int c = 0; c < 2; c++) {
     for (int p = Pawn; p < King; p++) {
       datas[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
     }
   }
   uint8x16_t hash;
   memcpy(&hash, &datas[0], 8);
-  memcpy((char*)&hash + 8, &datas[1], 8);
+  memcpy((char *)&hash + 8, &datas[1], 8);
 
   // PERFORM HASH
-  for(int i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     uint8x16_t key = hash;
     hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
     hash = veorq_u8(hash, key);
@@ -1281,13 +1281,15 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  const i32 raw_eval = eval(pos);
-  assert(raw_eval < mate);
-  assert(raw_eval > -mate);
+  G(999, const i32 raw_eval = eval(pos); assert(raw_eval < mate);
+    assert(raw_eval > -mate);)
 
-  const u64 material_hash = get_material_hash(pos);
-  i32 static_eval = G(189, raw_eval) +
-                    G(189, (data->corrhist[pos->flipped][material_hash % corrhist_size] / 256));
+  G(999, const u64 material_hash = get_material_hash(pos);
+    i32 *material_entry =
+        &data->corrhist[pos->flipped][material_hash % corrhist_size];)
+  i32 static_eval = G(189, raw_eval) + G(189, *material_entry / 256);
+  assert(static_eval < mate);
+  assert(static_eval > -mate);
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1508,7 +1510,7 @@ i32 search(
                         .depth = depth,
                         .flag = tt_flag};
 
-  // UPDATE PAWN CORRECTION HISTORY
+  // UPDATE CORRECTION HISTORY
   if (G(233, stack[ply].best_move.takes_piece == None) &&
       G(233, (G(234, (G(235, tt_flag == Upper) &&
                       G(235, best_score < stack[ply].static_eval))) ||
@@ -1525,7 +1527,6 @@ i32 search(
 
     G(238, if (target > 81) { target = 81; })
 
-    i32 *material_entry = &data->corrhist[pos->flipped][material_hash % corrhist_size];
     *material_entry = (*material_entry * (596 - dd) + target * 256 * dd) / 596;
   }
 
