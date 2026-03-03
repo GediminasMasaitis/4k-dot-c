@@ -37,10 +37,12 @@ class CountdownEvent:
             self._count = 0
             self._event.set()
 
-def fmt_bits(bits):
-    if bits == float('inf'):
+def fmt_size(size):
+    if size == float('inf'):
         return 'N/A'
-    return f'{bits}b ({bits/8:.3f}B)'
+    if use_compression:
+        return f'{size}b ({size/8:.3f}B)'
+    return f'{size}B'
 
 # =============================================
 # Configuration
@@ -49,13 +51,15 @@ max_parallelism = 12
 enable_random_shuffle = False
 random_seed = None
 num_runs = 999
+use_compression = True
 
 files_to_copy = [
     'Makefile',
     '4k.c',
     '64bit-noheader.ld',
-    'compressor',
 ]
+if use_compression:
+    files_to_copy.append('compressor')
 
 # =============================================
 # Global best tracking (across all runs)
@@ -222,10 +226,14 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
         rendered.append(render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters))
     return ''.join(rendered)
 
-def run_make_and_get_bits(cwd=None):
+def run_make_and_get_size(cwd=None):
+    if use_compression:
+        target = 'compress'
+    else:
+        target = 'compress_source'
     try:
         proc = subprocess.run(
-            ['make', 'NOSTDLIB=true', 'MINI=true', 'compress'],
+            ['make', 'NOSTDLIB=true', 'MINI=true', target],
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -237,10 +245,16 @@ def run_make_and_get_bits(cwd=None):
         print(e.output)
         print("cwd:", cwd)
         raise
-    m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
-    if not m:
-        raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from make output:\n" + proc.stdout)
-    return int(m.group(1))
+    if use_compression:
+        m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
+        if not m:
+            raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from make output:\n" + proc.stdout)
+        return int(m.group(1))
+    else:
+        m = re.search(r'(\d+)\s+[A-Z][a-z]{2}\s+\d+.*4kc', proc.stdout)
+        if not m:
+            raise RuntimeError("Failed to parse file size from ls output:\n" + proc.stdout)
+        return int(m.group(1))
 
 def read_file(path):
     with open(path, 'r') as f:
@@ -295,7 +309,7 @@ class SpeculativeEngine:
 
     def _build_task(self, group_id, corr_ids, perm, task_snapshot_gen,
                     snap_nodes, snap_groups, worker_id):
-        # Check 1: before rendering (optimization — callback handles correctness)
+        # Check 1: before rendering (optimization ï¿½ callback handles correctness)
         if task_snapshot_gen < self.snapshot_gen:
             return None
         if self.improved_groups - {group_id}:
@@ -312,7 +326,7 @@ class SpeculativeEngine:
         workdir = f'worker_{worker_id}'
         with open(os.path.join(workdir, self.src_path), 'w') as f:
             f.write(content)
-        size = run_make_and_get_bits(cwd=workdir)
+        size = run_make_and_get_size(cwd=workdir)
 
         return (size, content, group_id, perm, task_snapshot_gen)
 
@@ -353,7 +367,7 @@ class SpeculativeEngine:
                     self._stale_discards += 1
                     is_stale = True
                 elif self.improved_groups - {group_id}:
-                    # A different group improved — our baseline is contaminated
+                    # A different group improved ï¿½ our baseline is contaminated
                     self._stale_discards += 1
                     is_stale = True
                 elif size < self.best_size:
@@ -385,7 +399,7 @@ class SpeculativeEngine:
                 tag = ""
             group_bar.write(
                 f'[{stats_prefix} pass {iteration}] {group_id} perm size: '
-                f'{fmt_bits(size)} {tag}')
+                f'{fmt_size(size)} {tag}')
 
             if is_run_best and stats_bar is not None:
                 with self.lock:
@@ -393,9 +407,9 @@ class SpeculativeEngine:
                     discards = self._stale_discards
                     saved = self._initial_size - cur_best
                 stats_bar.set_description(
-                    f'{stats_prefix}   Run best: {fmt_bits(cur_best)}'
-                    f'   Global best: {fmt_bits(global_best_size)}'
-                    f'   Saved this run: {fmt_bits(saved)}'
+                    f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
+                    f'   Global best: {fmt_size(global_best_size)}'
+                    f'   Saved this run: {fmt_size(saved)}'
                 )
 
             total_bar.update(1)
@@ -453,9 +467,9 @@ class SpeculativeEngine:
         stats_bar = tqdm(
             total=1,
             desc=(
-                f'{stats_prefix}   Run best: {fmt_bits(self.best_size)}'
-                f'   Global best: {fmt_bits(global_best_size)}'
-                f'   Saved this run: {fmt_bits(saved_run)}'
+                f'{stats_prefix}   Run best: {fmt_size(self.best_size)}'
+                f'   Global best: {fmt_size(global_best_size)}'
+                f'   Saved this run: {fmt_size(saved_run)}'
             ),
             bar_format='{desc}',
             position=0,
@@ -521,8 +535,8 @@ class SpeculativeEngine:
         improvements = self._improvements
 
         stats_bar.set_description(
-            f'{stats_prefix}   Run best: {fmt_bits(self.best_size)}'
-            f'   Global best: {fmt_bits(global_best_size)}'
+            f'{stats_prefix}   Run best: {fmt_size(self.best_size)}'
+            f'   Global best: {fmt_size(global_best_size)}'
             f'   Improvements: {improvements}'
             f'   Stale discards: {self._stale_discards}'
             f'   {"IMPROVED" if improved else "no change"}'
@@ -544,7 +558,7 @@ def build_static_option(baseline, span, new_val, src_path, worker_id):
     dest = os.path.join(workdir, src_path)
     with open(dest, 'w') as f:
         f.write(variant)
-    size = run_make_and_get_bits(cwd=workdir)
+    size = run_make_and_get_size(cwd=workdir)
     return size, variant, span, new_val
 
 def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
@@ -594,11 +608,11 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
                     global_best_src = variant
                     with open('global_best.c', 'w') as gf:
                         gf.write(global_best_src)
-                    print(f'*** New GLOBAL best via static toggle: {fmt_bits(size)} ***')
+                    print(f'*** New GLOBAL best via static toggle: {fmt_size(size)} ***')
                     global_improved = True
 
             tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {fmt_bits(size)} {tag}')
+            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {fmt_size(size)} {tag}')
             stats_bar.update(1)
 
     stats_bar.close()
@@ -668,9 +682,12 @@ def main():
 
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
 
-    print('Building compressor...')
-    subprocess.run(['make', 'compressor'], check=True)
-    os.chmod('compressor', 0o755)
+    print(f'Mode: {"compress" if use_compression else "build-only (raw binary size)"}')
+
+    if use_compression:
+        print('Building compressor...')
+        subprocess.run(['make', 'compressor'], check=True)
+        os.chmod('compressor', 0o755)
 
     setup_workers()
 
@@ -691,7 +708,7 @@ def main():
         # Get initial size
         with open(src_filename, 'w') as f:
             f.write(text)
-        initial_size = run_make_and_get_bits(cwd=None)
+        initial_size = run_make_and_get_size(cwd=None)
 
         pass_best = {
             'initial': initial_size,
@@ -711,8 +728,8 @@ def main():
 
         print(f'\n{"="*60}')
         print(f'Starting run {run}/{num_runs}')
-        print(f'Initial size: {fmt_bits(initial_size)}')
-        print(f'Global best:  {fmt_bits(global_best_size)}')
+        print(f'Initial size: {fmt_size(initial_size)}')
+        print(f'Global best:  {fmt_size(global_best_size)}')
         print(f'{"="*60}')
 
         iteration = 1
@@ -737,12 +754,12 @@ def main():
                 break
             iteration += 1
 
-        print(f'\nRun {run} completed. Run-best: {fmt_bits(pass_best["best"])}')
-        print(f'Global best after run {run}: {fmt_bits(global_best_size)}')
+        print(f'\nRun {run} completed. Run-best: {fmt_size(pass_best["best"])}')
+        print(f'Global best after run {run}: {fmt_size(global_best_size)}')
 
     engine.shutdown()
 
-    print(f'\nAll runs completed. Global best size: {fmt_bits(global_best_size)}')
+    print(f'\nAll runs completed. Global best size: {fmt_size(global_best_size)}')
     if global_best_src is not None:
         with open('global_best.c', 'w') as gf:
             gf.write(global_best_src)
