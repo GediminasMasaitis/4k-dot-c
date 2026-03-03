@@ -836,13 +836,13 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(117, 1, i8 bishop_pawns[2];))
   H(116, 1,
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
-        H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn;)
-            H(118, 1, i8 protected_pawn;) H(118, 1, i8 king_attacks[5];))
+        H(118, 1, i8 protected_pawn;) H(118, 1, i8 phalanx_pawn;)
+            H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];))
   H(116, 1,
-    H(119, 1, i8 pawn_attacked_penalty[2];)
-        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 open_files[12];)
-            H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];)
-                H(119, 1, i8 pst_file[48];))
+    H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];)
+        H(119, 1, i8 pst_file[48];) H(119, 1, i8 open_files[12];)
+            H(119, 1, i8 passed_blocked_pawns[6];)
+                H(119, 1, i8 pawn_attacked_penalty[2];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -852,13 +852,13 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(117, 2, i32 bishop_pawns[2];))
   H(116, 2,
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
-        H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn;)
-            H(118, 2, i32 protected_pawn;) H(118, 2, i32 king_attacks[5];))
+        H(118, 2, i32 protected_pawn;) H(118, 2, i32 phalanx_pawn;)
+            H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];))
   H(116, 2,
-    H(119, 2, i32 pawn_attacked_penalty[2];)
-        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 open_files[12];)
-            H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
-                H(119, 2, i32 pst_file[48];))
+    H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
+        H(119, 2, i32 pst_file[48];) H(119, 2, i32 open_files[12];)
+            H(119, 2, i32 passed_blocked_pawns[6];)
+                H(119, 2, i32 pawn_attacked_penalty[2];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1110,8 +1110,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   G(174, u16 partial_hash;)
   G(174, i16 score;)
   G(174, i8 depth;)
-  G(174, Move move;)
   G(174, u8 flag;)
+  G(174, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1381,8 +1381,8 @@ i32 search(
 
     G(
         214, // MOVE SCORE PRUNING
-        if (G(215, move_score < G(216, -125) * G(216, depth)) &&
-            G(215, moves_evaluated)) { break; })
+        if (G(215, moves_evaluated) &&
+            G(215, move_score < G(216, -125) * G(216, depth))) { break; })
 
     G(
         214, // FORWARD FUTILITY PRUNING / DELTA PRUNING
@@ -1409,11 +1409,11 @@ i32 search(
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction =
-        G(220, depth > 3) && G(220, move_score <= 0)
-            ? G(221, !improving) + G(221, (G(222, alpha) == G(222, beta - 1))) +
-                  G(221, moves_evaluated / 9) + G(221, (move_score / -384))
-            : 0;
+    i32 reduction = G(220, depth > 3) && G(220, move_score <= 0)
+                        ? G(221, !improving) + G(221, moves_evaluated / 9) +
+                              G(221, (move_score / -384)) +
+                              G(221, (G(222, alpha) == G(222, beta - 1)))
+                        : 0;
 
     i32 score;
     while (true) {
@@ -1491,10 +1491,9 @@ i32 search(
     }
 
     // LATE MOVE PRUNING
-    if (G(229, G(230, alpha) == G(230, beta - 1)) &&
+    if (G(229, !in_check) && G(229, G(230, alpha) == G(230, beta - 1)) &&
         G(229, quiets_evaluated > (G(231, 1) + G(231, depth * depth)) >>
-                   !improving) &&
-        G(229, !in_check)) {
+                   !improving)) {
       break;
     }
   }
