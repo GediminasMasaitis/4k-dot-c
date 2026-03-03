@@ -1159,6 +1159,15 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 }
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
+    get_pawn_hash(const Position *const pos) {
+  i128 hash = {(long long)pos->pieces[Pawn]};
+  for (i32 i = 0; i < 2; i++) {
+    hash = __builtin_ia32_aesenc128(hash, hash);
+  }
+  return hash[0];
+}
+
+[[nodiscard]] __attribute__((target("aes"))) S(1) u64
     get_material_hash(const Position *const pos) {
   i128 hash = {0};
   for (int c = 0; c < 2; c++) {
@@ -1197,6 +1206,25 @@ get_hash(const Position *const pos) {
   hash = veorq_u8(hash, key);
 
   // USE FIRST 64 BITS AS POSITION HASH
+  u64 result;
+  memcpy(&result, &hash, sizeof(result));
+  return result;
+}
+
+[[nodiscard]] __attribute__((target("+aes"))) u64
+get_pawn_hash(const Position *const pos) {
+  uint8x16_t hash;
+  memcpy(&hash, &pos->pieces[Pawn], 8);
+  memset((void *)&hash + 8, 0, 8);
+
+  // PERFORM HASH
+  for (int i = 0; i < 2; i++) {
+    uint8x16_t key = hash;
+    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+    hash = veorq_u8(hash, key);
+  }
+
+  // USE FIRST 64 BITS AS MATERIAL HASH
   u64 result;
   memcpy(&result, &hash, sizeof(result));
   return result;
@@ -1279,15 +1307,19 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  G(189, const i32 raw_eval = eval(pos); assert(raw_eval < mate);
-    assert(raw_eval > -mate);)
+  G(189,
+    const u64 corr_hashes[2] = {get_pawn_hash(pos), get_material_hash(pos)};)
+  G(189, i32 * corr_entries[2];)
+  G(189, i32 static_eval = eval(pos); assert(static_eval < mate);
+    assert(static_eval > -mate);)
 
-  G(189, const u64 material_hash = get_material_hash(pos);
-    i32 *material_entry =
-        &data->corrhist[pos->flipped][material_hash % corrhist_size];)
-  i32 static_eval = G(190, raw_eval) + G(190, *material_entry / 256);
-  assert(static_eval < mate);
-  assert(static_eval > -mate);
+  for (i32 i = 0; i < 2; i++) {
+    corr_entries[i] =
+        &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+    static_eval += *corr_entries[i] / 256;
+    assert(static_eval < mate);
+    assert(static_eval > -mate);
+  }
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1524,7 +1556,10 @@ i32 search(
 
     G(239, if (target > 81) { target = 81; })
 
-    *material_entry = (*material_entry * (596 - dd) + target * 256 * dd) / 596;
+    for (i32 i = 0; i < 2; i++) {
+      *corr_entries[i] =
+          (*corr_entries[i] * (596 - dd) + target * 256 * dd) / 596;
+    }
   }
 
   return best_score;
