@@ -1094,7 +1094,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
@@ -1162,13 +1162,12 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
 get_material_hash(const Position* const pos) {
-  u64 lo = 0;
-  u64 hi = 0;
-  for (int i = Pawn; i < King; i++) {
-    lo |= (u64)count(pos->pieces[i] & pos->colour[0]) << (i * 4);
-    hi |= (u64)count(pos->pieces[i] & pos->colour[1]) << (i * 4);
+  i128 data = { 0 };
+  for(int c = 0; c < 2; c++) {
+    for (int p = Pawn; p < King; p++) {
+      data[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
+    }
   }
-  i128 data = { (long long)lo, (long long)hi };
   i128 hash = __builtin_ia32_aesenc128((i128) { 0 }, data);
   hash = __builtin_ia32_aesenc128(hash, hash);
   return hash[0];
@@ -1204,21 +1203,27 @@ get_hash(const Position *const pos) {
 
 [[nodiscard]] __attribute__((target("+aes"))) u64
 get_material_hash(const Position* const pos) {
-  u64 lo = 0;
-  u64 hi = 0;
-  for (int i = Pawn; i < King; i++) {
-    lo |= (u64)count(pos->pieces[i] & pos->colour[0]) << (i * 4);
-    hi |= (u64)count(pos->pieces[i] & pos->colour[1]) << (i * 4);
+  u64 datas[2] = { 0 };
+  for(int c = 0; c < 2; c++) {
+    for (int p = Pawn; p < King; p++) {
+      datas[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
+    }
   }
   uint8x16_t data;
-  memcpy(&data, &lo, 8);
-  memcpy((char*)&data + 8, &hi, 8);
+  memcpy(&data, &datas[0], 8);
+  memcpy((char*)&data + 8, &datas[2], 8);
+
+  // PERFORM HASH
   uint8x16_t hash = vdupq_n_u8(0);
   hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
   hash = veorq_u8(hash, data);
+
+  // SECOND ROUND FOR BIT MIXING
   uint8x16_t key = hash;
   hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
   hash = veorq_u8(hash, key);
+
+  // USE FIRST 64 BITS AS MATERIAL HASH
   u64 result;
   memcpy(&result, &hash, sizeof(result));
   return result;
