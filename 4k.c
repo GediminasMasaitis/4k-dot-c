@@ -1162,10 +1162,10 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
 [[nodiscard]] __attribute__((target("aes"))) S(1) u64
     get_pawn_hash(const Position *const pos) {
-  i128 data = {(long long)(pos->pieces[Pawn] & pos->colour[0]),
-               (long long)(pos->pieces[Pawn] & pos->colour[1])};
-  i128 hash = __builtin_ia32_aesenc128((i128){0}, data);
-  hash = __builtin_ia32_aesenc128(hash, hash);
+  i128 hash = {(long long)pos->pieces[Pawn]};
+  for (i32 i = 0; i < 2; i++) {
+    hash = __builtin_ia32_aesenc128(hash, hash);
+  }
   return hash[0];
 }
 
@@ -1215,17 +1215,18 @@ get_hash(const Position *const pos) {
 
 [[nodiscard]] __attribute__((target("+aes"))) u64
 get_pawn_hash(const Position *const pos) {
-  const u64 own_pawns = pos->pieces[Pawn] & pos->colour[0];
-  const u64 opp_pawns = pos->pieces[Pawn] & pos->colour[1];
-  uint8x16_t data;
-  memcpy(&data, &own_pawns, 8);
-  memcpy((char *)&data + 8, &opp_pawns, 8);
-  uint8x16_t hash = vdupq_n_u8(0);
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, data);
-  uint8x16_t key = hash;
-  hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-  hash = veorq_u8(hash, key);
+  uint8x16_t hash;
+  memcpy(&hash, &pos->pieces[Pawn], 8);
+  memset((void *)&hash + 8, 0, 8);
+
+  // PERFORM HASH
+  for (int i = 0; i < 2; i++) {
+    uint8x16_t key = hash;
+    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
+    hash = veorq_u8(hash, key);
+  }
+
+  // USE FIRST 64 BITS AS MATERIAL HASH
   u64 result;
   memcpy(&result, &hash, sizeof(result));
   return result;
