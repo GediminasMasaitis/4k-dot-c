@@ -326,7 +326,7 @@ G(
       G(33, const u64 west_bb = west(bb);)
       G(34, const u64 horizontal1 = G(35, west_bb) | G(35, east_bb);)
       G(34,
-        const u64 horizontal2 = G(36, west(west_bb)) | G(36, east(east_bb));)
+        const u64 horizontal2 = G(36, east(east_bb)) | G(36, west(west_bb));)
       return G(37, horizontal1 >> 16) | G(37, horizontal2 >> 8) |
              G(37, horizontal2 << 8) | G(37, horizontal1 << 16);
     })
@@ -369,26 +369,6 @@ G(
     })
 
 G(
-    46, [[nodiscard]] S(1) bool move_equal(G(50, Move *const rhs),
-                                           G(50, Move *const lhs)) {
-      return G(51, *(u32 *)lhs) == G(51, *(u32 *)rhs);
-    })
-
-G(
-    46, [[nodiscard]] S(1)
-            i32 piece_on(H(52, 1, const Position *const restrict pos),
-                         H(52, 1, const i32 sq)) {
-              assert(sq >= 0);
-              assert(sq < 64);
-              for (i32 i = Pawn; i <= King; ++i) {
-                if (G(53, pos->pieces[i]) & G(53, 1ull << sq)) {
-                  return i;
-                }
-              }
-              return None;
-            })
-
-G(
     46, S(1) void move_str(H(54, 1, char *restrict str),
                            H(54, 1, const Move *restrict move),
                            H(54, 1, const i32 flip)) {
@@ -411,6 +391,26 @@ G(
           })
       G(55, str[5] = '\0';)
     })
+
+G(
+    46, [[nodiscard]] S(1) bool move_equal(G(50, Move *const rhs),
+                                           G(50, Move *const lhs)) {
+      return G(51, *(u32 *)lhs) == G(51, *(u32 *)rhs);
+    })
+
+G(
+    46, [[nodiscard]] S(1)
+            i32 piece_on(H(52, 1, const Position *const restrict pos),
+                         H(52, 1, const i32 sq)) {
+              assert(sq >= 0);
+              assert(sq < 64);
+              for (i32 i = Pawn; i <= King; ++i) {
+                if (G(53, pos->pieces[i]) & G(53, 1ull << sq)) {
+                  return i;
+                }
+              }
+              return None;
+            })
 
 G(
     57,
