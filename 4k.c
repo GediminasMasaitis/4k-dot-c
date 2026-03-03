@@ -84,33 +84,6 @@ G(
     })
 
 G(
-    1, // Non-standard, gets but a word instead of a line
-    S(0) bool getl(char *restrict string) {
-      while (true) {
-        ssize_t result;
-        asm volatile("syscall"
-                     : "=a"(result)
-                     : "0"(0), "D"(stdin), "S"(string), "d"(1)
-                     : "rcx", "r11", "memory");
-
-    // Assume stdin never closes on mini build
-#ifdef FULL
-        if (result < 1) {
-          exit_now();
-        }
-#endif
-
-        const char ch = *string;
-        if (ch <= ' ') {
-          *string = 0;
-          return ch != '\n';
-        }
-
-        string++;
-      }
-    })
-
-G(
     1,
     S(0) void putl(const char *const restrict string) {
       i32 length = 0;
@@ -140,6 +113,33 @@ G(
         rhs++;
       }
       return false;
+    })
+
+G(
+    1, // Non-standard, gets but a word instead of a line
+    S(0) bool getl(char *restrict string) {
+      while (true) {
+        ssize_t result;
+        asm volatile("syscall"
+                     : "=a"(result)
+                     : "0"(0), "D"(stdin), "S"(string), "d"(1)
+                     : "rcx", "r11", "memory");
+
+    // Assume stdin never closes on mini build
+#ifdef FULL
+        if (result < 1) {
+          exit_now();
+        }
+#endif
+
+        const char ch = *string;
+        if (ch <= ' ') {
+          *string = 0;
+          return ch != '\n';
+        }
+
+        string++;
+      }
     })
 
 #else
@@ -327,8 +327,8 @@ G(
       G(34, const u64 horizontal1 = G(35, west_bb) | G(35, east_bb);)
       G(34,
         const u64 horizontal2 = G(36, east(east_bb)) | G(36, west(west_bb));)
-      return G(37, horizontal1 >> 16) | G(37, horizontal2 >> 8) |
-             G(37, horizontal2 << 8) | G(37, horizontal1 << 16);
+      return G(37, horizontal1 << 16) | G(37, horizontal2 << 8) |
+             G(37, horizontal2 >> 8) | G(37, horizontal1 >> 16);
     })
 
 G(
@@ -381,15 +381,15 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(55, str[4] = "\0\0nbrq"[move->promo];)
+      G(55, str[5] = '\0';)
 
+      G(55, str[4] = "\0\0nbrq"[move->promo];)
       G(
           55, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
             G(56, str[i * 2] = 'a' + (&move->from)[i] % 8;)
             G(56, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
           })
-      G(55, str[5] = '\0';)
     })
 
 G(
@@ -839,10 +839,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 1, i8 protected_pawn;) H(118, 1, i8 phalanx_pawn;)
             H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];))
   H(116, 1,
-    H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];)
-        H(119, 1, i8 pst_file[48];) H(119, 1, i8 open_files[12];)
-            H(119, 1, i8 passed_blocked_pawns[6];)
-                H(119, 1, i8 pawn_attacked_penalty[2];))
+    H(119, 1, i8 pawn_attacked_penalty[2];)
+        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 open_files[12];)
+            H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];)
+                H(119, 1, i8 pst_file[48];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -855,10 +855,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 2, i32 protected_pawn;) H(118, 2, i32 phalanx_pawn;)
             H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];))
   H(116, 2,
-    H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
-        H(119, 2, i32 pst_file[48];) H(119, 2, i32 open_files[12];)
-            H(119, 2, i32 passed_blocked_pawns[6];)
-                H(119, 2, i32 pawn_attacked_penalty[2];))
+    H(119, 2, i32 pawn_attacked_penalty[2];)
+        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 open_files[12];)
+            H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
+                H(119, 2, i32 pst_file[48];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -980,9 +980,9 @@ S(0) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(137, phase += initial_params.phases[p];)
-        G(137, copy &= copy - 1;)
-        G(137, const i32 rank = sq >> 3;)
         G(137, const u64 piece_bb = 1ULL << sq;)
+        G(137, const i32 rank = sq >> 3;)
+        G(137, copy &= copy - 1;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(93, // MATERIAL
@@ -1094,7 +1094,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
@@ -1107,10 +1107,10 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(174, u16 partial_hash;)
   G(174, i16 score;)
-  G(174, i8 depth;)
   G(174, u8 flag;)
+  G(174, i8 depth;)
+  G(174, u16 partial_hash;)
   G(174, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
@@ -1341,12 +1341,12 @@ i32 search(
 
   G(205, stack[G(206, ply) + G(206, 2)].position_hash = tt_hash;)
   G(205, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(205, i32 quiets_evaluated = 0;)
   G(205, i32 moves_evaluated = 0;)
-  G(205, u8 tt_flag = Upper;)
+  G(205, i32 quiets_evaluated = 0;)
   G(205, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
+  G(205, u8 tt_flag = Upper;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1511,10 +1511,11 @@ i32 search(
 
   // UPDATE CORRECTION HISTORY
   if (G(234, stack[ply].best_move.takes_piece == None) &&
-      G(234, (G(235, (G(236, best_score < stack[ply].static_eval) &&
-                      G(236, tt_flag == Upper))) ||
-              G(235, (G(237, tt_flag == Lower) &&
-                      G(237, best_score > stack[ply].static_eval)))))) {
+      G(234, (G(235, (G(237, tt_flag == Lower) &&
+                      G(237, best_score > stack[ply].static_eval))) ||
+              G(235, tt_flag == Exact) ||
+              G(235, (G(236, best_score < stack[ply].static_eval) &&
+                      G(236, tt_flag == Upper)))))) {
     i32 dd = G(238, depth * depth) + G(238, 2);
     if (dd > 62) {
       dd = 62;
@@ -1548,8 +1549,8 @@ S(1) void init() {
       80, // INIT DIAGONAL MASKS
       for (i32 sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
-        G(240, u64 sw_bb = southwest(bb);)
         G(240, u64 ne_bb = northeast(bb);)
+        G(240, u64 sw_bb = southwest(bb);)
         for (i32 i = 6; i > 0; i--) {
           G(241, ne_bb |= northeast(ne_bb);)
           G(241, sw_bb |= southwest(sw_bb);)
