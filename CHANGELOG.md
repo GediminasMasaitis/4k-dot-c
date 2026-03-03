@@ -9777,10 +9777,10 @@ https://gedas.pythonanywhere.com/test/1749/
 ```
 
 ```py
-Elo   | 23.63 +- 13.96 (95%)
+Elo   | 19.90 +- 8.52 (95%)
 SPRT  | 60.0+0.60s Threads=1 Hash=1MB
-LLR   | 1.33 (-2.94, 2.94) [0.00, 5.00]
-Games | N: 854 W: 246 L: 188 D: 420
-Penta | [3, 94, 194, 114, 22]
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 2342 W: 675 L: 541 D: 1126
+Penta | [21, 243, 547, 301, 59]
 https://gedas.pythonanywhere.com/test/1750/
 ```

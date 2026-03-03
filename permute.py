@@ -289,8 +289,7 @@ class SpeculativeEngine:
         self.max_workers = max_workers
 
         self.lock = threading.Lock()
-        self.snapshot_gen = 0
-        self.improved_groups = set()
+        self.group_versions = {}   # group_id -> int, bumped on each improvement
         self.best_size = float('inf')
         self.best_content = None
 
@@ -307,20 +306,23 @@ class SpeculativeEngine:
     def shutdown(self):
         self.executor.shutdown(wait=True)
 
-    def _build_task(self, group_id, corr_ids, perm, task_snapshot_gen,
+    def _is_cross_group_stale(self, group_id, task_group_versions):
+        """Check if any group OTHER than group_id advanced since the task was dispatched."""
+        for gid, ver in self.group_versions.items():
+            if gid != group_id and ver > task_group_versions.get(gid, 0):
+                return True
+        return False
+
+    def _build_task(self, group_id, corr_ids, perm, task_group_versions,
                     snap_nodes, snap_groups, worker_id):
-        # Check 1: before rendering (optimization � callback handles correctness)
-        if task_snapshot_gen < self.snapshot_gen:
-            return None
-        if self.improved_groups - {group_id}:
+        # Check 1: before rendering (optimization — callback handles correctness)
+        if self._is_cross_group_stale(group_id, task_group_versions):
             return None
 
         content = render_tree(snap_nodes, group_id, corr_ids, perm, snap_groups)
 
         # Check 2: before building (the expensive part)
-        if task_snapshot_gen < self.snapshot_gen:
-            return None
-        if self.improved_groups - {group_id}:
+        if self._is_cross_group_stale(group_id, task_group_versions):
             return None
 
         workdir = f'worker_{worker_id}'
@@ -328,7 +330,7 @@ class SpeculativeEngine:
             f.write(content)
         size = run_make_and_get_size(cwd=workdir)
 
-        return (size, content, group_id, perm, task_snapshot_gen)
+        return (size, content, group_id, perm, task_group_versions)
 
     def _on_done(self, future, worker_id, total_bar, group_bar, stats_bar,
                  stats_prefix, iteration):
@@ -355,25 +357,21 @@ class SpeculativeEngine:
                 total_bar.update(1)
                 return
 
-            size, content, group_id, perm, task_snapshot_gen = result
+            size, content, group_id, perm, task_group_versions = result
 
             is_run_best = False
             is_global_best = False
             is_stale = False
 
             with self.lock:
-                if task_snapshot_gen < self.snapshot_gen:
-                    # Hard stale: a re-snapshot happened since this task was dispatched
-                    self._stale_discards += 1
-                    is_stale = True
-                elif self.improved_groups - {group_id}:
-                    # A different group improved � our baseline is contaminated
+                if self._is_cross_group_stale(group_id, task_group_versions):
+                    # A different group improved since this task was dispatched
                     self._stale_discards += 1
                     is_stale = True
                 elif size < self.best_size:
                     self.best_size = size
                     self.best_content = content
-                    self.improved_groups.add(group_id)
+                    self.group_versions[group_id] = self.group_versions.get(group_id, 0) + 1
                     self._improvements += 1
                     is_run_best = True
 
@@ -419,7 +417,7 @@ class SpeculativeEngine:
     def run_pass(self, iteration, pass_best, stats_prefix):
         root_nodes, groups, h_base_to_ids = parse_content(pass_best['best_content'])
 
-        snap_gen = self.snapshot_gen
+        snap_group_versions = dict(self.group_versions)
         snap_nodes = root_nodes
         snap_groups = groups
 
@@ -499,15 +497,16 @@ class SpeculativeEngine:
             for perm in perms:
                 wid = self.worker_slots.get()
 
-                # Re-snapshot only if a DIFFERENT group improved
+                # Re-snapshot only if a DIFFERENT group improved since last snapshot
                 with self.lock:
-                    other_improved = self.improved_groups - {gid}
-                    needs_resnap = bool(other_improved)
+                    needs_resnap = False
+                    for g, v in self.group_versions.items():
+                        if g != gid and v > snap_group_versions.get(g, 0):
+                            needs_resnap = True
+                            break
                     if needs_resnap:
-                        self.snapshot_gen += 1
-                        self.improved_groups = set()
                         latest_content = self.best_content
-                        snap_gen = self.snapshot_gen
+                        snap_group_versions = dict(self.group_versions)
 
                 if needs_resnap:
                     snap_nodes, snap_groups, _ = parse_content(latest_content)
@@ -516,7 +515,7 @@ class SpeculativeEngine:
                 fut = self.executor.submit(
                     self._build_task,
                     gid, corr_ids, perm,
-                    snap_gen, snap_nodes, snap_groups, wid
+                    snap_group_versions, snap_nodes, snap_groups, wid
                 )
 
                 fut.add_done_callback(
@@ -718,8 +717,7 @@ def main():
 
         engine.best_size = initial_size
         engine.best_content = text
-        engine.snapshot_gen = 0
-        engine.improved_groups = set()
+        engine.group_versions = {}
 
         with global_best_lock:
             if global_best_size == float('inf'):
@@ -745,8 +743,10 @@ def main():
                     static_improved = True
                     engine.best_size = pass_best['best']
                     engine.best_content = pass_best['best_content']
-                    engine.snapshot_gen += 1
-                    engine.improved_groups = set()
+                    # Static toggles are cross-cutting; bump a special group to
+                    # invalidate all in-flight permutation tasks
+                    engine.group_versions['__static__'] = \
+                        engine.group_versions.get('__static__', 0) + 1
                 else:
                     break
 
