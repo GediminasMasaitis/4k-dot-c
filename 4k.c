@@ -1099,8 +1099,8 @@ enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
-  G(119, i32 num_moves;)
   G(119, i32 static_eval;)
+  G(119, i32 num_moves;)
   G(119, Move best_move;)
   G(119, u64 position_hash;)
   G(119, Move killer;)
@@ -1341,8 +1341,8 @@ i32 search(
 
   G(205, stack[G(206, ply) + G(206, 2)].position_hash = tt_hash;)
   G(205, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(205, i32 moves_evaluated = 0;)
   G(205, i32 quiets_evaluated = 0;)
+  G(205, i32 moves_evaluated = 0;)
   G(205, u8 tt_flag = Upper;)
   G(205, Move moves[max_moves];
     stack[ply].num_moves =
