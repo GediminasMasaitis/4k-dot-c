@@ -275,7 +275,8 @@ class SpeculativeEngine:
         self.max_workers = max_workers
 
         self.lock = threading.Lock()
-        self.epoch = 0
+        self.snapshot_gen = 0
+        self.improved_groups = set()
         self.best_size = float('inf')
         self.best_content = None
 
@@ -287,20 +288,25 @@ class SpeculativeEngine:
         self._drain = CountdownEvent()
         self._completed = 0
         self._stale_discards = 0
+        self._improvements = 0
 
     def shutdown(self):
         self.executor.shutdown(wait=True)
 
-    def _build_task(self, group_id, corr_ids, perm, task_epoch,
+    def _build_task(self, group_id, corr_ids, perm, task_snapshot_gen,
                     snap_nodes, snap_groups, worker_id):
-        # Check 1: before rendering
-        if task_epoch < self.epoch:
+        # Check 1: before rendering (optimization — callback handles correctness)
+        if task_snapshot_gen < self.snapshot_gen:
+            return None
+        if self.improved_groups - {group_id}:
             return None
 
         content = render_tree(snap_nodes, group_id, corr_ids, perm, snap_groups)
 
         # Check 2: before building (the expensive part)
-        if task_epoch < self.epoch:
+        if task_snapshot_gen < self.snapshot_gen:
+            return None
+        if self.improved_groups - {group_id}:
             return None
 
         workdir = f'worker_{worker_id}'
@@ -308,7 +314,7 @@ class SpeculativeEngine:
             f.write(content)
         size = run_make_and_get_bits(cwd=workdir)
 
-        return (size, content, group_id, perm, task_epoch)
+        return (size, content, group_id, perm, task_snapshot_gen)
 
     def _on_done(self, future, worker_id, total_bar, group_bar, stats_bar,
                  stats_prefix, iteration):
@@ -335,20 +341,26 @@ class SpeculativeEngine:
                 total_bar.update(1)
                 return
 
-            size, content, group_id, perm, task_epoch = result
+            size, content, group_id, perm, task_snapshot_gen = result
 
             is_run_best = False
             is_global_best = False
             is_stale = False
 
             with self.lock:
-                if task_epoch < self.epoch:
+                if task_snapshot_gen < self.snapshot_gen:
+                    # Hard stale: a re-snapshot happened since this task was dispatched
+                    self._stale_discards += 1
+                    is_stale = True
+                elif self.improved_groups - {group_id}:
+                    # A different group improved — our baseline is contaminated
                     self._stale_discards += 1
                     is_stale = True
                 elif size < self.best_size:
                     self.best_size = size
                     self.best_content = content
-                    self.epoch += 1
+                    self.improved_groups.add(group_id)
+                    self._improvements += 1
                     is_run_best = True
 
                 if not is_stale:
@@ -393,7 +405,7 @@ class SpeculativeEngine:
     def run_pass(self, iteration, pass_best, stats_prefix):
         root_nodes, groups, h_base_to_ids = parse_content(pass_best['best_content'])
 
-        snap_epoch = self.epoch
+        snap_gen = self.snapshot_gen
         snap_nodes = root_nodes
         snap_groups = groups
 
@@ -429,9 +441,10 @@ class SpeculativeEngine:
         print(f'\n--- {stats_prefix} pass {iteration}: '
               f'{total_groups} groups, {total_perms} total permutations ---')
 
-        initial_epoch = self.epoch
+        initial_best = self.best_size
         self._completed = 0
         self._stale_discards = 0
+        self._improvements = 0
         self._initial_size = pass_best['initial']
         self._drain.reset()
 
@@ -471,18 +484,25 @@ class SpeculativeEngine:
                 f'{stats_prefix} pass {iteration} {gid} ({group_idx+1}/{total_groups})')
             for perm in perms:
                 wid = self.worker_slots.get()
-                if snap_epoch < self.epoch:
-                    with self.lock:
-                        snap_epoch = self.epoch
-                        latest_content = self.best_content
 
+                # Re-snapshot only if a DIFFERENT group improved
+                with self.lock:
+                    other_improved = self.improved_groups - {gid}
+                    needs_resnap = bool(other_improved)
+                    if needs_resnap:
+                        self.snapshot_gen += 1
+                        self.improved_groups = set()
+                        latest_content = self.best_content
+                        snap_gen = self.snapshot_gen
+
+                if needs_resnap:
                     snap_nodes, snap_groups, _ = parse_content(latest_content)
 
                 self._drain.increment()
                 fut = self.executor.submit(
                     self._build_task,
                     gid, corr_ids, perm,
-                    snap_epoch, snap_nodes, snap_groups, wid
+                    snap_gen, snap_nodes, snap_groups, wid
                 )
 
                 fut.add_done_callback(
@@ -497,13 +517,13 @@ class SpeculativeEngine:
         total_bar.close()
         group_bar.close()
 
-        improved = self.epoch > initial_epoch
-        epochs_bumped = self.epoch - initial_epoch
+        improved = self.best_size < initial_best
+        improvements = self._improvements
 
         stats_bar.set_description(
             f'{stats_prefix}   Run best: {fmt_bits(self.best_size)}'
             f'   Global best: {fmt_bits(global_best_size)}'
-            f'   Improvements: {epochs_bumped}'
+            f'   Improvements: {improvements}'
             f'   Stale discards: {self._stale_discards}'
             f'   {"IMPROVED" if improved else "no change"}'
         )
@@ -681,7 +701,8 @@ def main():
 
         engine.best_size = initial_size
         engine.best_content = text
-        engine.epoch = 0
+        engine.snapshot_gen = 0
+        engine.improved_groups = set()
 
         with global_best_lock:
             if global_best_size == float('inf'):
@@ -707,7 +728,8 @@ def main():
                     static_improved = True
                     engine.best_size = pass_best['best']
                     engine.best_content = pass_best['best_content']
-                    engine.epoch += 1
+                    engine.snapshot_gen += 1
+                    engine.improved_groups = set()
                 else:
                     break
 
