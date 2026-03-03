@@ -1164,7 +1164,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 get_material_hash(const Position* const pos) {
   u64 lo = 0;
   u64 hi = 0;
-  for (int i = Pawn; i <= King; i++) {
+  for (int i = Pawn; i < King; i++) {
     lo |= (u64)count(pos->pieces[i] & pos->colour[0]) << (i * 4);
     hi |= (u64)count(pos->pieces[i] & pos->colour[1]) << (i * 4);
   }
@@ -1206,7 +1206,7 @@ get_hash(const Position *const pos) {
 get_material_hash(const Position* const pos) {
   u64 lo = 0;
   u64 hi = 0;
-  for (int i = Pawn; i <= King; i++) {
+  for (int i = Pawn; i < King; i++) {
     lo |= (u64)count(pos->pieces[i] & pos->colour[0]) << (i * 4);
     hi |= (u64)count(pos->pieces[i] & pos->colour[1]) << (i * 4);
   }
