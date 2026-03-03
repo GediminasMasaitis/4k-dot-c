@@ -197,8 +197,8 @@ enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
   G(4, u8 promo;)
-  G(4, u8 takes_piece;)
   G(4, u8 from; u8 to;)
+  G(4, u8 takes_piece;)
 } Move;
 
 typedef struct [[nodiscard]] {
