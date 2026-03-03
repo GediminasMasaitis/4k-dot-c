@@ -84,25 +84,6 @@ G(
     })
 
 G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
     1, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
@@ -127,6 +108,25 @@ G(
 
         string++;
       }
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
     })
 
 G(
@@ -641,8 +641,8 @@ G(
 enum { max_moves = 218 };
 
 [[nodiscard]] S(1) i32 movegen(H(95, 1, const Position *const restrict pos),
-                               H(95, 1, Move *restrict movelist),
-                               H(95, 1, const i32 only_captures)) {
+                               H(95, 1, const i32 only_captures),
+                               H(95, 1, Move *restrict movelist)) {
 
   G(96, const u64 all = G(97, pos->colour[1]) | G(97, pos->colour[0]);)
   G(96, const Move *start = movelist;)
@@ -723,7 +723,7 @@ enum { max_moves = 218 };
   u64 nodes = 0;
   Move moves[max_moves];
   const i32 num_moves =
-      movegen(H(95, 2, pos), H(95, 2, moves), H(95, 2, false));
+      movegen(H(95, 2, pos), H(95, 2, false), H(95, 2, moves));
 
   for (i32 i = 0; i < num_moves; ++i) {
     Position npos = *pos;
@@ -839,10 +839,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn;)
             H(118, 1, i8 protected_pawn;) H(118, 1, i8 king_attacks[5];))
   H(116, 1,
-    H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
-        H(119, 1, i8 open_files[12];) H(119, 1, i8 tempo;)
-            H(119, 1, i8 passed_blocked_pawns[6];)
-                H(119, 1, i8 pawn_attacked_penalty[2];))
+    H(119, 1, i8 pawn_attacked_penalty[2];)
+        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 open_files[12];)
+            H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];)
+                H(119, 1, i8 pst_file[48];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -855,10 +855,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn;)
             H(118, 2, i32 protected_pawn;) H(118, 2, i32 king_attacks[5];))
   H(116, 2,
-    H(119, 2, i32 mobilities[5];) H(119, 2, i32 pst_file[48];)
-        H(119, 2, i32 open_files[12];) H(119, 2, i32 tempo;)
-            H(119, 2, i32 passed_blocked_pawns[6];)
-                H(119, 2, i32 pawn_attacked_penalty[2];))
+    H(119, 2, i32 pawn_attacked_penalty[2];)
+        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 open_files[12];)
+            H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
+                H(119, 2, i32 pst_file[48];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1100,18 +1100,18 @@ enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
   G(119, i32 num_moves;)
-  G(119, Move killer;)
+  G(119, i32 static_eval;)
   G(119, Move best_move;)
   G(119, u64 position_hash;)
-  G(119, i32 static_eval;)
+  G(119, Move killer;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(174, i16 score;)
   G(174, u16 partial_hash;)
+  G(174, i16 score;)
   G(174, i8 depth;)
-  G(174, u8 flag;)
   G(174, Move move;)
+  G(174, u8 flag;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1346,7 +1346,7 @@ i32 search(
   G(205, u8 tt_flag = Upper;)
   G(205, Move moves[max_moves];
     stack[ply].num_moves =
-        movegen(H(95, 3, pos), H(95, 3, moves), H(95, 3, in_qsearch));)
+        movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1952,7 +1952,7 @@ S(1) void run() {
 #endif
           Move moves[max_moves];
           const i32 num_moves =
-            movegen(H(95, 4, &main_data->pos), H(95, 4, moves), H(95, 4, false));
+            movegen(H(95, 4, &main_data->pos), H(95, 4, false), H(95, 4, moves));
           for (i32 i = 0; i < num_moves; i++) {
             char move_name[8];
             move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
