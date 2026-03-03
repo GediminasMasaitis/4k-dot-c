@@ -389,9 +389,9 @@ G(
             })
 
 G(
-    46,
-    S(1) void move_str(H(54, 1, const Move *restrict move),
-                       H(54, 1, char *restrict str), H(54, 1, const i32 flip)) {
+    46, S(1) void move_str(H(54, 1, char *restrict str),
+                           H(54, 1, const Move *restrict move),
+                           H(54, 1, const i32 flip)) {
       assert(move->from >= 0);
       assert(move->from < 64);
       assert(move->to >= 0);
@@ -839,8 +839,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn;)
             H(118, 1, i8 protected_pawn;) H(118, 1, i8 king_attacks[5];))
   H(116, 1,
-    H(119, 1, i8 mobilities[5];) H(119, 1, i8 tempo;)
-        H(119, 1, i8 pst_file[48];) H(119, 1, i8 open_files[12];)
+    H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
+        H(119, 1, i8 open_files[12];) H(119, 1, i8 tempo;)
             H(119, 1, i8 passed_blocked_pawns[6];)
                 H(119, 1, i8 pawn_attacked_penalty[2];))
 } EvalParams;
@@ -855,8 +855,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn;)
             H(118, 2, i32 protected_pawn;) H(118, 2, i32 king_attacks[5];))
   H(116, 2,
-    H(119, 2, i32 mobilities[5];) H(119, 2, i32 tempo;)
-        H(119, 2, i32 pst_file[48];) H(119, 2, i32 open_files[12];)
+    H(119, 2, i32 mobilities[5];) H(119, 2, i32 pst_file[48];)
+        H(119, 2, i32 open_files[12];) H(119, 2, i32 tempo;)
             H(119, 2, i32 passed_blocked_pawns[6];)
                 H(119, 2, i32 pawn_attacked_penalty[2];))
 } EvalParamsMerged;
@@ -1094,7 +1094,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 4 };
+enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
@@ -1350,8 +1350,8 @@ i32 search(
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(207, i32 move_score = ~0x1010101LL;)
     G(207, i32 best_index = 0;)
+    G(207, i32 move_score = ~0x1010101LL;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
@@ -1409,11 +1409,11 @@ i32 search(
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    i32 reduction = G(220, depth > 3) && G(220, move_score <= 0)
-                        ? G(221, (move_score / -384)) + G(221, !improving) +
-                              G(221, (G(222, alpha) == G(222, beta - 1))) +
-                              G(221, moves_evaluated / 9)
-                        : 0;
+    i32 reduction =
+        G(220, depth > 3) && G(220, move_score <= 0)
+            ? G(221, !improving) + G(221, (G(222, alpha) == G(222, beta - 1))) +
+                  G(221, moves_evaluated / 9) + G(221, (move_score / -384))
+            : 0;
 
     i32 score;
     while (true) {
@@ -1512,8 +1512,8 @@ i32 search(
 
   // UPDATE CORRECTION HISTORY
   if (G(234, stack[ply].best_move.takes_piece == None) &&
-      G(234, (G(235, (G(236, tt_flag == Upper) &&
-                      G(236, best_score < stack[ply].static_eval))) ||
+      G(234, (G(235, (G(236, best_score < stack[ply].static_eval) &&
+                      G(236, tt_flag == Upper))) ||
               G(235, (G(237, tt_flag == Lower) &&
                       G(237, best_score > stack[ply].static_eval)))))) {
     i32 dd = G(238, depth * depth) + G(238, 2);
@@ -1612,7 +1612,7 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
   if (score > alpha && score < beta) {
     putl(" pv ");
     char move_name[8];
-    move_str(H(54, 2, &pv_move), H(54, 2, move_name), H(54, 2, pos->flipped));
+    move_str(H(54, 2, move_name), H(54, 2, &pv_move), H(54, 2, pos->flipped));
     putl(move_name);
   }
 
@@ -1741,7 +1741,7 @@ void run_smp() {
   }
 
   char move_name[8];
-  move_str(H(54, 3, &main_data->stack[0].best_move), H(54, 3, move_name),
+  move_str(H(54, 3, move_name), H(54, 3, &main_data->stack[0].best_move),
            H(54, 3, main_data->pos.flipped));
   putl("bestmove ");
   puts(move_name);
@@ -1955,7 +1955,7 @@ S(1) void run() {
             movegen(H(95, 4, &main_data->pos), H(95, 4, moves), H(95, 4, false));
           for (i32 i = 0; i < num_moves; i++) {
             char move_name[8];
-            move_str(H(54, 4, &moves[i]), H(54, 4, move_name),
+            move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
               H(54, 4, main_data->pos.flipped));
             assert(move_string_equal(line, move_name) ==
               !strcmp(line, move_name));
