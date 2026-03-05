@@ -9784,3 +9784,104 @@ Games | N: 2342 W: 675 L: 541 D: 1126
 Penta | [21, 243, 547, 301, 59]
 https://gedas.pythonanywhere.com/test/1750/
 ```
+
+### 7.23
+
+Reun blackbox from uncompressed
+
+4 threads: 4079 bytes (-4)
+MD5: b7021a62bf4077311998324c56bd9b11
+
+1 thread: 4042 bytes (+3)
+MD5: eb9abe4b9604e41deb320985bcbc07fb
+
+4 threads:
+```py
+Input:       ./build/4kc (5754 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3608.993 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:3 60:2 90:2 10:0 50:1 B0:2 88:2 48:1 44:1 5A:3 22:0 9D:5 81:1 E1:4 29:2
+Compressed:  3617 bytes 28934 bits (62.86%)
+Output:      ./build/4kc.paq (3617 bytes)
+```
+
+1 thread:
+```py
+Input:       ./build/4kc (5691 bytes)
+Level:       2
+Base prob:   10
+Calculating models... 256/256
+Estimated:   3571.091 bytes
+Models:      00:1 80:2 40:1 C0:3 20:0 A0:2 60:1 90:2 30:0 50:1 B0:2 88:1 48:1 E8:3 9C:4 44:1 A2:3 81:1 5A:3 51:2 29:2
+Compressed:  3580 bytes 28640 bits (62.91%)
+Output:      ./build/4kc.paq (3580 bytes)
+```
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 182186
+info depth 1 score cp 26 time 0 nodes 38 nps 81914 pv b1c3
+info depth 2 score cp 17 time 0 nodes 119 nps 154224 pv b1c3
+info depth 3 score cp 23 time 0 nodes 239 nps 258155 pv b1c3
+info depth 4 score cp 17 time 1 nodes 381 nps 322607 pv b1c3
+info depth 5 score cp 10 time 1 nodes 601 nps 374058 pv b1c3
+info depth 6 score cp 11 time 2 nodes 1175 nps 448850 pv b1c3
+info depth 7 score cp 6 time 35 nodes 4824 nps 134547 pv b1c3
+info depth 8 score cp 15 time 44 nodes 8708 nps 195774 pv b1c3
+info depth 9 score cp 10 time 128 nodes 23762 nps 185564 pv b1c3
+info depth 10 score cp 10 time 149 nodes 34055 nps 227152 pv b1c3
+info depth 11 score cp 20 time 236 nodes 80125 nps 338465 pv d2d4
+info depth 12 score cp 19 time 460 nodes 172046 nps 373440 pv d2d4
+info depth 13 score cp 19 time 774 nodes 340575 nps 439589 pv d2d4
+info depth 14 score cp 28 time 1431 nodes 710343 nps 496352 pv e2e4
+info depth 15 score cp 25 time 1787 nodes 957019 nps 535476 pv e2e4
+info depth 16 score cp 34 time 2496 nodes 1460789 nps 585061 pv e2e4
+info depth 17 score cp 31 time 3993 nodes 2438713 nps 610634 pv e2e4
+info depth 18 score cp 35 time 5100 nodes 3203561 nps 628122 pv e2e4
+info depth 19 score cp 25 time 7686 nodes 4968007 nps 646343 pv e2e4
+info depth 20 score cp 28 time 12548 nodes 7894903 nps 629171 pv e2e4
+info depth 21 score cp 28 time 14719 nodes 9150751 nps 621657 pv e2e4
+info depth 22 score cp 27 time 20731 nodes 13190910 nps 636276 pv e2e4
+13190910 nodes 636275 nps
+```
+
+Mini version 60+0.6:
+```py
+Score of 4k.c-7.23 vs 4ku-5.1: 480 - 1304 - 1586  [0.378] 3370
+...      4k.c-7.23 playing White: 283 - 578 - 824  [0.412] 1685
+...      4k.c-7.23 playing Black: 197 - 726 - 762  [0.343] 1685
+...      White vs Black: 1009 - 775 - 1586  [0.535] 3370
+Elo difference: -86.7 +/- 8.5, LOS: 0.0 %, DrawRatio: 47.1 %
+```
+
+### 8.00
+
+Equivalent to 7.23
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 296198
+info depth 1 score cp 26 time 0 nodes 38 nps 310734 pv b1c3
+info depth 2 score cp 17 time 0 nodes 119 nps 338580 pv b1c3
+info depth 3 score cp 23 time 0 nodes 239 nps 520815 pv b1c3
+info depth 4 score cp 17 time 0 nodes 381 nps 613394 pv b1c3
+info depth 5 score cp 10 time 0 nodes 601 nps 701258 pv b1c3
+info depth 6 score cp 11 time 1 nodes 1175 nps 856769 pv b1c3
+info depth 7 score cp 6 time 5 nodes 4824 nps 897305 pv b1c3
+info depth 8 score cp 15 time 9 nodes 8708 nps 894070 pv b1c3
+info depth 9 score cp 10 time 24 nodes 23762 nps 958169 pv b1c3
+info depth 10 score cp 10 time 34 nodes 34055 nps 999067 pv b1c3
+info depth 11 score cp 20 time 70 nodes 80125 nps 1133869 pv d2d4
+info depth 12 score cp 19 time 130 nodes 172046 nps 1313387 pv d2d4
+info depth 13 score cp 19 time 215 nodes 340575 nps 1577036 pv d2d4
+info depth 14 score cp 28 time 388 nodes 710343 nps 1828495 pv e2e4
+info depth 15 score cp 25 time 508 nodes 957019 nps 1883513 pv e2e4
+info depth 16 score cp 34 time 753 nodes 1460789 nps 1938112 pv e2e4
+info depth 17 score cp 31 time 1227 nodes 2438713 nps 1986791 pv e2e4
+info depth 18 score cp 35 time 1609 nodes 3203561 nps 1990759 pv e2e4
+info depth 19 score cp 25 time 2514 nodes 4968007 nps 1975941 pv e2e4
+info depth 20 score cp 28 time 3977 nodes 7894903 nps 1984728 pv e2e4
+info depth 21 score cp 28 time 4603 nodes 9150751 nps 1987570 pv e2e4
+info depth 22 score cp 27 time 6608 nodes 13190910 nps 1995986 pv e2e4
+13190910 nodes 1995974 nps
+```
