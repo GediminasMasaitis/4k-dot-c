@@ -1508,7 +1508,7 @@ i32 search(
                         .flag = tt_flag};
 
   // UPDATE CORRECTION HISTORY
-  if (G(234, (G(235, (G(236, best_score < stack[ply].static_eval) &&
+  if (G(234, (G(235, tt_flag == Exact) || G(235, (G(236, best_score < stack[ply].static_eval) &&
                       G(236, tt_flag == Upper))) ||
               G(235, (G(237, best_score > stack[ply].static_eval) &&
                       G(237, tt_flag == Lower))))) &&
