@@ -1514,9 +1514,6 @@ i32 search(
                       G(237, tt_flag == Lower))))) &&
       G(234, stack[ply].best_move.takes_piece == None)) {
     i32 dd = G(238, depth * depth) + G(238, 2);
-    if (dd > 62) {
-      dd = 62;
-    }
 
     i32 target = best_score - stack[ply].static_eval;
 
