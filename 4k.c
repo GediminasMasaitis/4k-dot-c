@@ -829,8 +829,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];)
-        H(117, 1, i8 bishop_pawns[2];))
+    H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];))
   H(116, 1,
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
         H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];)
@@ -845,8 +844,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];)
-        H(117, 2, i32 bishop_pawns[2];))
+    H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];))
   H(116, 2,
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
         H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];)
@@ -899,7 +897,6 @@ G(
                 .protected_pawn = 15,
                 .phalanx_pawn = 9,
                 .bishop_pair = 26,
-                .bishop_pawns = {-6, -5},
                 .king_shield = {28, 20},
                 .pawn_attacked_penalty = {-16, -128},
                 .tempo = 17},
@@ -931,7 +928,6 @@ G(
                 .protected_pawn = 16,
                 .phalanx_pawn = 15,
                 .bishop_pair = 62,
-                .bishop_pawns = {-11, -1},
                 .king_shield = {-11, -7},
                 .pawn_attacked_penalty = {-10, -128},
                 .tempo = 7}};)
@@ -1026,19 +1022,6 @@ S(0) i32 eval(Position *const restrict pos) {
                   })
 
               G(
-                  151, // BISHOP COLOUR PAWNS
-                  if (G(162, p) == G(162, Bishop)) {
-                    u64 mask = 0xAA55AA55AA55AA55ULL;
-                    if (!(G(163, piece_bb) & G(163, mask))) {
-                      mask = ~mask;
-                    }
-                    for (i32 i = 0; i < 2; i++) {
-                      score += G(164, eval_params.bishop_pawns[i]) *
-                               G(164, count(G(165, pawns[i]) & G(165, mask)));
-                    }
-                  })
-
-              G(
                   151, // PIECES ATTACKED BY PAWNS
                   if (G(161, piece_bb) & G(161, no_passers)) {
                     score += eval_params.pawn_attacked_penalty[c];
@@ -1092,7 +1075,7 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
