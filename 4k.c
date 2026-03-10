@@ -1094,7 +1094,7 @@ enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 1024 * 1024 };
-enum { corrhist_size = 16384 };
+enum { corrhist_size = 1024 * 64 };
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
