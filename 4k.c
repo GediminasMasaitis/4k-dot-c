@@ -1524,7 +1524,7 @@ i32 search(
 
     G(239, if (target > 81) { target = 81; })
 
-    *material_entry = (*material_entry * (596 - dd) + target * 256 * dd) / 596;
+    *material_entry = (*material_entry * (1024 - dd) + target * 256 * dd) / 1024;
   }
 
   return best_score;
