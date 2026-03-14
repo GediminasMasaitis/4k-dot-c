@@ -1134,14 +1134,22 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
+#ifdef FULL
+u64 tt_length = 1 << 23; // 80MB
+#else
 enum { tt_length = 1 << 23 }; // 80MB
+#endif
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 enum { thread_count = 1 };
 enum { thread_stack_size = 8 * 1024 * 1024 };
 
+#ifdef FULL
+static TTEntry *tt;
+#else
 G(164, S(1) TTEntry tt[tt_length];)
+#endif
 G(164, S(1) volatile bool stop;)
 G(164, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
@@ -1819,6 +1827,8 @@ S(1) void run() {
   G(230, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
 
 #ifdef FULL
+  tt = malloc(tt_length * sizeof(TTEntry));
+  __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
   main_data->pos = start_pos;
 #endif
 
@@ -1836,11 +1846,24 @@ S(1) void run() {
       puts("id name 4k.c");
       puts("id author Gediminas Masaitis");
       puts("");
-      puts("option name Hash type spin default 1 min 1 max 1");
+      puts("option name Hash type spin default 80 min 1 max 65536");
       puts("option name Threads type spin default 1 min 1 max 1");
       puts("uciok");
+    } else if (!strcmp(line, "setoption")) {
+      getl(line); // "name"
+      getl(line); // option name
+      if (!strcmp(line, "Hash")) {
+        getl(line); // "value"
+        getl(line); // MB
+        free(tt);
+        const u64 mb = atoi(line);
+        tt_length = mb * 1024 * 1024 / sizeof(TTEntry);
+        tt = malloc(tt_length * sizeof(TTEntry));
+        __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
+      }
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+      __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     } else if (!strcmp(line, "bench")) {
       bench();
     } else if (!strcmp(line, "gi")) {
@@ -1942,6 +1965,8 @@ int main(int argc, char **argv) {
 #ifdef FULL
   if (argc > 1 && !strcmp(argv[1], "bench")) {
     init();
+    tt = malloc(tt_length * sizeof(TTEntry));
+    __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     bench();
     exit_now();
   }
