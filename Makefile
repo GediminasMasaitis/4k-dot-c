@@ -30,6 +30,7 @@ ifeq ($(NOSTDLIB), true)
 	NOSTDLIBLDFLAGS += -Wl,-T 64bit.ld
 else
 	CFLAGS += -march=native -static -O3
+	LDFLAGS += -static
 endif
 
 ifneq ($(MINI), true)
