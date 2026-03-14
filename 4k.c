@@ -1096,7 +1096,11 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
+#ifdef FULL
+static i32 thread_count = 1;
+#else
 enum { thread_count = 1 };
+#endif
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
@@ -1134,11 +1138,12 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
   ThreadData data;
 } ThreadHead;
 
-G(176, __attribute__((aligned(4096))) u8
-           thread_stacks[thread_count][thread_stack_size];)
 #ifdef FULL
+static ThreadData *main_data;
 static TTEntry *tt;
 #else
+__attribute__((aligned(4096))) u8
+           thread_stacks[thread_count][thread_stack_size];
 S(1) TTEntry tt[tt_length];
 #endif
 G(176, S(1) volatile bool stop;)
@@ -1711,9 +1716,26 @@ void run_smp() {
   start_time = get_time();
 #ifdef FULL
   pthread_t helpers[thread_count - 1];
+  ThreadData *helper_data[thread_count - 1];
   u64 nodes = 0;
-#endif
 
+  for (i32 i = 0; i < thread_count - 1; i++) {
+    helper_data[i] = malloc(sizeof(ThreadData));
+    __builtin_memset(helper_data[i], 0, sizeof(ThreadData));
+    helper_data[i]->pos = main_data->pos;
+    helper_data[i]->max_time = -1LL;
+    helper_data[i]->thread_id = i + 1;
+    pthread_create(&helpers[i], NULL, entry_full, helper_data[i]);
+  }
+
+  iteratively_deepen(max_ply, main_data);
+  stop = true;
+
+  for (i32 i = 0; i < thread_count - 1; i++) {
+    pthread_join(helpers[i], NULL);
+    free(helper_data[i]);
+  }
+#else
   ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];
 
   for (i32 i = 1; i < thread_count; i++) {
@@ -1721,29 +1743,17 @@ void run_smp() {
         (ThreadHead *)&thread_stacks[i][thread_stack_size - sizeof(ThreadHead)];
     G(249, helper_head->data.pos = main_data->pos;)
     G(249, helper_head->data.max_time = -1LL;)
-#ifdef FULL
-    helper_head->data.thread_id = i;
-    pthread_create(&helpers[i - 1], NULL, entry_full, &helper_head->data);
-#else
     helper_head->entry = entry_mini;
     newthread(helper_head);
-#endif
   }
 
-  iteratively_deepen(
-#ifdef FULL
-      max_ply,
-#endif
-      main_data);
+  iteratively_deepen(main_data);
   stop = true;
 
   for (i32 i = 0; i < thread_count - 1; i++) {
-#ifdef FULL
-    pthread_join(helpers[i], NULL);
-#else
     // TODO: sync ?
-#endif
   }
+#endif
 
   char move_name[8];
   move_str(H(54, 3, move_name), H(54, 3, &main_data->stack[0].best_move),
@@ -1865,13 +1875,14 @@ S(1) void run() {
 
   G(250, char line[4096];)
   G(250, init();)
-  G(250, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
-  G(250, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
-
 #ifdef FULL
+  main_data = calloc(1, sizeof(ThreadData));
   tt = malloc(tt_length * sizeof(TTEntry));
   __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
   main_data->pos = start_pos;
+#else
+  __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+  ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];
 #endif
 
 #ifndef FULL
@@ -1889,7 +1900,7 @@ S(1) void run() {
       puts("id author Gediminas Masaitis");
       puts("");
       puts("option name Hash type spin default 80 min 1 max 65536");
-      puts("option name Threads type spin default 4 min 1 max 4");
+      puts("option name Threads type spin default 1 min 1 max 256");
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
       getl(line); // "name"
@@ -1902,9 +1913,13 @@ S(1) void run() {
         tt_length = mb * 1024 * 1024 / sizeof(TTEntry);
         tt = malloc(tt_length * sizeof(TTEntry));
         __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
+      } else if (!strcmp(line, "Threads")) {
+        getl(line); // "value"
+        getl(line);
+        thread_count = atoi(line);
       }
     } else if (!strcmp(line, "ucinewgame")) {
-      __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+      __builtin_memset(main_data, 0, sizeof(ThreadData));
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     } else if (!strcmp(line, "bench")) {
       bench();
