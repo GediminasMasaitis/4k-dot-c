@@ -103,6 +103,8 @@ typedef struct CompState {
   Evaluator *eval;
 } CompState;
 
+// === Utility functions ===
+
 static inline v4f v4f_splat(float x) { return (v4f){x, x, x, x}; }
 static inline v4u v4u_splat(uint32_t x) { return (v4u){x, x, x, x}; }
 
@@ -150,6 +152,8 @@ static int prev_prime(int n) {
   }
 }
 
+// === Context hashing and prediction ===
+
 static inline void counter_update(unsigned char prob[2], int bit) {
   prob[bit] += 1;
   if (prob[!bit] > 1)
@@ -163,15 +167,6 @@ static unsigned char *alloc_padded(const unsigned char *ctx,
   memcpy(buf + MAX_CTX, data, size);
   return buf;
 }
-
-#define DYNPUSH(arr, len, cap, val, elem_sz)                                   \
-  do {                                                                         \
-    if ((len) >= (cap)) {                                                      \
-      (cap) = (cap) ? (cap) * 2 : 4096;                                        \
-      (arr) = realloc((arr), (cap) * (elem_sz));                               \
-    }                                                                          \
-    (arr)[(len)++] = (val);                                                    \
-  } while (0)
 
 static inline unsigned int hash_mix(unsigned int h, unsigned char byte) {
   h ^= byte;
@@ -217,6 +212,8 @@ static inline int get_bit(const unsigned char *data, int pos) {
 static inline int get_compressed_bit(const unsigned char *data, int pos) {
   return (data[pos >> 3] >> (pos & 7)) & 1;
 }
+
+// === Arithmetic coder ===
 
 static void arith_init(ArithCoder *ac, void *dest) {
   ac->dest = (unsigned char *)dest;
@@ -266,6 +263,8 @@ static int arith_finish(const ArithCoder *ac) {
   }
   return pos;
 }
+
+// === Weight mask encoding/decoding ===
 
 static unsigned int encode_weight_mask(const ModelSet *ml, unsigned char *masks,
                                        int terminate) {
@@ -320,6 +319,8 @@ static void model_set_sprint(const ModelSet *ml, char *buf, int bufsize) {
     pos += snprintf(buf + pos, bufsize - pos, "%s%02X:%d", m ? " " : "",
                     ml->models[m].mask, ml->models[m].weight);
 }
+
+// === Model precomputation ===
 
 static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
                                  unsigned char mask, const unsigned char *data,
@@ -389,6 +390,8 @@ static int compute_single_model(const unsigned char *data, int total_bits,
 
   return num_blocks;
 }
+
+// === Evaluator (SIMD weight optimization) ===
 
 static void eval_setup(Evaluator *ev, const CompState *cs, int length,
                        int base_prob, float log_scale) {
@@ -562,6 +565,8 @@ static void state_destroy(CompState *cs) {
   free(cs);
 }
 
+// === Hash bit stream ===
+
 static void hbs_init(HashBitStream *hb) { memset(hb, 0, sizeof(*hb)); }
 
 static void hbs_free(const HashBitStream *hb) {
@@ -571,12 +576,19 @@ static void hbs_free(const HashBitStream *hb) {
 }
 
 static inline void hbs_push_hash(HashBitStream *hb, unsigned int v) {
-  DYNPUSH(hb->hashes, hb->hashes_len, hb->hashes_cap, v, sizeof(unsigned int));
+  if (hb->hashes_len >= hb->hashes_cap) {
+    hb->hashes_cap = hb->hashes_cap ? hb->hashes_cap * 2 : 4096;
+    hb->hashes = realloc(hb->hashes, hb->hashes_cap * sizeof(unsigned int));
+  }
+  hb->hashes[hb->hashes_len++] = v;
 }
 
 static inline void hbs_push_bit(HashBitStream *hb, int v) {
-  DYNPUSH(hb->bits, hb->bits_len, hb->bits_cap, (unsigned char)v,
-          sizeof(unsigned char));
+  if (hb->bits_len >= hb->bits_cap) {
+    hb->bits_cap = hb->bits_cap ? hb->bits_cap * 2 : 4096;
+    hb->bits = realloc(hb->bits, hb->bits_cap * sizeof(unsigned char));
+  }
+  hb->bits[hb->bits_len++] = (unsigned char)v;
 }
 
 static HashBitStream compute_hash_stream(const unsigned char *data, int size,
@@ -617,6 +629,8 @@ static HashBitStream compute_hash_stream(const unsigned char *data, int size,
   free(padded);
   return out;
 }
+
+// === Compression and decompression ===
 
 static HashEntry *hash_probe(HashEntry *table, unsigned int mask,
                              unsigned int hash, int weight_shift,
@@ -662,6 +676,100 @@ static void print_hash_table_stats(const HashEntry *ht,
          table_size, 100.0 * occupied / table_size);
   printf("  Probe chains: max %u, avg %.2f displacement\n", max_chain,
          occupied ? (double)total_displacement / occupied : 0.0);
+}
+
+static void print_encode_stats(int total_bits, int num, const ModelSet *ml,
+                               unsigned int min_range,
+                               const unsigned int conf_hist[11],
+                               const unsigned int bytepos_count[8],
+                               const double bytepos_cost[8], double total_cost,
+                               const unsigned int model_hits[],
+                               const unsigned int model_misses[],
+                               const double model_bits_saved[],
+                               const HashEntry *ht, unsigned int table_size) {
+  printf("  Arithmetic coder min range: 0x%08X (%.1f effective bits)\n",
+         min_range, 31.0 - __builtin_clz(min_range));
+
+  printf("  Prediction confidence:\n");
+  const char *labels[] = {"   <50%%", " 50-55%%", " 55-60%%", " 60-65%%",
+                          " 65-70%%", " 70-75%%", " 75-80%%", " 80-85%%",
+                          " 85-90%%", " 90-95%%", "95-100%%"};
+  for (int i = 0; i < 11; i++) {
+    if (conf_hist[i] > 0)
+      printf("    %s: %5u bits (%5.1f%%)\n", labels[i], conf_hist[i],
+             100.0 * conf_hist[i] / total_bits);
+  }
+  printf("  Total prediction cost: %.1f bits (%.1f bytes)\n", total_cost,
+         total_cost / 8.0);
+
+  printf("  Byte position analysis:\n");
+  for (int i = 0; i < 8; i++) {
+    if (bytepos_count[i] > 0)
+      printf("    Bit %d: %5u bits, avg cost %.3f bits/bit\n", i,
+             bytepos_count[i], bytepos_cost[i] / bytepos_count[i]);
+  }
+
+  printf("  Per-model stats:\n");
+  double total_saved = 0;
+  for (int m = 0; m < num; m++) {
+    unsigned int total = model_hits[m] + model_misses[m];
+    printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
+           "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
+           m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
+           total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
+           -model_bits_saved[m], -model_bits_saved[m] / 8.0);
+    total_saved += model_bits_saved[m];
+  }
+  printf("    Total model contribution: %.1f bits (%.1f bytes)\n",
+         -total_saved, -total_saved / 8.0);
+
+  int order[MAX_SEARCH];
+  for (int m = 0; m < num; m++)
+    order[m] = m;
+  for (int i = 0; i < num - 1; i++)
+    for (int j = i + 1; j < num; j++)
+      if (model_bits_saved[order[i]] < model_bits_saved[order[j]]) {
+        int tmp = order[i];
+        order[i] = order[j];
+        order[j] = tmp;
+      }
+  printf("  Per-model stats (by bits saved):\n");
+  for (int i = 0; i < num; i++) {
+    int m = order[i];
+    unsigned int total = model_hits[m] + model_misses[m];
+    printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
+           "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
+           m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
+           total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
+           -model_bits_saved[m], -model_bits_saved[m] / 8.0);
+  }
+
+  unsigned int sat_lopsided = 0, sat_strong = 0, sat_balanced = 0,
+               sat_other = 0;
+  unsigned int ht_occupied = 0;
+  for (unsigned int i = 0; i < table_size; i++) {
+    if (ht[i].hash) {
+      ht_occupied++;
+      unsigned int p0 = ht[i].prob[0], p1 = ht[i].prob[1];
+      if (p0 == 0 || p1 == 0)
+        sat_lopsided++;
+      else if (p0 > p1 * 4 || p1 > p0 * 4)
+        sat_strong++;
+      else if (p0 <= p1 * 2 && p1 <= p0 * 2)
+        sat_balanced++;
+      else
+        sat_other++;
+    }
+  }
+  printf("  Counter saturation (%u entries):\n", ht_occupied);
+  printf("    Lopsided (one side=0): %u (%.1f%%)\n", sat_lopsided,
+         ht_occupied ? 100.0 * sat_lopsided / ht_occupied : 0.0);
+  printf("    Strong (>4:1):         %u (%.1f%%)\n", sat_strong,
+         ht_occupied ? 100.0 * sat_strong / ht_occupied : 0.0);
+  printf("    Balanced (<2:1):       %u (%.1f%%)\n", sat_balanced,
+         ht_occupied ? 100.0 * sat_balanced / ht_occupied : 0.0);
+  printf("    Mixed (2:1 to 4:1):    %u (%.1f%%)\n", sat_other,
+         ht_occupied ? 100.0 * sat_other / ht_occupied : 0.0);
 }
 
 static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
@@ -725,91 +833,10 @@ static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
       counter_update(matched[m]->prob, bit);
   }
 
-  if (verbose) {
-    printf("  Arithmetic coder min range: 0x%08X (%.1f effective bits)\n",
-           min_range, 31.0 - __builtin_clz(min_range));
-
-    printf("  Prediction confidence:\n");
-    const char *labels[] = {"   <50%%", " 50-55%%", " 55-60%%", " 60-65%%",
-                            " 65-70%%", " 70-75%%", " 75-80%%", " 80-85%%",
-                            " 85-90%%", " 90-95%%", "95-100%%"};
-    for (int i = 0; i < 11; i++) {
-      if (conf_hist[i] > 0)
-        printf("    %s: %5u bits (%5.1f%%)\n", labels[i], conf_hist[i],
-               100.0 * conf_hist[i] / total_bits);
-    }
-    printf("  Total prediction cost: %.1f bits (%.1f bytes)\n", total_cost,
-           total_cost / 8.0);
-
-    printf("  Byte position analysis:\n");
-    for (int i = 0; i < 8; i++) {
-      if (bytepos_count[i] > 0)
-        printf("    Bit %d: %5u bits, avg cost %.3f bits/bit\n", i,
-               bytepos_count[i], bytepos_cost[i] / bytepos_count[i]);
-    }
-
-    printf("  Per-model stats:\n");
-    double total_saved = 0;
-    for (int m = 0; m < num; m++) {
-      unsigned int total = model_hits[m] + model_misses[m];
-      printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
-             "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
-             m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
-             total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
-             -model_bits_saved[m], -model_bits_saved[m] / 8.0);
-      total_saved += model_bits_saved[m];
-    }
-    printf("    Total model contribution: %.1f bits (%.1f bytes)\n",
-           -total_saved, -total_saved / 8.0);
-
-    int order[MAX_SEARCH];
-    for (int m = 0; m < num; m++)
-      order[m] = m;
-    for (int i = 0; i < num - 1; i++)
-      for (int j = i + 1; j < num; j++)
-        if (model_bits_saved[order[i]] < model_bits_saved[order[j]]) {
-          int tmp = order[i];
-          order[i] = order[j];
-          order[j] = tmp;
-        }
-    printf("  Per-model stats (by bits saved):\n");
-    for (int i = 0; i < num; i++) {
-      int m = order[i];
-      unsigned int total = model_hits[m] + model_misses[m];
-      printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
-             "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
-             m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
-             total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
-             -model_bits_saved[m], -model_bits_saved[m] / 8.0);
-    }
-
-    unsigned int sat_lopsided = 0, sat_strong = 0, sat_balanced = 0,
-                 sat_other = 0;
-    unsigned int ht_occupied = 0;
-    for (unsigned int i = 0; i < hb->table_size; i++) {
-      if (ht[i].hash) {
-        ht_occupied++;
-        unsigned int p0 = ht[i].prob[0], p1 = ht[i].prob[1];
-        if (p0 == 0 || p1 == 0)
-          sat_lopsided++;
-        else if (p0 > p1 * 4 || p1 > p0 * 4)
-          sat_strong++;
-        else if (p0 <= p1 * 2 && p1 <= p0 * 2)
-          sat_balanced++;
-        else
-          sat_other++;
-      }
-    }
-    printf("  Counter saturation (%u entries):\n", ht_occupied);
-    printf("    Lopsided (one side=0): %u (%.1f%%)\n", sat_lopsided,
-           ht_occupied ? 100.0 * sat_lopsided / ht_occupied : 0.0);
-    printf("    Strong (>4:1):         %u (%.1f%%)\n", sat_strong,
-           ht_occupied ? 100.0 * sat_strong / ht_occupied : 0.0);
-    printf("    Balanced (<2:1):       %u (%.1f%%)\n", sat_balanced,
-           ht_occupied ? 100.0 * sat_balanced / ht_occupied : 0.0);
-    printf("    Mixed (2:1 to 4:1):    %u (%.1f%%)\n", sat_other,
-           ht_occupied ? 100.0 * sat_other / ht_occupied : 0.0);
-  }
+  if (verbose)
+    print_encode_stats(total_bits, num, ml, min_range, conf_hist, bytepos_count,
+                       bytepos_cost, total_cost, model_hits, model_misses,
+                       model_bits_saved, ht, hb->table_size);
 }
 
 static int compress_4k(const unsigned char *data, int size, unsigned char *out,
@@ -918,6 +945,8 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
   return data_bytes;
 }
 
+// === Model search ===
+
 static unsigned int approximate_weights(CompState *cs, ModelSet *ml) {
   for (int i = 0; i < ml->num_models; i++)
     ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
@@ -980,6 +1009,63 @@ static int model_set_cmp(const void *a, const void *b) {
   return (sa > sb) - (sa < sb);
 }
 
+static int try_add_mask(CompState *cs, const ModelSet *cur, ModelSet *next,
+                        int mask, int level, int eflag) {
+  *next = *cur;
+  next->models[cur->num_models].mask = (unsigned char)mask;
+  next->models[cur->num_models].weight = 0;
+  next->num_models = cur->num_models + 1;
+
+  int old_sz = cur->size & ~eflag;
+  if (verbose >= 2)
+    printf("    -- try adding %02X:\n", mask);
+  int new_sz = try_weights(cs, next, level);
+
+  if (!(new_sz < old_sz || level >= 3)) {
+    next->size = INT_MAX;
+    return 0;
+  }
+
+  int best_sz = new_sz;
+
+  if (verbose && new_sz < INT_MAX) {
+    char setbuf[512] = "";
+    model_set_sprint(next, setbuf, sizeof(setbuf));
+    printf("  +mask %02X -> %2d models, est %.1f bytes [%s]\n", mask,
+           next->num_models, new_sz / (float)(BIT_PREC * 8), setbuf);
+    fflush(stdout);
+  }
+
+  for (int m = next->num_models - 2; m >= 0; m--) {
+    Model removed = next->models[m];
+    next->num_models--;
+    next->models[m] = next->models[next->num_models];
+    if (verbose >= 2)
+      printf("    -- try removing %02X:\n", removed.mask);
+    int trial = try_weights(cs, next, level);
+    if (trial < best_sz) {
+      if (verbose) {
+        char setbuf[512] = "";
+        model_set_sprint(next, setbuf, sizeof(setbuf));
+        printf("  -mask %02X -> %2d models, est %.1f bytes [%s]\n",
+               removed.mask, next->num_models,
+               trial / (float)(BIT_PREC * 8), setbuf);
+        fflush(stdout);
+      }
+      best_sz = trial;
+    } else {
+      next->models[m] = removed;
+      next->num_models++;
+    }
+  }
+  next->size = best_sz;
+  if ((cur->size & eflag) && new_sz < old_sz) {
+    ((ModelSet *)cur)->size &= ~eflag;
+    next->size |= eflag;
+  }
+  return 1;
+}
+
 static ModelSet search_best_models(const unsigned char *data, int size,
                                    const unsigned char ctx[MAX_CTX], int level,
                                    int base_prob, int *out_size,
@@ -1033,58 +1119,8 @@ static ModelSet search_best_models(const unsigned char *data, int size,
 
       if (!used && cur->num_models < (int)MAX_SEARCH) {
         masks_tried++;
-        *next = *cur;
-        next->models[cur->num_models].mask = (unsigned char)mask;
-        next->models[cur->num_models].weight = 0;
-        next->num_models = cur->num_models + 1;
-
-        int old_sz = cur->size & ~EFLAG;
-        if (verbose >= 2)
-          printf("    -- try adding %02X:\n", mask);
-        int new_sz = try_weights(cs, next, level);
-
-        if (new_sz < old_sz || level >= 3) {
-          int best_sz = new_sz;
-
-          if (verbose && new_sz < INT_MAX) {
-            char setbuf[512] = "";
-            model_set_sprint(next, setbuf, sizeof(setbuf));
-            printf("  +mask %02X -> %2d models, est %.1f bytes [%s]\n", mask,
-                   next->num_models, new_sz / (float)(BIT_PREC * 8), setbuf);
-            fflush(stdout);
-            mask_helped = 1;
-          }
-
-          for (int m = next->num_models - 2; m >= 0; m--) {
-            Model removed = next->models[m];
-            next->num_models--;
-            next->models[m] = next->models[next->num_models];
-            if (verbose >= 2)
-              printf("    -- try removing %02X:\n", removed.mask);
-            int trial = try_weights(cs, next, level);
-            if (trial < best_sz) {
-              if (verbose) {
-                char setbuf[512] = "";
-                model_set_sprint(next, setbuf, sizeof(setbuf));
-                printf("  -mask %02X -> %2d models, est %.1f bytes [%s]\n",
-                       removed.mask, next->num_models,
-                       trial / (float)(BIT_PREC * 8), setbuf);
-                fflush(stdout);
-              }
-              best_sz = trial;
-            } else {
-              next->models[m] = removed;
-              next->num_models++;
-            }
-          }
-          next->size = best_sz;
-          if ((cur->size & EFLAG) && new_sz < old_sz) {
-            cur->size &= ~EFLAG;
-            next->size |= EFLAG;
-          }
-        } else {
-          next->size = INT_MAX;
-        }
+        if (try_add_mask(cs, cur, next, mask, level, EFLAG) && verbose)
+          mask_helped = 1;
       }
     }
 
@@ -1123,6 +1159,8 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   free(sets);
   return best;
 }
+
+// === File I/O and CLI ===
 
 static unsigned char *read_file(const char *path, int *out_size) {
   FILE *f = fopen(path, "rb");
@@ -1173,6 +1211,166 @@ static int parse_models(const char *str, ModelSet *ml) {
     p += consumed;
   }
   return ml->num_models;
+}
+
+static int do_decompress(const char *input_file, const char *output_file,
+                         int base_prob, const unsigned char *data,
+                         int data_size) {
+  char default_out[512];
+  if (!output_file) {
+    int len = strlen(input_file);
+    if (len > 4 && !strcmp(input_file + len - 4, ".paq"))
+      snprintf(default_out, sizeof(default_out), "%.*s", len - 4, input_file);
+    else
+      snprintf(default_out, sizeof(default_out), "%s.bin", input_file);
+    output_file = default_out;
+  }
+
+  printf("Input:       %s (%d bytes)\n", input_file, data_size);
+  printf("Base prob:   %d\n", base_prob);
+
+  if (data_size < 7) {
+    fprintf(stderr, "Input too small to be a valid .paq file\n");
+    return 1;
+  }
+
+  int bitlen = data[0] | (data[1] << 8);
+  int num_models = data[6];
+
+  if (bitlen < 1 || 7 + num_models > data_size) {
+    fprintf(stderr, "Corrupt header (bitlen=%d, models=%d, filesize=%d)\n",
+            bitlen, num_models, data_size);
+    return 1;
+  }
+
+  int out_sz = (bitlen - 1) / 8;
+  printf("Bitlength:   %d (%d data bytes)\n", bitlen, out_sz);
+  printf("Models:      %d\n", num_models);
+
+  unsigned char *out_data = (unsigned char *)calloc(out_sz + 16, 1);
+  int decoded = decompress_4k(data, out_data, base_prob);
+
+  if (!write_file(output_file, out_data, decoded)) {
+    fprintf(stderr, "Failed to open output '%s'\n", output_file);
+    free(out_data);
+    return 1;
+  }
+  printf("Output:      %s (%d bytes)\n", output_file, decoded);
+  free(out_data);
+  return 0;
+}
+
+static int do_compress(const char *input_file, const char *output_file,
+                       int level, int base_prob, int max_passes,
+                       const ModelSet *explicit, int optimize_weights_flag,
+                       unsigned char *data, int data_size) {
+  char default_out[512];
+  if (!output_file) {
+    snprintf(default_out, sizeof(default_out), "%s.paq", input_file);
+    output_file = default_out;
+  }
+
+  int bitlen = data_size * 8 + 1;
+  if (bitlen > 65535) {
+    fprintf(stderr, "Input too large for 16-bit bitlength (%d bits)\n", bitlen);
+    return 1;
+  }
+
+  printf("Input:       %s (%d bytes)\n", input_file, data_size);
+  printf("Level:       %d\n", level);
+  printf("Base prob:   %d\n", base_prob);
+  if (max_passes > 1 && !explicit)
+    printf("Max passes:  %d\n", max_passes);
+
+  unsigned char ctx[MAX_CTX] = {};
+  int est_size = 0;
+  ModelSet ml;
+
+  if (explicit) {
+    ml = *explicit;
+    printf("Models:      ");
+    model_set_print(&ml, stdout);
+    if (optimize_weights_flag) {
+      printf("Optimizing weights for %d explicit models...\n", ml.num_models);
+      Evaluator eval = {0};
+      CompState *cs = state_new(data, data_size, base_prob, &eval, ctx);
+      est_size = optimize_weights(cs, &ml);
+      state_destroy(cs);
+      eval_destroy(&eval);
+      printf("Optimized:   ");
+      model_set_print(&ml, stdout);
+      printf("Estimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
+    } else {
+      printf("Skipping search, using %d explicit models\n", ml.num_models);
+    }
+  } else {
+    ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
+                            NULL);
+
+    for (int pass = 2; pass <= max_passes; pass++) {
+      int prev_size = est_size;
+      if (verbose)
+        printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
+      ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
+                              &ml);
+      if (est_size >= prev_size) {
+        if (verbose)
+          printf("  No improvement, stopping.\n");
+        break;
+      }
+      if (verbose)
+        printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass,
+               prev_size / (float)(BIT_PREC * 8),
+               est_size / (float)(BIT_PREC * 8));
+    }
+
+    printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
+    printf("Models:      ");
+    model_set_print(&ml, stdout);
+  }
+
+  int max_out = data_size + 1024;
+  unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
+  int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
+  int comp_bytes = (comp_bits + 7) / 8;
+
+  unsigned char ordered_masks[MAX_SEARCH];
+  unsigned int wmask = encode_weight_mask(&ml, ordered_masks, 1);
+
+  int header_bytes = 7 + ml.num_models;
+  int total_bytes = header_bytes + comp_bytes;
+  int total_bits = header_bytes * 8 + comp_bits;
+
+  if (verbose) {
+    printf("Raw:         %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits,
+           100.0f * comp_bytes / data_size);
+    printf("Weightmask:  %08X\n", wmask);
+    printf("Padding:     %d bits\n", total_bytes * 8 - total_bits);
+  }
+  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", total_bytes, total_bits,
+         100.0f * total_bytes / data_size);
+
+  unsigned char header[7];
+  uint16_t bl16 = (uint16_t)bitlen;
+  memcpy(header, &bl16, 2);
+  memcpy(header + 2, &wmask, 4);
+  header[6] = ml.num_models;
+
+  FILE *fout = fopen(output_file, "wb");
+  if (!fout) {
+    fprintf(stderr, "Failed to open output '%s'\n", output_file);
+    free(out_buf);
+    return 1;
+  }
+  fwrite(header, 1, 7, fout);
+  fwrite(ordered_masks, 1, ml.num_models, fout);
+  fwrite(out_buf, 1, comp_bytes, fout);
+  fclose(fout);
+
+  printf("Output:      %s (%d bytes)\n", output_file, total_bytes);
+
+  free(out_buf);
+  return 0;
 }
 
 static void print_usage(const char *prog) {
@@ -1270,163 +1468,14 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  char default_out[512];
-
+  int ret;
   if (decompress) {
-    if (!output_file) {
-      int len = strlen(input_file);
-      if (len > 4 && !strcmp(input_file + len - 4, ".paq"))
-        snprintf(default_out, sizeof(default_out), "%.*s", len - 4, input_file);
-      else
-        snprintf(default_out, sizeof(default_out), "%s.bin", input_file);
-      output_file = default_out;
-    }
-
-    printf("Input:       %s (%d bytes)\n", input_file, data_size);
-    printf("Base prob:   %d\n", base_prob);
-
-    if (data_size < 7) {
-      fprintf(stderr, "Input too small to be a valid .paq file\n");
-      free(data);
-      return 1;
-    }
-
-    int bitlen = data[0] | (data[1] << 8);
-    int num_models = data[6];
-
-    if (bitlen < 1 || 7 + num_models > data_size) {
-      fprintf(stderr, "Corrupt header (bitlen=%d, models=%d, filesize=%d)\n",
-              bitlen, num_models, data_size);
-      free(data);
-      return 1;
-    }
-
-    int out_sz = (bitlen - 1) / 8;
-    printf("Bitlength:   %d (%d data bytes)\n", bitlen, out_sz);
-    printf("Models:      %d\n", num_models);
-
-    unsigned char *out_data = (unsigned char *)calloc(out_sz + 16, 1);
-    int decoded = decompress_4k(data, out_data, base_prob);
-
-    if (!write_file(output_file, out_data, decoded)) {
-      fprintf(stderr, "Failed to open output '%s'\n", output_file);
-      free(out_data);
-      free(data);
-      return 1;
-    }
-    printf("Output:      %s (%d bytes)\n", output_file, decoded);
-    free(out_data);
-    free(data);
-    return 0;
-  }
-
-  if (!output_file) {
-    snprintf(default_out, sizeof(default_out), "%s.paq", input_file);
-    output_file = default_out;
-  }
-
-  int bitlen = data_size * 8 + 1;
-  if (bitlen > 65535) {
-    fprintf(stderr, "Input too large for 16-bit bitlength (%d bits)\n", bitlen);
-    free(data);
-    return 1;
-  }
-
-  printf("Input:       %s (%d bytes)\n", input_file, data_size);
-  printf("Level:       %d\n", level);
-  printf("Base prob:   %d\n", base_prob);
-  if (max_passes > 1 && !have_explicit_models)
-    printf("Max passes:  %d\n", max_passes);
-
-  unsigned char ctx[MAX_CTX] = {};
-  int est_size = 0;
-  ModelSet ml;
-
-  if (have_explicit_models) {
-    ml = explicit_models;
-    printf("Models:      ");
-    model_set_print(&ml, stdout);
-    if (optimize_explicit_weights) {
-      printf("Optimizing weights for %d explicit models...\n", ml.num_models);
-      Evaluator eval = {0};
-      CompState *cs = state_new(data, data_size, base_prob, &eval, ctx);
-      est_size = optimize_weights(cs, &ml);
-      state_destroy(cs);
-      eval_destroy(&eval);
-      printf("Optimized:   ");
-      model_set_print(&ml, stdout);
-      printf("Estimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
-    } else {
-      printf("Skipping search, using %d explicit models\n", ml.num_models);
-    }
+    ret = do_decompress(input_file, output_file, base_prob, data, data_size);
   } else {
-    ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
-                            NULL);
-
-    for (int pass = 2; pass <= max_passes; pass++) {
-      int prev_size = est_size;
-      if (verbose)
-        printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
-      ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
-                              &ml);
-      if (est_size >= prev_size) {
-        if (verbose)
-          printf("  No improvement, stopping.\n");
-        break;
-      }
-      if (verbose)
-        printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass,
-               prev_size / (float)(BIT_PREC * 8),
-               est_size / (float)(BIT_PREC * 8));
-    }
-
-    printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
-    printf("Models:      ");
-    model_set_print(&ml, stdout);
+    ret = do_compress(input_file, output_file, level, base_prob, max_passes,
+                      have_explicit_models ? &explicit_models : NULL,
+                      optimize_explicit_weights, data, data_size);
   }
-
-  int max_out = data_size + 1024;
-  unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
-  int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
-  int comp_bytes = (comp_bits + 7) / 8;
-
-  unsigned char ordered_masks[MAX_SEARCH];
-  unsigned int wmask = encode_weight_mask(&ml, ordered_masks, 1);
-
-  int header_bytes = 7 + ml.num_models;
-  int total_bytes = header_bytes + comp_bytes;
-  int total_bits = header_bytes * 8 + comp_bits;
-
-  if (verbose) {
-    printf("Raw:         %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits,
-           100.0f * comp_bytes / data_size);
-    printf("Weightmask:  %08X\n", wmask);
-    printf("Padding:     %d bits\n", total_bytes * 8 - total_bits);
-  }
-  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", total_bytes, total_bits,
-         100.0f * total_bytes / data_size);
-
-  unsigned char header[7];
-  uint16_t bl16 = (uint16_t)bitlen;
-  memcpy(header, &bl16, 2);
-  memcpy(header + 2, &wmask, 4);
-  header[6] = ml.num_models;
-
-  FILE *fout = fopen(output_file, "wb");
-  if (!fout) {
-    fprintf(stderr, "Failed to open output '%s'\n", output_file);
-    free(out_buf);
-    free(data);
-    return 1;
-  }
-  fwrite(header, 1, 7, fout);
-  fwrite(ordered_masks, 1, ml.num_models, fout);
-  fwrite(out_buf, 1, comp_bytes, fout);
-  fclose(fout);
-
-  printf("Output:      %s (%d bytes)\n", output_file, total_bytes);
-
-  free(out_buf);
   free(data);
-  return 0;
+  return ret;
 }
