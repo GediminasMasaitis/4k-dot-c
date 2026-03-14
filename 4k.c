@@ -1142,7 +1142,11 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
+#ifdef FULL
+static i32 thread_count = 1;
+#else
 enum { thread_count = 1 };
+#endif
 enum { thread_stack_size = 8 * 1024 * 1024 };
 
 #ifdef FULL
@@ -1151,8 +1155,10 @@ static TTEntry *tt;
 G(164, S(1) TTEntry tt[tt_length];)
 #endif
 G(164, S(1) volatile bool stop;)
+#ifndef FULL
 G(164, __attribute__((aligned(4096))) u8
            thread_stacks[thread_count][thread_stack_size];)
+#endif
 G(164, S(1) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
@@ -1583,6 +1589,10 @@ typedef struct __attribute__((aligned(16))) ThreadDataStruct {
   G(222, i32 move_history[2][6][64][64];)
 } ThreadData;
 
+#ifdef FULL
+static ThreadData *main_data;
+#endif
+
 S(1)
 void iteratively_deepen(
 #ifdef FULL
@@ -1669,9 +1679,26 @@ void run_smp() {
   start_time = get_time();
 #ifdef FULL
   pthread_t helpers[thread_count - 1];
+  ThreadData *helper_data[thread_count - 1];
   u64 nodes = 0;
-#endif
 
+  for (i32 i = 0; i < thread_count - 1; i++) {
+    helper_data[i] = malloc(sizeof(ThreadData));
+    __builtin_memset(helper_data[i], 0, sizeof(ThreadData));
+    helper_data[i]->pos = main_data->pos;
+    helper_data[i]->max_time = -1LL;
+    helper_data[i]->thread_id = i + 1;
+    pthread_create(&helpers[i], NULL, entry_full, helper_data[i]);
+  }
+
+  iteratively_deepen(max_ply, main_data);
+  stop = true;
+
+  for (i32 i = 0; i < thread_count - 1; i++) {
+    pthread_join(helpers[i], NULL);
+    free(helper_data[i]);
+  }
+#else
   ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];
 
   for (i32 i = 1; i < thread_count; i++) {
@@ -1679,29 +1706,17 @@ void run_smp() {
         (ThreadData *)&thread_stacks[i][thread_stack_size - sizeof(ThreadData)];
     G(229, helper_data->pos = main_data->pos;)
     G(229, helper_data->max_time = -1LL;)
-#ifdef FULL
-    helper_data->thread_id = i;
-    pthread_create(&helpers[i - 1], NULL, entry_full, helper_data);
-#else
     helper_data->entry = entry_mini;
     newthread(helper_data);
-#endif
   }
 
-  iteratively_deepen(
-#ifdef FULL
-      max_ply,
-#endif
-      main_data);
+  iteratively_deepen(main_data);
   stop = true;
 
   for (i32 i = 0; i < thread_count - 1; i++) {
-#ifdef FULL
-    pthread_join(helpers[i], NULL);
-#else
     // TODO: sync ?
-#endif
   }
+#endif
 
   char move_name[8];
   move_str(H(54, 3, move_name), H(54, 3, &main_data->stack[0].best_move),
@@ -1823,13 +1838,14 @@ S(1) void run() {
 
   G(230, char line[4096];)
   G(230, init();)
-  G(230, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
-  G(230, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
-
 #ifdef FULL
+  main_data = calloc(1, sizeof(ThreadData));
   tt = malloc(tt_length * sizeof(TTEntry));
   __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
   main_data->pos = start_pos;
+#else
+  G(230, __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));)
+  G(230, ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];)
 #endif
 
 #ifndef FULL
@@ -1847,7 +1863,7 @@ S(1) void run() {
       puts("id author Gediminas Masaitis");
       puts("");
       puts("option name Hash type spin default 80 min 1 max 65536");
-      puts("option name Threads type spin default 1 min 1 max 1");
+      puts("option name Threads type spin default 1 min 1 max 256");
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
       getl(line); // "name"
@@ -1860,9 +1876,13 @@ S(1) void run() {
         tt_length = mb * 1024 * 1024 / sizeof(TTEntry);
         tt = malloc(tt_length * sizeof(TTEntry));
         __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
+      } else if (!strcmp(line, "Threads")) {
+        getl(line); // "value"
+        getl(line);
+        thread_count = atoi(line);
       }
     } else if (!strcmp(line, "ucinewgame")) {
-      __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+      __builtin_memset(main_data, 0, sizeof(ThreadData));
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     } else if (!strcmp(line, "bench")) {
       bench();
