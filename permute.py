@@ -5,6 +5,7 @@ import math
 import subprocess
 import os
 import shutil
+import hashlib
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
@@ -67,6 +68,14 @@ if use_compression:
 global_best_size = float('inf')
 global_best_src = None
 global_best_lock = threading.Lock()
+
+# =============================================
+# Binary deduplication cache
+# =============================================
+binary_cache = {}       # hash -> compressed size
+binary_cache_lock = threading.Lock()
+binary_cache_hits = 0
+binary_cache_misses = 0
 
 # =============================================
 # Node classes and parsing (unchanged)
@@ -227,13 +236,33 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
     return ''.join(rendered)
 
 def run_make_and_get_size(cwd=None):
-    if use_compression:
-        target = 'compress'
-    else:
-        target = 'compress_source'
+    global binary_cache_hits, binary_cache_misses
+
+    if not use_compression:
+        # No compression — just build and measure raw size
+        try:
+            proc = subprocess.run(
+                ['make', 'NOSTDLIB=true', 'MINI=true', 'compress_source'],
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print("Make command failed with output:")
+            print(e.output)
+            print("cwd:", cwd)
+            raise
+        m = re.search(r'(\d+)\s+[A-Z][a-z]{2}\s+\d+.*4kc', proc.stdout)
+        if not m:
+            raise RuntimeError("Failed to parse file size from ls output:\n" + proc.stdout)
+        return int(m.group(1))
+
+    # Step 1: Compile and link only
     try:
-        proc = subprocess.run(
-            ['make', 'NOSTDLIB=true', 'MINI=true', target],
+        subprocess.run(
+            ['make', 'NOSTDLIB=true', 'MINI=true', 'compress_source'],
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -245,16 +274,45 @@ def run_make_and_get_size(cwd=None):
         print(e.output)
         print("cwd:", cwd)
         raise
-    if use_compression:
-        m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
-        if not m:
-            raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from make output:\n" + proc.stdout)
-        return int(m.group(1))
-    else:
-        m = re.search(r'(\d+)\s+[A-Z][a-z]{2}\s+\d+.*4kc', proc.stdout)
-        if not m:
-            raise RuntimeError("Failed to parse file size from ls output:\n" + proc.stdout)
-        return int(m.group(1))
+
+    # Step 2: Hash the binary
+    exe_abs = os.path.join(cwd, 'build', '4kc') if cwd else os.path.join('build', '4kc')
+    with open(exe_abs, 'rb') as f:
+        binary_hash = hashlib.md5(f.read()).digest()
+
+    # Step 3: Check cache
+    with binary_cache_lock:
+        if binary_hash in binary_cache:
+            binary_cache_hits += 1
+            return binary_cache[binary_hash]
+        binary_cache_misses += 1
+
+    # Step 4: Cache miss — run compressor (paths relative to cwd)
+    exe_rel = './build/4kc'
+    try:
+        proc = subprocess.run(
+            ['./compressor', '-2', '-o', exe_rel + '.paq', exe_rel],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        print("Compressor failed with output:")
+        print(e.output)
+        print("cwd:", cwd)
+        raise
+    m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
+    if not m:
+        raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
+    size = int(m.group(1))
+
+    # Step 5: Store in cache
+    with binary_cache_lock:
+        binary_cache[binary_hash] = size
+
+    return size
 
 def read_file(path):
     with open(path, 'r') as f:
@@ -756,10 +814,21 @@ def main():
 
         print(f'\nRun {run} completed. Run-best: {fmt_size(pass_best["best"])}')
         print(f'Global best after run {run}: {fmt_size(global_best_size)}')
+        with binary_cache_lock:
+            total_evals = binary_cache_hits + binary_cache_misses
+            if total_evals > 0:
+                print(f'Binary cache: {binary_cache_hits} hits, {binary_cache_misses} misses, '
+                      f'{len(binary_cache)} unique binaries '
+                      f'({100*binary_cache_hits/total_evals:.1f}% hit rate)')
 
     engine.shutdown()
 
     print(f'\nAll runs completed. Global best size: {fmt_size(global_best_size)}')
+    total_evals = binary_cache_hits + binary_cache_misses
+    if total_evals > 0:
+        print(f'Binary cache total: {binary_cache_hits} hits, {binary_cache_misses} misses, '
+              f'{len(binary_cache)} unique binaries '
+              f'({100*binary_cache_hits/total_evals:.1f}% hit rate)')
     if global_best_src is not None:
         with open('global_best.c', 'w') as gf:
             gf.write(global_best_src)
