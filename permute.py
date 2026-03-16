@@ -53,6 +53,7 @@ enable_random_shuffle = False
 random_seed = None
 num_runs = 999
 use_compression = True
+persist_binary_cache = True
 
 files_to_copy = [
     'Makefile',
@@ -72,10 +73,39 @@ global_best_lock = threading.Lock()
 # =============================================
 # Binary deduplication cache
 # =============================================
-binary_cache = {}       # hash -> compressed size
+BINARY_CACHE_PATH = 'binary_cache.pkl'
 binary_cache_lock = threading.Lock()
 binary_cache_hits = 0
 binary_cache_misses = 0
+
+def _load_binary_cache():
+    if not persist_binary_cache:
+        return {}
+    import pickle
+    if os.path.exists(BINARY_CACHE_PATH):
+        try:
+            with open(BINARY_CACHE_PATH, 'rb') as f:
+                cache = pickle.load(f)
+            print(f'Loaded binary cache: {len(cache)} entries from {BINARY_CACHE_PATH}')
+            return cache
+        except Exception as e:
+            print(f'Warning: failed to load binary cache: {e}')
+    return {}
+
+_save_lock = threading.Lock()
+
+def _save_binary_cache():
+    if not persist_binary_cache:
+        return
+    import pickle
+    with binary_cache_lock:
+        data = dict(binary_cache)
+    with _save_lock:
+        with open(BINARY_CACHE_PATH + '.tmp', 'wb') as f:
+            pickle.dump(data, f)
+        os.replace(BINARY_CACHE_PATH + '.tmp', BINARY_CACHE_PATH)
+
+binary_cache = _load_binary_cache()
 
 # =============================================
 # Node classes and parsing (unchanged)
@@ -308,9 +338,12 @@ def run_make_and_get_size(cwd=None):
         raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
     size = int(m.group(1))
 
-    # Step 5: Store in cache
+    # Step 5: Store in cache and persist every 10 new entries
     with binary_cache_lock:
         binary_cache[binary_hash] = size
+        should_save = (binary_cache_misses % 10 == 0)
+    if should_save:
+        _save_binary_cache()
 
     return size
 
@@ -835,6 +868,9 @@ def main():
         print('Final best source in "global_best.c".')
     else:
         print('No improvements found; original source is best.')
+
+    _save_binary_cache()
+    print(f'Binary cache saved to {BINARY_CACHE_PATH}')
 
 if __name__ == '__main__':
     main()
