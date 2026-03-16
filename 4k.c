@@ -736,7 +736,7 @@ enum { max_moves = 218 };
   return nodes;
 }
 
-static void get_fen(Position *restrict pos, char *restrict fen) {
+static bool get_fen(Position *restrict pos, char *restrict fen) {
   __builtin_memset(pos, 0, sizeof(Position));
   const char *p = fen;
 
@@ -813,7 +813,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   }
 
   // EN PASSANT
-  getl(fen);
+  bool more = getl(fen);
   p = fen;
   if (*p != '-') {
     const i32 file = p[0] - 'a';
@@ -824,6 +824,7 @@ static void get_fen(Position *restrict pos, char *restrict fen) {
   if (black_to_move) {
     flip_pos(pos);
   }
+  return more;
 }
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1142,8 +1143,8 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
 static ThreadData *main_data;
 static TTEntry *tt;
 #else
-__attribute__((aligned(4096))) u8
-           thread_stacks[thread_count][thread_stack_size];
+__attribute__((
+    aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
 S(1) TTEntry tt[tt_length];
 #endif
 G(176, S(1) volatile bool stop;)
@@ -1365,9 +1366,8 @@ i32 search(
     G(207, i32 move_score = ~0x1010101LL;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
-      assert(
-          moves[order_index].takes_piece ==
-          piece_on(H(52, 7, pos), H(52, 7, moves[order_index].to)));
+      assert(moves[order_index].takes_piece ==
+             piece_on(H(52, 7, pos), H(52, 7, moves[order_index].to)));
       const i32 order_move_score =
           G(179, // KILLER MOVE
             G(208, move_equal(G(209, &moves[order_index]),
@@ -1944,26 +1944,28 @@ S(1) void run() {
         251, if (G(254, line[0]) == G(254, 'p')) {
           G(255, main_data->pos = start_pos;)
           while (true) {
-            const bool line_continue = getl(line);
+            bool line_continue = getl(line);
 
-#if FULL
+#ifdef FULL
             if (!strcmp(line, "fen")) {
               getl(line);
-              get_fen(&main_data->pos, line);
-            }
+              line_continue = get_fen(&main_data->pos, line);
+            } else
 #endif
-            Move moves[max_moves];
-            const i32 num_moves = movegen(H(95, 4, &main_data->pos),
-                                          H(95, 4, false), H(95, 4, moves));
-            for (i32 i = 0; i < num_moves; i++) {
-              char move_name[8];
-              move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
-                       H(54, 4, main_data->pos.flipped));
-              assert(move_string_equal(line, move_name) ==
-                     !strcmp(line, move_name));
-              if (move_string_equal(G(256, move_name), G(256, line))) {
-                makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
-                break;
+            {
+              Move moves[max_moves];
+              const i32 num_moves = movegen(H(95, 4, &main_data->pos),
+                                            H(95, 4, false), H(95, 4, moves));
+              for (i32 i = 0; i < num_moves; i++) {
+                char move_name[8];
+                move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
+                         H(54, 4, main_data->pos.flipped));
+                assert(move_string_equal(line, move_name) ==
+                       !strcmp(line, move_name));
+                if (move_string_equal(G(256, move_name), G(256, line))) {
+                  makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
+                  break;
+                }
               }
             }
             if (!line_continue) {
