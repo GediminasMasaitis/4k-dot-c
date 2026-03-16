@@ -53,6 +53,9 @@ enable_random_shuffle = False
 random_seed = None
 num_runs = 999
 use_compression = True
+enable_source_cache = True
+persist_source_cache = True
+enable_binary_cache = True
 persist_binary_cache = True
 
 files_to_copy = [
@@ -71,41 +74,50 @@ global_best_src = None
 global_best_lock = threading.Lock()
 
 # =============================================
-# Binary deduplication cache
+# Source deduplication cache (source hash -> compressed size)
+# =============================================
+SOURCE_CACHE_PATH = 'source_cache.pkl'
+source_cache_lock = threading.Lock()
+source_cache_hits = 0
+source_cache_misses = 0
+
+# =============================================
+# Binary deduplication cache (binary hash -> compressed size)
 # =============================================
 BINARY_CACHE_PATH = 'binary_cache.pkl'
 binary_cache_lock = threading.Lock()
 binary_cache_hits = 0
 binary_cache_misses = 0
 
-def _load_binary_cache():
-    if not persist_binary_cache:
+def _load_cache(path, label, persist):
+    if not persist:
         return {}
     import pickle
-    if os.path.exists(BINARY_CACHE_PATH):
+    if os.path.exists(path):
         try:
-            with open(BINARY_CACHE_PATH, 'rb') as f:
+            with open(path, 'rb') as f:
                 cache = pickle.load(f)
-            print(f'Loaded binary cache: {len(cache)} entries from {BINARY_CACHE_PATH}')
+            print(f'Loaded {label} cache: {len(cache)} entries from {path}')
             return cache
         except Exception as e:
-            print(f'Warning: failed to load binary cache: {e}')
+            print(f'Warning: failed to load {label} cache: {e}')
     return {}
 
 _save_lock = threading.Lock()
 
-def _save_binary_cache():
-    if not persist_binary_cache:
+def _save_cache(cache, lock, path, persist):
+    if not persist:
         return
     import pickle
-    with binary_cache_lock:
-        data = dict(binary_cache)
+    with lock:
+        data = dict(cache)
     with _save_lock:
-        with open(BINARY_CACHE_PATH + '.tmp', 'wb') as f:
+        with open(path + '.tmp', 'wb') as f:
             pickle.dump(data, f)
-        os.replace(BINARY_CACHE_PATH + '.tmp', BINARY_CACHE_PATH)
+        os.replace(path + '.tmp', path)
 
-binary_cache = _load_binary_cache()
+source_cache = _load_cache(SOURCE_CACHE_PATH, 'source', persist_source_cache)
+binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary', persist_binary_cache)
 
 # =============================================
 # Node classes and parsing (unchanged)
@@ -265,8 +277,20 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
         rendered.append(render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters))
     return ''.join(rendered)
 
-def run_make_and_get_size(cwd=None):
+def run_make_and_get_size(cwd=None, source_content=None):
+    global source_cache_hits, source_cache_misses
     global binary_cache_hits, binary_cache_misses
+
+    # Source-level cache: skip compile + compress entirely
+    if enable_source_cache and use_compression and source_content is not None:
+        src_hash = hashlib.md5(source_content.encode()).digest()
+        with source_cache_lock:
+            if src_hash in source_cache:
+                source_cache_hits += 1
+                return source_cache[src_hash], '(S)'
+            source_cache_misses += 1
+    else:
+        src_hash = None
 
     if not use_compression:
         # No compression — just build and measure raw size
@@ -287,7 +311,7 @@ def run_make_and_get_size(cwd=None):
         m = re.search(r'(\d+)\s+[A-Z][a-z]{2}\s+\d+.*4kc', proc.stdout)
         if not m:
             raise RuntimeError("Failed to parse file size from ls output:\n" + proc.stdout)
-        return int(m.group(1))
+        return int(m.group(1)), ''
 
     # Step 1: Compile and link only
     try:
@@ -305,19 +329,26 @@ def run_make_and_get_size(cwd=None):
         print("cwd:", cwd)
         raise
 
-    # Step 2: Hash the binary
-    exe_abs = os.path.join(cwd, 'build', '4kc') if cwd else os.path.join('build', '4kc')
-    with open(exe_abs, 'rb') as f:
-        binary_hash = hashlib.md5(f.read()).digest()
+    # Step 2: Hash the binary and check binary cache
+    if enable_binary_cache:
+        exe_abs = os.path.join(cwd, 'build', '4kc') if cwd else os.path.join('build', '4kc')
+        with open(exe_abs, 'rb') as f:
+            binary_hash = hashlib.md5(f.read()).digest()
 
-    # Step 3: Check cache
-    with binary_cache_lock:
-        if binary_hash in binary_cache:
-            binary_cache_hits += 1
-            return binary_cache[binary_hash]
-        binary_cache_misses += 1
+        with binary_cache_lock:
+            if binary_hash in binary_cache:
+                binary_cache_hits += 1
+                size = binary_cache[binary_hash]
+                # Backfill source cache
+                if src_hash is not None:
+                    with source_cache_lock:
+                        source_cache[src_hash] = size
+                return size, '(B)'
+            binary_cache_misses += 1
+    else:
+        binary_hash = None
 
-    # Step 4: Cache miss — run compressor (paths relative to cwd)
+    # Step 3: Cache miss — run compressor (paths relative to cwd)
     exe_rel = './build/4kc'
     try:
         proc = subprocess.run(
@@ -338,14 +369,21 @@ def run_make_and_get_size(cwd=None):
         raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
     size = int(m.group(1))
 
-    # Step 5: Store in cache and persist every 10 new entries
-    with binary_cache_lock:
-        binary_cache[binary_hash] = size
-        should_save = (binary_cache_misses % 10 == 0)
-    if should_save:
-        _save_binary_cache()
+    # Step 4: Store in caches and persist periodically
+    if binary_hash is not None:
+        with binary_cache_lock:
+            binary_cache[binary_hash] = size
+            should_save = (binary_cache_misses % 10 == 0)
+        if should_save:
+            _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
+    if src_hash is not None:
+        with source_cache_lock:
+            source_cache[src_hash] = size
+            should_save_src = (source_cache_misses % 10 == 0)
+        if should_save_src:
+            _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
 
-    return size
+    return size, ''
 
 def read_file(path):
     with open(path, 'r') as f:
@@ -419,9 +457,9 @@ class SpeculativeEngine:
         workdir = f'worker_{worker_id}'
         with open(os.path.join(workdir, self.src_path), 'w') as f:
             f.write(content)
-        size = run_make_and_get_size(cwd=workdir)
+        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=content)
 
-        return (size, content, group_id, perm, task_group_versions)
+        return (size, cache_tag, content, group_id, perm, task_group_versions)
 
     def _on_done(self, future, worker_id, total_bar, group_bar, stats_bar,
                  stats_prefix, iteration):
@@ -448,7 +486,7 @@ class SpeculativeEngine:
                 total_bar.update(1)
                 return
 
-            size, content, group_id, perm, task_group_versions = result
+            size, cache_tag, content, group_id, perm, task_group_versions = result
 
             is_run_best = False
             is_global_best = False
@@ -488,7 +526,7 @@ class SpeculativeEngine:
                 tag = ""
             group_bar.write(
                 f'[{stats_prefix} pass {iteration}] {group_id} perm size: '
-                f'{fmt_size(size)} {tag}')
+                f'{fmt_size(size)} {cache_tag} {tag}')
 
             if is_run_best and stats_bar is not None:
                 with self.lock:
@@ -648,8 +686,8 @@ def build_static_option(baseline, span, new_val, src_path, worker_id):
     dest = os.path.join(workdir, src_path)
     with open(dest, 'w') as f:
         f.write(variant)
-    size = run_make_and_get_size(cwd=workdir)
-    return size, variant, span, new_val
+    size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+    return size, cache_tag, variant, span, new_val
 
 def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
     global global_best_size, global_best_src
@@ -684,7 +722,7 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
             all_futures.append(fut)
 
         for future in all_futures:
-            size, variant, span, new_val = future.result()
+            size, cache_tag, variant, span, new_val = future.result()
             with global_best_lock:
                 run_improved = False
                 if size < pass_best['best']:
@@ -702,7 +740,7 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
                     global_improved = True
 
             tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {fmt_size(size)} {tag}')
+            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {fmt_size(size)} {cache_tag} {tag}')
             stats_bar.update(1)
 
     stats_bar.close()
@@ -798,7 +836,7 @@ def main():
         # Get initial size
         with open(src_filename, 'w') as f:
             f.write(text)
-        initial_size = run_make_and_get_size(cwd=None)
+        initial_size, _ = run_make_and_get_size(cwd=None)
 
         pass_best = {
             'initial': initial_size,
@@ -847,21 +885,32 @@ def main():
 
         print(f'\nRun {run} completed. Run-best: {fmt_size(pass_best["best"])}')
         print(f'Global best after run {run}: {fmt_size(global_best_size)}')
+        with source_cache_lock:
+            src_total = source_cache_hits + source_cache_misses
+            if src_total > 0:
+                print(f'Source cache: {source_cache_hits} hits, {source_cache_misses} misses, '
+                      f'{len(source_cache)} unique sources '
+                      f'({100*source_cache_hits/src_total:.1f}% hit rate)')
         with binary_cache_lock:
-            total_evals = binary_cache_hits + binary_cache_misses
-            if total_evals > 0:
+            bin_total = binary_cache_hits + binary_cache_misses
+            if bin_total > 0:
                 print(f'Binary cache: {binary_cache_hits} hits, {binary_cache_misses} misses, '
                       f'{len(binary_cache)} unique binaries '
-                      f'({100*binary_cache_hits/total_evals:.1f}% hit rate)')
+                      f'({100*binary_cache_hits/bin_total:.1f}% hit rate)')
 
     engine.shutdown()
 
     print(f'\nAll runs completed. Global best size: {fmt_size(global_best_size)}')
-    total_evals = binary_cache_hits + binary_cache_misses
-    if total_evals > 0:
+    src_total = source_cache_hits + source_cache_misses
+    if src_total > 0:
+        print(f'Source cache total: {source_cache_hits} hits, {source_cache_misses} misses, '
+              f'{len(source_cache)} unique sources '
+              f'({100*source_cache_hits/src_total:.1f}% hit rate)')
+    bin_total = binary_cache_hits + binary_cache_misses
+    if bin_total > 0:
         print(f'Binary cache total: {binary_cache_hits} hits, {binary_cache_misses} misses, '
               f'{len(binary_cache)} unique binaries '
-              f'({100*binary_cache_hits/total_evals:.1f}% hit rate)')
+              f'({100*binary_cache_hits/bin_total:.1f}% hit rate)')
     if global_best_src is not None:
         with open('global_best.c', 'w') as gf:
             gf.write(global_best_src)
@@ -869,8 +918,9 @@ def main():
     else:
         print('No improvements found; original source is best.')
 
-    _save_binary_cache()
-    print(f'Binary cache saved to {BINARY_CACHE_PATH}')
+    _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
+    _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
+    print(f'Caches saved to {SOURCE_CACHE_PATH} and {BINARY_CACHE_PATH}')
 
 if __name__ == '__main__':
     main()
