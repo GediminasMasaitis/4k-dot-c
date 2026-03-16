@@ -682,7 +682,7 @@ enum { max_moves = 218 };
             northwest(G(108, pos->colour[0]) & G(108, pos->pieces[Pawn]))) &
               G(107, (G(109, pos->colour[1]) | G(109, pos->ep)))));)
   G(
-      98, // SHORT CASTLE
+      98, // LONG CASTLE
       if (G(110, !only_captures) && G(110, !(G(111, all) & G(111, 0xEull))) &&
           G(110, pos->castling[1]) &&
           G(112, !is_attacked(H(58, 3, pos), H(58, 3, 1ULL << 3))) &&
@@ -691,7 +691,7 @@ enum { max_moves = 218 };
             (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
       })
   G(
-      98, // LONG CASTLE
+      98, // SHORT CASTLE
       if (G(113, !only_captures) && G(113, !(G(114, all) & G(114, 0x60ull))) &&
           G(113, pos->castling[0]) &&
           G(115, !is_attacked(H(58, 5, pos), H(58, 5, 1ULL << 5))) &&
@@ -1366,8 +1366,8 @@ i32 search(
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(
-          stack[ply].moves[order_index].takes_piece ==
-          piece_on(H(52, 7, pos), H(52, 7, stack[ply].moves[order_index].to)));
+          moves[order_index].takes_piece ==
+          piece_on(H(52, 7, pos), H(52, 7, moves[order_index].to)));
       const i32 order_move_score =
           G(179, // KILLER MOVE
             G(208, move_equal(G(209, &moves[order_index]),
@@ -1715,9 +1715,9 @@ S(1)
 void run_smp() {
   start_time = get_time();
 #ifdef FULL
+  main_data->nodes = 0;
   pthread_t helpers[thread_count - 1];
   ThreadData *helper_data[thread_count - 1];
-  u64 nodes = 0;
 
   for (i32 i = 0; i < thread_count - 1; i++) {
     helper_data[i] = malloc(sizeof(ThreadData));
@@ -1844,9 +1844,6 @@ const Position start_pos =
 
 #ifdef FULL
 S(1) void bench() {
-  Position pos;
-  i32 move_history[2][6][64][64];
-  SearchStack stack[1024];
   stop = false;
   ThreadData data = {
       .thread_id = 0,
