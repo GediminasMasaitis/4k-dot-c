@@ -1100,7 +1100,7 @@ enum { mate = 31744, inf = 32256 };
 #ifdef FULL
 static i32 thread_count = 1;
 #else
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #endif
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
@@ -1520,12 +1520,9 @@ i32 search(
                         .depth = depth,
                         .flag = tt_flag};
 
-  // UPDATE CORRECTION HISTORY
-  if (G(234, (G(235, (G(236, best_score < stack[ply].static_eval) &&
-                      G(236, tt_flag == Upper))) ||
-              G(235, (G(237, best_score > stack[ply].static_eval) &&
-                      G(237, tt_flag == Lower))))) &&
-      G(234, stack[ply].best_move.takes_piece == None)) {
+if (G(256, G(234, tt_flag) != G(234, (best_score < stack[ply].static_eval))) &&
+    G(256, G(235, stack[ply].best_move.takes_piece) == G(235, None))) {
+
     i32 dd = G(238, depth * depth) + G(238, 2);
     if (dd > 62) {
       dd = 62;
