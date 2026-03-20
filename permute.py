@@ -38,6 +38,29 @@ class CountdownEvent:
             self._count = 0
             self._event.set()
 
+def _is_cancellation(error):
+    """Return True if the error is from Ctrl+C / shutdown, not a real build error."""
+    from concurrent.futures import CancelledError, BrokenExecutor
+    return isinstance(error, (KeyboardInterrupt, CancelledError, BrokenExecutor))
+
+def save_error_source(source_content, error):
+    """Save erroring source to errors/ dir, named by md5. Skips duplicates."""
+    if source_content is None or _is_cancellation(error):
+        return
+    md5_hex = hashlib.md5(source_content.encode()).hexdigest()
+    with _errors_lock:
+        if md5_hex in _errors_saved:
+            return
+        _errors_saved.add(md5_hex)
+    os.makedirs(errors_dir, exist_ok=True)
+    path = os.path.join(errors_dir, f'{md5_hex}.c')
+    if not os.path.exists(path):
+        with open(path, 'w') as f:
+            f.write(source_content)
+        err_path = os.path.join(errors_dir, f'{md5_hex}.err')
+        with open(err_path, 'w') as f:
+            f.write(str(error))
+
 def fmt_size(size):
     if size == float('inf'):
         return 'N/A'
@@ -57,6 +80,9 @@ enable_source_cache = True
 persist_source_cache = True
 enable_binary_cache = True
 persist_binary_cache = True
+errors_dir = 'errors'
+_errors_saved = set()  # md5 hex digests already saved
+_errors_lock = threading.Lock()
 
 files_to_copy = [
     'Makefile',
@@ -472,6 +498,14 @@ class SpeculativeEngine:
                 result = future.result()
             except Exception as e:
                 group_bar.write(f'  Task failed: {e}')
+                # Save erroring source from worker dir
+                try:
+                    src_path = os.path.join(f'worker_{worker_id}', self.src_path)
+                    if os.path.exists(src_path):
+                        with open(src_path, 'r') as ef:
+                            save_error_source(ef.read(), e)
+                except Exception:
+                    pass
                 with self.lock:
                     self._completed += 1
                 total_bar.update(1)
@@ -686,7 +720,11 @@ def build_static_option(baseline, span, new_val, src_path, worker_id):
     dest = os.path.join(workdir, src_path)
     with open(dest, 'w') as f:
         f.write(variant)
-    size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+    try:
+        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+    except Exception as e:
+        save_error_source(variant, e)
+        raise
     return size, cache_tag, variant, span, new_val
 
 def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
@@ -722,7 +760,12 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
             all_futures.append(fut)
 
         for future in all_futures:
-            size, cache_tag, variant, span, new_val = future.result()
+            try:
+                size, cache_tag, variant, span, new_val = future.result()
+            except Exception as e:
+                stats_bar.write(f'  Static toggle task failed: {e}')
+                stats_bar.update(1)
+                continue
             with global_best_lock:
                 run_improved = False
                 if size < pass_best['best']:
