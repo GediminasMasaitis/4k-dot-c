@@ -206,8 +206,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
   G(6, bool castling[4];)
-  G(6, bool flipped;)
   G(6, u8 padding[11];)
+  G(6, bool flipped;)
 } Position;
 
 #ifdef ASSERTS
@@ -327,7 +327,7 @@ G(
       G(34, const u64 horizontal1 = G(35, west_bb) | G(35, east_bb);)
       G(34,
         const u64 horizontal2 = G(36, east(east_bb)) | G(36, west(west_bb));)
-      return G(37, horizontal2 >> 8) | G(37, horizontal2 << 8) |
+      return G(37, horizontal2 << 8) | G(37, horizontal2 >> 8) |
              G(37, horizontal1 >> 16) | G(37, horizontal1 << 16);
     })
 
@@ -438,17 +438,17 @@ G(
 
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
+      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
+      G(67, pos->flipped ^= 1;)
+
       G(
           67, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-      G(67, pos->flipped ^= 1;)
-
       G(67, u32 *c = (u32 *)pos->castling;
         *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
-      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
-        pos->colour[0] ^= pos->colour[1];)
     })
 
 G(
@@ -529,8 +529,8 @@ G(
       assert(move->takes_piece != King);
       assert(move->takes_piece == piece_on(H(52, 3, pos), H(52, 3, move->to)));
 
-      G(81, const u64 to = 1ull << move->to;)
       G(81, const u64 from = 1ull << move->from;)
+      G(81, const u64 to = 1ull << move->to;)
       G(82, const i32 piece = piece_on(H(52, 4, pos), H(52, 4, move->from));
         assert(piece != None);)
       G(82, const u64 mask = G(83, from) | G(83, to);)
@@ -977,8 +977,8 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, phase += initial_params.phases[p];)
         G(137, copy &= copy - 1;)
+        G(137, phase += initial_params.phases[p];)
         G(137, const i32 rank = sq >> 3;)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
@@ -1100,25 +1100,25 @@ enum { mate = 31744, inf = 32256 };
 #ifdef FULL
 static i32 thread_count = 1;
 #else
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #endif
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
-  G(119, u64 position_hash;)
-  G(119, Move killer;)
-  G(119, i32 num_moves;)
   G(119, i32 static_eval;)
+  G(119, Move killer;)
+  G(119, u64 position_hash;)
+  G(119, i32 num_moves;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
+  G(174, u16 partial_hash;)
   G(174, i16 score;)
-  G(174, Move move;)
   G(174, i8 depth;)
   G(174, u8 flag;)
-  G(174, u16 partial_hash;)
+  G(174, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1147,8 +1147,8 @@ __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
 S(1) TTEntry tt[tt_length];
 #endif
-G(176, S(1) volatile bool stop;)
 G(176, S(1) u64 start_time;)
+G(176, S(1) volatile bool stop;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1354,25 +1354,21 @@ i32 search(
   G(205, stack[G(206, ply) + G(206, 2)].position_hash = tt_hash;)
   G(205, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(205, u8 tt_flag = Upper;)
-  G(205, i32 quiets_evaluated = 0;)
   G(205, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(205, i32 moves_evaluated = 0;)
+  G(205, i32 quiets_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(207, i32 best_index = 0;)
     G(207, i32 move_score = ~0x1010101LL;)
+    G(207, i32 best_index = 0;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(moves[order_index].takes_piece ==
              piece_on(H(52, 7, pos), H(52, 7, moves[order_index].to)));
       const i32 order_move_score =
-          G(179, // KILLER MOVE
-            G(208, move_equal(G(209, &moves[order_index]),
-                              G(209, &stack[ply].killer))) *
-                G(208, 829)) +
           G(179, // MOST VALUABLE VICTIM
             G(210, moves[order_index].takes_piece) * G(210, 663)) +
           G(179, // HISTORY HEURISTIC
@@ -1381,14 +1377,18 @@ i32 search(
           G(179, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(211, &stack[ply].best_move),
                         G(211, &moves[order_index]))
-             << 30));
+             << 30)) +
+          G(179, // KILLER MOVE
+            G(208, move_equal(G(209, &moves[order_index]),
+                              G(209, &stack[ply].killer))) *
+                G(208, 829));
       if (order_move_score > move_score) {
         G(212, best_index = order_index;)
         G(212, move_score = order_move_score;)
       }
     }
 
-    swapmoves(G(213, &moves[best_index]), G(213, &moves[move_index]));
+    swapmoves(G(213, &moves[move_index]), G(213, &moves[best_index]));
 
     G(
         214, // FORWARD FUTILITY PRUNING / DELTA PRUNING
@@ -1421,9 +1421,10 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(220, depth > 3) && G(220, move_score <= 0)
-                        ? G(221, !improving) + G(221, (move_score / -384)) +
+                        ? G(221, (move_score / -384)) + G(221, depth / 12) +
+                              G(221, moves_evaluated / 9) +
                               G(221, (G(222, alpha) == G(222, beta - 1))) +
-                              G(221, moves_evaluated / 9)
+                              G(221, !improving)
                         : 0;
 
     i32 score;
@@ -1940,8 +1941,9 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(
-        251, if (G(254, line[0]) == G(254, 'p')) {
+    G(251, if (G(257, line[0]) == G(257, 'q')) { exit_now(); })
+    else G(251, if (G(253, line[0]) == G(253, 'i')) { puts("readyok"); })
+    else G(251, if (G(254, line[0]) == G(254, 'p')) {
           G(255, main_data->pos = start_pos;)
           while (true) {
             bool line_continue = getl(line);
@@ -1973,8 +1975,6 @@ S(1) void run() {
             }
           }
         })
-    else G(251, if (G(253, line[0]) == G(253, 'i')) { puts("readyok"); })
-    else G(251, if (G(257, line[0]) == G(257, 'q')) { exit_now(); })
     else G(251, if (G(252, line[0]) == G(252, 'g')) {
       stop = false;
 #ifdef FULL
