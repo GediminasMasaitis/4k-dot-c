@@ -1514,31 +1514,29 @@ i32 search(
     return G(233, (ply - mate)) * G(233, in_check);
   }
 
-  *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                        .move = stack[ply].best_move,
-                        .score = best_score,
-                        .depth = depth,
-                        .flag = tt_flag};
+  G(999, // UPDATE TRANSPOSITION TABLE
+        *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
+                              .move = stack[ply].best_move,
+                              .score = best_score,
+                              .depth = depth,
+                              .flag = tt_flag};)
 
-  // UPDATE CORRECTION HISTORY
-  if (G(234, (G(235, (G(236, best_score < stack[ply].static_eval) &&
-                      G(236, tt_flag == Upper))) ||
-              G(235, (G(237, best_score > stack[ply].static_eval) &&
-                      G(237, tt_flag == Lower))))) &&
-      G(234, stack[ply].best_move.takes_piece == None)) {
-    i32 dd = G(238, depth * depth) + G(238, 2);
-    if (dd > 62) {
-      dd = 62;
-    }
+  G(
+      999, // UPDATE CORRECTION HISTORY
+      if (G(234, (G(235, (G(236, best_score < stack[ply].static_eval) &&
+                          G(236, tt_flag == Upper))) ||
+                  G(235, (G(237, best_score > stack[ply].static_eval) &&
+                          G(237, tt_flag == Lower))))) &&
+          G(234, stack[ply].best_move.takes_piece == None)) {
+        G(238, const i32 dd = depth * depth);
 
-    i32 target = best_score - stack[ply].static_eval;
+        G(238, i32 target = best_score - stack[ply].static_eval; G(
+              239, if (target < -81) { target = -81; })
+              G(239, if (target > 81) { target = 81; }))
 
-    G(239, if (target < -81) { target = -81; })
-
-    G(239, if (target > 81) { target = 81; })
-
-    *material_entry = (*material_entry * (596 - dd) + target * 256 * dd) / 596;
-  }
+        *material_entry =
+            (*material_entry * (596 - dd) + target * 256 * dd) / 596;
+      })
 
   return best_score;
 }
