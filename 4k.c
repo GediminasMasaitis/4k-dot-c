@@ -1514,28 +1514,28 @@ i32 search(
     return G(233, (ply - mate)) * G(233, in_check);
   }
 
-  *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                        .move = stack[ply].best_move,
-                        .score = best_score,
-                        .depth = depth,
-                        .flag = tt_flag};
+  G(238,
+        // UPDATE TRANSPOSITION TABLE
+        *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
+                              .move = stack[ply].best_move,
+                              .score = best_score,
+                              .depth = depth,
+                              .flag = tt_flag};)
 
-if (G(256, G(234, tt_flag) != G(234, (best_score < stack[ply].static_eval))) &&
-    G(256, G(235, stack[ply].best_move.takes_piece) == G(235, None))) {
+  G(
+      238,
+      // UPDATE CORRECTION HISTORY
+      if (G(236,
+            G(234, tt_flag) != G(234, (best_score < stack[ply].static_eval))) &&
+          G(236, G(235, stack[ply].best_move.takes_piece) == G(235, None))) {
+        G(237, const i32 dd = depth * depth;)
+        G(237, i32 target = best_score - stack[ply].static_eval; G(
+              239, if (target < -81) { target = -81; })
+              G(239, if (target > 81) { target = 81; }))
 
-    i32 dd = G(238, depth * depth) + G(238, 2);
-    if (dd > 62) {
-      dd = 62;
-    }
-
-    i32 target = best_score - stack[ply].static_eval;
-
-    G(239, if (target < -81) { target = -81; })
-
-    G(239, if (target > 81) { target = 81; })
-
-    *material_entry = (*material_entry * (596 - dd) + target * 256 * dd) / 596;
-  }
+        *material_entry =
+            (*material_entry * (596 - dd) + target * 256 * dd) / 596;
+      })
 
   return best_score;
 }
