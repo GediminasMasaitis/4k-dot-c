@@ -196,9 +196,9 @@ static void putl(const char *const restrict string) {
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
-  G(4, u8 promo;)
-  G(4, u8 takes_piece;)
   G(4, u8 from; u8 to;)
+  G(4, u8 takes_piece;)
+  G(4, u8 promo;)
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -438,17 +438,17 @@ G(
 
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
+      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
+      G(67, pos->flipped ^= 1;)
+
       G(
           67, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-      G(67, pos->flipped ^= 1;)
-
       G(67, u32 *c = (u32 *)pos->castling;
         *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
-      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
-        pos->colour[0] ^= pos->colour[1];)
     })
 
 G(
@@ -837,8 +837,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];)
             H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;))
   H(116, 1,
-    H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];)
-        H(119, 1, i8 pst_file[48];) H(119, 1, i8 open_files[12];)
+    H(119, 1, i8 tempo;) H(119, 1, i8 open_files[12];)
+        H(119, 1, i8 pst_file[48];) H(119, 1, i8 mobilities[5];)
             H(119, 1, i8 passed_blocked_pawns[6];)
                 H(119, 1, i8 pawn_attacked_penalty[2];))
 } EvalParams;
@@ -853,8 +853,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];)
             H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;))
   H(116, 2,
-    H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
-        H(119, 2, i32 pst_file[48];) H(119, 2, i32 open_files[12];)
+    H(119, 2, i32 tempo;) H(119, 2, i32 open_files[12];)
+        H(119, 2, i32 pst_file[48];) H(119, 2, i32 mobilities[5];)
             H(119, 2, i32 passed_blocked_pawns[6];)
                 H(119, 2, i32 pawn_attacked_penalty[2];))
 } EvalParamsMerged;
@@ -977,12 +977,12 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, phase += initial_params.phases[p];)
-        G(137, copy &= copy - 1;)
         G(137, const i32 rank = sq >> 3;)
+        G(137, phase += initial_params.phases[p];)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(137, copy &= copy - 1;)
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
