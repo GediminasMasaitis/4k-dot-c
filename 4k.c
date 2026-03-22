@@ -206,8 +206,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
   G(6, bool castling[4];)
-  G(6, bool flipped;)
   G(6, u8 padding[11];)
+  G(6, bool flipped;)
 } Position;
 
 #ifdef ASSERTS
@@ -427,11 +427,11 @@ G(
              G(60, G(66, rook(H(41, 2, blockers), H(41, 2, bb))) &
                        G(66, (pos->pieces[Rook] | pos->pieces[Queen])) &
                        G(66, theirs)) ||
+             G(60,
+               G(63, pos->pieces[King]) & G(63, theirs) & G(63, king(bb))) ||
              G(60, G(65, bishop(H(43, 2, blockers), H(43, 2, bb))) &
                        G(65, theirs) &
                        G(65, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
-             G(60,
-               G(63, pos->pieces[King]) & G(63, theirs) & G(63, king(bb))) ||
              G(60,
                G(64, pos->pieces[Knight]) & G(64, knight(bb)) & G(64, theirs));
     })
@@ -830,15 +830,15 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];)
+    H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat[5];)
         H(117, 1, i8 bishop_pawns[2];))
   H(116, 1,
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
         H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];)
             H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;))
   H(116, 1,
-    H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];)
-        H(119, 1, i8 pst_file[48];) H(119, 1, i8 open_files[12];)
+    H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
+        H(119, 1, i8 open_files[12];) H(119, 1, i8 tempo;)
             H(119, 1, i8 passed_blocked_pawns[6];)
                 H(119, 1, i8 pawn_attacked_penalty[2];))
 } EvalParams;
@@ -846,15 +846,15 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];)
+    H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat[5];)
         H(117, 2, i32 bishop_pawns[2];))
   H(116, 2,
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
         H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];)
             H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;))
   H(116, 2,
-    H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
-        H(119, 2, i32 pst_file[48];) H(119, 2, i32 open_files[12];)
+    H(119, 2, i32 mobilities[5];) H(119, 2, i32 pst_file[48];)
+        H(119, 2, i32 open_files[12];) H(119, 2, i32 tempo;)
             H(119, 2, i32 passed_blocked_pawns[6];)
                 H(119, 2, i32 pawn_attacked_penalty[2];))
 } EvalParamsMerged;
@@ -1526,13 +1526,12 @@ i32 search(
       if (G(236,
             G(234, tt_flag) != G(234, (best_score < stack[ply].static_eval))) &&
           G(236, G(235, stack[ply].best_move.takes_piece) == G(235, None))) {
-        G(237, const i32 dd = depth * depth;)
-        G(237, i32 target = best_score - stack[ply].static_eval; G(
-              239, if (target < -81) { target = -81; })
-              G(239, if (target > 81) { target = 81; }))
+        i32 target = best_score - stack[ply].static_eval;
+        G(239, if (target < -81) { target = -81; })
+        G(239, if (target > 81) { target = 81; })
 
         *material_entry =
-            (*material_entry * (596 - dd) + target * 256 * dd) / 596;
+            (*material_entry * (596 - depth) + target * 256 * depth) / 596;
       })
 
   return best_score;
@@ -1935,40 +1934,40 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(251, if (G(253, line[0]) == G(253, 'i')) { puts("readyok"); })
-    else G(251, if (G(254, line[0]) == G(254, 'p')) {
-      G(255, main_data->pos = start_pos;)
-        while (true) {
-          bool line_continue = getl(line);
+    G(
+        251, if (G(254, line[0]) == G(254, 'p')) {
+          G(255, main_data->pos = start_pos;)
+          while (true) {
+            bool line_continue = getl(line);
 
 #ifdef FULL
-          if (!strcmp(line, "fen")) {
-            getl(line);
-            line_continue = get_fen(&main_data->pos, line);
-          }
-          else
+            if (!strcmp(line, "fen")) {
+              getl(line);
+              line_continue = get_fen(&main_data->pos, line);
+            } else
 #endif
-          {
-            Move moves[max_moves];
-            const i32 num_moves = movegen(H(95, 4, &main_data->pos),
-              H(95, 4, false), H(95, 4, moves));
-            for (i32 i = 0; i < num_moves; i++) {
-              char move_name[8];
-              move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
-                H(54, 4, main_data->pos.flipped));
-              assert(move_string_equal(line, move_name) ==
-                !strcmp(line, move_name));
-              if (move_string_equal(G(256, move_name), G(256, line))) {
-                makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
-                break;
+            {
+              Move moves[max_moves];
+              const i32 num_moves = movegen(H(95, 4, &main_data->pos),
+                                            H(95, 4, false), H(95, 4, moves));
+              for (i32 i = 0; i < num_moves; i++) {
+                char move_name[8];
+                move_str(H(54, 4, move_name), H(54, 4, &moves[i]),
+                         H(54, 4, main_data->pos.flipped));
+                assert(move_string_equal(line, move_name) ==
+                       !strcmp(line, move_name));
+                if (move_string_equal(G(256, move_name), G(256, line))) {
+                  makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
+                  break;
+                }
               }
             }
+            if (!line_continue) {
+              break;
+            }
           }
-          if (!line_continue) {
-            break;
-          }
-        }
-    })
+        })
+    else G(251, if (G(253, line[0]) == G(253, 'i')) { puts("readyok"); })
     else G(251, if (G(257, line[0]) == G(257, 'q')) { exit_now(); })
     else G(251, if (G(252, line[0]) == G(252, 'g')) {
       stop = false;
