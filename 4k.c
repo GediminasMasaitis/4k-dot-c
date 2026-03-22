@@ -1100,7 +1100,7 @@ enum { mate = 31744, inf = 32256 };
 #ifdef FULL
 static i32 thread_count = 1;
 #else
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #endif
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
@@ -1526,7 +1526,7 @@ i32 search(
       if (G(236,
             G(234, tt_flag) != G(234, (best_score < stack[ply].static_eval))) &&
           G(236, G(235, stack[ply].best_move.takes_piece) == G(235, None))) {
-        G(237, const i32 dd = depth * depth;)
+        G(237, i32 dd = depth * depth; if (dd > 62) { dd = 62; })
         G(237, i32 target = best_score - stack[ply].static_eval; G(
               239, if (target < -81) { target = -81; })
               G(239, if (target > 81) { target = 81; }))
