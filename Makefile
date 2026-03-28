@@ -1,4 +1,5 @@
 ARCH ?= 64
+BPROB ?= 10
 CC := gcc
 CFLAGS := -std=gnu2x -Wno-deprecated-declarations -Wno-format
 LDFLAGS :=
@@ -66,7 +67,7 @@ compress_source:
 
 compress: compressor compress_source
 	@$(MAP_CHECK)
-	./compressor -2 -o $(EXE).paq $(EXE)
+	./compressor -2 -b $(BPROB) -o $(EXE).paq $(EXE)
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
