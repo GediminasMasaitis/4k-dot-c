@@ -32,6 +32,7 @@ typedef uint16_t v8u16 __attribute__((vector_size(16)));
 #define DEFAULT_LEVEL 2
 
 static int verbose = 0; /* 0=off, 1=verbose, 2=very verbose */
+static int extreme = 0; /* use real compression instead of estimator */
 
 typedef struct {
   unsigned char weight;
@@ -835,6 +836,16 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
   return total;
 }
 
+static unsigned int real_compress_size(const unsigned char *data, int size,
+                                       const ModelSet *ml, int base_prob) {
+  int max_out = size + 1024;
+  unsigned char *out = (unsigned char *)calloc(max_out, 1);
+  int comp_bits = compress_4k(data, size, out, ml, base_prob);
+  free(out);
+  int header_bits = (7 + ml->num_models) * 8;
+  return (unsigned int)(header_bits + comp_bits) * BIT_PREC;
+}
+
 static int decompress_4k(const unsigned char *cdata, unsigned char *out,
                          int base_prob) {
   uint16_t bl16;
@@ -918,19 +929,25 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
   return data_bytes;
 }
 
-static unsigned int approximate_weights(CompState *cs, ModelSet *ml) {
+static unsigned int approximate_weights(CompState *cs, ModelSet *ml,
+                                        const unsigned char *data, int size,
+                                        int base_prob) {
   for (int i = 0; i < ml->num_models; i++)
     ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
+  if (extreme)
+    return real_compress_size(data, size, ml, base_prob);
   eval_evaluate(cs->eval, ml);
   return eval_get_size(cs->eval);
 }
 
-static unsigned int optimize_weights(CompState *cs, ModelSet *ml) {
+static unsigned int optimize_weights(CompState *cs, ModelSet *ml,
+                                     const unsigned char *data, int size,
+                                     int base_prob) {
   ModelSet cand = *ml;
   int idx = ml->num_models - 1;
   int dir = 1;
   int last_improved = idx;
-  unsigned int best = approximate_weights(cs, ml);
+  unsigned int best = approximate_weights(cs, ml, data, size, base_prob);
   if (ml->num_models == 0)
     return best;
 
@@ -940,8 +957,13 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml) {
     int improved = 0;
     if (cand.models[idx].weight <= MAX_WEIGHT &&
         cand.models[idx].weight != 255) {
-      eval_evaluate(cs->eval, &cand);
-      unsigned int trial = eval_get_size(cs->eval);
+      unsigned int trial;
+      if (extreme) {
+        trial = real_compress_size(data, size, &cand, base_prob);
+      } else {
+        eval_evaluate(cs->eval, &cand);
+        trial = eval_get_size(cs->eval);
+      }
       if (trial < best) {
         if (verbose >= 2)
           printf("    weight %02X: %d->%d, est %.1f -> %.1f bytes\n",
@@ -970,8 +992,11 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml) {
   return best;
 }
 
-static unsigned int try_weights(CompState *cs, ModelSet *ml, int level) {
-  return (level >= 2) ? optimize_weights(cs, ml) : approximate_weights(cs, ml);
+static unsigned int try_weights(CompState *cs, ModelSet *ml, int level,
+                                const unsigned char *data, int size,
+                                int base_prob) {
+  return (level >= 2) ? optimize_weights(cs, ml, data, size, base_prob)
+                      : approximate_weights(cs, ml, data, size, base_prob);
 }
 
 static int model_set_cmp(const void *a, const void *b) {
@@ -989,7 +1014,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   const int nsets = beam * 2;
   ModelSet *sets = (ModelSet *)calloc(nsets, sizeof(ModelSet));
   Evaluator eval = {0};
-  CompState *cs = state_new(data, size, base_prob, &eval, ctx);
+  CompState *cs = extreme ? NULL : state_new(data, size, base_prob, &eval, ctx);
 
   unsigned char rev_masks[256];
   for (int m = 0; m <= 255; m++) {
@@ -1002,10 +1027,19 @@ static ModelSet search_best_models(const unsigned char *data, int size,
 
   if (seed && seed->num_models > 0) {
     sets[0] = *seed;
-    eval_evaluate(cs->eval, &sets[0]);
-    sets[0].size = eval_get_size(cs->eval) | EFLAG;
+    if (extreme) {
+      sets[0].size = real_compress_size(data, size, &sets[0], base_prob) | EFLAG;
+    } else {
+      eval_evaluate(cs->eval, &sets[0]);
+      sets[0].size = eval_get_size(cs->eval) | EFLAG;
+    }
   } else {
-    sets[0].size = eval_get_size(cs->eval) | EFLAG;
+    if (extreme) {
+      ModelSet empty = {0};
+      sets[0].size = real_compress_size(data, size, &empty, base_prob) | EFLAG;
+    } else {
+      sets[0].size = eval_get_size(cs->eval) | EFLAG;
+    }
   }
   for (int s = 1; s < beam; s++)
     sets[s].size = INT_MAX;
@@ -1041,7 +1075,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
         int old_sz = cur->size & ~EFLAG;
         if (verbose >= 2)
           printf("    -- try adding %02X:\n", mask);
-        int new_sz = try_weights(cs, next, level);
+        int new_sz = try_weights(cs, next, level, data, size, base_prob);
 
         if (new_sz < old_sz || level >= 3) {
           int best_sz = new_sz;
@@ -1061,7 +1095,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
             next->models[m] = next->models[next->num_models];
             if (verbose >= 2)
               printf("    -- try removing %02X:\n", removed.mask);
-            int trial = try_weights(cs, next, level);
+            int trial = try_weights(cs, next, level, data, size, base_prob);
             if (trial < best_sz) {
               if (verbose) {
                 char setbuf[512] = "";
@@ -1108,7 +1142,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
            masks_tried, masks_accepted, masks_tried - masks_accepted);
     printf("  Final weight optimization:\n");
   }
-  int final_sz = optimize_weights(cs, &best);
+  int final_sz = optimize_weights(cs, &best, data, size, base_prob);
   if (out_size)
     *out_size = final_sz;
   if (verbose) {
@@ -1118,8 +1152,10 @@ static ModelSet search_best_models(const unsigned char *data, int size,
            final_sz / (float)(BIT_PREC * 8), setbuf);
   }
 
-  state_destroy(cs);
-  eval_destroy(&eval);
+  if (!extreme) {
+    state_destroy(cs);
+    eval_destroy(&eval);
+  }
   free(sets);
   return best;
 }
@@ -1184,6 +1220,7 @@ static void print_usage(const char *prog) {
          "C0:3\")\n");
   printf("  -w           Optimize weights on explicit models from -m\n");
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
+  printf("  -e           Extreme: use real compression during search\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
   printf("  -h           Show this help\n");
@@ -1200,7 +1237,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:123dwhv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:123dwehv")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1230,6 +1267,9 @@ int main(int argc, char *argv[]) {
     }
     case 'w':
       optimize_explicit_weights = 1;
+      break;
+    case 'e':
+      extreme = 1;
       break;
     case 'b':
       base_prob = atoi(optarg);
@@ -1333,7 +1373,7 @@ int main(int argc, char *argv[]) {
   }
 
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
-  printf("Level:       %d\n", level);
+  printf("Level:       %d%s\n", level, extreme ? " (extreme)" : "");
   printf("Base prob:   %d\n", base_prob);
   if (max_passes > 1 && !have_explicit_models)
     printf("Max passes:  %d\n", max_passes);
@@ -1349,10 +1389,13 @@ int main(int argc, char *argv[]) {
     if (optimize_explicit_weights) {
       printf("Optimizing weights for %d explicit models...\n", ml.num_models);
       Evaluator eval = {0};
-      CompState *cs = state_new(data, data_size, base_prob, &eval, ctx);
-      est_size = optimize_weights(cs, &ml);
-      state_destroy(cs);
-      eval_destroy(&eval);
+      CompState *cs =
+          extreme ? NULL : state_new(data, data_size, base_prob, &eval, ctx);
+      est_size = optimize_weights(cs, &ml, data, data_size, base_prob);
+      if (!extreme) {
+        state_destroy(cs);
+        eval_destroy(&eval);
+      }
       printf("Optimized:   ");
       model_set_print(&ml, stdout);
       printf("Estimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
