@@ -9885,3 +9885,43 @@ info depth 21 score cp 28 time 4603 nodes 9150751 nps 1987570 pv e2e4
 info depth 22 score cp 27 time 6608 nodes 13190910 nps 1995986 pv e2e4
 13190910 nodes 1995974 nps
 ```
+
+### 8.1
+
+Allow exact updates for corrhist
+
+4 threads: 4071 bytes (-8)
+MD5: 1cb05e728ab05b633acffc98c566d5d8
+
+1 thread: 4027 bytes (-15)
+MD5: 64c4bff95e480834316902a82ff3bf8d
+
+```py
+info depth 1 score cp 15 lowerbound time 0 nodes 18 nps 324681
+info depth 1 score cp 26 time 0 nodes 38 nps 290464 pv b1c3
+info depth 2 score cp 17 time 0 nodes 119 nps 363898 pv b1c3
+info depth 3 score cp 23 time 0 nodes 239 nps 566036 pv b1c3
+info depth 4 score cp 17 time 0 nodes 381 nps 671006 pv b1c3
+info depth 5 score cp 10 time 0 nodes 607 nps 779060 pv b1c3
+info depth 6 score cp 11 time 1 nodes 1181 nps 947389 pv b1c3
+info depth 7 score cp 7 time 4 nodes 4573 nps 1022880 pv b1c3
+info depth 8 score cp 15 time 8 nodes 8155 nps 983995 pv b1c3
+info depth 9 score cp 14 time 17 nodes 19612 nps 1110484 pv b1c3
+info depth 10 score cp 14 time 28 nodes 29968 nps 1062294 pv b1c3
+info depth 11 score cp 29 lowerbound time 36 nodes 39129 nps 1081050
+info depth 11 score cp 22 time 79 nodes 97478 nps 1218540 pv b1c3
+info depth 12 score cp 19 time 134 nodes 189427 nps 1410528 pv d2d4
+info depth 13 score cp 19 time 188 nodes 295827 nps 1572340 pv d2d4
+info depth 14 score cp 19 time 320 nodes 553946 nps 1727870 pv g1f3
+info depth 15 score cp 22 time 567 nodes 1032119 nps 1818350 pv d2d4
+info depth 16 score cp 21 time 777 nodes 1439003 nps 1851774 pv d2d4
+info depth 17 score cp 36 lowerbound time 1316 nodes 2488096 nps 1889388
+info depth 17 score cp 43 time 1529 nodes 2885302 nps 1886359 pv e2e4
+info depth 18 score cp 28 upperbound time 1835 nodes 3476905 nps 1894420
+info depth 18 score cp 32 time 2052 nodes 3888975 nps 1894813 pv e2e4
+info depth 19 score cp 32 time 2329 nodes 4424286 nps 1899644 pv e2e4
+info depth 20 score cp 30 time 2962 nodes 5655166 nps 1908737 pv e2e4
+info depth 21 score cp 20 time 6039 nodes 11469913 nps 1899295 pv e2e4
+info depth 22 score cp 20 time 7838 nodes 14845059 nps 1893901 pv e2e4
+14845059 nodes 1893888 nps
+```
