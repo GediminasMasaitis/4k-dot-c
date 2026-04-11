@@ -375,7 +375,7 @@ def run_make_and_get_size(cwd=None, source_content=None):
     exe_rel = './build/4kc'
     try:
         proc = subprocess.run(
-            ['./compressor', '-2', '-o', exe_rel + '.paq', exe_rel],
+            ['./compressor', '-o', exe_rel + '.paq', exe_rel],
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

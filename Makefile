@@ -67,7 +67,7 @@ compress_source:
 
 compress: compressor compress_source
 	@$(MAP_CHECK)
-	./compressor -2 -b $(BPROB) -o $(EXE).paq $(EXE)
+	./compressor -b $(BPROB) -o $(EXE).paq $(EXE)
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
