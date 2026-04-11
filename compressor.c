@@ -27,9 +27,7 @@ typedef uint16_t v8u16 __attribute__((vector_size(16)));
 #define NPV 16
 #define PKG_BITS (NPV * 4)
 
-#define MIN_LEVEL 1
-#define MAX_LEVEL 3
-#define DEFAULT_LEVEL 2
+#define DEFAULT_BEAM 1
 
 static int verbose = 0; /* 0=off, 1=verbose, 2=very verbose */
 static int extreme = 0; /* use real compression instead of estimator */
@@ -992,11 +990,11 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml,
   return best;
 }
 
-static unsigned int try_weights(CompState *cs, ModelSet *ml, int level,
+static unsigned int try_weights(CompState *cs, ModelSet *ml, int simple,
                                 const unsigned char *data, int size,
                                 int base_prob) {
-  return (level >= 2) ? optimize_weights(cs, ml, data, size, base_prob)
-                      : approximate_weights(cs, ml, data, size, base_prob);
+  return simple ? approximate_weights(cs, ml, data, size, base_prob)
+                : optimize_weights(cs, ml, data, size, base_prob);
 }
 
 static int model_set_cmp(const void *a, const void *b) {
@@ -1006,10 +1004,9 @@ static int model_set_cmp(const void *a, const void *b) {
 }
 
 static ModelSet search_best_models(const unsigned char *data, int size,
-                                   const unsigned char ctx[MAX_CTX], int level,
-                                   int base_prob, int *out_size,
+                                   const unsigned char ctx[MAX_CTX], int beam,
+                                   int simple, int base_prob, int *out_size,
                                    const ModelSet *seed) {
-  const int beam = (level >= 3) ? 3 : 1;
   const int EFLAG = INT_MIN;
   const int nsets = beam * 2;
   ModelSet *sets = (ModelSet *)calloc(nsets, sizeof(ModelSet));
@@ -1075,9 +1072,9 @@ static ModelSet search_best_models(const unsigned char *data, int size,
         int old_sz = cur->size & ~EFLAG;
         if (verbose >= 2)
           printf("    -- try adding %02X:\n", mask);
-        int new_sz = try_weights(cs, next, level, data, size, base_prob);
+        int new_sz = try_weights(cs, next, simple, data, size, base_prob);
 
-        if (new_sz < old_sz || level >= 3) {
+        if (new_sz < old_sz || beam > 1) {
           int best_sz = new_sz;
 
           if (verbose && new_sz < INT_MAX) {
@@ -1095,7 +1092,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
             next->models[m] = next->models[next->num_models];
             if (verbose >= 2)
               printf("    -- try removing %02X:\n", removed.mask);
-            int trial = try_weights(cs, next, level, data, size, base_prob);
+            int trial = try_weights(cs, next, simple, data, size, base_prob);
             if (trial < best_sz) {
               if (verbose) {
                 char setbuf[512] = "";
@@ -1215,7 +1212,10 @@ static void print_usage(const char *prog) {
   printf("Usage: %s [options] <input_file>\n\nOptions:\n", prog);
   printf("  -o <file>    Output file (default: <input>.paq or <input>.bin)\n");
   printf("  -d           Decompress mode\n");
-  printf("  -1/-2/-3     Compression level (default: -%d)\n", DEFAULT_LEVEL);
+  printf("  -k <n>       Search beam width (default: %d). >1 also accepts\n",
+         DEFAULT_BEAM);
+  printf("               non-improving mask additions during search\n");
+  printf("  -s           Simple search: skip per-candidate weight optimization\n");
   printf("  -m <models>  Use explicit models, skip search (e.g. \"00:1 80:2 "
          "C0:3\")\n");
   printf("  -w           Optimize weights on explicit models from -m\n");
@@ -1228,7 +1228,8 @@ static void print_usage(const char *prog) {
 
 int main(int argc, char *argv[]) {
   const char *output_file = NULL;
-  int level = DEFAULT_LEVEL;
+  int beam = DEFAULT_BEAM;
+  int simple = 0;
   int base_prob = DEFAULT_BPROB;
   int decompress = 0;
   int max_passes = 1;
@@ -1237,7 +1238,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:123dwehv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:k:sdwehv")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1245,14 +1246,15 @@ int main(int argc, char *argv[]) {
     case 'd':
       decompress = 1;
       break;
-    case '1':
-      level = 1;
+    case 'k':
+      beam = atoi(optarg);
+      if (beam < 1) {
+        fprintf(stderr, "Beam width must be >= 1\n");
+        return 1;
+      }
       break;
-    case '2':
-      level = 2;
-      break;
-    case '3':
-      level = 3;
+    case 's':
+      simple = 1;
       break;
     case 'm': {
       int n = parse_models(optarg, &explicit_models);
@@ -1373,7 +1375,8 @@ int main(int argc, char *argv[]) {
   }
 
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
-  printf("Level:       %d%s\n", level, extreme ? " (extreme)" : "");
+  printf("Search:      beam %d%s%s\n", beam, simple ? " simple" : "",
+         extreme ? " extreme" : "");
   printf("Base prob:   %d\n", base_prob);
   if (max_passes > 1 && !have_explicit_models)
     printf("Max passes:  %d\n", max_passes);
@@ -1403,15 +1406,15 @@ int main(int argc, char *argv[]) {
       printf("Skipping search, using %d explicit models\n", ml.num_models);
     }
   } else {
-    ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
-                            NULL);
+    ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
+                            &est_size, NULL);
 
     for (int pass = 2; pass <= max_passes; pass++) {
       int prev_size = est_size;
       if (verbose)
         printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
-      ml = search_best_models(data, data_size, ctx, level, base_prob, &est_size,
-                              &ml);
+      ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
+                              &est_size, &ml);
       if (est_size >= prev_size) {
         if (verbose)
           printf("  No improvement, stopping.\n");
