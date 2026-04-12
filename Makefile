@@ -58,12 +58,16 @@ all:
 compressor:
 	$(CC) -march=native -O3 -std=gnu2x -lm -o compressor compressor.c
 
-compress_source:
+compile_asm:
 	$(MKDIR)
 	$(CC) $(CFLAGS) -S -masm=intel -o 4k.s 4k.c
+
+link_asm:
 	$(CC) $(CFLAGS) -c -o 4k.o 4k.s
 	$(CC) $(LDFLAGS) -Wl,-Map=$(EXE).map -Wl,-T 64bit-noheader.ld -o $(EXE) 4k.o
 	$(LS) $(EXE)
+
+compress_source: compile_asm link_asm
 
 compress: compressor compress_source
 	@$(MAP_CHECK)

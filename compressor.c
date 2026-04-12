@@ -1025,7 +1025,8 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   if (seed && seed->num_models > 0) {
     sets[0] = *seed;
     if (extreme) {
-      sets[0].size = real_compress_size(data, size, &sets[0], base_prob) | EFLAG;
+      sets[0].size =
+          real_compress_size(data, size, &sets[0], base_prob) | EFLAG;
     } else {
       eval_evaluate(cs->eval, &sets[0]);
       sets[0].size = eval_get_size(cs->eval) | EFLAG;

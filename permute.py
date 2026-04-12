@@ -13,6 +13,22 @@ import threading
 import random
 import signal
 
+# =============================================
+# Configuration
+# =============================================
+max_parallelism = 12
+enable_random_shuffle = False
+random_seed = None
+num_runs = 999
+use_compression = True
+enable_source_cache = True
+persist_source_cache = True
+enable_asm_cache = True
+persist_asm_cache = True
+enable_binary_cache = True
+persist_binary_cache = True
+errors_dir = 'errors'
+
 class CountdownEvent:
     def __init__(self):
         self._count = 0
@@ -64,19 +80,29 @@ def fmt_size(size):
         return f'{size}b ({size/8:.3f}B)'
     return f'{size}B'
 
-# =============================================
-# Configuration
-# =============================================
-max_parallelism = 12
-enable_random_shuffle = False
-random_seed = None
-num_runs = 999
-use_compression = True
-enable_source_cache = True
-persist_source_cache = True
-enable_binary_cache = True
-persist_binary_cache = True
-errors_dir = 'errors'
+def print_cache_stats(prefix=''):
+    lines = []
+    with source_cache_lock:
+        src_total = source_cache_hits + source_cache_misses
+        if src_total > 0:
+            lines.append(f'{prefix}Source cache: {source_cache_hits} hits, {source_cache_misses} misses, '
+                         f'{len(source_cache)} unique sources '
+                         f'({100*source_cache_hits/src_total:.1f}% hit rate)')
+    with asm_cache_lock:
+        asm_total = asm_cache_hits + asm_cache_misses
+        if asm_total > 0:
+            lines.append(f'{prefix}Asm cache: {asm_cache_hits} hits, {asm_cache_misses} misses, '
+                         f'{len(asm_cache)} unique assemblies '
+                         f'({100*asm_cache_hits/asm_total:.1f}% hit rate)')
+    with binary_cache_lock:
+        bin_total = binary_cache_hits + binary_cache_misses
+        if bin_total > 0:
+            lines.append(f'{prefix}Binary cache: {binary_cache_hits} hits, {binary_cache_misses} misses, '
+                         f'{len(binary_cache)} unique binaries '
+                         f'({100*binary_cache_hits/bin_total:.1f}% hit rate)')
+    if lines:
+        tqdm.write('\n'.join(lines))
+
 _errors_saved = set()  # md5 hex digests already saved
 _errors_lock = threading.Lock()
 _shutting_down = False
@@ -103,6 +129,14 @@ SOURCE_CACHE_PATH = 'source_cache.pkl'
 source_cache_lock = threading.Lock()
 source_cache_hits = 0
 source_cache_misses = 0
+
+# =============================================
+# Assembly deduplication cache (asm hash -> compressed size)
+# =============================================
+ASM_CACHE_PATH = 'asm_cache.pkl'
+asm_cache_lock = threading.Lock()
+asm_cache_hits = 0
+asm_cache_misses = 0
 
 # =============================================
 # Binary deduplication cache (binary hash -> compressed size)
@@ -140,6 +174,7 @@ def _save_cache(cache, lock, path, persist):
         os.replace(path + '.tmp', path)
 
 source_cache = _load_cache(SOURCE_CACHE_PATH, 'source', persist_source_cache)
+asm_cache = _load_cache(ASM_CACHE_PATH, 'asm', persist_asm_cache)
 binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary', persist_binary_cache)
 
 # =============================================
@@ -302,6 +337,7 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
 
 def run_make_and_get_size(cwd=None, source_content=None):
     global source_cache_hits, source_cache_misses
+    global asm_cache_hits, asm_cache_misses
     global binary_cache_hits, binary_cache_misses
 
     # Source-level cache: skip compile + compress entirely
@@ -336,10 +372,10 @@ def run_make_and_get_size(cwd=None, source_content=None):
             raise RuntimeError("Failed to parse file size from ls output:\n" + proc.stdout)
         return int(m.group(1)), ''
 
-    # Step 1: Compile and link only
+    # Step 1: Compile to assembly
     try:
         subprocess.run(
-            ['make', 'NOSTDLIB=true', 'MINI=true', 'compress_source'],
+            ['make', 'NOSTDLIB=true', 'MINI=true', 'compile_asm'],
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -347,12 +383,47 @@ def run_make_and_get_size(cwd=None, source_content=None):
             check=True
         )
     except subprocess.CalledProcessError as e:
-        print("Make command failed with output:")
+        print("Make compile_asm failed with output:")
         print(e.output)
         print("cwd:", cwd)
         raise
 
-    # Step 2: Hash the binary and check binary cache
+    # Step 2: Hash the assembly and check asm cache
+    if enable_asm_cache and use_compression:
+        asm_abs = os.path.join(cwd, '4k.s') if cwd else '4k.s'
+        with open(asm_abs, 'rb') as f:
+            asm_hash = hashlib.md5(f.read()).digest()
+
+        with asm_cache_lock:
+            if asm_hash in asm_cache:
+                asm_cache_hits += 1
+                size = asm_cache[asm_hash]
+                # Backfill source cache
+                if src_hash is not None:
+                    with source_cache_lock:
+                        source_cache[src_hash] = size
+                return size, '(A)'
+            asm_cache_misses += 1
+    else:
+        asm_hash = None
+
+    # Step 3: Assemble and link
+    try:
+        subprocess.run(
+            ['make', 'NOSTDLIB=true', 'MINI=true', 'link_asm'],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        print("Make link_asm failed with output:")
+        print(e.output)
+        print("cwd:", cwd)
+        raise
+
+    # Step 4: Hash the binary and check binary cache
     if enable_binary_cache:
         exe_abs = os.path.join(cwd, 'build', '4kc') if cwd else os.path.join('build', '4kc')
         with open(exe_abs, 'rb') as f:
@@ -362,16 +433,19 @@ def run_make_and_get_size(cwd=None, source_content=None):
             if binary_hash in binary_cache:
                 binary_cache_hits += 1
                 size = binary_cache[binary_hash]
-                # Backfill source cache
+                # Backfill source and asm caches
                 if src_hash is not None:
                     with source_cache_lock:
                         source_cache[src_hash] = size
+                if asm_hash is not None:
+                    with asm_cache_lock:
+                        asm_cache[asm_hash] = size
                 return size, '(B)'
             binary_cache_misses += 1
     else:
         binary_hash = None
 
-    # Step 3: Cache miss — run compressor (paths relative to cwd)
+    # Step 5: Cache miss — run compressor (paths relative to cwd)
     exe_rel = './build/4kc'
     try:
         proc = subprocess.run(
@@ -392,13 +466,19 @@ def run_make_and_get_size(cwd=None, source_content=None):
         raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
     size = int(m.group(1))
 
-    # Step 4: Store in caches and persist periodically
+    # Step 6: Store in caches and persist periodically
     if binary_hash is not None:
         with binary_cache_lock:
             binary_cache[binary_hash] = size
             should_save = (binary_cache_misses % 10 == 0)
         if should_save:
             _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
+    if asm_hash is not None:
+        with asm_cache_lock:
+            asm_cache[asm_hash] = size
+            should_save_asm = (asm_cache_misses % 10 == 0)
+        if should_save_asm:
+            _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     if src_hash is not None:
         with source_cache_lock:
             source_cache[src_hash] = size
@@ -454,6 +534,7 @@ class SpeculativeEngine:
         self._completed = 0
         self._stale_discards = 0
         self._improvements = 0
+        self._last_stats_at = 0
 
     def shutdown(self):
         self.executor.shutdown(wait=True)
@@ -571,6 +652,12 @@ class SpeculativeEngine:
                 )
 
             total_bar.update(1)
+            with self.lock:
+                should_print_stats = self._completed - self._last_stats_at >= 200
+                if should_print_stats:
+                    self._last_stats_at = self._completed
+            if should_print_stats:
+                print_cache_stats()
         finally:
             self._drain.decrement()
 
@@ -701,6 +788,7 @@ class SpeculativeEngine:
             f'   {"IMPROVED" if improved else "no change"}'
         )
         stats_bar.close()
+        print_cache_stats()
 
         if improved:
             with open(self.src_path, 'w') as f:
@@ -899,6 +987,8 @@ def main():
             if global_best_size == float('inf'):
                 global_best_size = initial_size
                 global_best_src = text
+                with open('global_best.c', 'w') as gf:
+                    gf.write(text)
 
         print(f'\n{"="*60}')
         print(f'Starting run {run}/{num_runs}')
@@ -932,32 +1022,12 @@ def main():
 
         print(f'\nRun {run} completed. Run-best: {fmt_size(pass_best["best"])}')
         print(f'Global best after run {run}: {fmt_size(global_best_size)}')
-        with source_cache_lock:
-            src_total = source_cache_hits + source_cache_misses
-            if src_total > 0:
-                print(f'Source cache: {source_cache_hits} hits, {source_cache_misses} misses, '
-                      f'{len(source_cache)} unique sources '
-                      f'({100*source_cache_hits/src_total:.1f}% hit rate)')
-        with binary_cache_lock:
-            bin_total = binary_cache_hits + binary_cache_misses
-            if bin_total > 0:
-                print(f'Binary cache: {binary_cache_hits} hits, {binary_cache_misses} misses, '
-                      f'{len(binary_cache)} unique binaries '
-                      f'({100*binary_cache_hits/bin_total:.1f}% hit rate)')
+        print_cache_stats()
 
     engine.shutdown()
 
     print(f'\nAll runs completed. Global best size: {fmt_size(global_best_size)}')
-    src_total = source_cache_hits + source_cache_misses
-    if src_total > 0:
-        print(f'Source cache total: {source_cache_hits} hits, {source_cache_misses} misses, '
-              f'{len(source_cache)} unique sources '
-              f'({100*source_cache_hits/src_total:.1f}% hit rate)')
-    bin_total = binary_cache_hits + binary_cache_misses
-    if bin_total > 0:
-        print(f'Binary cache total: {binary_cache_hits} hits, {binary_cache_misses} misses, '
-              f'{len(binary_cache)} unique binaries '
-              f'({100*binary_cache_hits/bin_total:.1f}% hit rate)')
+    print_cache_stats()
     if global_best_src is not None:
         with open('global_best.c', 'w') as gf:
             gf.write(global_best_src)
@@ -966,8 +1036,9 @@ def main():
         print('No improvements found; original source is best.')
 
     _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
+    _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
-    print(f'Caches saved to {SOURCE_CACHE_PATH} and {BINARY_CACHE_PATH}')
+    print(f'Caches saved to {SOURCE_CACHE_PATH}, {ASM_CACHE_PATH} and {BINARY_CACHE_PATH}')
 
 if __name__ == '__main__':
     main()
