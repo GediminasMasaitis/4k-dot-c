@@ -902,7 +902,7 @@ G(
                 .bishop_pair = 26,
                 .bishop_pawns = {-6, -5},
                 .king_shield = {28, 20},
-                .pawn_attacked_penalty = {-16, -128},
+                .pawn_attacked_penalty = {-18, -128},
                 .tempo = 17},
          .eg = {.material = {0, 88, 391, 430, 719, 1338},
                 .pst_rank =
@@ -935,7 +935,7 @@ G(
                 .bishop_pawns = {-11, -1},
                 .king_shield = {-11, -7},
                 .pawn_attacked_penalty = {-10, -128},
-                .tempo = 7}};)
+                .tempo = 8}};)
 
 G(
     121,
@@ -1323,14 +1323,14 @@ i32 search(
 
       G(198, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(199, 61) * G(199, (depth - improving)) >= beta) {
+        if (static_eval - G(199, 57) * G(199, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(198, // RAZORING
         in_qsearch =
-            G(200, static_eval) + G(200, G(201, 117) * G(201, depth)) <= alpha;)
+            G(200, static_eval) + G(200, G(201, 111) * G(201, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1372,9 +1372,9 @@ i32 search(
           G(179, // KILLER MOVE
             G(208, move_equal(G(209, &moves[order_index]),
                               G(209, &stack[ply].killer))) *
-                G(208, 829)) +
+                G(208, 816)) +
           G(179, // MOST VALUABLE VICTIM
-            G(210, moves[order_index].takes_piece) * G(210, 663)) +
+            G(210, moves[order_index].takes_piece) * G(210, 617)) +
           G(179, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
@@ -1392,9 +1392,9 @@ i32 search(
 
     G(
         214, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(217, depth < 8) &&
+        if (G(217, depth < 9) &&
             G(217,
-              G(218, static_eval) + G(218, G(219, 146) * G(219, depth)) +
+              G(218, static_eval) + G(218, G(219, 148) * G(219, depth)) +
                       G(218,
                         initial_params.eg.material[moves[move_index].promo]) +
                       G(218, initial_params.eg
@@ -1421,7 +1421,7 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(220, depth > 3) && G(220, move_score <= 0)
-                        ? G(221, !improving) + G(221, (move_score / -384)) +
+                        ? G(221, !improving) + G(221, (move_score / -334)) +
                               G(221, (G(222, alpha) == G(222, beta - 1))) +
                               G(221, moves_evaluated / 9)
                         : 0;
@@ -1526,10 +1526,10 @@ i32 search(
       if (G(236,
             G(234, tt_flag) != G(234, (best_score < stack[ply].static_eval))) &&
           G(236, G(235, stack[ply].best_move.takes_piece) == G(235, None))) {
-        G(237, i32 dd = depth * depth; if (dd > 62) { dd = 62; })
+        G(237, i32 dd = depth * depth; if (dd > 66) { dd = 66; })
         G(237, i32 target = best_score - stack[ply].static_eval; G(
-              239, if (target < -81) { target = -81; })
-              G(239, if (target > 81) { target = 81; }))
+              239, if (target < -102) { target = -102; })
+              G(239, if (target > 102) { target = 102; }))
 
         *material_entry =
             (*material_entry * (596 - dd) + target * 256 * dd) / 596;
@@ -1638,7 +1638,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(243, i32 window = 15;)
+    G(243, i32 window = 16;)
     G(243, size_t elapsed;)
     while (true) {
       G(244, const i32 beta = G(245, score) + G(245, window);)
