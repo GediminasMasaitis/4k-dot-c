@@ -35,11 +35,15 @@ SECTIONS
 		header_size = .;            /* End of header */
 	}
 	
-	/* Set the VMA for the following sections */
+	/* Set the VMA for the following sections.
+	   ALIGN ensures the section's internal alignment doesn't skew the VMA
+	   relative to the file LMA, which would corrupt the entry point. */
 	. = start_address + header_size;
-	
+	. = ALIGN(16);
+
 	/* Code and Data Sections */
-	.data : AT(header_size) {
+	data_lma = . - start_address;
+	.data : AT(data_lma) {
 		*(.rodata) *(.rodata.*)
 		*(.data) *(.data.*)
 		*(.text) *(.text.*)
