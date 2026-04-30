@@ -1312,13 +1312,13 @@ get_hash(const Position *const pos) {
 #endif
 
 [[nodiscard]] S(1) u64 get_material_hash(const Position *const pos) {
-  u64 mat = 0;
+  u64 hash = 0;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = Pawn; p <= Queen; p++) {
-      mat = mat * 9 + count(pos->pieces[p] & pos->colour[c]);
+      hash = G(998, G(999, hash) * G(999, 9)) + G(998, count(G(997, pos->pieces[p]) & G(997, pos->colour[c])));
     }
   }
-  return mat;
+  return hash;
 }
 
 S(1)
