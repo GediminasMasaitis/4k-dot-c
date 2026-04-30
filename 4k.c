@@ -1326,7 +1326,8 @@ get_hash(const Position *const pos) {
 }
 
 [[nodiscard]] S(1) u64 get_pawn_hash(const Position *const pos) {
-  return pos->pieces[Pawn] * 0x9E3779B97F4A7C15ULL;
+  u64 p = pos->pieces[Pawn];
+  return (p ^ (p >> 32)) * 2654435761u;
 }
 
 S(1)
