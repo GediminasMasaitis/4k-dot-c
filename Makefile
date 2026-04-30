@@ -26,7 +26,7 @@ else
 endif
 
 ifeq ($(NOSTDLIB), true)
-    CFLAGS += -DNOSTDLIB -nostdlib -fno-pic -fno-builtin -fno-stack-protector -fno-schedule-insns2 -march=haswell -Oz
+    CFLAGS += -DNOSTDLIB -nostdlib -fno-pic -fno-builtin -fno-stack-protector -fno-schedule-insns2 -march=haswell -Oz -masm=intel
 	LDFLAGS += -nostdlib -Wl,-Map=$(EXE).map
 	NOSTDLIBLDFLAGS += -Wl,-T 64bit.ld
 else

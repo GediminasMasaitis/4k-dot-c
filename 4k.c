@@ -142,6 +142,109 @@ G(
       return false;
     })
 
+#ifdef FULL
+static void *mmap_anon(size_t length) {
+  void *p;
+  register u64 r10 asm("r10") = 0x22;  // MAP_PRIVATE | MAP_ANONYMOUS
+  register u64 r8 asm("r8") = (u64)-1; // fd
+  register u64 r9 asm("r9") = 0;       // offset
+  asm volatile("syscall"
+               : "=a"(p)
+               : "0"(9), "D"((void *)0), "S"(length), "d"(3), "r"(r10), "r"(r8),
+                 "r"(r9)
+               : "rcx", "r11", "memory");
+  return p;
+}
+
+static void munmap_sys(void *addr, size_t length) {
+  ssize_t ret;
+  asm volatile("syscall"
+               : "=a"(ret)
+               : "0"(11), "D"(addr), "S"(length)
+               : "rcx", "r11", "memory");
+}
+
+static void *malloc(size_t size) {
+  size_t total = size + 16;
+  size_t *base = mmap_anon(total);
+  base[0] = total;
+  return (char *)base + 16;
+}
+
+static void free(void *ptr) {
+  if (!ptr)
+    return;
+  size_t *base = (size_t *)((char *)ptr - 16);
+  munmap_sys(base, *base);
+}
+
+static void *calloc(size_t n, size_t sz) { return malloc(n * sz); }
+
+static void *memset(void *dst, int c, size_t n) {
+  void *ret = dst;
+  asm volatile("rep stosb"
+               : "+D"(dst), "+c"(n)
+               : "a"((unsigned char)c)
+               : "memory");
+  return ret;
+}
+
+static void *memcpy(void *dst, const void *src, size_t n) {
+  void *ret = dst;
+  asm volatile("rep movsb" : "+D"(dst), "+S"(src), "+c"(n) : : "memory");
+  return ret;
+}
+
+static void print_u64(u64 val) {
+  char buf[24];
+  i32 i = 23;
+  buf[i--] = 0;
+  if (!val)
+    buf[i--] = '0';
+  else
+    while (val) {
+      buf[i--] = '0' + val % 10;
+      val /= 10;
+    }
+  putl(&buf[i + 1]);
+}
+
+static void print_i32(i32 val) {
+  if (val < 0) {
+    putl("-");
+    val = -val;
+  }
+  print_u64((u64)(u32)val);
+}
+
+static void printf(const char *fmt, ...) {
+  __builtin_va_list ap;
+  __builtin_va_start(ap, fmt);
+  char ch[2] = {0, 0};
+  while (*fmt) {
+    if (*fmt != '%') {
+      ch[0] = *fmt++;
+      putl(ch);
+      continue;
+    }
+    fmt++;
+    if (*fmt == 'i' || *fmt == 'd') {
+      print_i32(__builtin_va_arg(ap, i32));
+      fmt++;
+    } else if (fmt[0] == 'l' && fmt[1] == 'l' && fmt[2] == 'u') {
+      print_u64(__builtin_va_arg(ap, u64));
+      fmt += 3;
+    } else {
+      ch[0] = '%';
+      putl(ch);
+      ch[0] = *fmt++;
+      putl(ch);
+    }
+  }
+  __builtin_va_end(ap);
+}
+#endif
+
 #else
 #include <pthread.h>
 #include <stdbool.h>
@@ -1097,10 +1200,10 @@ enum { tt_length = 1 << 23 }; // 80MB
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
-#ifdef FULL
-static i32 thread_count = 1;
-#else
+#ifdef NOSTDLIB
 enum { thread_count = 1 };
+#else
+static i32 thread_count = 1;
 #endif
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };
@@ -1142,6 +1245,10 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
 #ifdef FULL
 static ThreadData *main_data;
 static TTEntry *tt;
+#ifdef NOSTDLIB
+__attribute__((
+    aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
+#endif
 #else
 __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
@@ -1690,7 +1797,7 @@ S(1) void entry_mini(ThreadHead *head) {
   exit_now();
 }
 
-#ifndef FULL
+#ifdef NOSTDLIB
 __attribute__((naked)) S(0) long newthread(ThreadHead *head) {
   __asm__ volatile("mov  rsi, rdi\n"     // arg2 = stack
                    "mov  edi, 0x50f00\n" // arg1 = clone flags
@@ -1709,7 +1816,7 @@ _Static_assert(sizeof(ThreadData) < thread_stack_size);
 S(1)
 void run_smp() {
   start_time = get_time();
-#ifdef FULL
+#ifndef NOSTDLIB
   main_data->nodes = 0;
   pthread_t helpers[thread_count - 1];
   ThreadData *helper_data[thread_count - 1];
@@ -1731,18 +1838,29 @@ void run_smp() {
     free(helper_data[i]);
   }
 #else
+#ifdef FULL
+  main_data->nodes = 0;
+#else
   ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];
+#endif
 
   for (i32 i = 1; i < thread_count; i++) {
     ThreadHead *helper_head =
         (ThreadHead *)&thread_stacks[i][thread_stack_size - sizeof(ThreadHead)];
     G(249, helper_head->data.pos = main_data->pos;)
     G(249, helper_head->data.max_time = -1LL;)
+#ifdef FULL
+    helper_head->data.thread_id = i;
+#endif
     helper_head->entry = entry_mini;
     newthread(helper_head);
   }
 
-  iteratively_deepen(main_data);
+  iteratively_deepen(
+#ifdef FULL
+      max_ply,
+#endif
+      main_data);
   stop = true;
 
   for (i32 i = 0; i < thread_count - 1; i++) {
@@ -1908,7 +2026,14 @@ S(1) void run() {
       } else if (!strcmp(line, "Threads")) {
         getl(line); // "value"
         getl(line);
+#ifdef NOSTDLIB
+        if (atoi(line) > 1) {
+          puts("info string Threads > 1 not supported in this build");
+          exit_now();
+        }
+#else
         thread_count = atoi(line);
+#endif
       }
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(main_data, 0, sizeof(ThreadData));
