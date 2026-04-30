@@ -1278,22 +1278,6 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   // USE FIRST 64 BITS AS POSITION HASH
   return hash[0];
 }
-
-[[nodiscard]] __attribute__((target("aes"))) S(1) u64
-    get_material_hash(const Position *const pos) {
-  i128 hash = {0};
-  for (int c = 0; c < 2; c++) {
-    for (int p = Queen; p >= Pawn; p--) {
-      hash[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
-    }
-  }
-
-  for (i32 i = 0; i < 2; i++) {
-    hash = __builtin_ia32_aesenc128(hash, hash);
-  }
-
-  return hash[0];
-}
 #elif defined(__aarch64__)
 
 #include <arm_neon.h>
@@ -1323,34 +1307,19 @@ get_hash(const Position *const pos) {
   return result;
 }
 
-[[nodiscard]] __attribute__((target("+aes"))) u64
-get_material_hash(const Position *const pos) {
-  u64 datas[2] = {0};
-  for (int c = 0; c < 2; c++) {
-    for (int p = Pawn; p < King; p++) {
-      datas[c] |= (u64)count(pos->pieces[p] & pos->colour[c]) << (p * 4);
-    }
-  }
-  uint8x16_t hash;
-  memcpy(&hash, &datas[0], 8);
-  memcpy((char *)&hash + 8, &datas[1], 8);
-
-  // PERFORM HASH
-  for (int i = 0; i < 2; i++) {
-    uint8x16_t key = hash;
-    hash = vaesmcq_u8(vaeseq_u8(hash, vdupq_n_u8(0)));
-    hash = veorq_u8(hash, key);
-  }
-
-  // USE FIRST 64 BITS AS MATERIAL HASH
-  u64 result;
-  memcpy(&result, &hash, sizeof(result));
-  return result;
-}
-
 #else
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
+
+[[nodiscard]] S(1) u64 get_material_hash(const Position *const pos) {
+  u64 mat = 0;
+  for (i32 c = 0; c < 2; c++) {
+    for (i32 p = Pawn; p <= Queen; p++) {
+      mat = mat * 9 + count(pos->pieces[p] & pos->colour[c]);
+    }
+  }
+  return mat;
+}
 
 S(1)
 i32 search(
