@@ -327,8 +327,8 @@ G(
       G(34, const u64 horizontal1 = G(35, west_bb) | G(35, east_bb);)
       G(34,
         const u64 horizontal2 = G(36, east(east_bb)) | G(36, west(west_bb));)
-      return G(37, horizontal2 << 8) | G(37, horizontal2 >> 8) |
-             G(37, horizontal1 << 16) | G(37, horizontal1 >> 16);
+      return G(37, horizontal2 << 8) | G(37, horizontal1 >> 16) |
+             G(37, horizontal2 >> 8) | G(37, horizontal1 << 16);
     })
 
 G(
@@ -1100,7 +1100,7 @@ enum { mate = 31744, inf = 32256 };
 #ifdef FULL
 static i32 thread_count = 1;
 #else
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #endif
 enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 16384 };

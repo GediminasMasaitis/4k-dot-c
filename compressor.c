@@ -1216,7 +1216,8 @@ static void print_usage(const char *prog) {
   printf("  -k <n>       Search beam width (default: %d). >1 also accepts\n",
          DEFAULT_BEAM);
   printf("               non-improving mask additions during search\n");
-  printf("  -s           Simple search: skip per-candidate weight optimization\n");
+  printf(
+      "  -s           Simple search: skip per-candidate weight optimization\n");
   printf("  -m <models>  Use explicit models, skip search (e.g. \"00:1 80:2 "
          "C0:3\")\n");
   printf("  -w           Optimize weights on explicit models from -m\n");
