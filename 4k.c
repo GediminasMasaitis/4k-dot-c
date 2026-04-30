@@ -1204,7 +1204,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1325,6 +1325,10 @@ get_hash(const Position *const pos) {
   return hash;
 }
 
+[[nodiscard]] S(1) u64 get_pawn_hash(const Position *const pos) {
+  return pos->pieces[Pawn] * 0x9E3779B97F4A7C15ULL;
+}
+
 S(1)
 i32 search(
 #ifdef FULL
@@ -1373,15 +1377,17 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  G(189, const i32 raw_eval = eval(pos); assert(raw_eval < mate);
-    assert(raw_eval > -mate);)
-
-  G(189, const u64 material_hash = get_material_hash(pos);
-    i32 *material_entry =
-        &data->corrhist[pos->flipped][material_hash % corrhist_size];)
-  i32 static_eval = G(190, raw_eval) + G(190, *material_entry / 256);
-  assert(static_eval < mate);
-  assert(static_eval > -mate);
+  G(189, const u64 corr_hashes[2] = {get_material_hash(pos), get_pawn_hash(pos)};)
+  G(189, i32 *corr_entries[2];)
+  G(189, i32 static_eval = eval(pos); assert(static_eval < mate);
+    assert(static_eval > -mate);)
+  for (i32 i = 0; i < 2; i++) {
+    corr_entries[i] =
+        &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+    static_eval += *corr_entries[i] / 256;
+    assert(static_eval < mate);
+    assert(static_eval > -mate);
+  }
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
@@ -1611,8 +1617,10 @@ i32 search(
               239, if (target < -96) { target = -96; })
               G(239, if (target > 96) { target = 96; }))
 
-        *material_entry =
-            (*material_entry * (600 - dd) + target * 256 * dd) / 600;
+        for (i32 i = 0; i < 2; i++) {
+          *corr_entries[i] =
+              (*corr_entries[i] * (600 - dd) + target * 256 * dd) / 600;
+        }
       })
 
   return best_score;
