@@ -179,6 +179,7 @@ static void free(void *ptr) {
 }
 
 static void *calloc(size_t n, size_t sz) { return malloc(n * sz); }
+#endif
 
 static void *memset(void *dst, int c, size_t n) {
   void *ret = dst;
@@ -189,6 +190,7 @@ static void *memset(void *dst, int c, size_t n) {
   return ret;
 }
 
+#ifdef FULL
 static void *memcpy(void *dst, const void *src, size_t n) {
   void *ret = dst;
   asm volatile("rep movsb" : "+D"(dst), "+S"(src), "+c"(n) : : "memory");
@@ -1965,6 +1967,7 @@ S(1) void run() {
   main_data->pos = start_pos;
 #else
   __builtin_memset(thread_stacks, 0, sizeof(thread_stacks));
+  __builtin_memset(tt, 0, sizeof(tt));
   ThreadData *main_data = (ThreadData *)&thread_stacks[0][0];
 #endif
 
