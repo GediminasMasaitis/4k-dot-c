@@ -10069,3 +10069,42 @@ MD5: 217d2b4bca4e26acbc8271b7ed660c8c
 
 1 thread: 4013 bytes (=)
 MD5: 7d96e18d93c824bfc8dff9889ae32c59
+
+### 8.5
+
+No thread state set
+
+4 threads: 4042 bytes (-11)
+MD5: 97e2a18e6478ce9081fe9d83b62abfd6
+
+1 thread: 4008 bytes (-8)
+MD5: 1aee7937a7d48a67145b89c578b9e4cb
+
+```py
+info depth 1 score cp 16 lowerbound time 0 nodes 18 nps 355380
+info depth 1 score cp 26 time 0 nodes 38 nps 400442 pv b1c3
+info depth 2 score cp 17 time 0 nodes 117 nps 482872 pv b1c3
+info depth 3 score cp 23 time 0 nodes 237 nps 704101 pv b1c3
+info depth 4 score cp 17 time 0 nodes 379 nps 777882 pv b1c3
+info depth 5 score cp 10 time 0 nodes 599 nps 836470 pv b1c3
+info depth 6 score cp 11 time 1 nodes 1173 nps 1045231 pv b1c3
+info depth 7 score cp 7 time 2 nodes 2743 nps 1076595 pv b1c3
+info depth 8 score cp 15 time 6 nodes 6686 nps 1058351 pv b1c3
+info depth 9 score cp 15 time 16 nodes 20616 nps 1252147 pv b1c3
+info depth 10 score cp 23 time 27 nodes 35736 nps 1319668 pv d2d4
+info depth 11 score cp 21 time 40 nodes 58588 nps 1430162 pv d2d4
+info depth 12 score cp 21 time 96 nodes 170223 nps 1761445 pv e2e4
+info depth 13 score cp 37 lowerbound time 136 nodes 256853 nps 1876758
+info depth 13 score cp 33 time 147 nodes 281524 nps 1904322 pv e2e4
+info depth 14 score cp 31 time 246 nodes 512412 nps 2079622 pv e2e4
+info depth 15 score cp 36 time 355 nodes 768827 nps 2160469 pv e2e4
+info depth 16 score cp 34 time 535 nodes 1186807 nps 2217478 pv e2e4
+info depth 17 score cp 34 time 762 nodes 1715512 nps 2248696 pv e2e4
+info depth 18 score cp 37 time 1176 nodes 2679622 nps 2278525 pv e2e4
+info depth 19 score cp 34 time 1758 nodes 4004723 nps 2277126 pv e2e4
+info depth 20 score cp 22 time 2554 nodes 5772852 nps 2259921 pv e2e4
+info depth 21 score cp 38 lowerbound time 2942 nodes 6671738 nps 2267446
+info depth 21 score cp 26 time 5158 nodes 11575546 nps 2243841 pv e2e4
+info depth 22 score cp 29 time 6362 nodes 14218029 nps 2234803 pv e2e4
+14218029 nodes 2234790 nps
+```
