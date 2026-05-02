@@ -61,7 +61,7 @@ load_output:
     db      0
 
     dq      filesize
-    dq      0x10000000
+    dq      0x580000000
 
 init_header:
     push    rsi

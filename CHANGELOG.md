@@ -10059,3 +10059,13 @@ Games | N: 8214 W: 2136 L: 2045 D: 4033
 Penta | [127, 991, 1793, 1056, 140]
 https://gedas.pythonanywhere.com/test/1812/
 ```
+
+### 8.4
+
+22GB loader memsize
+
+4 threads: 4053 bytes (=)
+MD5: 217d2b4bca4e26acbc8271b7ed660c8c
+
+1 thread: 4013 bytes (=)
+MD5: 7d96e18d93c824bfc8dff9889ae32c59
