@@ -1375,8 +1375,8 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  G(189,
-    const u64 corr_hashes[2] = {get_material_hash(pos), get_pawn_hash(pos)};)
+  G(189, const u64 corr_hashes[2] = {G(603, get_material_hash(pos)),
+                                     G(603, get_pawn_hash(pos))};)
   G(189, i32 * corr_entries[2];)
   G(189, i32 static_eval = eval(pos); assert(static_eval < mate);
     assert(static_eval > -mate);)
@@ -1618,7 +1618,9 @@ i32 search(
 
         for (i32 i = 0; i < 2; i++) {
           *corr_entries[i] =
-              (*corr_entries[i] * (600 - dd) + target * 256 * dd) / 600;
+              (G(601, G(600, *corr_entries[i]) * G(600, (600 - dd))) +
+               G(601, G(602, target) * G(602, 256) * G(602, dd))) /
+              600;
         }
       })
 
