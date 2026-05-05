@@ -1320,7 +1320,7 @@ get_hash(const Position *const pos) {
              G(998, count(G(997, pos->pieces[p]) & G(997, pos->colour[c])));
     }
   }
-  return hash;
+  return (hash * 0x9E3779B97F4A7C15ULL) >> 50;
 }
 
 S(1)
