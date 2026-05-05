@@ -1324,7 +1324,7 @@ get_hash(const Position *const pos) {
 }
 
 [[nodiscard]] S(1) u64 get_pawn_hash(const Position *const pos) {
-  return (pos->pieces[Pawn] * 0x9E3779B97F4A7C15ULL) >> 50;
+  return (G(777, pos->pieces[Pawn]) * G(777, 0x9E3779B97F4A7C15ULL)) >> 50;
 }
 
 S(1)
@@ -1375,8 +1375,9 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  G(189, const u64 corr_hashes[2] = {get_material_hash(pos), get_pawn_hash(pos)};)
-  G(189, i32 *corr_entries[2];)
+  G(189,
+    const u64 corr_hashes[2] = {get_material_hash(pos), get_pawn_hash(pos)};)
+  G(189, i32 * corr_entries[2];)
   G(189, i32 static_eval = eval(pos); assert(static_eval < mate);
     assert(static_eval > -mate);)
   for (i32 i = 0; i < 2; i++) {
