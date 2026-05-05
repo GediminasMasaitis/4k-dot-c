@@ -208,6 +208,21 @@ __attribute__((target("aes"))) static u64 mat_E(const Position *pos) {
   return (u64)state[0] & (BUCKETS - 1);
 }
 
+// F: Horner-style accumulator with golden-ratio radix instead of 9.
+// Per-step mixing analogous to AES round-by-round; the per-iteration
+// `* gold64` is bijective on u64 and bit-mixing, replacing the unique-but-
+// poorly-mixed *9 polynomial. Final `>> 50` extracts the well-mixed high bits.
+static inline u64 mat_F(const Position *pos) {
+  u64 hash = 0;
+  for (int c = 0; c < 2; c++) {
+    for (int p = Pawn; p <= Queen; p++) {
+      hash = hash * 0x9E3779B97F4A7C15ULL +
+             (u64)__builtin_popcountll(pos->pieces[p] & pos->colour[c]);
+    }
+  }
+  return hash >> 50;
+}
+
 // ----------------------------------------------------- main hash variants -
 
 __attribute__((target("aes"))) static u64 hash_main(const Position *pos,
@@ -398,7 +413,7 @@ int main(void) {
   const int num_slices_to_print = 1;
 #elif MODE == MATERIAL
   printf("MODE MATERIAL: material corrhist hash variants on position walks\n");
-#define NUM_VARIANTS 6
+#define NUM_VARIANTS 7
   static const struct {
     const char *name;
     u64 (*fn)(const Position *);
@@ -410,6 +425,7 @@ int main(void) {
       {"C: m * 0x9E3779B97F4A7C15 >> 50 (high 14 bits)", mat_C},
       {"D: aesenc(0, {m,0}) (low 14 bits)", mat_D},
       {"E: aesenc(aesenc(0, {m,0}), self) (low 14 bits)", mat_E},
+      {"F: Horner with gold64 radix (per-step mixing) >> 50", mat_F},
   };
   const int output_bits = BUCKET_BITS;
   const int num_slices_to_print = 1;
