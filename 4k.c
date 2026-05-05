@@ -1321,7 +1321,7 @@ get_hash(const Position *const pos) {
              G(178, count(G(180, pos->pieces[p]) & G(180, pos->colour[c])));
     }
   }
-  return hash;
+  return (hash * 0x9E3779B97F4A7C15ULL) >> 50;
 }
 
 [[nodiscard]] S(1) u64 get_pawn_hash(const Position *const pos) {
