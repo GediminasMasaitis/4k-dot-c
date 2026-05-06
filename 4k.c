@@ -1235,7 +1235,7 @@ typedef struct [[nodiscard]] {
   G(175, Position pos;)
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
-  G(175, i32 corrhist[2][corrhist_size];)
+  G(175, i32 corrhist[2][2][corrhist_size];)
   G(175, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1383,7 +1383,7 @@ i32 search(
   G(193, i32 * corr_entries[2];)
   for (i32 i = 0; i < 2; i++) {
     corr_entries[i] =
-        &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+        &data->corrhist[pos->flipped][i][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
     assert(static_eval > -mate);
