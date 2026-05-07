@@ -1333,8 +1333,12 @@ get_hash(const Position *const pos) {
   return hash;
 }
 
-[[nodiscard]] S(1) u64 get_pawn_hash(const Position *const pos) {
-  return (G(181, pos->pieces[Pawn]) * G(181, 0x9E3779B97F4A7C15ULL)) >> 50;
+S(1) void get_piece_hashes(const Position *const pos, u64 hashes[2]) {
+  for (i32 p = Pawn; p <= Queen; p++) {
+    const u8 hash_index = p / 2;
+    hashes[hash_index] ^=
+        (G(181, pos->pieces[p]) * G(181, 0x9E3779B97F4A7C15ULL)) >> 50;
+  }
 }
 
 S(1)
@@ -1385,12 +1389,13 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
+  u64 corr_hashes[4] = {0};
   G(193, i32 static_eval = eval(pos); assert(static_eval < mate);
     assert(static_eval > -mate);)
-  G(193, const u64 corr_hashes[2] = {G(194, get_material_hash(pos)),
-                                     G(194, get_pawn_hash(pos))};)
-  G(193, i32 * corr_entries[2];)
-  for (i32 i = 0; i < 2; i++) {
+  G(193, corr_hashes[3] = get_material_hash(pos);)
+  G(193, get_piece_hashes(pos, corr_hashes);)
+  G(193, i32 * corr_entries[4];)
+  for (i32 i = 0; i < 4; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1619,7 +1624,7 @@ i32 search(
               243, if (target < -96) { target = -96; })
               G(243, if (target > 96) { target = 96; }))
 
-        for (i32 i = 0; i < 2; i++) {
+        for (i32 i = 0; i < 4; i++) {
           *corr_entries[i] =
               (G(244, G(245, *corr_entries[i]) * G(245, (600 - dd))) +
                G(244, G(246, target) * G(246, 256) * G(246, dd))) /
