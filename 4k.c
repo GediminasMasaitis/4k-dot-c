@@ -66,33 +66,6 @@ G(
     })
 
 G(
-    1, // Non-standard, gets but a word instead of a line
-    S(0) bool getl(char *restrict string) {
-      while (true) {
-        ssize_t result;
-        asm volatile("syscall"
-                     : "=a"(result)
-                     : "0"(0), "D"(stdin), "S"(string), "d"(1)
-                     : "rcx", "r11", "memory");
-
-    // Assume stdin never closes on mini build
-#ifdef FULL
-        if (result < 1) {
-          exit_now();
-        }
-#endif
-
-        const char ch = *string;
-        if (ch <= ' ') {
-          *string = 0;
-          return ch != '\n';
-        }
-
-        string++;
-      }
-    })
-
-G(
     1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
                                         const char *restrict rhs) {
       while (*lhs || *rhs) {
@@ -122,6 +95,33 @@ G(
     S(1) void puts(const char *const restrict string) {
       putl(string);
       putl("\n");
+    })
+
+G(
+    1, // Non-standard, gets but a word instead of a line
+    S(0) bool getl(char *restrict string) {
+      while (true) {
+        ssize_t result;
+        asm volatile("syscall"
+                     : "=a"(result)
+                     : "0"(0), "D"(stdin), "S"(string), "d"(1)
+                     : "rcx", "r11", "memory");
+
+    // Assume stdin never closes on mini build
+#ifdef FULL
+        if (result < 1) {
+          exit_now();
+        }
+#endif
+
+        const char ch = *string;
+        if (ch <= ' ') {
+          *string = 0;
+          return ch != '\n';
+        }
+
+        string++;
+      }
     })
 
 G(
@@ -473,9 +473,9 @@ G(
     })
 
 G(
-    46,
-    S(1) void move_str(H(50, 1, const Move *restrict move),
-                       H(50, 1, const i32 flip), H(50, 1, char *restrict str)) {
+    46, S(1) void move_str(H(50, 1, const i32 flip),
+                           H(50, 1, const Move *restrict move),
+                           H(50, 1, char *restrict str)) {
       assert(move->from >= 0);
       assert(move->from < 64);
       assert(move->to >= 0);
@@ -541,9 +541,9 @@ G(
 
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
-      G(67, pos->flipped ^= 1;)
       G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
         pos->colour[0] ^= pos->colour[1];)
+      G(67, pos->flipped ^= 1;)
 
       G(
           67, // Hack to flip the first 10 bitboards in Position.
@@ -564,12 +564,12 @@ G(
       else G(70, if (piece == King) { moves = king(bb); }) else {
         const u64 blockers = G(71, pos->colour[0]) | G(71, pos->colour[1]);
         G(
-            72, if (piece != Rook) {
-              moves |= bishop(H(43, 3, blockers), H(43, 3, bb));
-            })
-        G(
             72, if (piece != Bishop) {
               moves |= rook(H(41, 3, blockers), H(41, 3, bb));
+            })
+        G(
+            72, if (piece != Rook) {
+              moves |= bishop(H(43, 3, blockers), H(43, 3, bb));
             })
       }
       return moves;
@@ -772,14 +772,6 @@ enum { max_moves = 218 };
               G(102, ~all) &
               G(102, (only_captures ? 0xFF00000000000000ull : ~0ull))),
         H(93, 3, movelist), H(93, 3, pos));)
-  G(98, // PAWN WEST CAPTURES
-    movelist = generate_pawn_moves(
-        H(93, 5, -7),
-        H(93, 5,
-          G(107,
-            northwest(G(108, pos->colour[0]) & G(108, pos->pieces[Pawn]))) &
-              G(107, (G(109, pos->colour[1]) | G(109, pos->ep)))),
-        H(93, 5, movelist), H(93, 5, pos));)
   G(98, // PAWN EAST CAPTURES
     movelist = generate_pawn_moves(
         H(93, 4, -9),
@@ -788,6 +780,14 @@ enum { max_moves = 218 };
             northeast(G(105, pos->colour[0]) & G(105, pos->pieces[Pawn]))) &
               G(104, (G(106, pos->colour[1]) | G(106, pos->ep)))),
         H(93, 4, movelist), H(93, 4, pos));)
+  G(98, // PAWN WEST CAPTURES
+    movelist = generate_pawn_moves(
+        H(93, 5, -7),
+        H(93, 5,
+          G(107,
+            northwest(G(108, pos->colour[0]) & G(108, pos->pieces[Pawn]))) &
+              G(107, (G(109, pos->colour[1]) | G(109, pos->ep)))),
+        H(93, 5, movelist), H(93, 5, pos));)
   G(
       98, // LONG CASTLE
       if (G(110, !only_captures) && G(110, !(G(111, all) & G(111, 0xEull))) &&
@@ -937,7 +937,7 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];)
+    H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat[5];)
         H(117, 1, i8 bishop_pawns[2];))
   H(116, 1,
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
@@ -952,7 +952,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];)
+    H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat[5];)
         H(117, 2, i32 bishop_pawns[2];))
   H(116, 2,
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
@@ -1203,7 +1203,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1213,17 +1213,17 @@ enum { corrhist_size = 16384 };
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
   G(119, i32 static_eval;)
-  G(119, i32 num_moves;)
-  G(119, u64 position_hash;)
   G(119, Move killer;)
+  G(119, u64 position_hash;)
+  G(119, i32 num_moves;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(174, i16 score;)
-  G(174, u8 flag;)
-  G(174, u16 partial_hash;)
   G(174, Move move;)
+  G(174, u8 flag;)
   G(174, i8 depth;)
+  G(174, u16 partial_hash;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1235,7 +1235,7 @@ typedef struct [[nodiscard]] {
   G(175, Position pos;)
   G(175, u64 max_time;)
   G(175, SearchStack stack[1024];)
-  G(175, i32 corrhist[2][corrhist_size];)
+  G(175, i16 corrhist[2][corrhist_size];)
   G(175, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1380,7 +1380,7 @@ i32 search(
     assert(static_eval > -mate);)
   G(193, const u64 corr_hashes[2] = {G(194, get_material_hash(pos)),
                                      G(194, get_pawn_hash(pos))};)
-  G(193, i32 * corr_entries[2];)
+  G(193, i16 * corr_entries[2];)
   for (i32 i = 0; i < 2; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
@@ -1429,7 +1429,7 @@ i32 search(
           nodes,
 #endif
           H(182, 2, H(183, 2, &npos), H(183, 2, -alpha),
-            H(183, 2, depth - G(208, depth / 4) - G(208, 4)), H(183, 2, data)),
+            H(183, 2, depth - G(208, 4) - G(208, depth / 4)), H(183, 2, data)),
           H(182, 2, H(184, 2, ply + 1), H(184, 2, false), H(184, 2, -beta)));
       if (score >= beta) {
         return score;
@@ -1440,11 +1440,11 @@ i32 search(
   G(209, Move moves[max_moves];
     stack[ply].num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
+  G(209, u8 tt_flag = Upper;)
   G(209, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(209, stack[G(210, ply) + G(210, 2)].position_hash = tt_hash;)
-  G(209, u8 tt_flag = Upper;)
-  G(209, i32 quiets_evaluated = 0;)
   G(209, i32 moves_evaluated = 0;)
+  G(209, i32 quiets_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1455,6 +1455,10 @@ i32 search(
       assert(moves[order_index].takes_piece ==
              piece_on(H(55, 7, pos), H(55, 7, moves[order_index].to)));
       const i32 order_move_score =
+          G(183, // PREVIOUS BEST MOVE FIRST
+            (move_equal(G(214, &stack[ply].best_move),
+                        G(214, &moves[order_index]))
+             << 30)) +
           G(183, // KILLER MOVE
             G(212, move_equal(G(213, &moves[order_index]),
                               G(213, &stack[ply].killer))) *
@@ -1462,10 +1466,6 @@ i32 search(
           G(183, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
-          G(183, // PREVIOUS BEST MOVE FIRST
-            (move_equal(G(214, &stack[ply].best_move),
-                        G(214, &moves[order_index]))
-             << 30)) +
           G(183, // MOST VALUABLE VICTIM
             G(215, moves[order_index].takes_piece) * G(215, 622));
       if (order_move_score > move_score) {
@@ -1588,9 +1588,10 @@ i32 search(
     }
 
     // LATE MOVE PRUNING
-    if (G(233, !in_check) && G(233, G(234, alpha) == G(234, beta - 1)) &&
+    if (G(233, G(234, alpha) == G(234, beta - 1)) &&
         G(233, quiets_evaluated > (G(235, 1) + G(235, depth * depth)) >>
-                   !improving)) {
+                   !improving) &&
+        G(233, !in_check)) {
       break;
     }
   }
@@ -1707,7 +1708,7 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
   if (score > alpha && score < beta) {
     putl(" pv ");
     char move_name[8];
-    move_str(H(50, 2, &pv_move), H(50, 2, pos->flipped), H(50, 2, move_name));
+    move_str(H(50, 2, pos->flipped), H(50, 2, &pv_move), H(50, 2, move_name));
     putl(move_name);
   }
 
@@ -1852,8 +1853,8 @@ void run_smp() {
 #endif
 
   char move_name[8];
-  move_str(H(50, 3, &main_data->stack[0].best_move),
-           H(50, 3, main_data->pos.flipped), H(50, 3, move_name));
+  move_str(H(50, 3, main_data->pos.flipped),
+           H(50, 3, &main_data->stack[0].best_move), H(50, 3, move_name));
   putl("bestmove ");
   puts(move_name);
 }
@@ -2042,29 +2043,27 @@ S(1) void run() {
              elapsed, nps);
     }
 #endif
-    G(258, if (G(261, line[0]) == G(261, 'i')) { puts("readyok"); })
-    else G(258, if (G(260, line[0]) == G(260, 'g')) {
-      stop = false;
+    G(
+        258, if (G(260, line[0]) == G(260, 'g')) {
+          stop = false;
 #ifdef FULL
-      while (true) {
-        getl(line);
-        if (!main_data->pos.flipped && !strcmp(line, "wtime")) {
-          getl(line);
-          main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
-          break;
-        }
-        else if (main_data->pos.flipped && !strcmp(line, "btime")) {
-          getl(line);
-          main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
-          break;
-        }
-        else if (!strcmp(line, "movetime")) {
-          main_data->max_time =
-            20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
-          break;
-        }
-      }
-      run_smp();
+          while (true) {
+            getl(line);
+            if (!main_data->pos.flipped && !strcmp(line, "wtime")) {
+              getl(line);
+              main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
+              break;
+            } else if (main_data->pos.flipped && !strcmp(line, "btime")) {
+              getl(line);
+              main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
+              break;
+            } else if (!strcmp(line, "movetime")) {
+              main_data->max_time =
+                  20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
+              break;
+            }
+          }
+          run_smp();
 #else
       for (i32 i = 2 << main_data->pos.flipped; i > 0; i--) {
         getl(line);
@@ -2073,7 +2072,7 @@ S(1) void run() {
       start_time = get_time();
       run_smp();
 #endif
-    })
+        })
     else G(258, if (G(262, line[0]) == G(262, 'p')) {
       G(263, main_data->pos = start_pos;)
         while (true) {
@@ -2092,7 +2091,7 @@ S(1) void run() {
               H(95, 4, false), H(95, 4, moves));
             for (i32 i = 0; i < num_moves; i++) {
               char move_name[8];
-              move_str(H(50, 4, &moves[i]), H(50, 4, main_data->pos.flipped),
+              move_str(H(50, 4, main_data->pos.flipped), H(50, 4, &moves[i]),
                 H(50, 4, move_name));
               assert(move_string_equal(line, move_name) ==
                 !strcmp(line, move_name));
@@ -2107,6 +2106,7 @@ S(1) void run() {
           }
         }
     })
+    else G(258, if (G(261, line[0]) == G(261, 'i')) { puts("readyok"); })
     else G(258, if (G(259, line[0]) == G(259, 'q')) { exit_now(); })
   }
 }
