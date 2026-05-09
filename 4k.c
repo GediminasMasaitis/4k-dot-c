@@ -1485,7 +1485,7 @@ i32 search(
         218, // FORWARD FUTILITY PRUNING / DELTA PRUNING
         if (G(219, depth < 8) &&
             G(219,
-              G(220, static_eval) + G(220, G(221, 154) * G(221, depth)) +
+              G(220, static_eval) + G(220, G(221, 154) * G(221, depth)) * G(211, !in_qsearch) +
                       G(220,
                         initial_params.eg.material[moves[move_index].promo]) +
                       G(220, initial_params.eg
