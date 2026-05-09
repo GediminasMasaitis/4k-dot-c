@@ -30,7 +30,8 @@ ifeq ($(NOSTDLIB), true)
 	LDFLAGS += -nostdlib -Wl,-Map=$(EXE).map
 	NOSTDLIBLDFLAGS += -Wl,-T 64bit.ld
 else
-	CFLAGS += -march=native -static -O3
+	CFLAGS += -march=native -static -O3 -pthread
+	LDFLAGS += -pthread
 endif
 
 ifneq ($(MINI), true)

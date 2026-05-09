@@ -1284,7 +1284,11 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
 #include <arm_neon.h>
 
+#ifdef __clang__
 [[nodiscard]] __attribute__((target("+aes"))) u64
+#else
+[[nodiscard]] __attribute__((target("arch=armv8-a+crypto"))) u64
+#endif
 get_hash(const Position *const pos) {
   uint8x16_t hash = vdupq_n_u8(0);
 
