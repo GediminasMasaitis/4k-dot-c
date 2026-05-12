@@ -1433,7 +1433,7 @@ i32 search(
           nodes,
 #endif
           H(182, 2, H(183, 2, &npos), H(183, 2, -alpha),
-            H(183, 2, depth - G(208, depth / 4) - G(208, 4)), H(183, 2, data)),
+            H(183, 2, depth - G(208, depth / 3) - G(208, 4)), H(183, 2, data)),
           H(182, 2, H(184, 2, ply + 1), H(184, 2, false), H(184, 2, -beta)));
       if (score >= beta) {
         return score;
