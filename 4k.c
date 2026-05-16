@@ -1759,7 +1759,7 @@ void iteratively_deepen(
           })
     }
 
-    if (stop || elapsed > data->max_time / 16) {
+    if (stop || elapsed > data->max_time / 14) {
       break;
     }
   }
