@@ -1424,7 +1424,9 @@ i32 search(
     }
 
     // NULL MOVE PRUNING
-    if (G(206, depth > 2) && G(206, do_null) && G(206, static_eval >= beta)) {
+    if (G(206, depth > 2) && G(206, do_null) && G(206, static_eval >= beta) &&
+        G(206, G(999, pos->colour[0]) & G(999, ~pos->pieces[Pawn]) &
+                   G(999, ~pos->pieces[King]))) {
       Position npos = *pos;
       G(207, flip_pos(&npos);)
       G(207, npos.ep = 0;)
