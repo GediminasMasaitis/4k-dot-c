@@ -1987,6 +1987,8 @@ S(1) void run() {
   puts("uciok");
 #endif
 
+  __builtin_memset(tt, 0xFF, tt_length * sizeof(TTEntry));
+
   // UCI loop
   while (true) {
     getl(line);
