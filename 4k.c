@@ -1254,7 +1254,7 @@ __attribute__((
 #else
 __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
-S(1) TTEntry tt[tt_length];
+__attribute__((aligned(2 * 1024 * 1024))) S(1) TTEntry tt[tt_length];
 #endif
 G(176, S(1) volatile bool stop;)
 G(176, S(1) u64 start_time;)
