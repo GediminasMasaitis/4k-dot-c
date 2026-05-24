@@ -28,6 +28,7 @@ persist_asm_cache = True
 enable_binary_cache = True
 persist_binary_cache = True
 errors_dir = 'errors'
+CC = '/usr/local/gcc-trunk/bin/gcc-trunk'
 
 class CountdownEvent:
     def __init__(self):
@@ -355,7 +356,7 @@ def run_make_and_get_size(cwd=None, source_content=None):
         # No compression — just build and measure raw size
         try:
             proc = subprocess.run(
-                ['make', 'NOSTDLIB=true', 'MINI=true', 'compress_source'],
+                ['make', f'CC={CC}', 'NOSTDLIB=true', 'MINI=true', 'compress_source'],
                 cwd=cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -375,7 +376,7 @@ def run_make_and_get_size(cwd=None, source_content=None):
     # Step 1: Compile to assembly
     try:
         subprocess.run(
-            ['make', 'NOSTDLIB=true', 'MINI=true', 'compile_asm'],
+            ['make', f'CC={CC}', 'NOSTDLIB=true', 'MINI=true', 'compile_asm'],
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -410,7 +411,7 @@ def run_make_and_get_size(cwd=None, source_content=None):
     # Step 3: Assemble and link
     try:
         subprocess.run(
-            ['make', 'NOSTDLIB=true', 'MINI=true', 'link_asm'],
+            ['make', f'CC={CC}', 'NOSTDLIB=true', 'MINI=true', 'link_asm'],
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -945,11 +946,17 @@ def main():
 
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
 
+    print(f'Compiler: {CC}')
+    try:
+        ver = subprocess.run([CC, '--version'], stdout=subprocess.PIPE, text=True, check=True).stdout.splitlines()[0]
+        print(f'         {ver}')
+    except Exception as e:
+        print(f'  (could not query {CC}: {e})')
     print(f'Mode: {"compress" if use_compression else "build-only (raw binary size)"}')
 
     if use_compression:
         print('Building compressor...')
-        subprocess.run(['make', 'compressor'], check=True)
+        subprocess.run(['make', f'CC={CC}', 'compressor'], check=True)
         os.chmod('compressor', 0o755)
 
     setup_workers()
