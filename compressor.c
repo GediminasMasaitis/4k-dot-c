@@ -1498,25 +1498,25 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
     "\n"
     "/* ── Inspect panel ── */\n"
-    "#cmap-detail,#attr-detail,#bfreq-detail,#bigram-detail{display:none;margin-top:14px;padding:14px 18px;"
+    "#cmap-detail,#attr-detail,#bfreq-detail,#bigram-detail,#search-detail{display:none;margin-top:14px;padding:14px 18px;"
     "background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;"
     "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
-    "#cmap-detail .cd-head,#attr-detail .cd-head,#bfreq-detail .cd-head,#bigram-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
+    "#cmap-detail .cd-head,#attr-detail .cd-head,#bfreq-detail .cd-head,#bigram-detail,#search-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
     "margin-bottom:10px}\n"
-    "#cmap-detail .cd-byte,#attr-detail .cd-byte,#bfreq-detail .cd-byte,#bigram-detail .cd-byte{font-family:var(--mono);font-size:18px;"
+    "#cmap-detail .cd-byte,#attr-detail .cd-byte,#bfreq-detail .cd-byte,#bigram-detail,#search-detail .cd-byte{font-family:var(--mono);font-size:18px;"
     "font-weight:600;color:var(--fg)}\n"
-    "#cmap-detail .cd-sub,#attr-detail .cd-sub,#bfreq-detail .cd-sub,#bigram-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
-    "#cmap-detail .cd-cost,#attr-detail .cd-cost,#bfreq-detail .cd-cost,#bigram-detail .cd-cost{font-family:var(--mono);font-size:14px;"
+    "#cmap-detail .cd-sub,#attr-detail .cd-sub,#bfreq-detail .cd-sub,#bigram-detail,#search-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
+    "#cmap-detail .cd-cost,#attr-detail .cd-cost,#bfreq-detail .cd-cost,#bigram-detail,#search-detail .cd-cost{font-family:var(--mono);font-size:14px;"
     "font-weight:600}\n"
-    "#cmap-detail .cd-bar,#attr-detail .cd-bar,#bfreq-detail .cd-bar,#bigram-detail .cd-bar{display:flex;align-items:center;gap:8px;"
+    "#cmap-detail .cd-bar,#attr-detail .cd-bar,#bfreq-detail .cd-bar,#bigram-detail,#search-detail .cd-bar{display:flex;align-items:center;gap:8px;"
     "margin:3px 0;font-size:11px}\n"
-    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl,#bfreq-detail .cd-bar-lbl,#bigram-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
+    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl,#bfreq-detail .cd-bar-lbl,#bigram-detail,#search-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
     "color:var(--fg3);flex-shrink:0}\n"
-    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track,#bfreq-detail .cd-bar-track,#bigram-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
+    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track,#bfreq-detail .cd-bar-track,#bigram-detail,#search-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
     "border-radius:3px;position:relative;overflow:hidden}\n"
-    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill,#bfreq-detail .cd-bar-fill,#bigram-detail .cd-bar-fill{height:100%%;border-radius:3px;"
+    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill,#bfreq-detail .cd-bar-fill,#bigram-detail,#search-detail .cd-bar-fill{height:100%%;border-radius:3px;"
     "position:absolute;left:0;top:0;transition:width .2s}\n"
-    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val,#bfreq-detail .cd-bar-val,#bigram-detail .cd-bar-val{font-family:var(--mono);width:70px;"
+    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val,#bfreq-detail .cd-bar-val,#bigram-detail,#search-detail .cd-bar-val{font-family:var(--mono);width:70px;"
     "text-align:right;flex-shrink:0}\n"
     ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
     "</style></head><body>\n"
@@ -2930,9 +2930,14 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<h2>Model Search Trajectory</h2>\n"
       "<p class=\"desc\">Best estimated size (log-log) over 256 context masks. "
       "<span style=\"color:#34d399\">\xe2\x97\x8f</span> addition, "
-      "<span style=\"color:#f87171\">\xe2\x97\x8f</span> removal.</p>\n");
+      "<span style=\"color:#f87171\">\xe2\x97\x8f</span> removal. "
+      "<span style=\"color:var(--fg3)\">Click any dot for details.</span></p>\n");
     fprintf(f,
-      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" style=\"display:block\">\n",
+      "<style>#search-svg circle{transition:stroke-width .12s}"
+      "#search-svg circle:hover{stroke:#fff;stroke-width:1.5}</style>\n");
+    fprintf(f,
+      "<svg id=\"search-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"display:block\">\n",
       svg_w, svg_h);
 
     fprintf(f,
@@ -3025,9 +3030,10 @@ static void write_html_report(const char *path, const CompStats *s) {
       int y = CLAMP(LOGY(est), pad_t, pad_t + plot_h);
       const char *col = s->search_events[e].is_removal ? "#f87171" : "#34d399";
       fprintf(f,
-        "<circle cx=\"%d\" cy=\"%d\" r=\"3.5\" fill=\"%s\" opacity=\".8\">"
+        "<circle cx=\"%d\" cy=\"%d\" r=\"3.5\" fill=\"%s\" opacity=\".8\" "
+        "data-e=\"%d\" style=\"cursor:pointer\">"
         "<title>%s %02X (%d models, %.1f B)</title></circle>\n",
-        x, y, col, s->search_events[e].is_removal ? "Remove" : "Add",
+        x, y, col, e, s->search_events[e].is_removal ? "Remove" : "Add",
         s->search_events[e].mask, s->search_events[e].num_models, est);
     }
 
@@ -3045,7 +3051,83 @@ static void write_html_report(const char *path, const CompStats *s) {
       "font-size=\"10\" fill=\"#6b7186\" "
       "transform=\"rotate(-90,14,%d)\">est. bytes (log)</text>\n",
       pad_t + plot_h / 2, pad_t + plot_h / 2);
-    fprintf(f, "</svg></div>\n\n");
+    fprintf(f, "</svg>\n");
+
+    /* ── Detail panel ── */
+    fprintf(f, "<div id=\"search-detail\"></div>\n");
+
+    /* ── Embed event data + click handler ── */
+    fprintf(f, "<script>\nvar SE=[");
+    for (int e = 0; e < s->search_nevents; e++) {
+      fprintf(f, "%s{i:%d,m:%d,n:%d,b:%.4g,r:%d}", e ? "," : "",
+        s->search_events[e].mask_idx,
+        s->search_events[e].mask,
+        s->search_events[e].num_models,
+        s->search_events[e].est_bytes,
+        s->search_events[e].is_removal);
+    }
+    fprintf(f, "];\n");
+    fprintf(f, "var SB=[");
+    for (int i = 0; i < s->search_len; i++) {
+      fprintf(f, "%s%.4g", i ? "," : "", s->search_best[i]);
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "%s",
+      "(function(){\n"
+      "var svg=document.getElementById('search-svg');\n"
+      "var panel=document.getElementById('search-detail');\n"
+      "var sel=null;\n"
+      "svg.addEventListener('click',function(ev){\n"
+      "  var t=ev.target; if(t.tagName!=='circle') return;\n"
+      "  var ei=t.getAttribute('data-e'); if(ei===null) return;\n"
+      "  ei=+ei; var e=SE[ei]; if(!e) return;\n"
+      "  if(sel) sel.classList.remove('cmap-sel');\n"
+      "  t.classList.add('cmap-sel'); sel=t;\n"
+      "  var hex='0x'+(e.m<16?'0':'')+e.m.toString(16).toUpperCase();\n"
+      "  var before=(e.i>0&&e.i-1<SB.length)?SB[e.i-1]:null;\n"
+      "  var delta=before!==null?e.b-before:null;\n"
+      "  var dClr=delta===null?'var(--fg3)'\n"
+      "    :delta<0?'#34d399':delta>0?'#f87171':'var(--fg3)';\n"
+      "  var opClr=e.r?'#f87171':'#34d399';\n"
+      "  var opLabel=e.r?'Remove':'Add';\n"
+      "  /* mask bit visualization, matches Per-Model Statistics */\n"
+      "  var maskBits='';\n"
+      "  for(var b=7;b>=0;b--){\n"
+      "    var on=(e.m>>b)&1;\n"
+      "    maskBits+='<rect x=\"'+((7-b)*9+1)+'\" y=\"1\" width=\"8\" '\n"
+      "      +'height=\"10\" rx=\"1\" fill=\"'+(on?'#22d3ee':'#1a1e2b')\n"
+      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>';\n"
+      "  }\n"
+      "  var h='<div class=\"cd-head\">';\n"
+      "  h+='<span class=\"cd-byte\" style=\"color:'+opClr+'\">'+opLabel\n"
+      "    +' '+hex+'</span>';\n"
+      "  h+='<svg width=\"82\" height=\"12\" '\n"
+      "    +'style=\"vertical-align:middle\">'+maskBits+'</svg>';\n"
+      "  h+='<span class=\"cd-sub\">iteration '+e.i+' / 255 \\u00b7 '\n"
+      "    +'event '+(ei+1)+' / '+SE.length+'</span>';\n"
+      "  h+='</div>';\n"
+      "  h+='<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;'\n"
+      "    +'gap:12px 20px;margin:10px 0;font-size:12px\">';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Models after</span><br>'\n"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;'\n"
+      "    +'color:var(--fg)\">'+e.n+'</span></div>';\n"
+      "  h+='<div><span style=\"color:var(--fg3)\">Est. size</span><br>'\n"
+      "    +'<span style=\"font-family:var(--mono);font-weight:600;'\n"
+      "    +'color:var(--fg)\">'+e.b.toFixed(2)+' B</span></div>';\n"
+      "  if(delta!==null){\n"
+      "    h+='<div><span style=\"color:var(--fg3)\">\\u0394 vs prev iter</span><br>'\n"
+      "      +'<span style=\"font-family:var(--mono);font-weight:600;'\n"
+      "      +'color:'+dClr+'\">'+(delta>=0?'+':'')+delta.toFixed(2)+' B</span></div>';\n"
+      "  }\n"
+      "  h+='</div>';\n"
+      "  panel.innerHTML=h;\n"
+      "  panel.style.display='block';\n"
+      "});\n"
+      "})();\n"
+      "</script>\n");
+
+    fprintf(f, "</div>\n\n");
   }
 
   /* ── Per-Model Statistics ── */
