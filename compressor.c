@@ -1531,6 +1531,11 @@ static void write_html_report(const char *path, const CompStats *s) {
     "min-width:120px}\n"
     ".hover-tip .tip-sw{display:inline-block;width:8px;height:8px;"
     "border-radius:2px;margin-right:4px;vertical-align:middle}\n"
+    ".pm-th{cursor:pointer;user-select:none;transition:color .12s}\n"
+    ".pm-th:hover{color:var(--fg)}\n"
+    ".pm-th .sort-arrow{font-size:9px;color:var(--fg3);margin-left:4px}\n"
+    ".pm-th.active{color:var(--fg)}\n"
+    ".pm-th.active .sort-arrow{color:var(--acc)}\n"
     "</style></head><body>\n"
     "<nav class=\"sidebar\" id=\"sidebar\">\n"
     "<div class=\"sb-title\">Sections</div>\n"
@@ -1685,12 +1690,13 @@ static void write_html_report(const char *path, const CompStats *s) {
       int w = (int)(segs[i].pct * bar_w / 100);
       if (w < 1 && segs[i].pct > 0) w = 1;
       if (i == nsegs - 1) w = bar_w - (x - 2);
+      /* SVG rx takes a single length; rely on adjacent segments
+         covering the inner-rounded corners of first/last */
       fprintf(f,
         "<rect x=\"%d\" y=\"2\" width=\"%d\" height=\"22\" "
         "fill=\"%s\" rx=\"%s\"/>\n",
         x, w, segs[i].fill,
-        i == 0 ? (nsegs == 1 ? "4" : "4 0 0 4")
-        : i == nsegs - 1 ? "0 4 4 0" : "0");
+        (i == 0 || i == nsegs - 1) ? "4" : "0");
       if (w > 55) {
         fprintf(f,
           "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
@@ -4059,11 +4065,16 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<p class=\"desc\">Sorted by contribution. Positive bits saved = model helped. "
       "<span style=\"color:var(--fg3)\">Click a row to highlight that model "
       "in the Attribution Map (click again to flip to where it hurts).</span></p>\n"
-      "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
-      "<th class=\"r\">Hits</th><th class=\"r\">Hit %%</th>"
-      "<th class=\"r\">Unique Ctx</th>"
-      "<th class=\"r\">Bits Saved</th>"
-      "<th class=\"r\">Bytes Saved</th></tr>\n");
+      "<table><tr>"
+      "<th class=\"pm-th\" data-col=\"0\">#</th>"
+      "<th class=\"pm-th\" data-col=\"1\">Mask</th>"
+      "<th class=\"pm-th r\" data-col=\"2\">Weight</th>"
+      "<th class=\"pm-th r\" data-col=\"3\">Hits</th>"
+      "<th class=\"pm-th r\" data-col=\"4\">Hit %%</th>"
+      "<th class=\"pm-th r\" data-col=\"5\">Unique Ctx</th>"
+      "<th class=\"pm-th r\" data-col=\"6\">Bits Saved</th>"
+      "<th class=\"pm-th r\" data-col=\"7\">Bytes Saved</th>"
+      "</tr>\n");
 
     double total_saved = 0;
     for (int i = 0; i < s->num_models; i++) {
@@ -4081,11 +4092,11 @@ static void write_html_report(const char *path, const CompStats *s) {
 
       fprintf(f,
         "<tr class=\"pm-row\" data-bm=\"%d\" style=\"cursor:pointer\">"
-        "<td class=\"r\">%d</td>"
-        "<td class=\"n\" style=\"white-space:nowrap\">%02X <svg "
+        "<td class=\"r\" data-v=\"%d\">%d</td>"
+        "<td class=\"n\" data-v=\"%d\" style=\"white-space:nowrap\">%02X <svg "
         "width=\"66\" height=\"12\" "
         "style=\"vertical-align:middle;display:inline-block\">",
-        m, m, s->model_masks[m]);
+        m, m, m, s->model_masks[m], s->model_masks[m]);
       for (int b = 7; b >= 0; b--) {
         int on = (s->model_masks[m] >> b) & 1;
         int bx = (7 - b) * 8 + 1;
@@ -4096,14 +4107,20 @@ static void write_html_report(const char *path, const CompStats *s) {
       }
       fprintf(f,
         "</svg></td>"
-        "<td class=\"r\">%d</td><td class=\"r\">%u</td>"
-        "<td class=\"r\">%.1f</td><td class=\"r\">%u</td>"
-        "<td class=\"r bar-cell\">"
+        "<td class=\"r\" data-v=\"%d\">%d</td>"
+        "<td class=\"r\" data-v=\"%u\">%u</td>"
+        "<td class=\"r\" data-v=\"%.4f\">%.1f</td>"
+        "<td class=\"r\" data-v=\"%u\">%u</td>"
+        "<td class=\"r bar-cell\" data-v=\"%.4f\">"
         "<div class=\"bar %s\" style=\"width:%.0f%%;opacity:.18\"></div>"
         "<span class=\"bar-label %s\">%.1f</span></td>"
-        "<td class=\"r\">%.1f</td></tr>\n",
-        s->model_weights[m], s->model_hits[m], pct, s->model_misses[m],
-        bcls, bar_w, cls, bits, bits / 8.0);
+        "<td class=\"r\" data-v=\"%.4f\">%.1f</td></tr>\n",
+        s->model_weights[m], s->model_weights[m],
+        s->model_hits[m], s->model_hits[m],
+        pct, pct,
+        s->model_misses[m], s->model_misses[m],
+        bits, bcls, bar_w, cls, bits,
+        bits / 8.0, bits / 8.0);
     }
     fprintf(f,
       "<tr style=\"border-top:2px solid var(--bdr2)\">"
@@ -4115,10 +4132,12 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     /* Wire rows to the Attribution Map's setHilite (set up earlier on
        window.attrSetHilite). Also register pmSetActive so Attribution Map
-       can drive the row highlight when the user clicks elsewhere. */
+       can drive the row highlight when the user clicks elsewhere.
+       Also wire sortable column headers. */
     fprintf(f, "%s",
       "<script>(function(){\n"
-      "var rows=document.querySelectorAll('#sec-models tr.pm-row');\n"
+      "var rows=Array.prototype.slice.call("
+      "document.querySelectorAll('#sec-models tr.pm-row'));\n"
       "for(var i=0;i<rows.length;i++){\n"
       "  rows[i].addEventListener('click',function(){\n"
       "    var m=this.getAttribute('data-bm');\n"
@@ -4137,6 +4156,52 @@ static void write_html_report(const char *path, const CompStats *s) {
       "      :'';\n"
       "  }\n"
       "};\n"
+      "/* sortable columns */\n"
+      "var ths=document.querySelectorAll('#sec-models .pm-th');\n"
+      "/* rows share a parent (auto-created tbody); use it for insertBefore */\n"
+      "var rowParent=rows.length?rows[0].parentNode:null;\n"
+      "var allRows=rowParent?rowParent.querySelectorAll('tr'):[];\n"
+      "var totalRow=allRows.length?allRows[allRows.length-1]:null;\n"
+      "if(totalRow && totalRow.classList.contains('pm-row')) totalRow=null;\n"
+      "for(var i=0;i<ths.length;i++){\n"
+      "  var sp=document.createElement('span');\n"
+      "  sp.className='sort-arrow'; sp.textContent='\\u2195';\n"
+      "  ths[i].appendChild(sp);\n"
+      "}\n"
+      "var sortCol=6, sortDir=-1; /* bits saved desc by default (matches C) */\n"
+      "function sortBy(col,dir){\n"
+      "  rows.sort(function(a,b){\n"
+      "    var va=parseFloat(a.children[col].getAttribute('data-v'));\n"
+      "    var vb=parseFloat(b.children[col].getAttribute('data-v'));\n"
+      "    return (va-vb)*dir;\n"
+      "  });\n"
+      "  var frag=document.createDocumentFragment();\n"
+      "  rows.forEach(function(r){frag.appendChild(r);});\n"
+      "  if(totalRow) rowParent.insertBefore(frag,totalRow);\n"
+      "  else rowParent.appendChild(frag);\n"
+      "  for(var i=0;i<ths.length;i++){\n"
+      "    var c=parseInt(ths[i].getAttribute('data-col'));\n"
+      "    var ar=ths[i].querySelector('.sort-arrow');\n"
+      "    if(c===col){\n"
+      "      ths[i].classList.add('active');\n"
+      "      if(ar) ar.textContent=dir>0?'\\u2191':'\\u2193';\n"
+      "    } else {\n"
+      "      ths[i].classList.remove('active');\n"
+      "      if(ar) ar.textContent='\\u2195';\n"
+      "    }\n"
+      "  }\n"
+      "}\n"
+      "for(var i=0;i<ths.length;i++){\n"
+      "  (function(th){\n"
+      "    th.addEventListener('click',function(){\n"
+      "      var col=parseInt(th.getAttribute('data-col'));\n"
+      "      if(col===sortCol) sortDir=-sortDir;\n"
+      "      else { sortCol=col; sortDir=(col===0||col===1)?1:-1; }\n"
+      "      sortBy(sortCol,sortDir);\n"
+      "    });\n"
+      "  })(ths[i]);\n"
+      "}\n"
+      "sortBy(sortCol,sortDir);\n"
       "})();</script>\n");
 
     fprintf(f, "</div>\n\n");
