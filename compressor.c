@@ -2455,12 +2455,16 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    status.textContent='\\u2192 '+label;\n"
       "    status.style.color=state.mode==='best'?'#34d399':'#f87171';\n"
       "  }\n"
+      "  /* propagate to other linked sections (no-op if not present) */\n"
+      "  var sm=state?state.m:null, mo=state?state.mode:null;\n"
+      "  if(window.domSetActive) window.domSetActive(sm);\n"
+      "  if(window.pmSetActive) window.pmSetActive(sm,mo);\n"
       "}\n"
       "legend.addEventListener('click',function(e){\n"
       "  var el=e.target.closest('[data-bm]');\n"
       "  if(el) setHilite(el.getAttribute('data-bm'));\n"
       "});\n"
-      "/* expose for cross-section triggers (Per-Model Statistics) */\n"
+      "/* expose for cross-section triggers */\n"
       "window.attrSetHilite=setHilite;\n"
       "document.getElementById('attr-svg').addEventListener('click',function(e){\n"
       "  var r=e.target; if(r.tagName!=='rect') return;\n"
@@ -2669,9 +2673,26 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  order.unshift(m);\n"
       "  render();\n"
       "}\n"
+      "/* observer hook: Attribution Map drives this on cross-section selection */\n"
+      "window.domSetActive=function(m){\n"
+      "  if(m===null||m===undefined||m==='-1'){\n"
+      "    order=[]; for(var i=0;i<nm;i++) order.push(i);\n"
+      "  } else {\n"
+      "    var n=+m;\n"
+      "    if(n>=0&&n<nm){\n"
+      "      order=order.filter(function(x){return x!==n;});\n"
+      "      order.unshift(n);\n"
+      "    }\n"
+      "  }\n"
+      "  render();\n"
+      "};\n"
       "function onClick(e){\n"
       "  var el=e.target.closest('[data-m]');\n"
-      "  if(el) rebase(+el.getAttribute('data-m'));\n"
+      "  if(!el) return;\n"
+      "  var m=el.getAttribute('data-m');\n"
+      "  /* route through Attribution Map so the tri-state cycle stays consistent */\n"
+      "  if(window.attrSetHilite) window.attrSetHilite(m);\n"
+      "  else rebase(+m);\n"
       "}\n"
       "legend.addEventListener('click',onClick);\n"
       "chart.addEventListener('click',onClick);\n"
@@ -3212,7 +3233,8 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</table>\n");
 
     /* Wire rows to the Attribution Map's setHilite (set up earlier on
-       window.attrSetHilite). Falls back to no-op if attr map is missing. */
+       window.attrSetHilite). Also register pmSetActive so Attribution Map
+       can drive the row highlight when the user clicks elsewhere. */
     fprintf(f, "%s",
       "<script>(function(){\n"
       "var rows=document.querySelectorAll('#sec-models tr.pm-row');\n"
@@ -3224,6 +3246,16 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    if(attr) attr.scrollIntoView({behavior:'smooth',block:'start'});\n"
       "  });\n"
       "}\n"
+      "/* observer hook: highlight the active model's row */\n"
+      "window.pmSetActive=function(m,mode){\n"
+      "  for(var i=0;i<rows.length;i++){\n"
+      "    var rm=rows[i].getAttribute('data-bm');\n"
+      "    var on=(m!==null&&m!==undefined&&rm===m);\n"
+      "    rows[i].style.background=on\n"
+      "      ?(mode==='best'?'rgba(52,211,153,.10)':'rgba(248,113,113,.10)')\n"
+      "      :'';\n"
+      "  }\n"
+      "};\n"
       "})();</script>\n");
 
     fprintf(f, "</div>\n\n");
