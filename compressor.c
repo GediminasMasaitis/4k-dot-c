@@ -1740,6 +1740,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<p class=\"desc\">16&times;16 grid of all 256 byte values. "
       "Intensity = log frequency. %d unique bytes, max count = %u.</p>\n",
       nunique, fmax);
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
+    fprintf(f, "<div id=\"bfreq-tip\" class=\"hover-tip\"></div>\n");
     fprintf(f,
       "<svg id=\"bfreq-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"font-family:var(--mono);display:block\">\n",
@@ -1784,13 +1786,9 @@ static void write_html_report(const char *path, const CompStats *s) {
 
         fprintf(f,
           "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-          "rx=\"2\" fill=\"rgb(%d,%d,%d)\" data-b=\"%d\" style=\"cursor:pointer\">"
-          "<title>0x%02X",
-          x, y, cell, cell, cr, cg, cb, byte_val, byte_val);
-        if (byte_val >= 0x20 && byte_val <= 0x7E)
-          fprintf(f, " '%c'", byte_val);
-        fprintf(f, ": %u (%.1f%%)</title></rect>\n", freq,
-          s->input_size > 0 ? 100.0 * freq / s->input_size : 0.0);
+          "rx=\"2\" fill=\"rgb(%d,%d,%d)\" data-b=\"%d\" "
+          "style=\"cursor:pointer\"/>\n",
+          x, y, cell, cell, cr, cg, cb, byte_val);
 
         if (label[0]) {
           int text_bright = intensity > 0.35f;
@@ -1803,6 +1801,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       }
     }
     fprintf(f, "</svg>\n");
+    fprintf(f, "</div>\n"); /* close scrub-wrap */
 
     /* ── Detail panel ── */
     fprintf(f, "<div id=\"bfreq-detail\" class=\"cd-panel\"></div>\n");
@@ -1874,6 +1873,37 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  panel.innerHTML=h;\n"
       "  panel.style.display='block';\n"
       "});\n"
+      "/* hover tooltip */\n"
+      "var btip=document.getElementById('bfreq-tip');\n"
+      "var bsvg=document.getElementById('bfreq-svg');\n"
+      "function hideBtip(){btip.style.display='none';}\n"
+      "bsvg.addEventListener('mousemove',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect'){hideBtip();return;}\n"
+      "  var bv=r.getAttribute('data-b'); if(bv===null) return;\n"
+      "  bv=parseInt(bv);\n"
+      "  var freq=BF[bv];\n"
+      "  var pct=BF_TOTAL>0?(100*freq/BF_TOTAL):0;\n"
+      "  var ch=(bv>=0x20&&bv<=0x7E)?String.fromCharCode(bv):null;\n"
+      "  var hex='0x'+(bv<16?'0':'')+bv.toString(16).toUpperCase();\n"
+      "  var label=hex+(ch?\" '\"+ch+\"'\":'');\n"
+      "  var selfInfo=freq>0?-Math.log2(freq/BF_TOTAL):0;\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg)\">'+label+'</span></div>'\n"
+      "    +'<div style=\"border-top:1px solid var(--bdr);margin:4px 0 2px;padding-top:4px\"></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">count</span>'\n"
+      "    +'<span style=\"color:var(--acc);font-weight:600\">'+freq+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">freq</span>'\n"
+      "    +'<span>'+pct.toFixed(2)+'%</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">H\\u2080</span>'\n"
+      "    +'<span>'+(freq>0?selfInfo.toFixed(2)+' bits':'\\u221e')+'</span></div>';\n"
+      "  btip.innerHTML=h;\n"
+      "  var pr=bsvg.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-pr.left)+14, ty=(e.clientY-pr.top)-60;\n"
+      "  if(tx+180>pr.width) tx=(e.clientX-pr.left)-180;\n"
+      "  if(ty<0) ty=(e.clientY-pr.top)+18;\n"
+      "  btip.style.left=tx+'px'; btip.style.top=ty+'px';\n"
+      "  btip.style.display='block';\n"
+      "});\n"
+      "bsvg.addEventListener('mouseleave',hideBtip);\n"
       "})();\n");
 
     fprintf(f, "</script>\n");
