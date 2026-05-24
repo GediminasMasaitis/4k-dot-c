@@ -2308,7 +2308,7 @@ static void write_html_report(const char *path, const CompStats *s) {
         "cursor:pointer;padding:2px 6px;border-radius:3px\">"
         "<span style=\"display:inline-block;width:12px;height:12px;"
         "border-radius:2px;background:rgb(%d,%d,%d)\"></span>"
-        "%02X:%d</span>\n",
+        "%02X:%d<span class=\"attr-lg-arr\"></span></span>\n",
         m,
         palette[m % npal][0], palette[m % npal][1], palette[m % npal][2],
         s->model_masks[m], s->model_weights[m]);
@@ -2318,7 +2318,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "cursor:pointer;padding:2px 6px;border-radius:3px\">"
       "<span style=\"display:inline-block;width:12px;height:12px;"
       "border-radius:2px;background:rgb(40,44,60)\"></span>"
-      "none</span>\n");
+      "none<span class=\"attr-lg-arr\"></span></span>\n");
     fprintf(f, "<span id=\"attr-status\" style=\"align-self:center;"
       "font-style:italic;color:var(--fg3)\"></span>\n");
     fprintf(f, "</div>\n");
@@ -2430,8 +2430,13 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var items=legend.querySelectorAll('.attr-lg');\n"
       "  for(var i=0;i<items.length;i++){\n"
       "    var v=items[i].getAttribute('data-bm');\n"
-      "    items[i].style.background=(state && v===state.m)\n"
+      "    var on=(state && v===state.m);\n"
+      "    items[i].style.background=on\n"
       "      ?(state.mode==='best'?'rgba(52,211,153,.18)':'rgba(248,113,113,.18)')\n"
+      "      :'';\n"
+      "    var arr=items[i].querySelector('.attr-lg-arr');\n"
+      "    if(arr) arr.textContent=on\n"
+      "      ?(state.mode==='best'?' \\u2193':' \\u2191')\n"
       "      :'';\n"
       "  }\n"
       "  if(!state){ status.textContent=''; }\n"
