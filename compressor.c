@@ -1903,7 +1903,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     /* canvas with row labels */
     fprintf(f,
-      "<div style=\"display:flex;align-items:stretch;gap:4px\">\n"
+      "<div style=\"display:flex;align-items:stretch;gap:4px;position:relative\">\n"
       "<div style=\"width:40px;flex-shrink:0;font-family:var(--mono);"
       "font-size:8px;color:var(--fg3);display:flex;flex-direction:column\">\n");
     for (int r = 0; r < 16; r++)
@@ -1916,6 +1916,12 @@ static void write_html_report(const char *path, const CompStats *s) {
       "style=\"flex:1;min-width:0;aspect-ratio:1;"
       "cursor:crosshair;image-rendering:pixelated;"
       "border:1px solid var(--bdr)\"></canvas>\n"
+      /* crosshair lines + hover tooltip, positioned over canvas */
+      "<div id=\"bigram-v\" style=\"position:absolute;width:1px;"
+      "background:rgba(255,255,255,.5);pointer-events:none;display:none\"></div>\n"
+      "<div id=\"bigram-h\" style=\"position:absolute;height:1px;"
+      "background:rgba(255,255,255,.5);pointer-events:none;display:none\"></div>\n"
+      "<div id=\"bigram-tip\" class=\"hover-tip\"></div>\n"
       "</div>\n"
       "</div>\n");
 
@@ -2053,6 +2059,58 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  panel.style.display='block';\n"
       "  panel.scrollIntoView({behavior:'smooth',block:'nearest'});\n"
       "});\n"
+      "/* hover crosshair + quick tooltip */\n"
+      "var vLine=document.getElementById('bigram-v');\n"
+      "var hLine=document.getElementById('bigram-h');\n"
+      "var tip=document.getElementById('bigram-tip');\n"
+      "function hideCross(){vLine.style.display='none';"
+      "hLine.style.display='none';tip.style.display='none';}\n"
+      "cv.addEventListener('mousemove',function(e){\n"
+      "  var rect=cv.getBoundingClientRect();\n"
+      "  var sx=(e.clientX-rect.left)/rect.width;\n"
+      "  var sy=(e.clientY-rect.top)/rect.height;\n"
+      "  if(sx<0||sx>1||sy<0||sy>1){hideCross();return;}\n"
+      "  var row=Math.floor(sy*256), col=Math.floor(sx*256);\n"
+      "  if(row<0)row=0;if(row>255)row=255;\n"
+      "  if(col<0)col=0;if(col>255)col=255;\n"
+      "  /* parent is positioning context */\n"
+      "  var pr=cv.parentNode.getBoundingClientRect();\n"
+      "  var cellW=rect.width/256, cellH=rect.height/256;\n"
+      "  var cxLeft=rect.left-pr.left + (col+0.5)*cellW;\n"
+      "  var cyTop =rect.top -pr.top  + (row+0.5)*cellH;\n"
+      "  vLine.style.left=cxLeft+'px';\n"
+      "  vLine.style.top=(rect.top-pr.top)+'px';\n"
+      "  vLine.style.height=rect.height+'px';\n"
+      "  vLine.style.display='block';\n"
+      "  hLine.style.top=cyTop+'px';\n"
+      "  hLine.style.left=(rect.left-pr.left)+'px';\n"
+      "  hLine.style.width=rect.width+'px';\n"
+      "  hLine.style.display='block';\n"
+      "  var freq=BG[row*256+col];\n"
+      "  var rowTotal=0;\n"
+      "  for(var c=0;c<256;c++) rowTotal+=BG[row*256+c];\n"
+      "  var cond=rowTotal>0?(100*freq/rowTotal):0;\n"
+      "  var pct=BG_TOTAL>0?(100*freq/BG_TOTAL):0;\n"
+      "  function fmt(b){var h=(b<16?'0':'')+b.toString(16).toUpperCase();\n"
+      "    var ch=(b>=0x20&&b<=0x7E)?\" '\"+String.fromCharCode(b)+\"'\":'';\n"
+      "    return '0x'+h+ch;}\n"
+      "  var hh='<div class=\"tip-row\"><span style=\"color:var(--fg)\">'+fmt(row)\n"
+      "    +' \\u2192 '+fmt(col)+'</span></div>'\n"
+      "    +'<div style=\"border-top:1px solid var(--bdr);margin:4px 0 2px;padding-top:4px\"></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">count</span>'\n"
+      "    +'<span style=\"color:var(--acc);font-weight:600\">'+freq+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">of all</span>'\n"
+      "    +'<span>'+pct.toFixed(2)+'%</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">P(col|row)</span>'\n"
+      "    +'<span>'+cond.toFixed(1)+'%</span></div>';\n"
+      "  tip.innerHTML=hh;\n"
+      "  var tx=(e.clientX-pr.left)+14, ty=(e.clientY-pr.top)-50;\n"
+      "  if(tx+200>pr.width) tx=(e.clientX-pr.left)-200;\n"
+      "  if(ty<0) ty=(e.clientY-pr.top)+18;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "cv.addEventListener('mouseleave',hideCross);\n"
       "})();\n");
 
     fprintf(f, "</script>\n");
@@ -2108,6 +2166,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       "</div>\n",
       cmax + 1, cmax, cmax, cmax, cmax);
 
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
+    fprintf(f, "<div id=\"cmap-tip\" class=\"hover-tip\"></div>\n");
     fprintf(f,
       "<svg id=\"cmap-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"display:block\">\n", svg_w, svg_h);
@@ -2134,11 +2194,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       fprintf(f,
         "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
         "fill=\"rgb(%d,%d,%d)\" data-c=\"%.2f\" data-i=\"%d\" "
-        "style=\"cursor:pointer\"",
+        "style=\"cursor:pointer\"/>\n",
         x, y, cell, cell, cr, ccg, cb, cost, i);
-      fprintf(f, "><title>%d: 0x%02X", i, bval);
-      if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
-      fprintf(f, " (%.2f bits)</title></rect>\n", cost);
       if (cell >= 6 && bval >= 0x20 && bval <= 0x7E && bval != '<'
           && bval != '>' && bval != '&' && bval != '"') {
         int bright = t < 0.6f;
@@ -2153,6 +2210,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       }
     }
     fprintf(f, "</svg>\n");
+    fprintf(f, "</div>\n"); /* close scrub-wrap */
 
     /* ── Detail panel HTML ── */
     fprintf(f, "<div id=\"cmap-detail\" class=\"cd-panel\"></div>\n");
@@ -2252,6 +2310,33 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  panel.style.display='block';\n"
       "});\n");
 
+    /* cmap hover tooltip */
+    fprintf(f, "%s",
+      "var ctip=document.getElementById('cmap-tip');\n"
+      "var csvg=document.getElementById('cmap-svg');\n"
+      "function hideCtip(){ctip.style.display='none';}\n"
+      "csvg.addEventListener('mousemove',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect'){hideCtip();return;}\n"
+      "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
+      "  idx=parseInt(idx); var d=BD[idx]; if(!d) return;\n"
+      "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
+      "  var ch=d.ch?\" '\"+d.ch+\"'\":'';\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">0x'+d.h+ch+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">offset</span>'\n"
+      "    +'<span>'+d.o+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">cost</span>'\n"
+      "    +'<span style=\"color:'+costClr+';font-weight:600\">'+d.c.toFixed(2)+' bits</span></div>';\n"
+      "  ctip.innerHTML=h;\n"
+      "  var pr=csvg.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-pr.left)+14, ty=(e.clientY-pr.top)-50;\n"
+      "  if(tx+180>pr.width) tx=(e.clientX-pr.left)-180;\n"
+      "  if(ty<0) ty=(e.clientY-pr.top)+18;\n"
+      "  ctip.style.left=tx+'px'; ctip.style.top=ty+'px';\n"
+      "  ctip.style.display='block';\n"
+      "});\n"
+      "csvg.addEventListener('mouseleave',hideCtip);\n");
+
     fprintf(f, "</script>\n");
     fprintf(f, "</div>\n\n");
   }
@@ -2338,6 +2423,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       "font-style:italic;color:var(--fg3)\"></span>\n");
     fprintf(f, "</div>\n");
 
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
+    fprintf(f, "<div id=\"attr-tip\" class=\"hover-tip\"></div>\n");
     fprintf(f,
       "<svg id=\"attr-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"display:block\">\n", svg_w, svg_h);
@@ -2384,16 +2471,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       fprintf(f,
         "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
         "fill=\"rgb(%d,%d,%d)\" data-i=\"%d\" data-bm=\"%d\" data-wm=\"%d\" "
-        "style=\"cursor:pointer;transition:opacity .15s\">",
+        "style=\"cursor:pointer;transition:opacity .15s\"/>\n",
         x, y, cell, cell, cr, cg, cb, i, best_m, worst_m);
-      fprintf(f, "<title>%d: 0x%02X", i, bval);
-      if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
-      if (best_m >= 0)
-        fprintf(f, " | best: %02X:%d (%.2f bits)",
-                s->model_masks[best_m], s->model_weights[best_m], best_v);
-      else
-        fprintf(f, " | no model");
-      fprintf(f, "</title></rect>\n");
       if (cell >= 6 && bval >= 0x20 && bval <= 0x7E && bval != '<'
           && bval != '>' && bval != '&' && bval != '"') {
         int lum = (cr * 299 + cg * 587 + cb * 114) / 1000;
@@ -2408,6 +2487,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       }
     }
     fprintf(f, "</svg>\n");
+    fprintf(f, "</div>\n"); /* close scrub-wrap */
 
     /* ── Highlight style + Detail panel ── */
     fprintf(f, "<style id=\"attr-hilite\"></style>\n");
@@ -2522,6 +2602,40 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
       "  selectByte(idx);\n"
       "});\n"
+      "/* hover tooltip for quick preview without clicking */\n"
+      "var atip=document.getElementById('attr-tip');\n"
+      "var asvg=document.getElementById('attr-svg');\n"
+      "function hideAtip(){atip.style.display='none';}\n"
+      "asvg.addEventListener('mousemove',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect'){hideAtip();return;}\n"
+      "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
+      "  idx=parseInt(idx); var d=BD[idx]; if(!d) return;\n"
+      "  var bm=r.getAttribute('data-bm');\n"
+      "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
+      "  var ch=d.ch?\" '\"+d.ch+\"'\":'';\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">0x'+d.h+ch+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">offset</span>'\n"
+      "    +'<span>'+d.o+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">cost</span>'\n"
+      "    +'<span style=\"color:'+costClr+';font-weight:600\">'+d.c.toFixed(2)+' bits</span></div>';\n"
+      "  if(bm!==null && bm!=='-1'){\n"
+      "    var mi=MI[+bm];\n"
+      "    var pc=ATTR_PAL[+bm]||[100,100,100];\n"
+      "    var mv=d.m?d.m[+bm]:0;\n"
+      "    h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">best</span>'\n"
+      "      +'<span><span class=\"tip-sw\" style=\"background:rgb('+pc[0]+','+pc[1]+','+pc[2]+')\"></span>'\n"
+      "      +(mi?mi.mask+':'+mi.w:bm)+' (+'+mv.toFixed(2)+')</span></div>';\n"
+      "  }\n"
+      "  atip.innerHTML=h;\n"
+      "  var pr=asvg.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-pr.left)+14, ty=(e.clientY-pr.top)-60;\n"
+      "  if(tx+220>pr.width) tx=(e.clientX-pr.left)-220;\n"
+      "  if(ty<0) ty=(e.clientY-pr.top)+18;\n"
+      "  atip.style.left=tx+'px'; atip.style.top=ty+'px';\n"
+      "  atip.style.display='block';\n"
+      "});\n"
+      "asvg.addEventListener('mouseleave',hideAtip);\n"
       "})();\n");
 
     fprintf(f, "</script>\n");
@@ -3450,10 +3564,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       const char *col = s->search_events[e].is_removal ? "#f87171" : "#34d399";
       fprintf(f,
         "<circle cx=\"%d\" cy=\"%d\" r=\"3.5\" fill=\"%s\" opacity=\".8\" "
-        "data-e=\"%d\" style=\"cursor:pointer\">"
-        "<title>%s %02X (%d models, %.1f B)</title></circle>\n",
-        x, y, col, e, s->search_events[e].is_removal ? "Remove" : "Add",
-        s->search_events[e].mask, s->search_events[e].num_models, est);
+        "data-e=\"%d\" style=\"cursor:pointer\"/>\n",
+        x, y, col, e);
     }
 
 #undef LOGX
