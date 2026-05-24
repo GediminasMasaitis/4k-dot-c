@@ -1542,6 +1542,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-attr\">Model Attribution</a>\n"
     "<a href=\"#sec-dominance\">Model Dominance</a>\n"
     "<a href=\"#sec-hurt\">Model Hurt</a>\n"
+    "<a href=\"#sec-net\">Model Net</a>\n"
     "<a href=\"#sec-surprises\">Top Surprises</a>\n"
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
     "<a href=\"#sec-search\">Search Trajectory</a>\n"
@@ -2582,6 +2583,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var sm=state?state.m:null, mo=state?state.mode:null;\n"
       "  if(window.domSetActive) window.domSetActive(sm);\n"
       "  if(window.hurtSetActive) window.hurtSetActive(sm);\n"
+      "  if(window.netSetActive) window.netSetActive(sm);\n"
       "  if(window.pmSetActive) window.pmSetActive(sm,mo);\n"
       "}\n"
       "legend.addEventListener('click',function(e){\n"
@@ -3154,6 +3156,298 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  }\n"
       "  if(rows.length>show) h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">+'\n"
       "    +(rows.length-show)+' more</span></div>';\n"
+      "  tip.innerHTML=h;\n"
+      "  var wrap=chart.parentNode;\n"
+      "  var wr=wrap.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',hideTip);\n"
+      "render();\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+
+    free(mdata);
+  }
+
+  /* ── Model Net Contribution Timeline ── */
+  if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1
+      && s->num_models > 0) {
+    int nb = s->num_data_bytes;
+    int nm = s->num_models;
+    int win = nb / 64;
+    if (win < 4) win = 4;
+    if (win > 64) win = 64;
+    int npts = nb - win + 1;
+    if (npts < 2) npts = 2;
+
+    /* signed per-window per-model net contribution */
+    float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
+    float smax_pos = 0, smax_neg = 0;
+
+    for (int i = 0; i < npts; i++) {
+      int end = i + win;
+      if (end > nb) end = nb;
+      int cnt = end - i;
+      float pos_sum = 0, neg_sum = 0;
+      for (int m = 0; m < nm; m++) {
+        float sum = 0;
+        for (int j = i; j < end; j++) {
+          sum += s->byte_model_contrib[j * nm + m];
+        }
+        mdata[i * nm + m] = sum / cnt;
+        if (mdata[i * nm + m] > 0) pos_sum += mdata[i * nm + m];
+        else                       neg_sum += -mdata[i * nm + m];
+      }
+      if (pos_sum > smax_pos) smax_pos = pos_sum;
+      if (neg_sum > smax_neg) smax_neg = neg_sum;
+    }
+    if (smax_pos < 0.01f) smax_pos = 1.0f;
+    if (smax_neg < 0.01f) smax_neg = 0.5f;
+
+    static const int net_pal[][3] = {
+      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
+      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
+      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
+      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
+      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
+      {217,70,239},
+    };
+    int net_npal = (int)(sizeof(net_pal) / sizeof(net_pal[0]));
+
+    int svg_w = 960, svg_h = 240;
+    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-net\">\n"
+      "<h2>Model Net Contribution Timeline</h2>\n"
+      "<p class=\"desc\">Net contribution per model per window (gain &minus; hurt). "
+      "Above the 0-line stacks models that are net helpful; below stacks "
+      "models that are net hurtful. Window = %d bytes. "
+      "<span style=\"color:var(--fg3)\">Click a model to rebase.</span></p>\n",
+      win);
+
+    fprintf(f, "<div id=\"net-legend\" style=\"display:flex;flex-wrap:wrap;"
+      "gap:6px 14px;margin-bottom:10px;font-size:11px;"
+      "font-family:var(--mono)\"></div>\n");
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
+    fprintf(f, "<div id=\"net-chart\"></div>\n");
+    fprintf(f, "<div id=\"net-tip\" class=\"hover-tip\"></div>\n");
+    fprintf(f, "</div>\n");
+
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var nm=%d,npts=%d,nb=%d,smaxP=%g,smaxN=%g;\n",
+      nm, npts, nb, smax_pos, smax_neg);
+    fprintf(f, "var W=%d,H=%d,PL=%d,PR=%d,PT=%d,PB=%d;\n",
+      svg_w, svg_h, pad_l, pad_r, pad_t, pad_b);
+    fprintf(f, "var pw=W-PL-PR,ph=H-PT-PB;\n"
+      "var upH=ph*smaxP/(smaxP+smaxN), loH=ph-upH;\n"
+      "var midY=PT+upH;\n");
+
+    fprintf(f, "var pal=[");
+    for (int m = 0; m < nm; m++) {
+      int pi = m % net_npal;
+      fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
+        net_pal[pi][0], net_pal[pi][1], net_pal[pi][2]);
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "var labels=[");
+    for (int m = 0; m < nm; m++) {
+      fprintf(f, "%s\"%02X:%d\"", m ? "," : "",
+        s->model_masks[m], s->model_weights[m]);
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "var mdata=[");
+    for (int i = 0; i < npts; i++) {
+      for (int m = 0; m < nm; m++) {
+        fprintf(f, "%s%.4g", (i || m) ? "," : "", mdata[i * nm + m]);
+      }
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "%s",
+      "var order=[];for(var i=0;i<nm;i++)order.push(i);\n"
+      "var legend=document.getElementById('net-legend');\n"
+      "var chart=document.getElementById('net-chart');\n"
+      "function path(d,fill,m){\n"
+      "  return '<path d=\"'+d+'\" fill=\"'+fill+'\" fill-opacity=\".75\" '\n"
+      "    +'data-m=\"'+m+'\" style=\"cursor:pointer\"/>';\n"
+      "}\n"
+      "function xCoord(i){return (PL+(i*pw/(npts>1?npts-1:1)))|0;}\n"
+      "function yUp(v){var y=(midY-(v/smaxP)*upH)|0;\n"
+      "  if(y<PT)y=PT;if(y>midY)y=midY;return y;}\n"
+      "function yLo(v){var y=(midY+(v/smaxN)*loH)|0;\n"
+      "  if(y<midY)y=midY;if(y>PT+ph)y=PT+ph;return y;}\n"
+      "function render(){\n"
+      "  /* legend */\n"
+      "  var lh='';\n"
+      "  for(var m=0;m<nm;m++){\n"
+      "    var isBase=order[0]===m;\n"
+      "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
+      "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
+      "      +'border-radius:3px;'\n"
+      "      +(isBase?'background:rgba(255,255,255,.08);color:var(--fg)':'')+'\">'\n"
+      "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
+      "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
+      "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
+      "  }\n"
+      "  legend.innerHTML=lh;\n"
+      "  /* per-window: build positive & negative stacks per model in order */\n"
+      "  var stkP=new Float32Array(npts*nm), stkN=new Float32Array(npts*nm);\n"
+      "  for(var i=0;i<npts;i++){\n"
+      "    var cp=0,cn=0;\n"
+      "    for(var k=0;k<nm;k++){\n"
+      "      var v=mdata[i*nm+order[k]];\n"
+      "      if(v>0){cp+=v;} else {cn+=-v;}\n"
+      "      stkP[i*nm+k]=cp; stkN[i*nm+k]=cn;\n"
+      "    }\n"
+      "  }\n"
+      "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
+      "    +'\" style=\"display:block\">';\n"
+      "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "    +'\" fill=\"#1a1e2b\" rx=\"4\"/>';\n"
+      "  /* y gridlines: ticks on both sides of midline */\n"
+      "  for(var i=1;i<=2;i++){\n"
+      "    var vp=smaxP*i/2, yp=yUp(vp);\n"
+      "    s += '<line x1=\"'+PL+'\" y1=\"'+yp+'\" x2=\"'+(PL+pw)+'\" y2=\"'+yp\n"
+      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'<text x=\"'+(PL-5)+'\" y=\"'+(yp+3)+'\" text-anchor=\"end\" '\n"
+      "      +'font-size=\"9\" fill=\"#6b7186\">+'+vp.toFixed(1)+'</text>';\n"
+      "    var vn=smaxN*i/2, yn=yLo(vn);\n"
+      "    s += '<line x1=\"'+PL+'\" y1=\"'+yn+'\" x2=\"'+(PL+pw)+'\" y2=\"'+yn\n"
+      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'<text x=\"'+(PL-5)+'\" y=\"'+(yn+3)+'\" text-anchor=\"end\" '\n"
+      "      +'font-size=\"9\" fill=\"#6b7186\">\\u2212'+vn.toFixed(1)+'</text>';\n"
+      "  }\n"
+      "  /* zero line */\n"
+      "  s += '<line x1=\"'+PL+'\" y1=\"'+midY+'\" x2=\"'+(PL+pw)+'\" y2=\"'+midY\n"
+      "    +'\" stroke=\"rgba(255,255,255,.25)\" stroke-width=\"1\"/>';\n"
+      "  s += '<text x=\"'+(PL-5)+'\" y=\"'+(midY+3)+'\" text-anchor=\"end\" '\n"
+      "    +'font-size=\"9\" fill=\"#6b7186\">0</text>';\n"
+      "  /* x labels */\n"
+      "  for(var i=0;i<=5;i++){\n"
+      "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
+      "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
+      "      +'font-size=\"9\" fill=\"#6b7186\">'+off+'</text>';\n"
+      "  }\n"
+      "  /* paths: each model gets up to two bands (positive above, negative below) */\n"
+      "  for(var k=nm-1;k>=0;k--){\n"
+      "    var m=order[k];\n"
+      "    /* positive band */\n"
+      "    var dP='', hasP=false;\n"
+      "    for(var i=0;i<npts;i++){\n"
+      "      if(mdata[i*nm+m]>0){hasP=true; break;}\n"
+      "    }\n"
+      "    if(hasP){\n"
+      "      for(var i=0;i<npts;i++)\n"
+      "        dP += (i?'L':'M')+xCoord(i)+','+yUp(stkP[i*nm+k])+' ';\n"
+      "      for(var i=npts-1;i>=0;i--)\n"
+      "        dP += 'L'+xCoord(i)+','+yUp(k>0?stkP[i*nm+k-1]:0)+' ';\n"
+      "      s += path(dP+'Z','rgb('+pal[m].join(',')+')',m);\n"
+      "    }\n"
+      "    /* negative band */\n"
+      "    var dN='', hasN=false;\n"
+      "    for(var i=0;i<npts;i++){\n"
+      "      if(mdata[i*nm+m]<0){hasN=true; break;}\n"
+      "    }\n"
+      "    if(hasN){\n"
+      "      for(var i=0;i<npts;i++)\n"
+      "        dN += (i?'L':'M')+xCoord(i)+','+yLo(stkN[i*nm+k])+' ';\n"
+      "      for(var i=npts-1;i>=0;i--)\n"
+      "        dN += 'L'+xCoord(i)+','+yLo(k>0?stkN[i*nm+k-1]:0)+' ';\n"
+      "      s += path(dN+'Z','rgb('+pal[m].join(',')+')',m);\n"
+      "    }\n"
+      "  }\n"
+      "  /* scrubber line */\n"
+      "  s += '<line id=\"net-scrub\" class=\"scrub-line\" '\n"
+      "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
+      "  s += '</svg>';\n"
+      "  chart.innerHTML=s;\n"
+      "}\n"
+      "function rebase(m){\n"
+      "  order=order.filter(function(x){return x!==m;});\n"
+      "  order.unshift(m);\n"
+      "  render();\n"
+      "}\n"
+      "window.netSetActive=function(m){\n"
+      "  if(m===null||m===undefined||m==='-1'){\n"
+      "    order=[]; for(var i=0;i<nm;i++) order.push(i);\n"
+      "  } else {\n"
+      "    var n=+m;\n"
+      "    if(n>=0&&n<nm){\n"
+      "      order=order.filter(function(x){return x!==n;});\n"
+      "      order.unshift(n);\n"
+      "    }\n"
+      "  }\n"
+      "  render();\n"
+      "};\n"
+      "function onClick(e){\n"
+      "  var el=e.target.closest('[data-m]');\n"
+      "  if(!el) return;\n"
+      "  var m=el.getAttribute('data-m');\n"
+      "  if(window.attrSetHilite) window.attrSetHilite(m);\n"
+      "  else rebase(+m);\n"
+      "}\n"
+      "legend.addEventListener('click',onClick);\n"
+      "chart.addEventListener('click',onClick);\n"
+      "var tip=document.getElementById('net-tip');\n"
+      "function hideTip(){\n"
+      "  var l=document.getElementById('net-scrub');\n"
+      "  if(l) l.setAttribute('opacity','0');\n"
+      "  tip.style.display='none';\n"
+      "}\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
+      "  var r=svg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*W;\n"
+      "  if(px<PL||px>PL+pw){hideTip();return;}\n"
+      "  var i=Math.round((px-PL)/pw*(npts-1));\n"
+      "  if(i<0)i=0; if(i>=npts)i=npts-1;\n"
+      "  var bytePos=Math.round(i*(nb-1)/(npts-1));\n"
+      "  var rowsP=[],rowsN=[],netTotal=0;\n"
+      "  for(var m=0;m<nm;m++){\n"
+      "    var v=mdata[i*nm+m]; netTotal+=v;\n"
+      "    if(v>0.001) rowsP.push({m:m,v:v});\n"
+      "    else if(v<-0.001) rowsN.push({m:m,v:v});\n"
+      "  }\n"
+      "  rowsP.sort(function(a,b){return b.v-a.v;});\n"
+      "  rowsN.sort(function(a,b){return a.v-b.v;});\n"
+      "  var l=document.getElementById('net-scrub');\n"
+      "  if(l){\n"
+      "    var x=PL+i*pw/(npts-1);\n"
+      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+      "    l.setAttribute('opacity','0.5');\n"
+      "  }\n"
+      "  var netClr=netTotal>0?'#34d399':netTotal<0?'#f87171':'var(--fg2)';\n"
+      "  var sign=netTotal>=0?'+':'';\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">net</span>'\n"
+      "    +'<span style=\"color:'+netClr+';font-weight:600\">'+sign+netTotal.toFixed(2)+' b/B</span></div>';\n"
+      "  function rowList(arr, prefix){\n"
+      "    var out='';\n"
+      "    var show=Math.min(arr.length,3);\n"
+      "    for(var k=0;k<show;k++){\n"
+      "      var rr=arr[k];\n"
+      "      out+='<div class=\"tip-row\">'\n"
+      "        +'<span><span class=\"tip-sw\" style=\"background:rgb('+pal[rr.m].join(',')+')\"></span>'\n"
+      "        +labels[rr.m]+'</span>'\n"
+      "        +'<span style=\"color:var(--fg)\">'+prefix+rr.v.toFixed(2)+'</span></div>';\n"
+      "    }\n"
+      "    return out;\n"
+      "  }\n"
+      "  if(rowsP.length){h+='<div style=\"border-top:1px solid var(--bdr);'\n"
+      "    +'margin:4px 0 2px;padding-top:4px;color:#34d399;font-size:10px\">helps</div>';\n"
+      "    h+=rowList(rowsP,'+');}\n"
+      "  if(rowsN.length){h+='<div style=\"border-top:1px solid var(--bdr);'\n"
+      "    +'margin:4px 0 2px;padding-top:4px;color:#f87171;font-size:10px\">hurts</div>';\n"
+      "    h+=rowList(rowsN,'');}\n"
       "  tip.innerHTML=h;\n"
       "  var wrap=chart.parentNode;\n"
       "  var wr=wrap.getBoundingClientRect();\n"
