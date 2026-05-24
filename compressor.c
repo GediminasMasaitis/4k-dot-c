@@ -2468,10 +2468,10 @@ static void write_html_report(const char *path, const CompStats *s) {
       "});\n"
       "/* expose for cross-section triggers */\n"
       "window.attrSetHilite=setHilite;\n"
-      "document.getElementById('attr-svg').addEventListener('click',function(e){\n"
-      "  var r=e.target; if(r.tagName!=='rect') return;\n"
-      "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
+      "function selectByte(idx){\n"
       "  idx=parseInt(idx); var d=BD[idx]; if(!d) return;\n"
+      "  var r=document.querySelector('#attr-svg rect[data-i=\"'+idx+'\"]');\n"
+      "  if(!r) return;\n"
       "  if(selRect) selRect.classList.remove('cmap-sel');\n"
       "  r.classList.add('cmap-sel'); selRect=r;\n"
       "  setHilite(r.getAttribute('data-bm'));\n"
@@ -2503,6 +2503,12 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  }\n"
       "  panel.innerHTML=h;\n"
       "  panel.style.display='block';\n"
+      "}\n"
+      "window.attrSelectByte=selectByte;\n"
+      "document.getElementById('attr-svg').addEventListener('click',function(e){\n"
+      "  var r=e.target; if(r.tagName!=='rect') return;\n"
+      "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
+      "  selectByte(idx);\n"
       "});\n"
       "})();\n");
 
@@ -2913,7 +2919,9 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<div class=\"card full\" id=\"sec-surprises\">\n"
       "<h2>Top Surprises</h2>\n"
       "<p class=\"desc\">The %d most expensive bytes to encode &mdash; "
-      "where the compressor was most surprised.</p>\n", topn);
+      "where the compressor was most surprised. "
+      "<span style=\"color:var(--fg3)\">Click a row to inspect that byte "
+      "in the Attribution Map.</span></p>\n", topn);
 
     fprintf(f, "<table><thead><tr>"
       "<th>Rank</th><th class=\"r\">Offset</th>"
@@ -2972,16 +2980,33 @@ static void write_html_report(const char *path, const CompStats *s) {
       }
 
       fprintf(f,
-        "<tr><td class=\"r\">%d</td><td class=\"r\">%d</td>"
+        "<tr class=\"ts-row\" data-i=\"%d\" style=\"cursor:pointer\">"
+        "<td class=\"r\">%d</td><td class=\"r\">%d</td>"
         "<td style=\"font-family:var(--mono);font-size:11.5px\">%s</td>"
         "<td class=\"r\" style=\"color:%s;font-weight:600\">%.2f</td>"
         "<td style=\"font-family:var(--mono);font-size:10px;color:var(--fg3)\">%s</td>"
         "<td style=\"font-family:var(--mono);font-size:11.5px\">%s</td>"
         "</tr>\n",
-        i + 1, bi, bytebuf, clr, cost, ctxbuf, modelbuf);
+        bi, i + 1, bi, bytebuf, clr, cost, ctxbuf, modelbuf);
     }
 
     fprintf(f, "</tbody></table>\n");
+
+    /* Wire rows to Attribution Map's selectByte (set up earlier as
+       window.attrSelectByte). Falls back to no-op if attribution missing. */
+    fprintf(f, "%s",
+      "<script>(function(){\n"
+      "var rows=document.querySelectorAll('#sec-surprises tr.ts-row');\n"
+      "for(var i=0;i<rows.length;i++){\n"
+      "  rows[i].addEventListener('click',function(){\n"
+      "    var i=this.getAttribute('data-i');\n"
+      "    if(window.attrSelectByte) window.attrSelectByte(i);\n"
+      "    var attr=document.getElementById('sec-attr');\n"
+      "    if(attr) attr.scrollIntoView({behavior:'smooth',block:'start'});\n"
+      "  });\n"
+      "}\n"
+      "})();</script>\n");
+
     fprintf(f, "</div>\n\n");
     free(idx);
   }
