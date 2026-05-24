@@ -2292,24 +2292,35 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<h2>Model Attribution Map</h2>\n"
       "<p class=\"desc\">Each cell = one byte. Color = model that saved the most bits. "
       "Brightness = strength of contribution. Gray = no model helped. "
-      "%d bytes, %d&times;%d grid.</p>\n",
+      "%d bytes, %d&times;%d grid. "
+      "<span style=\"color:var(--fg3)\">Click a cell or legend item to highlight "
+      "where that model dominates; click the same again to flip to "
+      "where it hurts most.</span></p>\n",
       nb, cols, rows);
 
-    /* legend */
-    fprintf(f, "<div style=\"display:flex;flex-wrap:wrap;gap:8px 16px;"
-      "margin-bottom:12px;font-size:11px;font-family:var(--mono)\">\n");
+    /* legend - clickable for highlight */
+    fprintf(f, "<div id=\"attr-legend\" style=\"display:flex;flex-wrap:wrap;"
+      "gap:6px 14px;margin-bottom:12px;font-size:11px;"
+      "font-family:var(--mono)\">\n");
     for (int m = 0; m < nm && m < npal; m++) {
-      fprintf(f, "<span style=\"display:inline-flex;align-items:center;gap:4px\">"
+      fprintf(f, "<span class=\"attr-lg\" data-bm=\"%d\" "
+        "style=\"display:inline-flex;align-items:center;gap:4px;"
+        "cursor:pointer;padding:2px 6px;border-radius:3px\">"
         "<span style=\"display:inline-block;width:12px;height:12px;"
         "border-radius:2px;background:rgb(%d,%d,%d)\"></span>"
         "%02X:%d</span>\n",
+        m,
         palette[m % npal][0], palette[m % npal][1], palette[m % npal][2],
         s->model_masks[m], s->model_weights[m]);
     }
-    fprintf(f, "<span style=\"display:inline-flex;align-items:center;gap:4px\">"
+    fprintf(f, "<span class=\"attr-lg\" data-bm=\"-1\" "
+      "style=\"display:inline-flex;align-items:center;gap:4px;"
+      "cursor:pointer;padding:2px 6px;border-radius:3px\">"
       "<span style=\"display:inline-block;width:12px;height:12px;"
       "border-radius:2px;background:rgb(40,44,60)\"></span>"
       "none</span>\n");
+    fprintf(f, "<span id=\"attr-status\" style=\"align-self:center;"
+      "font-style:italic;color:var(--fg3)\"></span>\n");
     fprintf(f, "</div>\n");
 
     fprintf(f,
@@ -2329,12 +2340,13 @@ static void write_html_report(const char *path, const CompStats *s) {
       int col = i % cols, row2 = i / cols;
       int x = 1 + col * stride, y = 1 + row2 * stride;
 
-      /* find dominant model (most bits saved, i.e. most positive value) */
-      int best_m = -1;
-      float best_v = 0.0f;
+      /* find dominant model (most bits saved) and worst model (most bits lost) */
+      int best_m = -1, worst_m = -1;
+      float best_v = 0.0f, worst_v = 0.0f;
       for (int m = 0; m < nm; m++) {
         float v = s->byte_model_contrib[i * nm + m];
         if (v > best_v) { best_v = v; best_m = m; }
+        if (v < worst_v) { worst_v = v; worst_m = m; }
       }
 
       int cr, cg, cb;
@@ -2356,8 +2368,9 @@ static void write_html_report(const char *path, const CompStats *s) {
       unsigned char bval = s->input_data ? s->input_data[i] : 0;
       fprintf(f,
         "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-        "fill=\"rgb(%d,%d,%d)\" data-i=\"%d\" style=\"cursor:pointer\">",
-        x, y, cell, cell, cr, cg, cb, i);
+        "fill=\"rgb(%d,%d,%d)\" data-i=\"%d\" data-bm=\"%d\" data-wm=\"%d\" "
+        "style=\"cursor:pointer;transition:opacity .15s\">",
+        x, y, cell, cell, cr, cg, cb, i, best_m, worst_m);
       fprintf(f, "<title>%d: 0x%02X", i, bval);
       if (bval >= 0x20 && bval <= 0x7E) fprintf(f, " '%c'", bval);
       if (best_m >= 0)
@@ -2381,7 +2394,8 @@ static void write_html_report(const char *path, const CompStats *s) {
     }
     fprintf(f, "</svg>\n");
 
-    /* ── Detail panel ── */
+    /* ── Highlight style + Detail panel ── */
+    fprintf(f, "<style id=\"attr-hilite\"></style>\n");
     fprintf(f, "<div id=\"attr-detail\"></div>\n");
 
     /* ── Emit palette as JS + click handler ── */
@@ -2395,13 +2409,57 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f,
       "(function(){\n"
       "var panel=document.getElementById('attr-detail');\n"
+      "var hilite=document.getElementById('attr-hilite');\n"
+      "var legend=document.getElementById('attr-legend');\n"
+      "var status=document.getElementById('attr-status');\n"
       "var selRect=null;\n"
+      "var state=null;\n"
+      "function setHilite(m){\n"
+      "  m=String(m);\n"
+      "  /* cycle: null -> best -> worst -> null when clicking same model */\n"
+      "  if(state && state.m===m)\n"
+      "    state = state.mode==='best' ? {m:m,mode:'worst'} : null;\n"
+      "  else\n"
+      "    state = {m:m,mode:'best'};\n"
+      "  if(state===null){ hilite.textContent=''; }\n"
+      "  else {\n"
+      "    var attr=state.mode==='best'?'data-bm':'data-wm';\n"
+      "    hilite.textContent='#attr-svg rect['+attr+']:not(['+attr\n"
+      "      +'=\"'+state.m+'\"]){opacity:.15}';\n"
+      "  }\n"
+      "  var items=legend.querySelectorAll('.attr-lg');\n"
+      "  for(var i=0;i<items.length;i++){\n"
+      "    var v=items[i].getAttribute('data-bm');\n"
+      "    items[i].style.background=(state && v===state.m)\n"
+      "      ?(state.mode==='best'?'rgba(52,211,153,.18)':'rgba(248,113,113,.18)')\n"
+      "      :'';\n"
+      "  }\n"
+      "  if(!state){ status.textContent=''; }\n"
+      "  else {\n"
+      "    var label;\n"
+      "    if(state.m==='-1')\n"
+      "      label = state.mode==='best' ? 'cells no model helped'\n"
+      "                                  : 'cells no model hurt';\n"
+      "    else {\n"
+      "      var info=MI[+state.m];\n"
+      "      var name=info?info.mask+':'+info.w:state.m;\n"
+      "      label = name+(state.mode==='best'?' dominates':' hurts most');\n"
+      "    }\n"
+      "    status.textContent='\\u2192 '+label;\n"
+      "    status.style.color=state.mode==='best'?'#34d399':'#f87171';\n"
+      "  }\n"
+      "}\n"
+      "legend.addEventListener('click',function(e){\n"
+      "  var el=e.target.closest('[data-bm]');\n"
+      "  if(el) setHilite(el.getAttribute('data-bm'));\n"
+      "});\n"
       "document.getElementById('attr-svg').addEventListener('click',function(e){\n"
       "  var r=e.target; if(r.tagName!=='rect') return;\n"
       "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
       "  idx=parseInt(idx); var d=BD[idx]; if(!d) return;\n"
       "  if(selRect) selRect.classList.remove('cmap-sel');\n"
       "  r.classList.add('cmap-sel'); selRect=r;\n"
+      "  setHilite(r.getAttribute('data-bm'));\n"
       "  var ch=d.ch?\" '\"+ d.ch +\"'\":'';\n"
       "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
       "  var h='<div class=\"cd-head\">';\n"
