@@ -1529,6 +1529,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
     "<a href=\"#sec-attr\">Model Attribution</a>\n"
     "<a href=\"#sec-dominance\">Model Dominance</a>\n"
+    "<a href=\"#sec-hurt\">Model Hurt</a>\n"
     "<a href=\"#sec-surprises\">Top Surprises</a>\n"
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
     "<a href=\"#sec-search\">Search Trajectory</a>\n"
@@ -2458,6 +2459,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  /* propagate to other linked sections (no-op if not present) */\n"
       "  var sm=state?state.m:null, mo=state?state.mode:null;\n"
       "  if(window.domSetActive) window.domSetActive(sm);\n"
+      "  if(window.hurtSetActive) window.hurtSetActive(sm);\n"
       "  if(window.pmSetActive) window.pmSetActive(sm,mo);\n"
       "}\n"
       "legend.addEventListener('click',function(e){\n"
@@ -2691,6 +2693,192 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  if(!el) return;\n"
       "  var m=el.getAttribute('data-m');\n"
       "  /* route through Attribution Map so the tri-state cycle stays consistent */\n"
+      "  if(window.attrSetHilite) window.attrSetHilite(m);\n"
+      "  else rebase(+m);\n"
+      "}\n"
+      "legend.addEventListener('click',onClick);\n"
+      "chart.addEventListener('click',onClick);\n"
+      "render();\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+
+    free(mdata);
+  }
+
+  /* ── Model Hurt Timeline ── */
+  if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1
+      && s->num_models > 0) {
+    int nb = s->num_data_bytes;
+    int nm = s->num_models;
+    int win = nb / 64;
+    if (win < 4) win = 4;
+    if (win > 64) win = 64;
+    int npts = nb - win + 1;
+    if (npts < 2) npts = 2;
+
+    /* compute rolling window penalty per model (negative only = bits lost) */
+    float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
+    float smax = 0;
+
+    for (int i = 0; i < npts; i++) {
+      int end = i + win;
+      if (end > nb) end = nb;
+      int cnt = end - i;
+      float row_total = 0;
+      for (int m = 0; m < nm; m++) {
+        float sum = 0;
+        for (int j = i; j < end; j++) {
+          float v = s->byte_model_contrib[j * nm + m];
+          if (v < 0) sum += -v;
+        }
+        mdata[i * nm + m] = sum / cnt;
+        row_total += mdata[i * nm + m];
+      }
+      if (row_total > smax) smax = row_total;
+    }
+    if (smax < 0.01f) smax = 1.0f;
+
+    /* same palette as dominance to keep model identity consistent across charts */
+    static const int hurt_pal[][3] = {
+      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
+      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
+      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
+      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
+      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
+      {217,70,239},
+    };
+    int hurt_npal = (int)(sizeof(hurt_pal) / sizeof(hurt_pal[0]));
+
+    int svg_w = 960, svg_h = 200;
+    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-hurt\">\n"
+      "<h2>Model Hurt Timeline</h2>\n"
+      "<p class=\"desc\">Stacked area: each model's penalty (bits lost/byte) "
+      "over file position. Window = %d bytes. "
+      "<span style=\"color:var(--fg3)\">Click a model in the legend or chart "
+      "to rebase it to the bottom.</span></p>\n", win);
+
+    fprintf(f, "<div id=\"hurt-legend\" style=\"display:flex;flex-wrap:wrap;"
+      "gap:6px 14px;margin-bottom:10px;font-size:11px;"
+      "font-family:var(--mono)\"></div>\n");
+    fprintf(f, "<div id=\"hurt-chart\"></div>\n");
+
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var nm=%d,npts=%d,nb=%d,smax=%g;\n", nm, npts, nb, smax);
+    fprintf(f, "var W=%d,H=%d,PL=%d,PR=%d,PT=%d,PB=%d;\n",
+      svg_w, svg_h, pad_l, pad_r, pad_t, pad_b);
+    fprintf(f, "var pw=W-PL-PR,ph=H-PT-PB;\n");
+
+    fprintf(f, "var pal=[");
+    for (int m = 0; m < nm; m++) {
+      int pi = m % hurt_npal;
+      fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
+        hurt_pal[pi][0], hurt_pal[pi][1], hurt_pal[pi][2]);
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "var labels=[");
+    for (int m = 0; m < nm; m++) {
+      fprintf(f, "%s\"%02X:%d\"", m ? "," : "",
+        s->model_masks[m], s->model_weights[m]);
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "var mdata=[");
+    for (int i = 0; i < npts; i++) {
+      for (int m = 0; m < nm; m++) {
+        fprintf(f, "%s%.4g", (i || m) ? "," : "", mdata[i * nm + m]);
+      }
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "%s",
+      "var order=[];for(var i=0;i<nm;i++)order.push(i);\n"
+      "var legend=document.getElementById('hurt-legend');\n"
+      "var chart=document.getElementById('hurt-chart');\n"
+      "function path(d,fill,m){\n"
+      "  return '<path d=\"'+d+'\" fill=\"'+fill+'\" fill-opacity=\".75\" '\n"
+      "    +'data-m=\"'+m+'\" style=\"cursor:pointer\"/>';\n"
+      "}\n"
+      "function xCoord(i){return (PL+(i*pw/(npts>1?npts-1:1)))|0;}\n"
+      "function yCoord(v){\n"
+      "  var y=(PT+(ph*(1-v/smax)))|0;\n"
+      "  if(y<PT)y=PT;if(y>PT+ph)y=PT+ph;return y;\n"
+      "}\n"
+      "function render(){\n"
+      "  var lh='';\n"
+      "  for(var m=0;m<nm;m++){\n"
+      "    var isBase=order[0]===m;\n"
+      "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
+      "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
+      "      +'border-radius:3px;'\n"
+      "      +(isBase?'background:rgba(255,255,255,.08);color:var(--fg)':'')+'\">'\n"
+      "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
+      "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
+      "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
+      "  }\n"
+      "  legend.innerHTML=lh;\n"
+      "  var stk=new Float32Array(npts*nm);\n"
+      "  for(var i=0;i<npts;i++){\n"
+      "    var c=0;\n"
+      "    for(var k=0;k<nm;k++){c+=mdata[i*nm+order[k]];stk[i*nm+k]=c;}\n"
+      "  }\n"
+      "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
+      "    +'\" style=\"display:block\">';\n"
+      "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "    +'\" fill=\"#1a1e2b\" rx=\"4\"/>';\n"
+      "  for(var i=0;i<=4;i++){\n"
+      "    var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
+      "    s += '<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
+      "      +'font-size=\"9\" fill=\"#6b7186\">'+val.toFixed(2)+'</text>';\n"
+      "  }\n"
+      "  for(var i=0;i<=5;i++){\n"
+      "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
+      "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
+      "      +'font-size=\"9\" fill=\"#6b7186\">'+off+'</text>';\n"
+      "  }\n"
+      "  for(var k=nm-1;k>=0;k--){\n"
+      "    var d='';\n"
+      "    for(var i=0;i<npts;i++)\n"
+      "      d += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+k])+' ';\n"
+      "    for(var i=npts-1;i>=0;i--)\n"
+      "      d += 'L'+xCoord(i)+','+yCoord(k>0?stk[i*nm+k-1]:0)+' ';\n"
+      "    s += path(d+'Z','rgb('+pal[order[k]].join(',')+')',order[k]);\n"
+      "  }\n"
+      "  var dt='';\n"
+      "  for(var i=0;i<npts;i++)\n"
+      "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
+      "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
+      "    +'stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
+      "  s += '</svg>';\n"
+      "  chart.innerHTML=s;\n"
+      "}\n"
+      "function rebase(m){\n"
+      "  order=order.filter(function(x){return x!==m;});\n"
+      "  order.unshift(m);\n"
+      "  render();\n"
+      "}\n"
+      "window.hurtSetActive=function(m){\n"
+      "  if(m===null||m===undefined||m==='-1'){\n"
+      "    order=[]; for(var i=0;i<nm;i++) order.push(i);\n"
+      "  } else {\n"
+      "    var n=+m;\n"
+      "    if(n>=0&&n<nm){\n"
+      "      order=order.filter(function(x){return x!==n;});\n"
+      "      order.unshift(n);\n"
+      "    }\n"
+      "  }\n"
+      "  render();\n"
+      "};\n"
+      "function onClick(e){\n"
+      "  var el=e.target.closest('[data-m]');\n"
+      "  if(!el) return;\n"
+      "  var m=el.getAttribute('data-m');\n"
       "  if(window.attrSetHilite) window.attrSetHilite(m);\n"
       "  else rebase(+m);\n"
       "}\n"
