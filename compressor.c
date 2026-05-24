@@ -1754,58 +1754,72 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<h2>Output Breakdown</h2>\n"
       "<p class=\"desc\">Where the compressed bytes go.</p>\n");
 
-    int bar_w = 460;
-    fprintf(f,
-      "<svg width=\"100%%\" viewBox=\"0 0 %d 54\" "
-      "style=\"display:block;margin-bottom:10px;overflow:visible\">\n",
-      bar_w + 4);
-
-    int x = 2;
     struct { const char *label; float pct; const char *fill; int bytes; } segs[] = {
       {"Header", f_hdr, "#6b7186", s->header_bytes},
       {"Payload", f_pay, "#22d3ee",
        (int)((payload_bytes * 8 - padding_bits + 7) / 8)},
-      {"Padding", f_pad, "#2a2f3f", (padding_bits + 7) / 8},
+      {"Padding", f_pad, "#3b4156", (padding_bits + 7) / 8},
     };
     int nsegs = padding_bits > 0 ? 3 : 2;
 
+    /* donut chart + side legend */
+    fprintf(f, "<div style=\"display:flex;align-items:center;gap:24px;"
+      "padding:8px 0 4px\">\n");
+
+    int cx = 70, cy = 70, r = 52, sw = 18;
+    double circumf = 2.0 * 3.14159265 * r;
+
+    fprintf(f, "<svg width=\"140\" height=\"140\" viewBox=\"0 0 140 140\" "
+      "style=\"flex-shrink:0\">\n");
+    /* background ring */
+    fprintf(f,
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"var(--bg3)\" stroke-width=\"%d\"/>\n", cx, cy, r, sw);
+    /* segments, rotated -90 so 0%% starts at top */
+    fprintf(f, "<g transform=\"rotate(-90 %d %d)\">\n", cx, cy);
+    double cum_pct = 0;
     for (int i = 0; i < nsegs; i++) {
-      int w = (int)(segs[i].pct * bar_w / 100);
-      if (w < 1 && segs[i].pct > 0) w = 1;
-      if (i == nsegs - 1) w = bar_w - (x - 2);
-      /* SVG rx takes a single length; rely on adjacent segments
-         covering the inner-rounded corners of first/last */
+      double arc = circumf * segs[i].pct / 100.0;
+      double gap = circumf - arc;
+      double offset = -circumf * cum_pct / 100.0;
       fprintf(f,
-        "<rect x=\"%d\" y=\"2\" width=\"%d\" height=\"22\" "
-        "fill=\"%s\" rx=\"%s\"/>\n",
-        x, w, segs[i].fill,
-        (i == 0 || i == nsegs - 1) ? "4" : "0");
-      if (w > 55) {
-        fprintf(f,
-          "<text x=\"%d\" y=\"17\" text-anchor=\"middle\" "
-          "font-size=\"10\" fill=\"%s\" font-weight=\"500\" "
-          "font-family=\"var(--sans)\">"
-          "%s %d B</text>\n",
-          x + w / 2, i == 1 ? "#0c0e14" : "#e8eaf0",
-          segs[i].label, segs[i].bytes);
-      }
-      x += w;
+        "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+        "stroke=\"%s\" stroke-width=\"%d\" "
+        "stroke-dasharray=\"%.2f %.2f\" stroke-dashoffset=\"%.2f\"/>\n",
+        cx, cy, r, segs[i].fill, sw, arc, gap, offset);
+      cum_pct += segs[i].pct;
     }
+    fprintf(f, "</g>\n");
+    /* center label */
+    fprintf(f,
+      "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"22\" font-weight=\"600\" fill=\"var(--fg)\" "
+      "font-family=\"var(--sans)\">%d</text>\n", cx, cy + 4, s->total_bytes);
+    fprintf(f,
+      "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"9\" fill=\"var(--fg3)\" "
+      "letter-spacing=\"1.2px\">BYTES</text>\n", cx, cy + 20);
+    fprintf(f, "</svg>\n");
 
     /* legend */
-    x = 2;
+    fprintf(f, "<div style=\"flex:1;display:flex;flex-direction:column;"
+      "gap:8px;font-size:12px;min-width:0\">\n");
     for (int i = 0; i < nsegs; i++) {
       fprintf(f,
-        "<rect x=\"%d\" y=\"34\" width=\"10\" height=\"10\" "
-        "rx=\"2\" fill=\"%s\"/>",
-        x, segs[i].fill);
-      fprintf(f,
-        "<text x=\"%d\" y=\"43\" font-size=\"10\" "
-        "fill=\"#6b7186\">%s (%d B, %.1f%%)</text>",
-        x + 14, segs[i].label, segs[i].bytes, segs[i].pct);
-      x += 14 + 9 * (int)strlen(segs[i].label) + 75;
+        "<div style=\"display:flex;align-items:center;gap:10px\">\n"
+        "<span style=\"display:inline-block;width:10px;height:10px;"
+        "border-radius:2px;background:%s;flex-shrink:0\"></span>\n"
+        "<span style=\"flex:1;color:var(--fg2)\">%s</span>\n"
+        "<span style=\"font-family:var(--mono);color:var(--fg);"
+        "font-weight:500\">%d B</span>\n"
+        "<span style=\"font-family:var(--mono);color:var(--fg3);"
+        "min-width:48px;text-align:right\">%.1f%%</span>\n"
+        "</div>\n",
+        segs[i].fill, segs[i].label, segs[i].bytes, segs[i].pct);
     }
-    fprintf(f, "</svg></div>\n\n");
+    fprintf(f, "</div>\n"
+      "</div>\n"
+      "</div>\n\n");
   }
 
   /* ── Byte Frequency Heatmap ── */
