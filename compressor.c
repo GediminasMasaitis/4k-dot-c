@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
 
 typedef float v4f __attribute__((vector_size(16)));
 typedef uint32_t v4u __attribute__((vector_size(16)));
@@ -184,10 +187,21 @@ static inline float fast_log2f(float x) {
 }
 
 static inline void *alloc_aligned(size_t size) {
-  void *p = NULL;
-  if (posix_memalign(&p, 32, size) != 0)
-    return NULL;
-  return p;
+  /* aligned_alloc requires size to be a multiple of alignment */
+  size_t rounded = (size + 31) & ~(size_t)31;
+#if defined(_WIN32)
+  return _aligned_malloc(rounded, 32);
+#else
+  return aligned_alloc(32, rounded);
+#endif
+}
+
+static inline void free_aligned(void *p) {
+#if defined(_WIN32)
+  _aligned_free(p);
+#else
+  free(p);
+#endif
 }
 
 static int next_pow2(int v) {
@@ -484,7 +498,7 @@ static void eval_setup(Evaluator *ev, const CompState *cs, int length,
 }
 
 static void eval_destroy(const Evaluator *ev) {
-  free(ev->accum);
+  free_aligned(ev->accum);
   free(ev->accum_sizes);
 }
 
@@ -622,7 +636,7 @@ static CompState *state_new(const unsigned char *data, int size, int base_prob,
 }
 
 static void state_destroy(CompState *cs) {
-  free(cs->block_arena);
+  free_aligned(cs->block_arena);
   free(cs->map_arena);
   free(cs);
 }
