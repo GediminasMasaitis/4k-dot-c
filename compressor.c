@@ -1541,6 +1541,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<div class=\"sb-title\">Sections</div>\n"
     "<a href=\"#sec-params\">Parameters</a>\n"
     "<a href=\"#sec-output\">Output Breakdown</a>\n"
+    "<a href=\"#sec-mctrib\">Model Contribution</a>\n"
     "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
     "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
     "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
@@ -1816,6 +1817,132 @@ static void write_html_report(const char *path, const CompStats *s) {
         "min-width:48px;text-align:right\">%.1f%%</span>\n"
         "</div>\n",
         segs[i].fill, segs[i].label, segs[i].bytes, segs[i].pct);
+    }
+    fprintf(f, "</div>\n"
+      "</div>\n"
+      "</div>\n\n");
+  }
+
+  /* ── Model Contribution donut ── */
+  if (s->num_models > 0) {
+    /* same palette as Attribution map for visual continuity */
+    static const int mc_pal[][3] = {
+      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
+      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
+      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
+      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
+      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
+      {217,70,239},
+    };
+    int mc_npal = (int)(sizeof(mc_pal) / sizeof(mc_pal[0]));
+
+    /* sort by bits_saved desc */
+    int mc_order[MAX_SEARCH];
+    for (int m = 0; m < s->num_models; m++) mc_order[m] = m;
+    for (int i = 0; i < s->num_models - 1; i++)
+      for (int j = i + 1; j < s->num_models; j++)
+        if (s->model_bits_saved[mc_order[i]] < s->model_bits_saved[mc_order[j]]) {
+          int t = mc_order[i]; mc_order[i] = mc_order[j]; mc_order[j] = t;
+        }
+
+    double mc_total = 0;
+    for (int m = 0; m < s->num_models; m++)
+      if (s->model_bits_saved[m] > 0) mc_total += s->model_bits_saved[m];
+    if (mc_total < 1) mc_total = 1;
+
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-mctrib\">\n"
+      "<h2>Model Contribution</h2>\n"
+      "<p class=\"desc\">Each model's share of total bits saved.</p>\n");
+
+    fprintf(f, "<div style=\"display:flex;align-items:center;gap:24px;"
+      "padding:8px 0 4px\">\n");
+
+    int cx = 70, cy = 70, r = 52, sw = 18;
+    double circumf = 2.0 * 3.14159265 * r;
+
+    fprintf(f, "<svg width=\"140\" height=\"140\" viewBox=\"0 0 140 140\" "
+      "style=\"flex-shrink:0\">\n");
+    fprintf(f,
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"var(--bg3)\" stroke-width=\"%d\"/>\n", cx, cy, r, sw);
+    fprintf(f, "<g transform=\"rotate(-90 %d %d)\">\n", cx, cy);
+
+    double cum_pct = 0;
+    for (int i = 0; i < s->num_models; i++) {
+      int m = mc_order[i];
+      double bits = s->model_bits_saved[m];
+      if (bits <= 0) continue;
+      double pct = 100.0 * bits / mc_total;
+      double arc = circumf * pct / 100.0;
+      double gap = circumf - arc;
+      double offset = -circumf * cum_pct / 100.0;
+      int pi = i % mc_npal;
+      fprintf(f,
+        "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+        "stroke=\"rgb(%d,%d,%d)\" stroke-width=\"%d\" "
+        "stroke-dasharray=\"%.2f %.2f\" stroke-dashoffset=\"%.2f\"/>\n",
+        cx, cy, r, mc_pal[pi][0], mc_pal[pi][1], mc_pal[pi][2], sw,
+        arc, gap, offset);
+      cum_pct += pct;
+    }
+    fprintf(f, "</g>\n");
+
+    /* center: total bytes saved */
+    fprintf(f,
+      "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"22\" font-weight=\"600\" fill=\"var(--fg)\" "
+      "font-family=\"var(--sans)\">%.0f</text>\n",
+      cx, cy + 4, mc_total / 8.0);
+    fprintf(f,
+      "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
+      "font-size=\"8\" fill=\"var(--fg3)\" "
+      "letter-spacing=\"1.2px\">BYTES SAVED</text>\n", cx, cy + 20);
+    fprintf(f, "</svg>\n");
+
+    /* legend (top N + grouped remainder) */
+    int show_n = s->num_models < 6 ? s->num_models : 6;
+    fprintf(f, "<div style=\"flex:1;display:flex;flex-direction:column;"
+      "gap:6px;font-size:12px;min-width:0\">\n");
+    for (int i = 0; i < show_n; i++) {
+      int m = mc_order[i];
+      double bits = s->model_bits_saved[m];
+      double pct = 100.0 * bits / mc_total;
+      int pi = i % mc_npal;
+      const char *clr = bits <= 0 ? "var(--fg3)" : "var(--fg)";
+      fprintf(f,
+        "<div style=\"display:flex;align-items:center;gap:10px\">\n"
+        "<span style=\"display:inline-block;width:10px;height:10px;"
+        "border-radius:2px;background:rgb(%d,%d,%d);flex-shrink:0\"></span>\n"
+        "<span style=\"flex:1;color:var(--fg2);font-family:var(--mono);"
+        "font-size:11px\">%02X:%d</span>\n"
+        "<span style=\"font-family:var(--mono);color:%s;font-weight:500;"
+        "font-size:11px\">%.0f B</span>\n"
+        "<span style=\"font-family:var(--mono);color:var(--fg3);"
+        "min-width:42px;text-align:right;font-size:11px\">%.1f%%</span>\n"
+        "</div>\n",
+        mc_pal[pi][0], mc_pal[pi][1], mc_pal[pi][2],
+        s->model_masks[m], s->model_weights[m],
+        clr, bits / 8.0, pct);
+    }
+    if (s->num_models > show_n) {
+      double rest_bits = 0;
+      int rest_count = s->num_models - show_n;
+      for (int i = show_n; i < s->num_models; i++) {
+        double b = s->model_bits_saved[mc_order[i]];
+        if (b > 0) rest_bits += b;
+      }
+      double rest_pct = 100.0 * rest_bits / mc_total;
+      fprintf(f,
+        "<div style=\"display:flex;align-items:center;gap:10px;"
+        "color:var(--fg3);font-size:11px\">\n"
+        "<span style=\"width:10px;flex-shrink:0\"></span>\n"
+        "<span style=\"flex:1\">+%d more</span>\n"
+        "<span style=\"font-family:var(--mono)\">%.0f B</span>\n"
+        "<span style=\"font-family:var(--mono);min-width:42px;"
+        "text-align:right\">%.1f%%</span>\n"
+        "</div>\n",
+        rest_count, rest_bits / 8.0, rest_pct);
     }
     fprintf(f, "</div>\n"
       "</div>\n"
