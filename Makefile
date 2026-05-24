@@ -48,6 +48,12 @@ else
 	CFLAGS += -DNDEBUG
 endif
 
+ifeq ($(HTML), true)
+	HTMLARG := -H $(EXE).html
+else
+	HTMLARG :=
+endif
+
 all:
 	$(MKDIR)
 	$(CC) $(CFLAGS) -c 4k.c
@@ -72,7 +78,7 @@ compress_source: compile_asm link_asm
 
 compress: compressor compress_source
 	@$(MAP_CHECK)
-	./compressor -b $(BPROB) -o $(EXE).paq $(EXE)
+	./compressor -b $(BPROB) $(HTMLARG) -o $(EXE).paq $(EXE)
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
