@@ -4979,6 +4979,34 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
+#ifdef _WIN32
+  /* MinGW getopt stops at first non-option; permute argv so options
+     can appear in any order (matches GNU getopt's default) */
+  {
+    const char *os = "o:m:b:p:k:H:sdwehv";
+    char **opts = (char **)malloc(sizeof(char *) * argc);
+    char **pos = (char **)malloc(sizeof(char *) * argc);
+    int n_opts = 0, n_pos = 0;
+    for (int i = 1; i < argc; i++) {
+      if (argv[i][0] == '-' && argv[i][1] != '\0') {
+        opts[n_opts++] = argv[i];
+        char c = argv[i][1];
+        const char *p = strchr(os, c);
+        /* take next argv as value only if option needs one AND value
+           isn't already joined like -Ofoo */
+        if (p && p[1] == ':' && argv[i][2] == '\0' && i + 1 < argc)
+          opts[n_opts++] = argv[++i];
+      } else {
+        pos[n_pos++] = argv[i];
+      }
+    }
+    int j = 1;
+    for (int i = 0; i < n_opts; i++) argv[j++] = opts[i];
+    for (int i = 0; i < n_pos; i++) argv[j++] = pos[i];
+    free(opts);
+    free(pos);
+  }
+#endif
   while ((opt = getopt(argc, argv, "o:m:b:p:k:H:sdwehv")) != -1) {
     switch (opt) {
     case 'o':
