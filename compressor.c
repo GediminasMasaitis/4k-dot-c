@@ -2450,7 +2450,6 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     /* compute rolling window contribution per model (positive only = bits saved) */
     float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
-    float *stacked = (float *)calloc((size_t)npts * nm, sizeof(float));
     float smax = 0;
 
     for (int i = 0; i < npts; i++) {
@@ -2467,13 +2466,7 @@ static void write_html_report(const char *path, const CompStats *s) {
         mdata[i * nm + m] = sum / cnt; /* avg bits saved per byte in window */
         row_total += mdata[i * nm + m];
       }
-      /* build stacked values */
-      float cumul = 0;
-      for (int m = 0; m < nm; m++) {
-        cumul += mdata[i * nm + m];
-        stacked[i * nm + m] = cumul;
-      }
-      if (cumul > smax) smax = cumul;
+      if (row_total > smax) smax = row_total;
     }
     if (smax < 0.01f) smax = 1.0f;
 
@@ -2490,106 +2483,137 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     int svg_w = 960, svg_h = 200;
     int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
-    int plot_w = svg_w - pad_l - pad_r;
-    int plot_h = svg_h - pad_t - pad_b;
 
     fprintf(f,
       "<div class=\"card full\" id=\"sec-dominance\">\n"
       "<h2>Model Dominance Timeline</h2>\n"
       "<p class=\"desc\">Stacked area: each model's contribution (bits saved/byte) "
-      "over file position. Window = %d bytes.</p>\n", win);
+      "over file position. Window = %d bytes. "
+      "<span style=\"color:var(--fg3)\">Click a model in the legend or chart "
+      "to rebase it to the bottom.</span></p>\n", win);
 
-    /* legend */
-    fprintf(f, "<div style=\"display:flex;flex-wrap:wrap;gap:6px 14px;"
-      "margin-bottom:10px;font-size:11px;font-family:var(--mono)\">\n");
-    for (int m = 0; m < nm && m < dom_npal; m++) {
-      fprintf(f, "<span style=\"display:inline-flex;align-items:center;gap:4px\">"
-        "<span style=\"display:inline-block;width:10px;height:10px;"
-        "border-radius:2px;background:rgb(%d,%d,%d)\"></span>"
-        "%02X:%d</span>\n",
-        dom_pal[m % dom_npal][0], dom_pal[m % dom_npal][1],
-        dom_pal[m % dom_npal][2],
-        s->model_masks[m], s->model_weights[m]);
-    }
-    fprintf(f, "</div>\n");
+    fprintf(f, "<div id=\"dom-legend\" style=\"display:flex;flex-wrap:wrap;"
+      "gap:6px 14px;margin-bottom:10px;font-size:11px;"
+      "font-family:var(--mono)\"></div>\n");
+    fprintf(f, "<div id=\"dom-chart\"></div>\n");
 
-    fprintf(f,
-      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" style=\"display:block\">\n",
-      svg_w, svg_h);
+    /* Embed raw per-window data + render code. Embedding mdata rather than
+       pre-stacked values lets JS re-stack on click. */
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var nm=%d,npts=%d,nb=%d,smax=%g;\n", nm, npts, nb, smax);
+    fprintf(f, "var W=%d,H=%d,PL=%d,PR=%d,PT=%d,PB=%d;\n",
+      svg_w, svg_h, pad_l, pad_r, pad_t, pad_b);
+    fprintf(f, "var pw=W-PL-PR,ph=H-PT-PB;\n");
 
-    /* bg */
-    fprintf(f,
-      "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
-
-    /* y gridlines */
-    int nyticks = 4;
-    for (int i = 0; i <= nyticks; i++) {
-      float val = smax * (nyticks - i) / nyticks;
-      int y = pad_t + plot_h * i / nyticks;
-      fprintf(f,
-        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-        "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
-        pad_l, y, pad_l + plot_w, y);
-      fprintf(f,
-        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
-        "font-size=\"9\" fill=\"#6b7186\">%.1f</text>\n",
-        pad_l - 5, y + 3, val);
-    }
-
-    /* x axis labels */
-    int nxticks = 5;
-    for (int i = 0; i <= nxticks; i++) {
-      int offset = (int)((long)(nb - 1) * i / nxticks);
-      int x = pad_l + (int)((long)plot_w * i / nxticks);
-      fprintf(f,
-        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-        "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
-        x, pad_t + plot_h + 16, offset);
-    }
-
-    /* stacked area paths - render from top model down so model 0 is on top */
-    for (int m = nm - 1; m >= 0; m--) {
+    fprintf(f, "var pal=[");
+    for (int m = 0; m < nm; m++) {
       int pi = m % dom_npal;
-      /* top edge: stacked[m], bottom edge: stacked[m-1] or 0 */
-      fprintf(f, "<path d=\"");
-      /* forward along top */
-      for (int i = 0; i < npts; i++) {
-        int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
-        float top = stacked[i * nm + m];
-        int y = pad_t + (int)(plot_h * (1.0f - top / smax));
-        if (y < pad_t) y = pad_t;
-        fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
-      }
-      /* backward along bottom */
-      for (int i = npts - 1; i >= 0; i--) {
-        int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
-        float bot = m > 0 ? stacked[i * nm + (m - 1)] : 0;
-        int y = pad_t + (int)(plot_h * (1.0f - bot / smax));
-        if (y > pad_t + plot_h) y = pad_t + plot_h;
-        fprintf(f, "L%d,%d ", x, y);
-      }
-      fprintf(f, "Z\" fill=\"rgb(%d,%d,%d)\" fill-opacity=\".75\"/>\n",
+      fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
         dom_pal[pi][0], dom_pal[pi][1], dom_pal[pi][2]);
     }
+    fprintf(f, "];\n");
 
-    /* thin white line at top of stack for total */
-    fprintf(f, "<path d=\"");
-    for (int i = 0; i < npts; i++) {
-      int x = pad_l + (int)((long)i * plot_w / (npts > 1 ? npts - 1 : 1));
-      float top = stacked[i * nm + (nm - 1)];
-      int y = pad_t + (int)(plot_h * (1.0f - top / smax));
-      if (y < pad_t) y = pad_t;
-      fprintf(f, "%c%d,%d ", i == 0 ? 'M' : 'L', x, y);
+    fprintf(f, "var labels=[");
+    for (int m = 0; m < nm; m++) {
+      fprintf(f, "%s\"%02X:%d\"", m ? "," : "",
+        s->model_masks[m], s->model_weights[m]);
     }
-    fprintf(f, "\" fill=\"none\" stroke=\"rgba(255,255,255,.2)\" "
-      "stroke-width=\"0.5\"/>\n");
+    fprintf(f, "];\n");
 
-    fprintf(f, "</svg>\n");
+    fprintf(f, "var mdata=[");
+    for (int i = 0; i < npts; i++) {
+      for (int m = 0; m < nm; m++) {
+        fprintf(f, "%s%.4g", (i || m) ? "," : "", mdata[i * nm + m]);
+      }
+    }
+    fprintf(f, "];\n");
+
+    fprintf(f, "%s",
+      "var order=[];for(var i=0;i<nm;i++)order.push(i);\n"
+      "var legend=document.getElementById('dom-legend');\n"
+      "var chart=document.getElementById('dom-chart');\n"
+      "function path(d,fill,m){\n"
+      "  return '<path d=\"'+d+'\" fill=\"'+fill+'\" fill-opacity=\".75\" '\n"
+      "    +'data-m=\"'+m+'\" style=\"cursor:pointer\"/>';\n"
+      "}\n"
+      "function xCoord(i){return (PL+(i*pw/(npts>1?npts-1:1)))|0;}\n"
+      "function yCoord(v){\n"
+      "  var y=(PT+(ph*(1-v/smax)))|0;\n"
+      "  if(y<PT)y=PT;if(y>PT+ph)y=PT+ph;return y;\n"
+      "}\n"
+      "function render(){\n"
+      "  /* legend - always in palette order so colors stay put */\n"
+      "  var lh='';\n"
+      "  for(var m=0;m<nm;m++){\n"
+      "    var isBase=order[0]===m;\n"
+      "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
+      "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
+      "      +'border-radius:3px;'\n"
+      "      +(isBase?'background:rgba(255,255,255,.08);color:var(--fg)':'')+'\">'\n"
+      "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
+      "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
+      "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
+      "  }\n"
+      "  legend.innerHTML=lh;\n"
+      "  /* stack along x using current order */\n"
+      "  var stk=new Float32Array(npts*nm);\n"
+      "  for(var i=0;i<npts;i++){\n"
+      "    var c=0;\n"
+      "    for(var k=0;k<nm;k++){c+=mdata[i*nm+order[k]];stk[i*nm+k]=c;}\n"
+      "  }\n"
+      "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
+      "    +'\" style=\"display:block\">';\n"
+      "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "    +'\" fill=\"#1a1e2b\" rx=\"4\"/>';\n"
+      "  /* y gridlines */\n"
+      "  for(var i=0;i<=4;i++){\n"
+      "    var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
+      "    s += '<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
+      "      +'font-size=\"9\" fill=\"#6b7186\">'+val.toFixed(1)+'</text>';\n"
+      "  }\n"
+      "  /* x labels */\n"
+      "  for(var i=0;i<=5;i++){\n"
+      "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
+      "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
+      "      +'font-size=\"9\" fill=\"#6b7186\">'+off+'</text>';\n"
+      "  }\n"
+      "  /* paths - top of stack first so lower bands aren't obscured */\n"
+      "  for(var k=nm-1;k>=0;k--){\n"
+      "    var d='';\n"
+      "    for(var i=0;i<npts;i++)\n"
+      "      d += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+k])+' ';\n"
+      "    for(var i=npts-1;i>=0;i--)\n"
+      "      d += 'L'+xCoord(i)+','+yCoord(k>0?stk[i*nm+k-1]:0)+' ';\n"
+      "    s += path(d+'Z','rgb('+pal[order[k]].join(',')+')',order[k]);\n"
+      "  }\n"
+      "  /* top line */\n"
+      "  var dt='';\n"
+      "  for(var i=0;i<npts;i++)\n"
+      "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
+      "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
+      "    +'stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
+      "  s += '</svg>';\n"
+      "  chart.innerHTML=s;\n"
+      "}\n"
+      "function rebase(m){\n"
+      "  order=order.filter(function(x){return x!==m;});\n"
+      "  order.unshift(m);\n"
+      "  render();\n"
+      "}\n"
+      "function onClick(e){\n"
+      "  var el=e.target.closest('[data-m]');\n"
+      "  if(el) rebase(+el.getAttribute('data-m'));\n"
+      "}\n"
+      "legend.addEventListener('click',onClick);\n"
+      "chart.addEventListener('click',onClick);\n"
+      "render();\n"
+      "})();</script>\n");
+
     fprintf(f, "</div>\n\n");
 
     free(mdata);
-    free(stacked);
   }
 
   /* ── Top Surprises ── */
