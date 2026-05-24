@@ -2460,6 +2460,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var el=e.target.closest('[data-bm]');\n"
       "  if(el) setHilite(el.getAttribute('data-bm'));\n"
       "});\n"
+      "/* expose for cross-section triggers (Per-Model Statistics) */\n"
+      "window.attrSetHilite=setHilite;\n"
       "document.getElementById('attr-svg').addEventListener('click',function(e){\n"
       "  var r=e.target; if(r.tagName!=='rect') return;\n"
       "  var idx=r.getAttribute('data-i'); if(idx===null) return;\n"
@@ -3152,7 +3154,9 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f,
       "<div class=\"card full\" id=\"sec-models\">\n"
       "<h2>Per-Model Statistics</h2>\n"
-      "<p class=\"desc\">Sorted by contribution. Positive bits saved = model helped.</p>\n"
+      "<p class=\"desc\">Sorted by contribution. Positive bits saved = model helped. "
+      "<span style=\"color:var(--fg3)\">Click a row to highlight that model "
+      "in the Attribution Map (click again to flip to where it hurts).</span></p>\n"
       "<table><tr><th>#</th><th>Mask</th><th class=\"r\">Weight</th>"
       "<th class=\"r\">Hits</th><th class=\"r\">Hit %%</th>"
       "<th class=\"r\">Unique Ctx</th>"
@@ -3174,11 +3178,12 @@ static void write_html_report(const char *path, const CompStats *s) {
       const char *bcls = bits > 0 ? "bar-grn" : "bar-red";
 
       fprintf(f,
-        "<tr><td class=\"r\">%d</td>"
+        "<tr class=\"pm-row\" data-bm=\"%d\" style=\"cursor:pointer\">"
+        "<td class=\"r\">%d</td>"
         "<td class=\"n\" style=\"white-space:nowrap\">%02X <svg "
         "width=\"66\" height=\"12\" "
         "style=\"vertical-align:middle;display:inline-block\">",
-        m, s->model_masks[m]);
+        m, m, s->model_masks[m]);
       for (int b = 7; b >= 0; b--) {
         int on = (s->model_masks[m] >> b) & 1;
         int bx = (7 - b) * 8 + 1;
@@ -3204,7 +3209,24 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<td class=\"r c-grn\" style=\"font-weight:600\">%.1f</td>"
       "<td class=\"r c-grn\" style=\"font-weight:600\">%.1f</td></tr>\n",
       total_saved, total_saved / 8.0);
-    fprintf(f, "</table></div>\n\n");
+    fprintf(f, "</table>\n");
+
+    /* Wire rows to the Attribution Map's setHilite (set up earlier on
+       window.attrSetHilite). Falls back to no-op if attr map is missing. */
+    fprintf(f, "%s",
+      "<script>(function(){\n"
+      "var rows=document.querySelectorAll('#sec-models tr.pm-row');\n"
+      "for(var i=0;i<rows.length;i++){\n"
+      "  rows[i].addEventListener('click',function(){\n"
+      "    var m=this.getAttribute('data-bm');\n"
+      "    if(window.attrSetHilite) window.attrSetHilite(m);\n"
+      "    var attr=document.getElementById('sec-attr');\n"
+      "    if(attr) attr.scrollIntoView({behavior:'smooth',block:'start'});\n"
+      "  });\n"
+      "}\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
   }
 
   /* ── Prediction Confidence ── */
