@@ -1519,6 +1519,18 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".cd-panel .cd-bar-val{font-family:var(--mono);width:70px;"
     "text-align:right;flex-shrink:0}\n"
     ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
+    ".scrub-wrap{position:relative}\n"
+    ".scrub-line{stroke:#fff;stroke-width:0.6;opacity:0;"
+    "pointer-events:none;transition:opacity .1s}\n"
+    ".hover-tip{position:absolute;display:none;background:var(--bg);"
+    "border:1px solid var(--bdr2);border-radius:4px;padding:6px 10px;"
+    "font-size:11px;font-family:var(--mono);pointer-events:none;z-index:10;"
+    "white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4);"
+    "color:var(--fg2);line-height:1.5}\n"
+    ".hover-tip .tip-row{display:flex;gap:8px;justify-content:space-between;"
+    "min-width:120px}\n"
+    ".hover-tip .tip-sw{display:inline-block;width:8px;height:8px;"
+    "border-radius:2px;margin-right:4px;vertical-align:middle}\n"
     "</style></head><body>\n"
     "<nav class=\"sidebar\" id=\"sidebar\">\n"
     "<div class=\"sb-title\">Sections</div>\n"
@@ -2574,7 +2586,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "<div id=\"dom-legend\" style=\"display:flex;flex-wrap:wrap;"
       "gap:6px 14px;margin-bottom:10px;font-size:11px;"
       "font-family:var(--mono)\"></div>\n");
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
     fprintf(f, "<div id=\"dom-chart\"></div>\n");
+    fprintf(f, "<div id=\"dom-tip\" class=\"hover-tip\"></div>\n");
+    fprintf(f, "</div>\n");
 
     /* Embed raw per-window data + render code. Embedding mdata rather than
        pre-stacked values lets JS re-stack on click. */
@@ -2673,6 +2688,9 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
       "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
       "    +'stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
+      "  /* scrubber line, hidden initially */\n"
+      "  s += '<line id=\"dom-scrub\" class=\"scrub-line\" '\n"
+      "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
       "  s += '</svg>';\n"
       "  chart.innerHTML=s;\n"
       "}\n"
@@ -2704,6 +2722,61 @@ static void write_html_report(const char *path, const CompStats *s) {
       "}\n"
       "legend.addEventListener('click',onClick);\n"
       "chart.addEventListener('click',onClick);\n"
+      "/* hover scrubber: vertical line + tooltip with per-model breakdown */\n"
+      "var tip=document.getElementById('dom-tip');\n"
+      "function hideTip(){\n"
+      "  var l=document.getElementById('dom-scrub');\n"
+      "  if(l) l.setAttribute('opacity','0');\n"
+      "  tip.style.display='none';\n"
+      "}\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
+      "  var r=svg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*W;\n"
+      "  if(px<PL||px>PL+pw){hideTip();return;}\n"
+      "  var i=Math.round((px-PL)/pw*(npts-1));\n"
+      "  if(i<0)i=0; if(i>=npts)i=npts-1;\n"
+      "  var bytePos=Math.round(i*(nb-1)/(npts-1));\n"
+      "  /* gather per-model values at this window, sorted desc */\n"
+      "  var rows=[];\n"
+      "  var total=0;\n"
+      "  for(var m=0;m<nm;m++){\n"
+      "    var v=mdata[i*nm+m];\n"
+      "    if(v>0.001){rows.push({m:m,v:v}); total+=v;}\n"
+      "  }\n"
+      "  rows.sort(function(a,b){return b.v-a.v;});\n"
+      "  var l=document.getElementById('dom-scrub');\n"
+      "  if(l){\n"
+      "    var x=PL+i*pw/(npts-1);\n"
+      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+      "    l.setAttribute('opacity','0.5');\n"
+      "  }\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">total</span>'\n"
+      "    +'<span style=\"color:#34d399;font-weight:600\">'+total.toFixed(2)+' b/B</span></div>';\n"
+      "  if(rows.length){h += '<div style=\"border-top:1px solid var(--bdr);'\n"
+      "    +'margin:4px 0 2px;padding-top:4px\"></div>';}\n"
+      "  var show=Math.min(rows.length,5);\n"
+      "  for(var k=0;k<show;k++){\n"
+      "    var rr=rows[k];\n"
+      "    h+='<div class=\"tip-row\">'\n"
+      "      +'<span><span class=\"tip-sw\" style=\"background:rgb('+pal[rr.m].join(',')+')\"></span>'\n"
+      "      +labels[rr.m]+'</span>'\n"
+      "      +'<span style=\"color:var(--fg)\">'+rr.v.toFixed(2)+'</span></div>';\n"
+      "  }\n"
+      "  if(rows.length>show) h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">+'\n"
+      "    +(rows.length-show)+' more</span></div>';\n"
+      "  tip.innerHTML=h;\n"
+      "  var wrap=chart.parentNode;\n"
+      "  var wr=wrap.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',hideTip);\n"
       "render();\n"
       "})();</script>\n");
 
@@ -2770,7 +2843,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "<div id=\"hurt-legend\" style=\"display:flex;flex-wrap:wrap;"
       "gap:6px 14px;margin-bottom:10px;font-size:11px;"
       "font-family:var(--mono)\"></div>\n");
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
     fprintf(f, "<div id=\"hurt-chart\"></div>\n");
+    fprintf(f, "<div id=\"hurt-tip\" class=\"hover-tip\"></div>\n");
+    fprintf(f, "</div>\n");
 
     fprintf(f, "<script>(function(){\n");
     fprintf(f, "var nm=%d,npts=%d,nb=%d,smax=%g;\n", nm, npts, nb, smax);
@@ -2861,6 +2937,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
       "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
       "    +'stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
+      "  s += '<line id=\"hurt-scrub\" class=\"scrub-line\" '\n"
+      "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
       "  s += '</svg>';\n"
       "  chart.innerHTML=s;\n"
       "}\n"
@@ -2890,6 +2968,58 @@ static void write_html_report(const char *path, const CompStats *s) {
       "}\n"
       "legend.addEventListener('click',onClick);\n"
       "chart.addEventListener('click',onClick);\n"
+      "var tip=document.getElementById('hurt-tip');\n"
+      "function hideTip(){\n"
+      "  var l=document.getElementById('hurt-scrub');\n"
+      "  if(l) l.setAttribute('opacity','0');\n"
+      "  tip.style.display='none';\n"
+      "}\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
+      "  var r=svg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*W;\n"
+      "  if(px<PL||px>PL+pw){hideTip();return;}\n"
+      "  var i=Math.round((px-PL)/pw*(npts-1));\n"
+      "  if(i<0)i=0; if(i>=npts)i=npts-1;\n"
+      "  var bytePos=Math.round(i*(nb-1)/(npts-1));\n"
+      "  var rows=[],total=0;\n"
+      "  for(var m=0;m<nm;m++){\n"
+      "    var v=mdata[i*nm+m];\n"
+      "    if(v>0.001){rows.push({m:m,v:v}); total+=v;}\n"
+      "  }\n"
+      "  rows.sort(function(a,b){return b.v-a.v;});\n"
+      "  var l=document.getElementById('hurt-scrub');\n"
+      "  if(l){\n"
+      "    var x=PL+i*pw/(npts-1);\n"
+      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+      "    l.setAttribute('opacity','0.5');\n"
+      "  }\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">total</span>'\n"
+      "    +'<span style=\"color:#f87171;font-weight:600\">'+total.toFixed(2)+' b/B</span></div>';\n"
+      "  if(rows.length){h += '<div style=\"border-top:1px solid var(--bdr);'\n"
+      "    +'margin:4px 0 2px;padding-top:4px\"></div>';}\n"
+      "  var show=Math.min(rows.length,5);\n"
+      "  for(var k=0;k<show;k++){\n"
+      "    var rr=rows[k];\n"
+      "    h+='<div class=\"tip-row\">'\n"
+      "      +'<span><span class=\"tip-sw\" style=\"background:rgb('+pal[rr.m].join(',')+')\"></span>'\n"
+      "      +labels[rr.m]+'</span>'\n"
+      "      +'<span style=\"color:var(--fg)\">'+rr.v.toFixed(2)+'</span></div>';\n"
+      "  }\n"
+      "  if(rows.length>show) h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">+'\n"
+      "    +(rows.length-show)+' more</span></div>';\n"
+      "  tip.innerHTML=h;\n"
+      "  var wrap=chart.parentNode;\n"
+      "  var wr=wrap.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',hideTip);\n"
       "render();\n"
       "})();</script>\n");
 
@@ -3042,8 +3172,9 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<h2>Cost Over File Position</h2>\n"
       "<p class=\"desc\">Rolling avg encoding cost (bits/byte). "
       "Window = %d bytes. H\xe2\x82\x80 = %.2f.</p>\n", win, s->entropy);
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
     fprintf(f,
-      "<svg width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "<svg id=\"cost-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"display:block\">\n", svg_w, svg_h);
 
     /* bg */
@@ -3123,7 +3254,56 @@ static void write_html_report(const char *path, const CompStats *s) {
         "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
         x, svg_h - 4, byte_pos);
     }
-    fprintf(f, "</svg></div>\n\n");
+    /* scrubber line, hidden until hover */
+    fprintf(f,
+      "<line id=\"cost-scrub\" class=\"scrub-line\" "
+      "x1=\"0\" y1=\"%d\" x2=\"0\" y2=\"%d\"/>\n",
+      pad_t, pad_t + plot_h);
+    fprintf(f, "</svg>\n");
+    fprintf(f, "<div id=\"cost-tip\" class=\"hover-tip\"></div>\n");
+
+    /* embed rolling data + scrubber JS */
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var R=[");
+    for (int i = 0; i < npts; i++)
+      fprintf(f, "%s%.3g", i ? "," : "", rolling[i]);
+    fprintf(f, "];\n");
+    fprintf(f, "var nb=%d,npts=%d,W=%d,PL=%d,pw=%d;\n",
+      nb, npts, svg_w, pad_l, plot_w);
+
+    fprintf(f, "%s",
+      "var svg=document.getElementById('cost-svg');\n"
+      "var scrub=document.getElementById('cost-scrub');\n"
+      "var tip=document.getElementById('cost-tip');\n"
+      "var wrap=svg.parentNode;\n"
+      "function hide(){scrub.setAttribute('opacity','0');tip.style.display='none';}\n"
+      "svg.addEventListener('mousemove',function(e){\n"
+      "  var r=svg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*W;\n"
+      "  if(px<PL||px>PL+pw){hide();return;}\n"
+      "  var idx=Math.round((px-PL)/pw*(npts-1));\n"
+      "  if(idx<0)idx=0; if(idx>=npts)idx=npts-1;\n"
+      "  var bytePos=Math.round(idx*(nb-1)/(npts-1));\n"
+      "  var val=R[idx];\n"
+      "  var x=PL+idx*pw/(npts-1);\n"
+      "  scrub.setAttribute('x1',x); scrub.setAttribute('x2',x);\n"
+      "  scrub.setAttribute('opacity','0.5');\n"
+      "  var clr=val<3?'#34d399':val<6?'#fbbf24':'#f87171';\n"
+      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">cost</span>'\n"
+      "    +'<span style=\"color:'+clr+';font-weight:600\">'+val.toFixed(2)+' bits</span></div>';\n"
+      "  var wr=wrap.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+200>wr.width) tx=(e.clientX-wr.left)-200;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "svg.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div></div>\n\n");
     free(rolling);
   }
 
@@ -3173,6 +3353,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f,
       "<style>#search-svg circle{transition:stroke-width .12s}"
       "#search-svg circle:hover{stroke:#fff;stroke-width:1.5}</style>\n");
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
     fprintf(f,
       "<svg id=\"search-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
       "style=\"display:block\">\n",
@@ -3289,7 +3470,14 @@ static void write_html_report(const char *path, const CompStats *s) {
       "font-size=\"10\" fill=\"#6b7186\" "
       "transform=\"rotate(-90,14,%d)\">est. bytes (log)</text>\n",
       pad_t + plot_h / 2, pad_t + plot_h / 2);
+    /* scrubber line */
+    fprintf(f,
+      "<line id=\"search-scrub\" class=\"scrub-line\" "
+      "x1=\"0\" y1=\"%d\" x2=\"0\" y2=\"%d\"/>\n",
+      pad_t, pad_t + plot_h);
     fprintf(f, "</svg>\n");
+    fprintf(f, "<div id=\"search-tip\" class=\"hover-tip\"></div>\n");
+    fprintf(f, "</div>\n");
 
     /* ── Detail panel ── */
     fprintf(f, "<div id=\"search-detail\" class=\"cd-panel\"></div>\n");
@@ -3362,6 +3550,50 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  panel.innerHTML=h;\n"
       "  panel.style.display='block';\n"
       "});\n"
+      "/* hover scrubber - log-x mapping back to iteration */\n");
+    fprintf(f,
+      "var SW=%d,SPL=%d,SPW=%d,SPT=%d,SPH=%d;\n"
+      "var XLM=%g,XLR=%g;\n",
+      svg_w, pad_l, plot_w, pad_t, plot_h, xlog_min, xlog_range);
+    fprintf(f, "%s",
+      "var stip=document.getElementById('search-tip');\n"
+      "var ssvg=document.getElementById('search-svg');\n"
+      "function hideStip(){\n"
+      "  var l=document.getElementById('search-scrub');\n"
+      "  if(l) l.setAttribute('opacity','0');\n"
+      "  stip.style.display='none';\n"
+      "}\n"
+      "ssvg.addEventListener('mousemove',function(e){\n"
+      "  var r=ssvg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*SW;\n"
+      "  if(px<SPL||px>SPL+SPW){hideStip();return;}\n"
+      "  /* invert: idx = 2^(((x-PL)/pw)*XLR + XLM) - 1 */\n"
+      "  var logIdx=((px-SPL)/SPW)*XLR+XLM;\n"
+      "  var idx=Math.round(Math.pow(2,logIdx)-1);\n"
+      "  if(idx<0)idx=0; if(idx>=SB.length)idx=SB.length-1;\n"
+      "  var best=SB[idx];\n"
+      "  var l=document.getElementById('search-scrub');\n"
+      "  if(l){l.setAttribute('x1',px); l.setAttribute('x2',px);\n"
+      "        l.setAttribute('opacity','0.5');}\n"
+      "  /* count events at exactly this iter */\n"
+      "  var nev=0;\n"
+      "  for(var k=0;k<SE.length;k++) if(SE[k].i===idx) nev++;\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">iter</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">'+idx+' / '+(SB.length-1)+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">best</span>'\n"
+      "    +'<span style=\"color:var(--fg);font-weight:600\">'+best.toFixed(1)+' B</span></div>';\n"
+      "  if(nev>0) h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">events</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">'+nev+'</span></div>';\n"
+      "  stip.innerHTML=h;\n"
+      "  var wrap=ssvg.parentNode;\n"
+      "  var wr=wrap.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+180>wr.width) tx=(e.clientX-wr.left)-180;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  stip.style.left=tx+'px'; stip.style.top=ty+'px';\n"
+      "  stip.style.display='block';\n"
+      "});\n"
+      "ssvg.addEventListener('mouseleave',hideStip);\n"
       "})();\n"
       "</script>\n");
 
