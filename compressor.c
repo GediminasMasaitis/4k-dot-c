@@ -1498,25 +1498,25 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3)}\n"
     "\n"
     "/* ── Inspect panel ── */\n"
-    "#cmap-detail,#attr-detail,#bfreq-detail,#bigram-detail,#search-detail{display:none;margin-top:14px;padding:14px 18px;"
+    ".cd-panel{display:none;margin-top:14px;padding:14px 18px;"
     "background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;"
     "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
-    "#cmap-detail .cd-head,#attr-detail .cd-head,#bfreq-detail .cd-head,#bigram-detail,#search-detail .cd-head{display:flex;align-items:baseline;gap:14px;"
+    ".cd-panel .cd-head{display:flex;align-items:baseline;gap:14px;"
     "margin-bottom:10px}\n"
-    "#cmap-detail .cd-byte,#attr-detail .cd-byte,#bfreq-detail .cd-byte,#bigram-detail,#search-detail .cd-byte{font-family:var(--mono);font-size:18px;"
+    ".cd-panel .cd-byte{font-family:var(--mono);font-size:18px;"
     "font-weight:600;color:var(--fg)}\n"
-    "#cmap-detail .cd-sub,#attr-detail .cd-sub,#bfreq-detail .cd-sub,#bigram-detail,#search-detail .cd-sub{font-size:11px;color:var(--fg3)}\n"
-    "#cmap-detail .cd-cost,#attr-detail .cd-cost,#bfreq-detail .cd-cost,#bigram-detail,#search-detail .cd-cost{font-family:var(--mono);font-size:14px;"
+    ".cd-panel .cd-sub{font-size:11px;color:var(--fg3)}\n"
+    ".cd-panel .cd-cost{font-family:var(--mono);font-size:14px;"
     "font-weight:600}\n"
-    "#cmap-detail .cd-bar,#attr-detail .cd-bar,#bfreq-detail .cd-bar,#bigram-detail,#search-detail .cd-bar{display:flex;align-items:center;gap:8px;"
+    ".cd-panel .cd-bar{display:flex;align-items:center;gap:8px;"
     "margin:3px 0;font-size:11px}\n"
-    "#cmap-detail .cd-bar-lbl,#attr-detail .cd-bar-lbl,#bfreq-detail .cd-bar-lbl,#bigram-detail,#search-detail .cd-bar-lbl{font-family:var(--mono);width:50px;"
+    ".cd-panel .cd-bar-lbl{font-family:var(--mono);width:50px;"
     "color:var(--fg3);flex-shrink:0}\n"
-    "#cmap-detail .cd-bar-track,#attr-detail .cd-bar-track,#bfreq-detail .cd-bar-track,#bigram-detail,#search-detail .cd-bar-track{flex:1;height:14px;background:var(--bg);"
+    ".cd-panel .cd-bar-track{flex:1;height:14px;background:var(--bg);"
     "border-radius:3px;position:relative;overflow:hidden}\n"
-    "#cmap-detail .cd-bar-fill,#attr-detail .cd-bar-fill,#bfreq-detail .cd-bar-fill,#bigram-detail,#search-detail .cd-bar-fill{height:100%%;border-radius:3px;"
+    ".cd-panel .cd-bar-fill{height:100%%;border-radius:3px;"
     "position:absolute;left:0;top:0;transition:width .2s}\n"
-    "#cmap-detail .cd-bar-val,#attr-detail .cd-bar-val,#bfreq-detail .cd-bar-val,#bigram-detail,#search-detail .cd-bar-val{font-family:var(--mono);width:70px;"
+    ".cd-panel .cd-bar-val{font-family:var(--mono);width:70px;"
     "text-align:right;flex-shrink:0}\n"
     ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
     "</style></head><body>\n"
@@ -1792,7 +1792,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</svg>\n");
 
     /* ── Detail panel ── */
-    fprintf(f, "<div id=\"bfreq-detail\"></div>\n");
+    fprintf(f, "<div id=\"bfreq-detail\" class=\"cd-panel\"></div>\n");
 
     /* ── Emit frequency data + click handler ── */
     fprintf(f, "<script>\nvar BF=[");
@@ -1900,13 +1900,14 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<canvas id=\"bigram-cv\" width=\"512\" height=\"512\" "
-      "style=\"flex:1;min-width:0;aspect-ratio:1;cursor:crosshair;"
-      "image-rendering:pixelated;border:1px solid var(--bdr)\"></canvas>\n"
+      "style=\"flex:1;min-width:0;aspect-ratio:1;max-height:70vh;"
+      "cursor:crosshair;image-rendering:pixelated;"
+      "border:1px solid var(--bdr)\"></canvas>\n"
       "</div>\n"
       "</div>\n");
 
     /* detail panel */
-    fprintf(f, "<div id=\"bigram-detail\"></div>\n");
+    fprintf(f, "<div id=\"bigram-detail\" class=\"cd-panel\"></div>\n");
 
     /* emit bigram counts as flat array */
     fprintf(f, "<script>\n");
@@ -2037,6 +2038,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  }\n"
       "  panel.innerHTML=h;\n"
       "  panel.style.display='block';\n"
+      "  panel.scrollIntoView({behavior:'smooth',block:'nearest'});\n"
       "});\n"
       "})();\n");
 
@@ -2140,7 +2142,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</svg>\n");
 
     /* ── Detail panel HTML ── */
-    fprintf(f, "<div id=\"cmap-detail\"></div>\n");
+    fprintf(f, "<div id=\"cmap-detail\" class=\"cd-panel\"></div>\n");
 
     /* ── Emit byte data as JS ── */
     fprintf(f, "<script>\n");
@@ -2396,7 +2398,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     /* ── Highlight style + Detail panel ── */
     fprintf(f, "<style id=\"attr-hilite\"></style>\n");
-    fprintf(f, "<div id=\"attr-detail\"></div>\n");
+    fprintf(f, "<div id=\"attr-detail\" class=\"cd-panel\"></div>\n");
 
     /* ── Emit palette as JS + click handler ── */
     fprintf(f, "<script>\n");
@@ -3054,7 +3056,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</svg>\n");
 
     /* ── Detail panel ── */
-    fprintf(f, "<div id=\"search-detail\"></div>\n");
+    fprintf(f, "<div id=\"search-detail\" class=\"cd-panel\"></div>\n");
 
     /* ── Embed event data + click handler ── */
     fprintf(f, "<script>\nvar SE=[");
