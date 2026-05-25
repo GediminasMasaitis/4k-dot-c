@@ -1402,6 +1402,16 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code','Consolas',monospace;\n"
     "  --sans:'DM Sans',system-ui,-apple-system,sans-serif;\n"
     "}\n"
+    "body.light{\n"
+    "  --bg:#f6f7fa;--bg2:#ffffff;--bg3:#eef1f5;--bg4:#e0e4ec;\n"
+    "  --bdr:#d6dae3;--bdr2:#b8bdca;\n"
+    "  --fg:#11141c;--fg2:#3b4156;--fg3:#7a8094;\n"
+    "  --acc:#0891b2;--acc2:#06b6d4;--acc3:#0e7490;\n"
+    "  --grn:#059669;--grn2:#10b981;\n"
+    "  --red:#dc2626;--red2:#ef4444;\n"
+    "  --ylw:#d97706;--ylw2:#f59e0b;\n"
+    "  --orn:#ea580c;--blu:#2563eb;\n"
+    "}\n"
     "*{margin:0;padding:0;box-sizing:border-box}\n"
     "html{scroll-behavior:smooth}\n"
     ".card[id]{scroll-margin-top:20px}\n"
@@ -1550,6 +1560,13 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".pm-th .sort-arrow{font-size:9px;color:var(--fg3);margin-left:4px}\n"
     ".pm-th.active{color:var(--fg)}\n"
     ".pm-th.active .sort-arrow{color:var(--acc)}\n"
+    ".theme-toggle{margin:auto 12px 12px;padding:6px 10px;font-size:11px;"
+    "background:var(--bg3);color:var(--fg2);border:1px solid var(--bdr);"
+    "border-radius:4px;cursor:pointer;font-family:var(--sans);"
+    "display:flex;align-items:center;justify-content:center;gap:6px;"
+    "transition:background .12s,color .12s,border-color .12s}\n"
+    ".theme-toggle:hover{background:var(--bg4);color:var(--fg);"
+    "border-color:var(--bdr2)}\n"
     "</style></head><body>\n"
     "<nav class=\"sidebar\" id=\"sidebar\">\n"
     "<div class=\"sb-title\">Sections</div>\n"
@@ -1571,6 +1588,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-bytepos\">Byte Position</a>\n"
     "<a href=\"#sec-hash\">Hash Table</a>\n"
     "<a href=\"#sec-sat\">Counter Saturation</a>\n"
+    "<button id=\"theme-toggle\" class=\"theme-toggle\" type=\"button\" "
+    "title=\"Toggle theme\">"
+    "<span id=\"theme-toggle-icon\">\xe2\x98\xbd</span>"
+    "<span id=\"theme-toggle-label\">Light</span></button>\n"
     "</nav>\n"
     "<div class=\"wrap\">\n",
     s->input_file);
@@ -1610,7 +1631,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  var s='<svg width=\"'+W+'\" height=\"'+H+'\" '\n"
     "    +'style=\"display:block;margin-top:6px\">'\n"
     "    +'<rect x=\"0\" y=\"0\" width=\"'+W+'\" height=\"'+H+'\" '\n"
-    "    +'fill=\"#1a1e2b\" rx=\"3\"/>';\n"
+    "    +'fill=\"var(--bg3)\" rx=\"3\"/>';\n"
     "  if(hasNeg){\n"
     "    s += '<line x1=\"0\" y1=\"'+midY+'\" x2=\"'+W+'\" y2=\"'+midY\n"
     "      +'\" stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
@@ -1622,11 +1643,11 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      +'cy=\"'+yOf(values[hi]).toFixed(1)+'\" r=\"2.5\" fill=\"#fff\"/>';\n"
     "  }\n"
     "  if(opts.labelTop) s += '<text x=\"4\" y=\"9\" font-size=\"8\" '\n"
-    "    +'fill=\"#6b7186\">'+opts.labelTop+'</text>';\n"
+    "    +'fill=\"var(--fg3)\">'+opts.labelTop+'</text>';\n"
     "  if(opts.labelBot) s += '<text x=\"4\" y=\"'+(H-3)+'\" font-size=\"8\" '\n"
-    "    +'fill=\"#6b7186\">'+opts.labelBot+'</text>';\n"
+    "    +'fill=\"var(--fg3)\">'+opts.labelBot+'</text>';\n"
     "  if(opts.labelRight) s += '<text x=\"'+(W-4)+'\" y=\"'+(H-3)\n"
-    "    +'\" text-anchor=\"end\" font-size=\"8\" fill=\"#6b7186\">'\n"
+    "    +'\" text-anchor=\"end\" font-size=\"8\" fill=\"var(--fg3)\">'\n"
     "    +opts.labelRight+'</text>';\n"
     "  return s+'</svg>';\n"
     "};\n"
@@ -1675,7 +1696,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<div class=\"hero-ring\">\n"
       "<svg width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\">\n"
       "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
-      "stroke=\"#1a1e2b\" stroke-width=\"%d\"/>\n"
+      "stroke=\"var(--bg3)\" stroke-width=\"%d\"/>\n"
       "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
       "stroke=\"%s\" stroke-width=\"%d\" "
       "stroke-dasharray=\"%.1f %.1f\" stroke-dashoffset=\"%.1f\" "
@@ -1996,14 +2017,14 @@ static void write_html_report(const char *path, const CompStats *s) {
       int x = row_lbl + c2 * (cell + gap) + cell / 2;
       fprintf(f,
         "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-        "font-size=\"8\" fill=\"#6b7186\">%X</text>\n", x, hdr - 5, c2);
+        "font-size=\"8\" fill=\"var(--fg3)\">%X</text>\n", x, hdr - 5, c2);
     }
 
     for (int r = 0; r < 16; r++) {
       int y = hdr + r * (cell + gap);
       fprintf(f,
         "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
-        "font-size=\"8\" fill=\"#6b7186\">%X_</text>\n",
+        "font-size=\"8\" fill=\"var(--fg3)\">%X_</text>\n",
         row_lbl - 4, y + cell / 2 + 3, r);
       for (int c2 = 0; c2 < 16; c2++) {
         int byte_val = r * 16 + c2;
@@ -3074,20 +3095,20 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
       "    +'\" style=\"display:block\">';\n"
       "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
-      "    +'\" fill=\"#1a1e2b\" rx=\"4\"/>';\n"
+      "    +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
       "  /* y gridlines */\n"
       "  for(var i=0;i<=4;i++){\n"
       "    var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
       "    s += '<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
-      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
       "      +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
-      "      +'font-size=\"9\" fill=\"#6b7186\">'+val.toFixed(1)+'</text>';\n"
+      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+val.toFixed(1)+'</text>';\n"
       "  }\n"
       "  /* x labels */\n"
       "  for(var i=0;i<=5;i++){\n"
       "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
       "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
-      "      +'font-size=\"9\" fill=\"#6b7186\">'+off+'</text>';\n"
+      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
       "  }\n"
       "  /* paths - top of stack first so lower bands aren't obscured */\n"
       "  for(var k=nm-1;k>=0;k--){\n"
@@ -3349,18 +3370,18 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
       "    +'\" style=\"display:block\">';\n"
       "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
-      "    +'\" fill=\"#1a1e2b\" rx=\"4\"/>';\n"
+      "    +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
       "  for(var i=0;i<=4;i++){\n"
       "    var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
       "    s += '<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
-      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
       "      +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
-      "      +'font-size=\"9\" fill=\"#6b7186\">'+val.toFixed(2)+'</text>';\n"
+      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+val.toFixed(2)+'</text>';\n"
       "  }\n"
       "  for(var i=0;i<=5;i++){\n"
       "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
       "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
-      "      +'font-size=\"9\" fill=\"#6b7186\">'+off+'</text>';\n"
+      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
       "  }\n"
       "  for(var k=nm-1;k>=0;k--){\n"
       "    var d='';\n"
@@ -3624,30 +3645,30 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
       "    +'\" style=\"display:block\">';\n"
       "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
-      "    +'\" fill=\"#1a1e2b\" rx=\"4\"/>';\n"
+      "    +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
       "  /* y gridlines: ticks on both sides of midline */\n"
       "  for(var i=1;i<=2;i++){\n"
       "    var vp=smaxP*i/2, yp=yUp(vp);\n"
       "    s += '<line x1=\"'+PL+'\" y1=\"'+yp+'\" x2=\"'+(PL+pw)+'\" y2=\"'+yp\n"
-      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
       "      +'<text x=\"'+(PL-5)+'\" y=\"'+(yp+3)+'\" text-anchor=\"end\" '\n"
-      "      +'font-size=\"9\" fill=\"#6b7186\">+'+vp.toFixed(1)+'</text>';\n"
+      "      +'font-size=\"9\" fill=\"var(--fg3)\">+'+vp.toFixed(1)+'</text>';\n"
       "    var vn=smaxN*i/2, yn=yLo(vn);\n"
       "    s += '<line x1=\"'+PL+'\" y1=\"'+yn+'\" x2=\"'+(PL+pw)+'\" y2=\"'+yn\n"
-      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>'\n"
+      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
       "      +'<text x=\"'+(PL-5)+'\" y=\"'+(yn+3)+'\" text-anchor=\"end\" '\n"
-      "      +'font-size=\"9\" fill=\"#6b7186\">\\u2212'+vn.toFixed(1)+'</text>';\n"
+      "      +'font-size=\"9\" fill=\"var(--fg3)\">\\u2212'+vn.toFixed(1)+'</text>';\n"
       "  }\n"
       "  /* zero line */\n"
       "  s += '<line x1=\"'+PL+'\" y1=\"'+midY+'\" x2=\"'+(PL+pw)+'\" y2=\"'+midY\n"
       "    +'\" stroke=\"rgba(255,255,255,.25)\" stroke-width=\"1\"/>';\n"
       "  s += '<text x=\"'+(PL-5)+'\" y=\"'+(midY+3)+'\" text-anchor=\"end\" '\n"
-      "    +'font-size=\"9\" fill=\"#6b7186\">0</text>';\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">0</text>';\n"
       "  /* x labels */\n"
       "  for(var i=0;i<=5;i++){\n"
       "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
       "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
-      "      +'font-size=\"9\" fill=\"#6b7186\">'+off+'</text>';\n"
+      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
       "  }\n"
       "  /* paths: each model gets up to two bands (positive above, negative below) */\n"
       "  for(var k=nm-1;k>=0;k--){\n"
@@ -4009,7 +4030,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     /* bg */
     fprintf(f,
       "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
+      "fill=\"var(--bg3)\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
 
     /* y gridlines */
     int nyticks = 4;
@@ -4018,11 +4039,11 @@ static void write_html_report(const char *path, const CompStats *s) {
       int y = pad_t + plot_h * i / nyticks;
       fprintf(f,
         "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-        "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+        "stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>\n",
         pad_l, y, pad_l + plot_w, y);
       fprintf(f,
         "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
-        "font-size=\"9\" fill=\"#6b7186\">%.1f</text>\n",
+        "font-size=\"9\" fill=\"var(--fg3)\">%.1f</text>\n",
         pad_l - 5, y + 3, val);
     }
 
@@ -4043,7 +4064,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       int y8 = pad_t + (int)(plot_h * (rmax - 8.0) / (rmax - rmin));
       fprintf(f,
         "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-        "stroke=\"#6b7186\" stroke-width=\"0.5\" stroke-dasharray=\"3,3\" "
+        "stroke=\"var(--fg3)\" stroke-width=\"0.5\" stroke-dasharray=\"3,3\" "
         "opacity=\".4\"/>\n", pad_l, y8, pad_l + plot_w, y8);
     }
 
@@ -4080,7 +4101,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       int byte_pos = (int)((long)i * (nb - 1) / nxticks);
       fprintf(f,
         "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-        "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+        "font-size=\"9\" fill=\"var(--fg3)\">%d</text>\n",
         x, svg_h - 4, byte_pos);
     }
     /* scrubber line, hidden until hover */
@@ -4190,7 +4211,7 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f,
       "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-      "fill=\"#1a1e2b\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
+      "fill=\"var(--bg3)\" rx=\"4\"/>\n", pad_l, pad_t, plot_w, plot_h);
 
     /* y gridlines */
     {
@@ -4210,11 +4231,11 @@ static void write_html_report(const char *path, const CompStats *s) {
         int y = CLAMP(LOGY(nice_ticks[i]), pad_t, pad_t + plot_h);
         fprintf(f,
           "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-          "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+          "stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>\n",
           pad_l, y, pad_l + plot_w, y);
         fprintf(f,
           "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" "
-          "font-size=\"9\" fill=\"#6b7186\">%g</text>\n",
+          "font-size=\"9\" fill=\"var(--fg3)\">%g</text>\n",
           pad_l - 5, y + 3, nice_ticks[i]);
       }
     }
@@ -4227,11 +4248,11 @@ static void write_html_report(const char *path, const CompStats *s) {
         int x = CLAMP(LOGX(xticks[i] - 1), pad_l, pad_l + plot_w);
         fprintf(f,
           "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
-          "stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>\n",
+          "stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>\n",
           x, pad_t, x, pad_t + plot_h);
         fprintf(f,
           "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-          "font-size=\"9\" fill=\"#6b7186\">%d</text>\n",
+          "font-size=\"9\" fill=\"var(--fg3)\">%d</text>\n",
           x, svg_h - 6, xticks[i] - 1);
       }
     }
@@ -4290,11 +4311,11 @@ static void write_html_report(const char *path, const CompStats *s) {
     /* axis labels */
     fprintf(f,
       "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" "
-      "font-size=\"10\" fill=\"#6b7186\">mask index (log)</text>\n",
+      "font-size=\"10\" fill=\"var(--fg3)\">mask index (log)</text>\n",
       pad_l + plot_w / 2, svg_h);
     fprintf(f,
       "<text x=\"14\" y=\"%d\" text-anchor=\"middle\" "
-      "font-size=\"10\" fill=\"#6b7186\" "
+      "font-size=\"10\" fill=\"var(--fg3)\" "
       "transform=\"rotate(-90,14,%d)\">est. bytes (log)</text>\n",
       pad_t + plot_h / 2, pad_t + plot_h / 2);
     /* scrubber line */
@@ -4349,8 +4370,8 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  for(var b=7;b>=0;b--){\n"
       "    var on=(e.m>>b)&1;\n"
       "    maskBits+='<rect x=\"'+((7-b)*9+1)+'\" y=\"1\" width=\"8\" '\n"
-      "      +'height=\"10\" rx=\"1\" fill=\"'+(on?'#22d3ee':'#1a1e2b')\n"
-      "      +'\" stroke=\"#2a2f3f\" stroke-width=\"0.5\"/>';\n"
+      "      +'height=\"10\" rx=\"1\" fill=\"'+(on?'#22d3ee':'var(--bg3)')\n"
+      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>';\n"
       "  }\n"
       "  var h='<div class=\"cd-head\">';\n"
       "  h+='<span class=\"cd-byte\" style=\"color:'+opClr+'\">'+opLabel\n"
@@ -4518,7 +4539,7 @@ static void write_html_report(const char *path, const CompStats *s) {
         fprintf(f,
           "<rect x=\"%d\" y=\"1\" width=\"7\" height=\"10\" rx=\"1\" "
           "fill=\"%s\" stroke=\"%s\" stroke-width=\"0.5\"/>",
-          bx, on ? "#22d3ee" : "#1a1e2b", "#2a2f3f");
+          bx, on ? "#22d3ee" : "var(--bg3)", "var(--bdr)");
       }
       fprintf(f,
         "</svg></td>"
@@ -4803,8 +4824,8 @@ static void write_html_report(const char *path, const CompStats *s) {
 
   /* footer */
   fprintf(f,
-    "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid #2a2f3f;"
-    "font-size:11px;color:#4a5068;text-align:center\">"
+    "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid var(--bdr);"
+    "font-size:11px;color:var(--fg3);text-align:center\">"
     "Generated by context-mixing arithmetic compressor"
     "</div>\n");
 
@@ -4829,6 +4850,32 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  }\n"
     "  window.addEventListener('scroll',update,{passive:true});\n"
     "  update();\n"
+    "})();\n"
+    "/* theme toggle: applies + persists light/dark in localStorage */\n"
+    "(function(){\n"
+    "  var btn=document.getElementById('theme-toggle');\n"
+    "  var icon=document.getElementById('theme-toggle-icon');\n"
+    "  var lbl=document.getElementById('theme-toggle-label');\n"
+    "  function apply(theme){\n"
+    "    if(theme==='light'){\n"
+    "      document.body.classList.add('light');\n"
+    "      icon.textContent='\\u2600';\n"
+    "      lbl.textContent='Dark';\n"
+    "    } else {\n"
+    "      document.body.classList.remove('light');\n"
+    "      icon.textContent='\\u263d';\n"
+    "      lbl.textContent='Light';\n"
+    "    }\n"
+    "  }\n"
+    "  var saved='dark';\n"
+    "  try { saved=localStorage.getItem('report-theme')||'dark'; } catch(e){}\n"
+    "  apply(saved);\n"
+    "  btn.addEventListener('click',function(){\n"
+    "    var cur=document.body.classList.contains('light')?'light':'dark';\n"
+    "    var nxt=cur==='light'?'dark':'light';\n"
+    "    apply(nxt);\n"
+    "    try { localStorage.setItem('report-theme',nxt); } catch(e){}\n"
+    "  });\n"
     "})();\n"
     "/* restore state from URL hash, then bind keyboard shortcuts */\n"
     "(function(){\n"
