@@ -2758,27 +2758,32 @@ static void write_html_report(const char *path, const CompStats *s) {
       }
 
       int cr, cg, cb;
+      float opa;
       if (best_m >= 0 && best_v > 0.001f) {
-        /* blend between dark bg and model color based on contribution strength */
+        /* use full palette color + opacity so the card background
+           (light or dark) shows through and the theme stays coherent */
         float t = best_v / global_max;
         if (t > 1.0f) t = 1.0f;
-        /* apply a concave curve so weak contributions are still visible */
+        /* concave curve so weak contributions stay visible */
         t = 1.0f - (1.0f - t) * (1.0f - t);
         int pi = best_m % npal;
-        cr = (int)(30 + (palette[pi][0] - 30) * t);
-        cg = (int)(33 + (palette[pi][1] - 33) * t);
-        cb = (int)(45 + (palette[pi][2] - 45) * t);
+        cr = palette[pi][0];
+        cg = palette[pi][1];
+        cb = palette[pi][2];
+        opa = 0.15f + 0.85f * t;
       } else {
-        /* no model helped — dark gray */
-        cr = 40; cg = 44; cb = 60;
+        /* no model helped — faint neutral */
+        cr = 128; cg = 128; cb = 128;
+        opa = 0.10f;
       }
 
       unsigned char bval = s->input_data ? s->input_data[i] : 0;
       fprintf(f,
         "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-        "fill=\"rgb(%d,%d,%d)\" data-i=\"%d\" data-bm=\"%d\" data-wm=\"%d\" "
+        "fill=\"rgb(%d,%d,%d)\" fill-opacity=\"%.3f\" "
+        "data-i=\"%d\" data-bm=\"%d\" data-wm=\"%d\" "
         "style=\"cursor:pointer;transition:opacity .15s\"/>\n",
-        x, y, cell, cell, cr, cg, cb, i, best_m, worst_m);
+        x, y, cell, cell, cr, cg, cb, opa, i, best_m, worst_m);
       if (cell >= 6 && bval >= 0x20 && bval <= 0x7E && bval != '<'
           && bval != '>' && bval != '&' && bval != '"') {
         int lum = (cr * 299 + cg * 587 + cb * 114) / 1000;
