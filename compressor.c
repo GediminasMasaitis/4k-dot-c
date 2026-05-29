@@ -2211,7 +2211,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<canvas id=\"bigram-cv\" width=\"512\" height=\"512\" "
       "style=\"flex:1;min-width:0;aspect-ratio:1;"
       "cursor:crosshair;image-rendering:pixelated;"
-      "border:1px solid var(--bdr)\"></canvas>\n"
+      "background:var(--bg3);border:1px solid var(--bdr)\"></canvas>\n"
       /* crosshair lines + hover tooltip, positioned over canvas */
       "<div id=\"bigram-v\" style=\"position:absolute;width:1px;"
       "background:rgba(255,255,255,.5);pointer-events:none;display:none\"></div>\n"
