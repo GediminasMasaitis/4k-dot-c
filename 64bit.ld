@@ -55,7 +55,9 @@ SECTIONS
 	/* BSS Section: Allocated in memory but not in file */
 	.bss (NOLOAD) : {
 		bss_start = .;
-		*(.bss) *(.bss.*)
+		*(.bss)
+		*(COMMON)
+		*(SORT_BY_NAME(.bss.*))
 	}
 	
 	memsize = . - start_address; /* Compute total memory size */

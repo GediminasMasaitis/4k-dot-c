@@ -1198,12 +1198,15 @@ S(0) i32 eval(Position *const restrict pos) {
 u64 tt_length = 1 << 23; // 80MB
 #else
 enum : u64 { tt_length = 1ULL << 23 }; // 80MB
+//enum : u64 { tt_length = 1ULL << 27 }; // 1.25GB
+//enum : u64 { tt_length = 1ULL << 29 }; // 5GB
+//enum : u64 { tt_length = 1ULL << 31 }; // 20GB
 #endif
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1254,7 +1257,7 @@ __attribute__((
 #else
 __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
-S(0) TTEntry tt[tt_length];
+__attribute__((section(".bss.zztt"))) S(0) TTEntry tt[tt_length];
 #endif
 G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
