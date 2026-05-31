@@ -485,9 +485,9 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[5] = '\0';)
-
       G(51, str[4] = "\0\0nbrq"[move->promo];)
+
+      G(51, str[5] = '\0';)
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
@@ -1082,12 +1082,12 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, const u64 piece_bb = 1ULL << sq;)
-        G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const i32 rank = sq >> 3;)
-        G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(137, copy &= copy - 1;)
         G(137, phase += initial_params.phases[p];)
+        G(137, const u64 piece_bb = 1ULL << sq;)
+        G(137, const i32 file = G(138, sq) & G(138, 7);)
+        G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
@@ -1198,9 +1198,9 @@ S(0) i32 eval(Position *const restrict pos) {
 u64 tt_length = 1 << 23; // 80MB
 #else
 enum : u64 { tt_length = 1ULL << 23 }; // 80MB
-//enum : u64 { tt_length = 1ULL << 27 }; // 1.25GB
-//enum : u64 { tt_length = 1ULL << 29 }; // 5GB
-//enum : u64 { tt_length = 1ULL << 31 }; // 20GB
+// enum : u64 { tt_length = 1ULL << 27 }; // 1.25GB
+// enum : u64 { tt_length = 1ULL << 29 }; // 5GB
+// enum : u64 { tt_length = 1ULL << 31 }; // 20GB
 #endif
 enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
