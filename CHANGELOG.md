@@ -10219,3 +10219,13 @@ Games | N: 18098 W: 4859 L: 4653 D: 8586
 Penta | [263, 2188, 4008, 2260, 330]
 https://gedas.pythonanywhere.com/test/1839/
 ```
+
+### 8.8
+
+Force TT last in binary
+
+4 threads: 4090 bytes (+1)
+MD5: e39282b17aab3b9469fd0601058f8637
+
+1 thread: 4061 bytes (-1)
+MD5: 0b3947a782d05b632a3dd14a3641eeac

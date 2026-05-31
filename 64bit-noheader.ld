@@ -14,7 +14,9 @@ SECTIONS
 	}
 	
 	.bss (NOLOAD) : {
-		*(.bss) *(.bss.*)
+		*(.bss)
+		*(COMMON)
+		*(SORT_BY_NAME(.bss.*))
 	}
 	
 	/DISCARD/ : { *(*) } /* Discard unneeded sections */
