@@ -10229,3 +10229,109 @@ MD5: e39282b17aab3b9469fd0601058f8637
 
 1 thread: 4061 bytes (-1)
 MD5: 0b3947a782d05b632a3dd14a3641eeac
+
+### 8.9
+
+Force TT last in binary
+
+4 threads: 4094 bytes (+4)
+MD5: 2d4902f1494bbf7fbd989bdfb1323103
+
+1 thread: 4063 bytes (+2)
+MD5: 522ca5008365a4fe098b258ffee1f36c
+
+```py
+info depth 1 score cp 16 lowerbound time 0 nodes 18 nps 356576
+info depth 1 score cp 21 time 0 nodes 38 nps 352275 pv b1c3
+info depth 2 score cp 28 time 0 nodes 109 nps 470700 pv b1c3
+info depth 3 score cp 19 time 0 nodes 228 nps 661406 pv b1c3
+info depth 4 score cp 28 time 0 nodes 441 nps 858227 pv b1c3
+info depth 5 score cp 12 upperbound time 0 nodes 618 nps 864746
+info depth 5 score cp 6 time 0 nodes 937 nps 1038952 pv b1c3
+info depth 6 score cp 22 lowerbound time 1 nodes 1194 nps 1011556
+info depth 6 score cp 26 time 2 nodes 2206 nps 1048808 pv b1c3
+info depth 7 score cp 19 time 4 nodes 4826 nps 1071276 pv b1c3
+info depth 8 score cp 19 time 9 nodes 10222 nps 1100946 pv e2e4
+info depth 9 score cp 3 upperbound time 13 nodes 15037 nps 1119158
+info depth 9 score cp 13 time 27 nodes 34519 nps 1259559 pv e2e3
+info depth 10 score cp 24 time 58 nodes 83870 nps 1432084 pv g1f3
+info depth 11 score cp 18 time 90 nodes 143050 nps 1573584 pv d2d4
+info depth 12 score cp 21 time 136 nodes 234576 nps 1716915 pv d2d4
+info depth 13 score cp 26 time 193 nodes 353185 nps 1829408 pv d2d4
+info depth 14 score cp 24 time 360 nodes 705643 nps 1955923 pv d2d4
+info depth 15 score cp 26 time 525 nodes 1044047 nps 1987834 pv d2d4
+info depth 16 score cp 17 time 1047 nodes 2132643 nps 2036713 pv d2d4
+info depth 17 score cp 32 time 1707 nodes 3463305 nps 2028526 pv d2d4
+info depth 18 score cp 24 time 2221 nodes 4502037 nps 2026676 pv d2d4
+info depth 19 score cp 40 lowerbound time 4039 nodes 8217565 nps 2034340
+info depth 19 score cp 39 time 4223 nodes 8593542 nps 2034691 pv e2e4
+info depth 20 score cp 23 upperbound time 5009 nodes 10222065 nps 2040682
+info depth 20 score cp 28 time 5259 nodes 10760481 nps 2046027 pv e2e4
+info depth 21 score cp 44 lowerbound time 5789 nodes 11869748 nps 2050143
+info depth 21 score cp 45 time 6272 nodes 12872660 nps 2052217 pv e2e4
+info depth 22 score cp 29 upperbound time 8892 nodes 18200317 nps 2046711
+info depth 22 score cp 44 time 9626 nodes 19718436 nps 2048348 pv e2e4
+19718436 nodes 2048340 nps
+```
+
+### 8.10
+
+Retune all eval params
+
+4 threads: 4094 bytes (+4)
+MD5: 2d4902f1494bbf7fbd989bdfb1323103
+
+1 thread: 4063 bytes (+2)
+MD5: 522ca5008365a4fe098b258ffee1f36c
+
+```py
+info depth 1 score cp 16 lowerbound time 0 nodes 18 nps 294406
+info depth 1 score cp 21 time 0 nodes 38 nps 280153 pv b1c3
+info depth 2 score cp 28 time 0 nodes 109 nps 316888 pv b1c3
+info depth 3 score cp 19 time 0 nodes 228 nps 435879 pv b1c3
+info depth 4 score cp 28 time 0 nodes 441 nps 568511 pv b1c3
+info depth 5 score cp 12 upperbound time 1 nodes 618 nps 595674
+info depth 5 score cp 6 time 1 nodes 937 nps 713345 pv b1c3
+info depth 6 score cp 22 lowerbound time 1 nodes 1194 nps 713867
+info depth 6 score cp 26 time 2 nodes 2206 nps 777097 pv b1c3
+info depth 7 score cp 19 time 6 nodes 4826 nps 798707 pv b1c3
+info depth 8 score cp 19 time 13 nodes 10222 nps 750927 pv e2e4
+info depth 9 score cp 3 upperbound time 19 nodes 15037 nps 761141
+info depth 9 score cp 13 time 40 nodes 34519 nps 851063 pv e2e3
+info depth 10 score cp 24 time 88 nodes 83870 nps 943461 pv g1f3
+info depth 11 score cp 18 time 143 nodes 143050 nps 996719 pv d2d4
+info depth 12 score cp 21 time 217 nodes 234576 nps 1078296 pv d2d4
+info depth 13 score cp 26 time 310 nodes 353185 nps 1138429 pv d2d4
+info depth 14 score cp 24 time 575 nodes 705643 nps 1225992 pv d2d4
+info depth 15 score cp 26 time 835 nodes 1044047 nps 1250278 pv d2d4
+info depth 16 score cp 17 time 1681 nodes 2132643 nps 1268134 pv d2d4
+info depth 17 score cp 32 time 2742 nodes 3463305 nps 1262785 pv d2d4
+info depth 18 score cp 24 time 3566 nodes 4502037 nps 1262224 pv d2d4
+info depth 19 score cp 40 lowerbound time 6452 nodes 8217565 nps 1273581
+info depth 19 score cp 39 time 6728 nodes 8593542 nps 1277125 pv e2e4
+info depth 20 score cp 23 upperbound time 7988 nodes 10222065 nps 1279665
+info depth 20 score cp 28 time 8392 nodes 10760481 nps 1282178 pv e2e4
+info depth 21 score cp 44 lowerbound time 9292 nodes 11869748 nps 1277337
+info depth 21 score cp 45 time 10088 nodes 12872660 nps 1275913 pv e2e4
+info depth 22 score cp 29 upperbound time 14271 nodes 18200317 nps 1275283
+info depth 22 score cp 44 time 15444 nodes 19718436 nps 1276766 pv e2e4
+19718436 nodes 1276764 nps
+```
+
+```py
+Elo   | 6.10 +- 4.35 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=80MB
+LLR   | 2.99 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 10818 W: 3138 L: 2948 D: 4732
+Penta | [257, 1228, 2289, 1338, 297]
+https://gedas.pythonanywhere.com/test/1842/
+```
+
+```py
+Elo   | 10.70 +- 6.05 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=80MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4968 W: 1379 L: 1226 D: 2363
+Penta | [84, 540, 1105, 649, 106]
+https://gedas.pythonanywhere.com/test/1843/
+```
