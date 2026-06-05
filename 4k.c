@@ -1628,7 +1628,7 @@ i32 search(
   G(238, // UPDATE TRANSPOSITION TABLE
         *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                               .move = stack[ply].best_move,
-                              .score = best_score,
+                              .score = best_score > mate - 256 ? best_score + ply : best_score < 256 - mate ? best_score - ply : best_score,
                               .depth = depth,
                               .flag = tt_flag};)
 
