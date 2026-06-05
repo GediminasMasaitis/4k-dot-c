@@ -66,6 +66,38 @@ G(
     })
 
 G(
+    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                        const char *restrict rhs) {
+      while (*lhs || *rhs) {
+        if (*lhs != *rhs) {
+          return true;
+        }
+        lhs++;
+        rhs++;
+      }
+      return false;
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+G(
     1, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
@@ -90,38 +122,6 @@ G(
 
         string++;
       }
-    })
-
-G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
-    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                        const char *restrict rhs) {
-      while (*lhs || *rhs) {
-        if (*lhs != *rhs) {
-          return true;
-        }
-        lhs++;
-        rhs++;
-      }
-      return false;
     })
 
 G(
@@ -468,7 +468,7 @@ G(
       *rhs = temp;
     }
 
-    S(1) void swapmoves(G(48, Move *const rhs), G(48, Move *const lhs)) {
+    S(1) void swapmoves(G(48, Move *const lhs), G(48, Move *const rhs)) {
       swapu32(G(49, (u32 *)lhs), G(49, (u32 *)rhs));
     })
 
@@ -485,9 +485,9 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[4] = "\0\0nbrq"[move->promo];)
-
       G(51, str[5] = '\0';)
+
+      G(51, str[4] = "\0\0nbrq"[move->promo];)
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
@@ -517,51 +517,13 @@ G(
             })
 
 G(
-    57,
-    [[nodiscard]] S(0) i32 is_attacked(H(58, 1,
-                                         const Position *const restrict pos),
-                                       H(58, 1, const u64 bb)) {
-      assert(count(bb) == 1);
-      const u64 theirs = pos->colour[1];
-      G(59, const u64 pawns = theirs & pos->pieces[Pawn];)
-      G(59, const u64 blockers = theirs | pos->colour[0];)
-      return G(60, G(61, (G(62, southwest(pawns)) | G(62, southeast(pawns)))) &
-                       G(61, bb)) ||
-             G(60, G(63, rook(H(41, 2, blockers), H(41, 2, bb))) &
-                       G(63, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(63, theirs)) ||
-             G(60,
-               G(64, pos->pieces[King]) & G(64, theirs) & G(64, king(bb))) ||
-             G(60, G(65, bishop(H(43, 2, blockers), H(43, 2, bb))) &
-                       G(65, theirs) &
-                       G(65, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
-             G(60,
-               G(66, pos->pieces[Knight]) & G(66, knight(bb)) & G(66, theirs));
-    })
-
-G(
-    57, S(0) void flip_pos(Position *const restrict pos) {
-      G(67, pos->flipped ^= 1;)
-      G(
-          67, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
-          u64 *pos_ptr = (u64 *)pos;
-          for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-
-      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
-        pos->colour[0] ^= pos->colour[1];)
-      G(67, u32 *c = (u32 *)pos->castling;
-        *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
-    })
-
-G(
     57, [[nodiscard]] S(0) u64 get_mobility(H(69, 1, const Position *pos),
                                             H(69, 1, const i32 piece),
                                             H(69, 1, const i32 sq)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(70, if (piece == Knight) { moves = knight(bb); })
-      else G(70, if (piece == King) { moves = king(bb); }) else {
+      G(70, if (piece == King) { moves = king(bb); })
+      else G(70, if (piece == Knight) { moves = knight(bb); }) else {
         const u64 blockers = G(71, pos->colour[0]) | G(71, pos->colour[1]);
         G(
             72, if (piece != Bishop) {
@@ -573,6 +535,44 @@ G(
             })
       }
       return moves;
+    })
+
+G(
+    57, S(0) void flip_pos(Position *const restrict pos) {
+      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
+      G(67, pos->flipped ^= 1;)
+
+      G(67, u32 *c = (u32 *)pos->castling;
+        *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
+      G(
+          67, // Hack to flip the first 10 bitboards in Position.
+              // Technically UB but works in GCC 14.2
+          u64 *pos_ptr = (u64 *)pos;
+          for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
+    })
+
+G(
+    57,
+    [[nodiscard]] S(0) i32 is_attacked(H(58, 1,
+                                         const Position *const restrict pos),
+                                       H(58, 1, const u64 bb)) {
+      assert(count(bb) == 1);
+      const u64 theirs = pos->colour[1];
+      G(59, const u64 pawns = theirs & pos->pieces[Pawn];)
+      G(59, const u64 blockers = theirs | pos->colour[0];)
+      return G(60, G(61, (G(62, southwest(pawns)) | G(62, southeast(pawns)))) &
+                       G(61, bb)) ||
+             G(60, G(65, bishop(H(43, 2, blockers), H(43, 2, bb))) &
+                       G(65, theirs) &
+                       G(65, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
+             G(60,
+               G(64, pos->pieces[King]) & G(64, king(bb)) & G(64, theirs)) ||
+             G(60, G(63, rook(H(41, 2, blockers), H(41, 2, bb))) &
+                       G(63, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(63, theirs)) ||
+             G(60,
+               G(66, pos->pieces[Knight]) & G(66, knight(bb)) & G(66, theirs));
     })
 
 S(0) i32 find_in_check(const Position *restrict pos) {
@@ -748,7 +748,7 @@ enum { max_moves = 218 };
                                H(95, 1, const i32 only_captures),
                                H(95, 1, Move *restrict movelist)) {
 
-  G(96, const u64 all = G(97, pos->colour[0]) | G(97, pos->colour[1]);)
+  G(96, const u64 all = G(97, pos->colour[1]) | G(97, pos->colour[0]);)
   G(96, const Move *start = movelist;)
   G(96, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
   G(
@@ -937,31 +937,33 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];)
-        H(117, 1, i8 bishop_pawns[2];))
+    H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 king_shield[2];)
+        H(117, 1, i8 pawn_threat[5];))
   H(116, 1,
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
-        H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];)
-            H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;))
+        H(118, 1, i8 protected_pawn;) H(118, 1, i8 bishop_pair;)
+            H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 king_attacks[5];))
   H(116, 1,
-    H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
-        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 open_files[12];)
-            H(119, 1, i8 tempo;) H(119, 1, i8 pawn_attacked_penalty[2];))
+    H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 mobilities[5];)
+        H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
+            H(119, 1, i8 passed_blocked_pawns[6];)
+                H(119, 1, i8 open_files[12];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];)
-        H(117, 2, i32 bishop_pawns[2];))
+    H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 king_shield[2];)
+        H(117, 2, i32 pawn_threat[5];))
   H(116, 2,
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
-        H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];)
-            H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;))
+        H(118, 2, i32 protected_pawn;) H(118, 2, i32 bishop_pair;)
+            H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 king_attacks[5];))
   H(116, 2,
-    H(119, 2, i32 mobilities[5];) H(119, 2, i32 pst_file[48];)
-        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 open_files[12];)
-            H(119, 2, i32 tempo;) H(119, 2, i32 pawn_attacked_penalty[2];))
+    H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 mobilities[5];)
+        H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
+            H(119, 2, i32 passed_blocked_pawns[6];)
+                H(119, 2, i32 open_files[12];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1065,14 +1067,14 @@ S(0) i32 eval(Position *const restrict pos) {
                                         G(128, southeast(pawns[1]));
         G(129,
           const u64 no_passers = G(132, pawns[1]) | G(132, attacked_by_pawns);)
-            G(129, // PHALANX PAWNS
+            G(129, // PROTECTED PAWNS
               score -=
-              G(133, eval_params.phalanx_pawn) *
-              G(133, count(G(134, pawns[1]) & G(134, west(pawns[1]))));)
-                G(129, // PROTECTED PAWNS
+              G(130, eval_params.protected_pawn) *
+              G(130, count(G(131, pawns[1]) & G(131, attacked_by_pawns)));)
+                G(129, // PHALANX PAWNS
                   score -=
-                  G(130, eval_params.protected_pawn) *
-                  G(130, count(G(131, pawns[1]) & G(131, attacked_by_pawns)));))
+                  G(133, eval_params.phalanx_pawn) *
+                  G(133, count(G(134, pawns[1]) & G(134, west(pawns[1]))));))
     G(
         125, // BISHOP PAIR
         if (count(G(135, pos->pieces[Bishop]) & G(135, pos->colour[0])) > 1) {
@@ -1084,10 +1086,10 @@ S(0) i32 eval(Position *const restrict pos) {
         const i32 sq = lsb(copy);
         G(137, const i32 rank = sq >> 3;)
         G(137, copy &= copy - 1;)
-        G(137, phase += initial_params.phases[p];)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(137, phase += initial_params.phases[p];)
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
@@ -1206,7 +1208,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1215,18 +1217,18 @@ enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
-  G(119, u64 position_hash;)
   G(119, Move killer;)
   G(119, i32 num_moves;)
+  G(119, u64 position_hash;)
   G(119, i32 static_eval;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(174, i16 score;)
-  G(174, Move move;)
   G(174, u8 flag;)
   G(174, i8 depth;)
   G(174, u16 partial_hash;)
+  G(174, i16 score;)
+  G(174, Move move;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 10);
 
@@ -1259,8 +1261,8 @@ __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
 __attribute__((section(".bss.zztt"))) S(0) TTEntry tt[tt_length];
 #endif
-G(176, S(1) u64 start_time;)
 G(176, S(1) volatile bool stop;)
+G(176, S(1) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1335,10 +1337,10 @@ get_hash(const Position *const pos) {
   return (G(181, pos->pieces[Pawn]) * G(181, 0x9E3779B97F4A7C15ULL)) >> 50;
 }
 
-[[nodiscard]] S(1) i32
+[[nodiscard]] S(0) i32
     matefix(H(997, 1, const i32 score), H(997, 1, const i32 ply)) {
-  G(999, if (score > mate - 256) { return G(998, score) + G(998, ply); })
   G(999, if (score < 256 - mate) { return score - ply; })
+  G(999, if (score > mate - 256) { return G(998, score) + G(998, ply); })
   return score;
 }
 
@@ -1349,8 +1351,8 @@ i32 search(
 #endif
     H(182, 1, H(183, 1, Position *const pos), H(183, 1, const i32 beta),
       H(183, 1, i32 depth), H(183, 1, ThreadData *data)),
-    H(182, 1, H(184, 1, const i32 ply), H(184, 1, const bool do_null),
-      H(184, 1, i32 alpha))) {
+    H(182, 1, H(184, 1, const i32 ply), H(184, 1, i32 alpha),
+      H(184, 1, const bool do_null))) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1371,8 +1373,8 @@ i32 search(
   }
 
   // TT PROBING
-  G(188, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(188, const u16 tt_hash_partial = tt_hash / tt_length;)
+  G(188, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(188, stack[ply].best_move = (Move){0};)
   const i32 tt_score = matefix(H(997, 2, tt_entry->score), H(997, 2, -ply));
   if (G(189, tt_entry->partial_hash) == G(189, tt_hash_partial)) {
@@ -1406,8 +1408,8 @@ i32 search(
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(195, G(196, tt_entry->partial_hash) == G(196, tt_hash_partial)) &&
-      G(195, G(197, tt_entry->flag) != G(197, static_eval) > tt_score)) {
+  if (G(195, G(197, tt_entry->flag) != G(197, static_eval) > tt_score) &&
+      G(195, G(196, tt_entry->partial_hash) == G(196, tt_hash_partial))) {
     static_eval = tt_score;
   }
 
@@ -1445,7 +1447,7 @@ i32 search(
 #endif
           H(182, 2, H(183, 2, &npos), H(183, 2, -alpha),
             H(183, 2, depth - G(208, depth / 4) - G(208, 4)), H(183, 2, data)),
-          H(182, 2, H(184, 2, ply + 1), H(184, 2, false), H(184, 2, -beta)));
+          H(182, 2, H(184, 2, ply + 1), H(184, 2, -beta), H(184, 2, false)));
       if (score >= beta) {
         return score;
       }
@@ -1456,10 +1458,10 @@ i32 search(
     stack[ply].num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(209, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(209, stack[G(210, ply) + G(210, 2)].position_hash = tt_hash;)
   G(209, u8 tt_flag = Upper;)
   G(209, i32 quiets_evaluated = 0;)
   G(209, i32 moves_evaluated = 0;)
+  G(209, stack[G(210, ply) + G(210, 2)].position_hash = tt_hash;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1474,13 +1476,13 @@ i32 search(
             G(212, move_equal(G(213, &moves[order_index]),
                               G(213, &stack[ply].killer))) *
                 G(212, 819)) +
-          G(183, // HISTORY HEURISTIC
-            move_history[pos->flipped][moves[order_index].takes_piece]
-                        [moves[order_index].from][moves[order_index].to]) +
           G(183, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(214, &stack[ply].best_move),
                         G(214, &moves[order_index]))
              << 30)) +
+          G(183, // HISTORY HEURISTIC
+            move_history[pos->flipped][moves[order_index].takes_piece]
+                        [moves[order_index].from][moves[order_index].to]) +
           G(183, // MOST VALUABLE VICTIM
             G(215, moves[order_index].takes_piece) * G(215, 622));
       if (order_move_score > move_score) {
@@ -1490,11 +1492,6 @@ i32 search(
     }
 
     swapmoves(G(217, &moves[best_index]), G(217, &moves[move_index]));
-
-    G(
-        218, // MOVE SCORE PRUNING
-        if (G(222, moves_evaluated) &&
-            G(222, move_score < G(223, -125) * G(223, depth))) { break; })
 
     G(
         218, // FORWARD FUTILITY PRUNING / DELTA PRUNING
@@ -1507,6 +1504,11 @@ i32 search(
                                  .material[moves[move_index].takes_piece]) <
                   alpha) &&
             G(219, moves_evaluated) && G(219, !in_check)) { break; })
+
+    G(
+        218, // MOVE SCORE PRUNING
+        if (G(222, moves_evaluated) &&
+            G(222, move_score < G(223, -125) * G(223, depth))) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1522,9 +1524,10 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(224, depth > 3) && G(224, move_score <= 0)
-                        ? G(225, !improving) + G(225, (move_score / -358)) +
+                        ? G(225, (move_score / -358)) +
+                              G(225, moves_evaluated / 9) +
                               G(225, (G(226, alpha) == G(226, beta - 1))) +
-                              G(225, moves_evaluated / 9)
+                              G(225, !improving)
                         : 0;
 
     i32 score;
@@ -1535,7 +1538,7 @@ i32 search(
 #endif
           H(182, 3, H(183, 3, &npos), H(183, 3, -alpha),
             H(183, 3, depth - G(227, 1) - G(227, reduction)), H(183, 3, data)),
-          H(182, 3, H(184, 3, ply + 1), H(184, 3, true), H(184, 3, low)));
+          H(182, 3, H(184, 3, ply + 1), H(184, 3, low), H(184, 3, true)));
 
       // EARLY EXITS
       if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
@@ -1747,15 +1750,15 @@ void iteratively_deepen(
     G(250, i32 window = 16;)
     G(250, size_t elapsed;)
     while (true) {
-      G(251, const i32 alpha = score - window;)
       G(251, const i32 beta = G(252, score) + G(252, window);)
+      G(251, const i32 alpha = score - window;)
       score = search(
 #ifdef FULL
           &data->nodes,
 #endif
           H(182, 4, H(183, 4, &data->pos), H(183, 4, beta), H(183, 4, depth),
             H(183, 4, data)),
-          H(182, 4, H(184, 4, 0), H(184, 4, false), H(184, 4, alpha)));
+          H(182, 4, H(184, 4, 0), H(184, 4, alpha), H(184, 4, false)));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
@@ -1763,12 +1766,12 @@ void iteratively_deepen(
       }
 #endif
       elapsed = get_time() - start_time;
-      G(253, window *= 2;)
       G(
           253, if (G(254, elapsed > data->max_time) ||
-                   G(254, (G(255, score > alpha) && G(255, score < beta)))) {
+                   G(254, (G(255, score < beta) && G(255, score > alpha)))) {
             break;
           })
+      G(253, window *= 2;)
     }
 
     if (stop || elapsed > data->max_time / 14) {
@@ -1846,8 +1849,8 @@ void run_smp() {
   for (i32 i = 1; i < thread_count; i++) {
     ThreadHead *helper_head =
         (ThreadHead *)&thread_stacks[i][thread_stack_size - sizeof(ThreadHead)];
-    G(256, helper_head->data.max_time = -1LL;)
     G(256, helper_head->data.pos = main_data->pos;)
+    G(256, helper_head->data.max_time = -1LL;)
 #ifdef FULL
     helper_head->data.thread_id = i;
 #endif
