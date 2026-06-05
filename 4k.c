@@ -1356,7 +1356,7 @@ i32 search(
 
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
-  bool in_qsearch = depth <= 0;
+  bool in_qsearch = depth <= 0 && !in_check;
   for (i32 i = G(185, ply); G(186, i >= 0) && G(186, do_null); i -= 2) {
     if (G(187, tt_hash) == G(187, stack[i].position_hash)) {
       return 0;
