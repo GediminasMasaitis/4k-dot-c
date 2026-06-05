@@ -1335,6 +1335,13 @@ get_hash(const Position *const pos) {
   return (G(181, pos->pieces[Pawn]) * G(181, 0x9E3779B97F4A7C15ULL)) >> 50;
 }
 
+[[nodiscard]] S(1) i32
+    matefix(H(997, 1, const i32 score), H(997, 1, const i32 ply)) {
+  G(999, if (score > mate - 256) { return G(998, score) + G(998, ply); })
+  G(999, if (score < 256 - mate) { return score - ply; })
+  return score;
+}
+
 S(1)
 i32 search(
 #ifdef FULL
@@ -1367,14 +1374,15 @@ i32 search(
   G(188, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(188, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(188, stack[ply].best_move = (Move){0};)
+  const i32 tt_score = matefix(H(997, 2, tt_entry->score), H(997, 2, -ply));
   if (G(189, tt_entry->partial_hash) == G(189, tt_hash_partial)) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
     if (G(190, tt_entry->depth >= depth) &&
-        G(190, G(191, tt_entry->flag) != G(191, tt_entry->score <= alpha)) &&
+        G(190, G(191, tt_entry->flag) != G(191, tt_score <= alpha)) &&
         G(190, G(192, alpha) == G(192, beta - 1))) {
-      return tt_entry->score;
+      return tt_score;
     }
   } else if (depth > 3) {
 
@@ -1399,8 +1407,8 @@ i32 search(
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (G(195, G(196, tt_entry->partial_hash) == G(196, tt_hash_partial)) &&
-      G(195, G(197, tt_entry->flag) != G(197, static_eval) > tt_entry->score)) {
-    static_eval = tt_entry->score;
+      G(195, G(197, tt_entry->flag) != G(197, static_eval) > tt_score)) {
+    static_eval = tt_score;
   }
 
   // QUIESCENCE
@@ -1626,11 +1634,12 @@ i32 search(
       })
 
   G(238, // UPDATE TRANSPOSITION TABLE
-        *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                              .move = stack[ply].best_move,
-                              .score = best_score,
-                              .depth = depth,
-                              .flag = tt_flag};)
+        *tt_entry =
+            (TTEntry){.partial_hash = tt_hash_partial,
+                      .move = stack[ply].best_move,
+                      .score = matefix(H(997, 3, best_score), H(997, 3, ply)),
+                      .depth = depth,
+                      .flag = tt_flag};)
 
   return best_score;
 }
