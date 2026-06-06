@@ -1250,6 +1250,11 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
 #ifdef FULL
 static ThreadData *main_data;
 static TTEntry *tt;
+// Position hashes of the played game since the last irreversible move. Used
+// only to stop the printed PV at a repetition -- never read by the search, so
+// it cannot affect move choice or strength.
+static u64 pv_hist[256];
+static i32 pv_hist_len;
 #ifdef NOSTDLIB
 __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
@@ -1731,11 +1736,19 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     if (makemove(&p, &pv_move)) {
       u64 seen[max_ply];
       i32 seen_count = 0;
+      seen[seen_count++] = get_hash(pos); // so a PV looping to the root stops
       while (seen_count < max_ply) {
         const u64 h = get_hash(&p);
 
-        // Stop on a repetition so the walk can't loop forever.
+        // Stop on a repetition -- against the played game (pv_hist) or the PV
+        // walked so far -- so the line ends at the first repeated position
+        // instead of looping. Mirrors 4ku's hash-history check.
         bool repeat = false;
+        for (i32 k = 0; k < pv_hist_len; k++) {
+          if (pv_hist[k] == h) {
+            repeat = true;
+          }
+        }
         for (i32 k = 0; k < seen_count; k++) {
           if (seen[k] == h) {
             repeat = true;
@@ -2194,6 +2207,9 @@ S(1) void run() {
           kibitz_stop(); // don't overwrite the position while a search reads it
 #endif
           G(263, main_data->pos = start_pos;)
+#ifdef FULL
+          pv_hist_len = 0; // reset PV repetition history for the new position
+#endif
           while (true) {
             bool line_continue = getl(line);
 
@@ -2214,6 +2230,18 @@ S(1) void run() {
                 assert(move_string_equal(line, move_name) ==
                        !strcmp(line, move_name));
                 if (move_string_equal(G(264, move_name), G(264, line))) {
+#ifdef FULL
+                  // Record game history for PV repetition detection: the
+                  // pre-move hash for reversible (non-capture) moves; clear it
+                  // on a capture, which nothing before can repeat across.
+                  if (moves[i].takes_piece == None) {
+                    if (pv_hist_len < 256) {
+                      pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
+                    }
+                  } else {
+                    pv_hist_len = 0;
+                  }
+#endif
                   makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
                   break;
                 }
