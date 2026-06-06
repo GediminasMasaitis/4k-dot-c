@@ -1250,9 +1250,6 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
 #ifdef FULL
 static ThreadData *main_data;
 static TTEntry *tt;
-// Position hashes of the played game since the last irreversible move. Used
-// only to stop the printed PV at a repetition -- never read by the search, so
-// it cannot affect move choice or strength.
 static u64 pv_hist[256];
 static i32 pv_hist_len;
 #ifdef NOSTDLIB
@@ -1722,27 +1719,14 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     move_str(H(50, 2, pos->flipped), H(50, 2, &pv_move), H(50, 2, move_name));
     putl(move_name);
 
-    // The engine keeps no PV table, so the continuation is reconstructed the
-    // way 4ku does it: from the root, probe the TT, play its move on a copy,
-    // and repeat. Only entries from PV nodes (flag == Exact) are followed, so
-    // the line is the real principal variation rather than stray cutoff moves.
-    // Every stored move is validated before it is trusted -- membership in the
-    // legal movelist (guards against TT collisions / torn reads from helper
-    // threads feeding garbage into makemove) then a makemove on a copy
-    // (rejects moves that leave the king in check) -- so a bad entry truncates
-    // the line instead of printing an illegal move. A hash history stops the
-    // walk on a repetition, with a max_ply backstop.
     Position p = *pos;
     if (makemove(&p, &pv_move)) {
       u64 seen[max_ply];
       i32 seen_count = 0;
-      seen[seen_count++] = get_hash(pos); // so a PV looping to the root stops
+      seen[seen_count++] = get_hash(pos);
       while (seen_count < max_ply) {
         const u64 h = get_hash(&p);
 
-        // Stop on a repetition -- against the played game (pv_hist) or the PV
-        // walked so far -- so the line ends at the first repeated position
-        // instead of looping. Mirrors 4ku's hash-history check.
         bool repeat = false;
         for (i32 k = 0; k < pv_hist_len; k++) {
           if (pv_hist[k] == h) {
@@ -1758,7 +1742,6 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
           break;
         }
 
-        // Only follow PV nodes, and only when the entry really matches.
         const TTEntry *const e = &tt[h % tt_length];
         if (e->partial_hash != (u16)(h / tt_length) || e->flag != Exact) {
           break;
@@ -2096,7 +2079,7 @@ S(1) void run() {
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
 #if defined(FULL) && !defined(NOSTDLIB)
-      kibitz_stop(); // don't resize tt / threads under a live kibitz search
+      kibitz_stop();
 #endif
       getl(line); // "name"
       getl(line); // option name
@@ -2122,7 +2105,7 @@ S(1) void run() {
       }
     } else if (!strcmp(line, "ucinewgame")) {
 #if defined(FULL) && !defined(NOSTDLIB)
-      kibitz_stop(); // don't clear main_data / tt under a live kibitz search
+      kibitz_stop();
 #endif
       __builtin_memset(main_data, 0, sizeof(ThreadData));
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
@@ -2208,7 +2191,7 @@ S(1) void run() {
 #endif
           G(263, main_data->pos = start_pos;)
 #ifdef FULL
-          pv_hist_len = 0; // reset PV repetition history for the new position
+          pv_hist_len = 0;
 #endif
           while (true) {
             bool line_continue = getl(line);
@@ -2231,9 +2214,6 @@ S(1) void run() {
                        !strcmp(line, move_name));
                 if (move_string_equal(G(264, move_name), G(264, line))) {
 #ifdef FULL
-                  // Record game history for PV repetition detection: the
-                  // pre-move hash for reversible (non-capture) moves; clear it
-                  // on a capture, which nothing before can repeat across.
                   if (moves[i].takes_piece == None) {
                     if (pv_hist_len < 256) {
                       pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
