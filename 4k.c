@@ -1919,24 +1919,18 @@ void run_smp() {
 }
 
 #if defined(FULL) && !defined(NOSTDLIB)
-// --- Kibitzer support -------------------------------------------------------
-// Run `go infinite` on a background thread so the UCI loop keeps reading input
-// while the search runs. That lets the engine analyse a live game: it deepens
-// continuously and, when `stop` arrives, drops the current search and picks up
-// the next position immediately. Driven by tools that send stop / position /
-// go infinite per move (e.g. the TCEC kibitzer).
-static pthread_t kibitz_thread;
-static bool kibitz_running = false;
-static void *kibitz_entry(void *unused) {
+static pthread_t bg_thread;
+static bool bg_running = false;
+static void *bg_entry(void *unused) {
   (void)unused;
   run_smp();
   return NULL;
 }
-static void kibitz_stop(void) {
-  if (kibitz_running) {
+static void bg_stop(void) {
+  if (bg_running) {
     stop = true;
-    pthread_join(kibitz_thread, NULL);
-    kibitz_running = false;
+    pthread_join(bg_thread, NULL);
+    bg_running = false;
   }
 }
 #endif
@@ -2079,7 +2073,7 @@ S(1) void run() {
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
 #if defined(FULL) && !defined(NOSTDLIB)
-      kibitz_stop();
+      bg_stop();
 #endif
       getl(line); // "name"
       getl(line); // option name
@@ -2105,7 +2099,7 @@ S(1) void run() {
       }
     } else if (!strcmp(line, "ucinewgame")) {
 #if defined(FULL) && !defined(NOSTDLIB)
-      kibitz_stop();
+      bg_stop();
 #endif
       __builtin_memset(main_data, 0, sizeof(ThreadData));
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
@@ -2134,11 +2128,11 @@ S(1) void run() {
     G(
         258, if (G(260, line[0]) == G(260, 'g')) {
 #if defined(FULL) && !defined(NOSTDLIB)
-          kibitz_stop(); // stop any prior `go infinite` background search
+          bg_stop();
 #endif
           stop = false;
 #ifdef FULL
-          bool kibitz_infinite = false;
+          bool infinite = false;
           while (true) {
             getl(line);
             if (!main_data->pos.flipped && !strcmp(line, "wtime")) {
@@ -2155,23 +2149,22 @@ S(1) void run() {
               break;
             } else if (!strcmp(line, "infinite")) {
 #ifndef NOSTDLIB
-              main_data->max_time = -1LL; // background search until `stop`
+              main_data->max_time = -1LL;
 #else
-          main_data->max_time = 20ULL * 1000 * 1000 * 1000; // no threads: bounded
+          main_data->max_time = 20ULL * 1000 * 1000 * 1000;
 #endif
-              kibitz_infinite = true;
+              infinite = true;
               break;
             }
           }
 #ifndef NOSTDLIB
-          if (kibitz_infinite) {
-            // search on a background thread so the UCI loop can react to `stop`
-            pthread_create(&kibitz_thread, NULL, kibitz_entry, NULL);
-            kibitz_running = true;
+          if (infinite) {
+            pthread_create(&bg_thread, NULL, bg_entry, NULL);
+            bg_running = true;
           } else
             run_smp();
 #else
-      (void)kibitz_infinite;
+      (void)infinite;
       run_smp();
 #endif
 #else
@@ -2187,7 +2180,7 @@ S(1) void run() {
         258,
         if (G(262, line[0]) == G(262, 'p')) {
 #if defined(FULL) && !defined(NOSTDLIB)
-          kibitz_stop(); // don't overwrite the position while a search reads it
+          bg_stop();
 #endif
           G(263, main_data->pos = start_pos;)
 #ifdef FULL
@@ -2235,7 +2228,7 @@ S(1) void run() {
 #if defined(FULL) && !defined(NOSTDLIB)
         else G(
             258,
-            if (line[0] == 's') { kibitz_stop(); }) // stop the kibitzer search
+            if (line[0] == 's') { bg_stop(); })
 #endif
         else G(
             258, if (G(261, line[0]) == G(261, 'i')) {
