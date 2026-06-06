@@ -1716,6 +1716,63 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     char move_name[8];
     move_str(H(50, 2, pos->flipped), H(50, 2, &pv_move), H(50, 2, move_name));
     putl(move_name);
+
+    // The engine keeps no PV table, so the continuation is reconstructed the
+    // way 4ku does it: from the root, probe the TT, play its move on a copy,
+    // and repeat. Only entries from PV nodes (flag == Exact) are followed, so
+    // the line is the real principal variation rather than stray cutoff moves.
+    // Every stored move is validated before it is trusted -- membership in the
+    // legal movelist (guards against TT collisions / torn reads from helper
+    // threads feeding garbage into makemove) then a makemove on a copy
+    // (rejects moves that leave the king in check) -- so a bad entry truncates
+    // the line instead of printing an illegal move. A hash history stops the
+    // walk on a repetition, with a max_ply backstop.
+    Position p = *pos;
+    if (makemove(&p, &pv_move)) {
+      u64 seen[max_ply];
+      i32 seen_count = 0;
+      while (seen_count < max_ply) {
+        const u64 h = get_hash(&p);
+
+        // Stop on a repetition so the walk can't loop forever.
+        bool repeat = false;
+        for (i32 k = 0; k < seen_count; k++) {
+          if (seen[k] == h) {
+            repeat = true;
+          }
+        }
+        if (repeat) {
+          break;
+        }
+
+        // Only follow PV nodes, and only when the entry really matches.
+        const TTEntry *const e = &tt[h % tt_length];
+        if (e->partial_hash != (u16)(h / tt_length) || e->flag != Exact) {
+          break;
+        }
+
+        Move m = e->move;
+        Move moves[max_moves];
+        const i32 num_moves = movegen(&p, false, moves);
+        i32 j = 0;
+        while (j < num_moves && !move_equal(&m, &moves[j])) {
+          j++;
+        }
+        if (j == num_moves) {
+          break;
+        }
+        Position next = p;
+        if (!makemove(&next, &m)) {
+          break;
+        }
+
+        putl(" ");
+        move_str(p.flipped, &m, move_name);
+        putl(move_name);
+        seen[seen_count++] = h;
+        p = next;
+      }
+    }
   }
 
   putl("\n");
