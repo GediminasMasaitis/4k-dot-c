@@ -1724,7 +1724,8 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
       u64 seen[max_ply];
       i32 seen_count = 0;
       seen[seen_count++] = get_hash(pos);
-      while (seen_count < max_ply) {
+      i32 halfmoves = pv_hist_len + 1;
+      while (seen_count < max_ply && halfmoves < 100) {
         const u64 h = get_hash(&p);
 
         bool repeat = false;
@@ -1767,6 +1768,7 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
         putl(move_name);
         seen[seen_count++] = h;
         p = next;
+        halfmoves++;
       }
     }
   }
@@ -2207,12 +2209,11 @@ S(1) void run() {
                        !strcmp(line, move_name));
                 if (move_string_equal(G(264, move_name), G(264, line))) {
 #ifdef FULL
-                  if (moves[i].takes_piece == None) {
-                    if (pv_hist_len < 256) {
-                      pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
-                    }
-                  } else {
+                  if (moves[i].takes_piece != None ||
+                      piece_on(&main_data->pos, moves[i].from) == Pawn) {
                     pv_hist_len = 0;
+                  } else if (pv_hist_len < 256) {
+                    pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
                   }
 #endif
                   makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
