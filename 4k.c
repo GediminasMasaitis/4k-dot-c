@@ -544,7 +544,7 @@ G(
       G(67, pos->flipped ^= 1;)
       G(
           67, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
+          // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
 
@@ -1250,6 +1250,8 @@ typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
 #ifdef FULL
 static ThreadData *main_data;
 static TTEntry *tt;
+static u64 pv_hist[256];
+static i32 pv_hist_len;
 #ifdef NOSTDLIB
 __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
@@ -1716,6 +1718,61 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     char move_name[8];
     move_str(H(50, 2, pos->flipped), H(50, 2, &pv_move), H(50, 2, move_name));
     putl(move_name);
+
+    Position cur_pos = *pos;
+    if (makemove(&cur_pos, &pv_move)) {
+      u64 seen[max_ply];
+      i32 seen_count = 0;
+      seen[seen_count++] = get_hash(pos);
+      i32 halfmoves = pv_hist_len + 1;
+      while (seen_count < max_ply && halfmoves < 100) {
+        const u64 hash = get_hash(&cur_pos);
+
+        bool repeat = false;
+        for (i32 i = 0; i < pv_hist_len; i++) {
+          if (pv_hist[i] == hash) {
+            repeat = true;
+          }
+        }
+        for (i32 i = 0; i < seen_count; i++) {
+          if (seen[i] == hash) {
+            repeat = true;
+          }
+        }
+        if (repeat) {
+          break;
+        }
+
+        const TTEntry *const entry = &tt[hash % tt_length];
+        if (entry->partial_hash != (u16)(hash / tt_length) ||
+            entry->flag != Exact) {
+          break;
+        }
+
+        Move move = entry->move;
+        Move moves[max_moves];
+        const i32 num_moves = movegen(&cur_pos, false, moves);
+        i32 move_index = 0;
+        while (move_index < num_moves &&
+               !move_equal(&move, &moves[move_index])) {
+          move_index++;
+        }
+        if (move_index == num_moves) {
+          break;
+        }
+        Position next_pos = cur_pos;
+        if (!makemove(&next_pos, &move)) {
+          break;
+        }
+
+        putl(" ");
+        move_str(cur_pos.flipped, &move, move_name);
+        putl(move_name);
+        seen[seen_count++] = hash;
+        cur_pos = next_pos;
+        halfmoves++;
+      }
+    }
   }
 
   putl("\n");
@@ -1865,6 +1922,23 @@ void run_smp() {
   puts(move_name);
 }
 
+#if defined(FULL) && !defined(NOSTDLIB)
+static pthread_t bg_thread;
+static bool bg_running = false;
+static void *bg_entry(void *unused) {
+  (void)unused;
+  run_smp();
+  return NULL;
+}
+static void bg_stop(void) {
+  if (bg_running) {
+    stop = true;
+    pthread_join(bg_thread, NULL);
+    bg_running = false;
+  }
+}
+#endif
+
 #ifdef FULL
 S(1) void display_pos(Position *const pos) {
   Position npos = *pos;
@@ -2002,6 +2076,9 @@ S(1) void run() {
       puts("option name Threads type spin default 1 min 1 max 256");
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
+#if defined(FULL) && !defined(NOSTDLIB)
+      bg_stop();
+#endif
       getl(line); // "name"
       getl(line); // option name
       if (!strcmp(line, "Hash")) {
@@ -2025,6 +2102,9 @@ S(1) void run() {
 #endif
       }
     } else if (!strcmp(line, "ucinewgame")) {
+#if defined(FULL) && !defined(NOSTDLIB)
+      bg_stop();
+#endif
       __builtin_memset(main_data, 0, sizeof(ThreadData));
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     } else if (!strcmp(line, "bench")) {
@@ -2051,8 +2131,12 @@ S(1) void run() {
 #endif
     G(
         258, if (G(260, line[0]) == G(260, 'g')) {
+#if defined(FULL) && !defined(NOSTDLIB)
+          bg_stop();
+#endif
           stop = false;
 #ifdef FULL
+          bool infinite = false;
           while (true) {
             getl(line);
             if (!main_data->pos.flipped && !strcmp(line, "wtime")) {
@@ -2067,9 +2151,26 @@ S(1) void run() {
               main_data->max_time =
                   20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
               break;
+            } else if (!strcmp(line, "infinite")) {
+#ifndef NOSTDLIB
+              main_data->max_time = -1LL;
+#else
+          main_data->max_time = 20ULL * 1000 * 1000 * 1000;
+#endif
+              infinite = true;
+              break;
             }
           }
-          run_smp();
+#ifndef NOSTDLIB
+          if (infinite) {
+            pthread_create(&bg_thread, NULL, bg_entry, NULL);
+            bg_running = true;
+          } else
+            run_smp();
+#else
+      (void)infinite;
+      run_smp();
+#endif
 #else
       for (i32 i = 2 << main_data->pos.flipped; i > 0; i--) {
         getl(line);
@@ -2079,41 +2180,63 @@ S(1) void run() {
       run_smp();
 #endif
         })
-    else G(258, if (G(262, line[0]) == G(262, 'p')) {
-      G(263, main_data->pos = start_pos;)
-        while (true) {
-          bool line_continue = getl(line);
+    else G(
+        258,
+        if (G(262, line[0]) == G(262, 'p')) {
+#if defined(FULL) && !defined(NOSTDLIB)
+          bg_stop();
+#endif
+          G(263, main_data->pos = start_pos;)
+#ifdef FULL
+          pv_hist_len = 0;
+#endif
+          while (true) {
+            bool line_continue = getl(line);
 
 #ifdef FULL
-          if (!strcmp(line, "fen")) {
-            getl(line);
-            line_continue = get_fen(&main_data->pos, line);
-          }
-          else
+            if (!strcmp(line, "fen")) {
+              getl(line);
+              line_continue = get_fen(&main_data->pos, line);
+            } else
 #endif
-          {
-            Move moves[max_moves];
-            const i32 num_moves = movegen(H(95, 4, &main_data->pos),
-              H(95, 4, false), H(95, 4, moves));
-            for (i32 i = 0; i < num_moves; i++) {
-              char move_name[8];
-              move_str(H(50, 4, main_data->pos.flipped), H(50, 4, &moves[i]),
-                H(50, 4, move_name));
-              assert(move_string_equal(line, move_name) ==
-                !strcmp(line, move_name));
-              if (move_string_equal(G(264, move_name), G(264, line))) {
-                makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
-                break;
+            {
+              Move moves[max_moves];
+              const i32 num_moves = movegen(H(95, 4, &main_data->pos),
+                                            H(95, 4, false), H(95, 4, moves));
+              for (i32 i = 0; i < num_moves; i++) {
+                char move_name[8];
+                move_str(H(50, 4, main_data->pos.flipped), H(50, 4, &moves[i]),
+                         H(50, 4, move_name));
+                assert(move_string_equal(line, move_name) ==
+                       !strcmp(line, move_name));
+                if (move_string_equal(G(264, move_name), G(264, line))) {
+#ifdef FULL
+                  if (moves[i].takes_piece != None ||
+                      piece_on(&main_data->pos, moves[i].from) == Pawn) {
+                    pv_hist_len = 0;
+                  } else if (pv_hist_len < 256) {
+                    pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
+                  }
+#endif
+                  makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
+                  break;
+                }
               }
             }
+            if (!line_continue) {
+              break;
+            }
           }
-          if (!line_continue) {
-            break;
-          }
-        }
-    })
-    else G(258, if (G(261, line[0]) == G(261, 'i')) { puts("readyok"); })
-    else G(258, if (G(259, line[0]) == G(259, 'q')) { exit_now(); })
+        })
+#if defined(FULL) && !defined(NOSTDLIB)
+        else G(
+            258,
+            if (line[0] == 's') { bg_stop(); })
+#endif
+        else G(
+            258, if (G(261, line[0]) == G(261, 'i')) {
+              puts("readyok");
+            }) else G(258, if (G(259, line[0]) == G(259, 'q')) { exit_now(); })
   }
 }
 
