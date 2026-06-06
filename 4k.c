@@ -2025,6 +2025,9 @@ S(1) void run() {
       puts("option name Threads type spin default 1 min 1 max 256");
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
+#if defined(FULL) && !defined(NOSTDLIB)
+      kibitz_stop(); // don't resize tt / threads under a live kibitz search
+#endif
       getl(line); // "name"
       getl(line); // option name
       if (!strcmp(line, "Hash")) {
@@ -2048,6 +2051,9 @@ S(1) void run() {
 #endif
       }
     } else if (!strcmp(line, "ucinewgame")) {
+#if defined(FULL) && !defined(NOSTDLIB)
+      kibitz_stop(); // don't clear main_data / tt under a live kibitz search
+#endif
       __builtin_memset(main_data, 0, sizeof(ThreadData));
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
     } else if (!strcmp(line, "bench")) {
