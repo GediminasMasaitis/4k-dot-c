@@ -544,7 +544,7 @@ G(
       G(67, pos->flipped ^= 1;)
       G(
           67, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
+          // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
 
@@ -1865,6 +1865,29 @@ void run_smp() {
   puts(move_name);
 }
 
+#if defined(FULL) && !defined(NOSTDLIB)
+// --- Kibitzer support -------------------------------------------------------
+// Run `go infinite` on a background thread so the UCI loop keeps reading input
+// while the search runs. That lets the engine analyse a live game: it deepens
+// continuously and, when `stop` arrives, drops the current search and picks up
+// the next position immediately. Driven by tools that send stop / position /
+// go infinite per move (e.g. the TCEC kibitzer).
+static pthread_t kibitz_thread;
+static bool kibitz_running = false;
+static void *kibitz_entry(void *unused) {
+  (void)unused;
+  run_smp();
+  return NULL;
+}
+static void kibitz_stop(void) {
+  if (kibitz_running) {
+    stop = true;
+    pthread_join(kibitz_thread, NULL);
+    kibitz_running = false;
+  }
+}
+#endif
+
 #ifdef FULL
 S(1) void display_pos(Position *const pos) {
   Position npos = *pos;
@@ -2051,8 +2074,12 @@ S(1) void run() {
 #endif
     G(
         258, if (G(260, line[0]) == G(260, 'g')) {
+#if defined(FULL) && !defined(NOSTDLIB)
+          kibitz_stop(); // stop any prior `go infinite` background search
+#endif
           stop = false;
 #ifdef FULL
+          bool kibitz_infinite = false;
           while (true) {
             getl(line);
             if (!main_data->pos.flipped && !strcmp(line, "wtime")) {
@@ -2067,9 +2094,27 @@ S(1) void run() {
               main_data->max_time =
                   20ULL * 1000 * 1000 * 1000; // Assume Lichess bot
               break;
+            } else if (!strcmp(line, "infinite")) {
+#ifndef NOSTDLIB
+              main_data->max_time = -1LL; // background search until `stop`
+#else
+          main_data->max_time = 20ULL * 1000 * 1000 * 1000; // no threads: bounded
+#endif
+              kibitz_infinite = true;
+              break;
             }
           }
-          run_smp();
+#ifndef NOSTDLIB
+          if (kibitz_infinite) {
+            // search on a background thread so the UCI loop can react to `stop`
+            pthread_create(&kibitz_thread, NULL, kibitz_entry, NULL);
+            kibitz_running = true;
+          } else
+            run_smp();
+#else
+      (void)kibitz_infinite;
+      run_smp();
+#endif
 #else
       for (i32 i = 2 << main_data->pos.flipped; i > 0; i--) {
         getl(line);
@@ -2079,41 +2124,52 @@ S(1) void run() {
       run_smp();
 #endif
         })
-    else G(258, if (G(262, line[0]) == G(262, 'p')) {
-      G(263, main_data->pos = start_pos;)
-        while (true) {
-          bool line_continue = getl(line);
+    else G(
+        258,
+        if (G(262, line[0]) == G(262, 'p')) {
+#if defined(FULL) && !defined(NOSTDLIB)
+          kibitz_stop(); // don't overwrite the position while a search reads it
+#endif
+          G(263, main_data->pos = start_pos;)
+          while (true) {
+            bool line_continue = getl(line);
 
 #ifdef FULL
-          if (!strcmp(line, "fen")) {
-            getl(line);
-            line_continue = get_fen(&main_data->pos, line);
-          }
-          else
+            if (!strcmp(line, "fen")) {
+              getl(line);
+              line_continue = get_fen(&main_data->pos, line);
+            } else
 #endif
-          {
-            Move moves[max_moves];
-            const i32 num_moves = movegen(H(95, 4, &main_data->pos),
-              H(95, 4, false), H(95, 4, moves));
-            for (i32 i = 0; i < num_moves; i++) {
-              char move_name[8];
-              move_str(H(50, 4, main_data->pos.flipped), H(50, 4, &moves[i]),
-                H(50, 4, move_name));
-              assert(move_string_equal(line, move_name) ==
-                !strcmp(line, move_name));
-              if (move_string_equal(G(264, move_name), G(264, line))) {
-                makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
-                break;
+            {
+              Move moves[max_moves];
+              const i32 num_moves = movegen(H(95, 4, &main_data->pos),
+                                            H(95, 4, false), H(95, 4, moves));
+              for (i32 i = 0; i < num_moves; i++) {
+                char move_name[8];
+                move_str(H(50, 4, main_data->pos.flipped), H(50, 4, &moves[i]),
+                         H(50, 4, move_name));
+                assert(move_string_equal(line, move_name) ==
+                       !strcmp(line, move_name));
+                if (move_string_equal(G(264, move_name), G(264, line))) {
+                  makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
+                  break;
+                }
               }
             }
+            if (!line_continue) {
+              break;
+            }
           }
-          if (!line_continue) {
-            break;
-          }
-        }
-    })
-    else G(258, if (G(261, line[0]) == G(261, 'i')) { puts("readyok"); })
-    else G(258, if (G(259, line[0]) == G(259, 'q')) { exit_now(); })
+        })
+#if defined(FULL) && !defined(NOSTDLIB)
+        else G(
+            258,
+            if (line[0] == 's') { kibitz_stop(); }) // stop the kibitzer search
+#endif
+        else G(
+            258, if (G(261, line[0]) == G(261, 'i')) {
+              puts("readyok");
+            }) else G(258, if (G(259, line[0]) == G(259, 'q')) { exit_now(); })
   }
 }
 
