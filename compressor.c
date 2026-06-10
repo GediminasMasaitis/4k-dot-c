@@ -631,7 +631,6 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
                                       int base_prob) {
   int num = hb->num_weights;
   int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
-  memset(dt, 0, ((size_t)dmask + 1) * 2);
 
   unsigned char *matched[MAX_SEARCH];
   int hpos = 0;
@@ -668,9 +667,9 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
   {
     unsigned int dmask = (1u << direct_bits) - 1u;
     size_t dbytes = ((size_t)dmask + 1) * 2;
-    unsigned char *dt = (unsigned char *)malloc(dbytes);
+    unsigned char *dt = (unsigned char *)calloc(dbytes, 1);
     if (!dt) {
-      fprintf(stderr, "malloc(%zu) failed for direct-mapped table\n", dbytes);
+      fprintf(stderr, "calloc(%zu) failed for direct-mapped table\n", dbytes);
       exit(1);
     }
     if (verbose)
@@ -678,6 +677,8 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
              dmask + 1, dbytes);
     double t0 = mono_sec();
     for (int r = 0; r < reps; r++) {
+      if (r > 0)
+        memset(dt, 0, dbytes); /* re-zero only for subsequent timing reps */
       memset(out, 0, (size_t)size + 1024); /* coder XORs into dest */
       arith_init(&ac, out);
       encode_from_stream_direct(&ac, &hb, dt, dmask, base_prob);
