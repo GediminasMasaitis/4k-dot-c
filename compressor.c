@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 typedef float v4f __attribute__((vector_size(16)));
 typedef uint32_t v4u __attribute__((vector_size(16)));
@@ -31,6 +32,11 @@ typedef uint16_t v8u16 __attribute__((vector_size(16)));
 
 static int verbose = 0; /* 0=off, 1=verbose, 2=very verbose */
 static int extreme = 0; /* use real compression instead of estimator */
+static int direct_bits = 24; /* direct-mapped table of 2^direct_bits 2-byte
+                                slots (Crinkler-style, lossy); loader DIRECT_BITS
+                                must match. Override with -H. */
+static int timing_reps = 1;  /* repeat the encode pass for stable timing */
+static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
 
 typedef struct {
   unsigned char weight;
@@ -71,10 +77,6 @@ typedef struct {
   unsigned int generation;
 } CtxEntry;
 
-typedef struct {
-  unsigned int hash;
-  unsigned char prob[2];
-} HashEntry;
 
 typedef struct {
   unsigned int *hashes;
@@ -83,7 +85,6 @@ typedef struct {
   int bits_len, bits_cap;
   int *weights;
   int num_weights;
-  unsigned int table_size;
 } HashBitStream;
 
 typedef struct {
@@ -147,6 +148,12 @@ static int prev_prime(int n) {
     if (ok)
       return n;
   }
+}
+
+static double mono_sec(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
 static inline void counter_update(unsigned char prob[2], int bit) {
@@ -587,7 +594,6 @@ static HashBitStream compute_hash_stream(const unsigned char *data, int size,
   hbs_init(&out);
   out.num_weights = num;
   out.weights = (int *)malloc(num * sizeof(int));
-  out.table_size = next_pow2(total_bits * num);
 
   unsigned char *padded = alloc_padded(ctx, data, size);
   unsigned char *dp = padded + MAX_CTX;
@@ -617,197 +623,37 @@ static HashBitStream compute_hash_stream(const unsigned char *data, int size,
   return out;
 }
 
-static HashEntry *hash_probe(HashEntry *table, unsigned int mask,
-                             unsigned int hash, int weight_shift,
-                             unsigned int probs[2]) {
-  unsigned int slot = (hash + 1) & mask;
-  for (;;) {
-    HashEntry *e = &table[slot];
-    if (!e->hash) {
-      e->hash = hash;
-      return e;
-    }
-    if (e->hash == hash) {
-      unsigned int shift =
-          (1 - (((e->prob[0] + 255) & (e->prob[1] + 255)) >> 8)) * 2 +
-          weight_shift;
-      probs[0] += (unsigned)e->prob[0] << shift;
-      probs[1] += (unsigned)e->prob[1] << shift;
-      return e;
-    }
-    slot = (slot + 1) & mask;
-  }
-}
-
-static void print_hash_table_stats(const HashEntry *ht,
-                                   unsigned int table_size) {
-  unsigned int occupied = 0;
-  unsigned int max_chain = 0;
-  unsigned long total_displacement = 0;
-  unsigned int mask = table_size - 1;
-
-  for (unsigned int i = 0; i < table_size; i++) {
-    if (ht[i].hash) {
-      occupied++;
-      unsigned int ideal = (ht[i].hash + 1) & mask;
-      unsigned int displacement = (i - ideal) & mask;
-      if (displacement > max_chain)
-        max_chain = displacement;
-      total_displacement += displacement;
-    }
-  }
-
-  printf("  Hash table: %u / %u slots used (%.1f%% load)\n", occupied,
-         table_size, 100.0 * occupied / table_size);
-  printf("  Probe chains: max %u, avg %.2f displacement\n", max_chain,
-         occupied ? (double)total_displacement / occupied : 0.0);
-}
-
-static void encode_from_stream(ArithCoder *ac, const HashBitStream *hb,
-                               HashEntry *ht, int base_prob,
-                               const ModelSet *ml) {
+/* Direct-mapped, lossy, no-probing encoder (original Crinkler scheme).
+   Table is 2 bytes per slot (prob[0], prob[1]); slot = hash & dmask. Two
+   different contexts that map to the same slot silently share a counter. */
+static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
+                                      unsigned char *dt, unsigned int dmask,
+                                      int base_prob) {
   int num = hb->num_weights;
   int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
-  unsigned int tmask = hb->table_size - 1;
-  memset(ht, 0, hb->table_size * sizeof(HashEntry));
+  memset(dt, 0, ((size_t)dmask + 1) * 2);
 
-  unsigned int model_hits[MAX_SEARCH] = {};
-  unsigned int model_misses[MAX_SEARCH] = {};
-  unsigned int min_range = 0xFFFFFFFFu;
-  double model_bits_saved[MAX_SEARCH] = {};
-  unsigned int conf_hist[11] = {};
-  unsigned int bytepos_count[8] = {};
-  double bytepos_cost[8] = {};
-  double total_cost = 0;
-
-  HashEntry *matched[MAX_SEARCH];
+  unsigned char *matched[MAX_SEARCH];
   int hpos = 0;
   for (int bp = 0; bp < total_bits; bp++) {
     int bit = hb->bits[bp];
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
     for (int m = 0; m < num; m++) {
-      unsigned int p0_before = probs[0], p1_before = probs[1];
-      matched[m] =
-          hash_probe(ht, tmask, hb->hashes[hpos++], hb->weights[m], probs);
-      if (verbose) {
-        if (matched[m]->prob[0] || matched[m]->prob[1]) {
-          model_hits[m]++;
-          unsigned int before_correct = bit ? p1_before : p0_before;
-          unsigned int before_total = p0_before + p1_before;
-          unsigned int after_correct = probs[bit];
-          unsigned int after_total = probs[0] + probs[1];
-          model_bits_saved[m] +=
-              fast_log2f((float)after_correct / after_total) -
-              fast_log2f((float)before_correct / before_total);
-        } else {
-          model_misses[m]++;
-        }
-      }
-    }
-    if (verbose) {
-      float conf = (float)probs[bit] / (probs[0] + probs[1]);
-      int bucket = (conf < 0.5f) ? 0 : (int)((conf - 0.5f) * 20) + 1;
-      if (bucket > 10)
-        bucket = 10;
-      conf_hist[bucket]++;
-
-      float bit_cost = -fast_log2f((float)probs[bit] / (probs[0] + probs[1]));
-      total_cost += bit_cost;
-      int bpos = bp & 7;
-      bytepos_count[bpos]++;
-      bytepos_cost[bpos] += bit_cost;
+      unsigned int h = hb->hashes[hpos++];
+      unsigned char *e = &dt[2u * (h & dmask)];
+      unsigned int shift =
+          (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + hb->weights[m];
+      probs[0] += (unsigned)e[0] << shift;
+      probs[1] += (unsigned)e[1] << shift;
+      matched[m] = e;
     }
     arith_encode(ac, probs[1], probs[0], 1 - bit);
-    if (verbose && ac->range < min_range)
-      min_range = ac->range;
-    for (int m = 0; m < num; m++)
-      counter_update(matched[m]->prob, bit);
-  }
-
-  if (verbose) {
-    printf("  Arithmetic coder min range: 0x%08X (%.1f effective bits)\n",
-           min_range, 31.0 - __builtin_clz(min_range));
-
-    printf("  Prediction confidence:\n");
-    const char *labels[] = {"   <50%%", " 50-55%%", " 55-60%%", " 60-65%%",
-                            " 65-70%%", " 70-75%%", " 75-80%%", " 80-85%%",
-                            " 85-90%%", " 90-95%%", "95-100%%"};
-    for (int i = 0; i < 11; i++) {
-      if (conf_hist[i] > 0)
-        printf("    %s: %5u bits (%5.1f%%)\n", labels[i], conf_hist[i],
-               100.0 * conf_hist[i] / total_bits);
-    }
-    printf("  Total prediction cost: %.1f bits (%.1f bytes)\n", total_cost,
-           total_cost / 8.0);
-
-    printf("  Byte position analysis:\n");
-    for (int i = 0; i < 8; i++) {
-      if (bytepos_count[i] > 0)
-        printf("    Bit %d: %5u bits, avg cost %.3f bits/bit\n", i,
-               bytepos_count[i], bytepos_cost[i] / bytepos_count[i]);
-    }
-
-    printf("  Per-model stats:\n");
-    double total_saved = 0;
     for (int m = 0; m < num; m++) {
-      unsigned int total = model_hits[m] + model_misses[m];
-      printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
-             "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
-             m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
-             total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
-             -model_bits_saved[m], -model_bits_saved[m] / 8.0);
-      total_saved += model_bits_saved[m];
+      unsigned char *e = matched[m];
+      e[bit] += 1;
+      if (e[1 - bit] > 1)
+        e[1 - bit] >>= 1;
     }
-    printf("    Total model contribution: %.1f bits (%.1f bytes)\n",
-           -total_saved, -total_saved / 8.0);
-
-    int order[MAX_SEARCH];
-    for (int m = 0; m < num; m++)
-      order[m] = m;
-    for (int i = 0; i < num - 1; i++)
-      for (int j = i + 1; j < num; j++)
-        if (model_bits_saved[order[i]] < model_bits_saved[order[j]]) {
-          int tmp = order[i];
-          order[i] = order[j];
-          order[j] = tmp;
-        }
-    printf("  Per-model stats (by bits saved):\n");
-    for (int i = 0; i < num; i++) {
-      int m = order[i];
-      unsigned int total = model_hits[m] + model_misses[m];
-      printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
-             "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
-             m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
-             total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
-             -model_bits_saved[m], -model_bits_saved[m] / 8.0);
-    }
-
-    unsigned int sat_lopsided = 0, sat_strong = 0, sat_balanced = 0,
-                 sat_other = 0;
-    unsigned int ht_occupied = 0;
-    for (unsigned int i = 0; i < hb->table_size; i++) {
-      if (ht[i].hash) {
-        ht_occupied++;
-        unsigned int p0 = ht[i].prob[0], p1 = ht[i].prob[1];
-        if (p0 == 0 || p1 == 0)
-          sat_lopsided++;
-        else if (p0 > p1 * 4 || p1 > p0 * 4)
-          sat_strong++;
-        else if (p0 <= p1 * 2 && p1 <= p0 * 2)
-          sat_balanced++;
-        else
-          sat_other++;
-      }
-    }
-    printf("  Counter saturation (%u entries):\n", ht_occupied);
-    printf("    Lopsided (one side=0): %u (%.1f%%)\n", sat_lopsided,
-           ht_occupied ? 100.0 * sat_lopsided / ht_occupied : 0.0);
-    printf("    Strong (>4:1):         %u (%.1f%%)\n", sat_strong,
-           ht_occupied ? 100.0 * sat_strong / ht_occupied : 0.0);
-    printf("    Balanced (<2:1):       %u (%.1f%%)\n", sat_balanced,
-           ht_occupied ? 100.0 * sat_balanced / ht_occupied : 0.0);
-    printf("    Mixed (2:1 to 4:1):    %u (%.1f%%)\n", sat_other,
-           ht_occupied ? 100.0 * sat_other / ht_occupied : 0.0);
   }
 }
 
@@ -815,21 +661,32 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
                        const ModelSet *ml, int base_prob) {
   unsigned char ctx[MAX_CTX] = {};
   HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
-  if (verbose) {
-    printf("  Max models: %d\n", MAX_SEARCH);
-    printf("  Hash table size: %u entries (%u bytes)\n", hb.table_size,
-           (unsigned)(hb.table_size * sizeof(HashEntry)));
-  }
-  HashEntry *ht = (HashEntry *)calloc(hb.table_size, sizeof(HashEntry));
+  int reps = timing_reps < 1 ? 1 : timing_reps;
   ArithCoder ac;
-  arith_init(&ac, out);
-  encode_from_stream(&ac, &hb, ht, base_prob, ml);
-  int total = arith_finish(&ac);
+  int total = 0;
 
-  if (verbose)
-    print_hash_table_stats(ht, hb.table_size);
+  {
+    unsigned int dmask = (1u << direct_bits) - 1u;
+    size_t dbytes = ((size_t)dmask + 1) * 2;
+    unsigned char *dt = (unsigned char *)malloc(dbytes);
+    if (!dt) {
+      fprintf(stderr, "malloc(%zu) failed for direct-mapped table\n", dbytes);
+      exit(1);
+    }
+    if (verbose)
+      printf("  Direct-mapped table: %u slots (%zu bytes, 2 B/slot)\n",
+             dmask + 1, dbytes);
+    double t0 = mono_sec();
+    for (int r = 0; r < reps; r++) {
+      memset(out, 0, (size_t)size + 1024); /* coder XORs into dest */
+      arith_init(&ac, out);
+      encode_from_stream_direct(&ac, &hb, dt, dmask, base_prob);
+    }
+    g_encode_ms = (mono_sec() - t0) / reps * 1000.0;
+    total = arith_finish(&ac);
+    free(dt);
+  }
 
-  free(ht);
   hbs_free(&hb);
   return total;
 }
@@ -844,21 +701,20 @@ static unsigned int real_compress_size(const unsigned char *data, int size,
   return (unsigned int)(header_bits + comp_bits) * BIT_PREC;
 }
 
-static int decompress_4k(const unsigned char *cdata, unsigned char *out,
-                         int base_prob) {
+/* Inverse of encode_from_stream_direct: same direct-mapped lossy table. */
+static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
+                                int base_prob) {
   uint16_t bl16;
   memcpy(&bl16, cdata, 2);
   int bitlen = bl16;
   unsigned int stored_wmask;
   memcpy(&stored_wmask, cdata + 2, 4);
   int num = cdata[6];
-  int data_bits = bitlen - 1;
-  int data_bytes = data_bits / 8;
+  int data_bytes = (bitlen - 1) / 8;
 
   unsigned char ctx_masks[MAX_SEARCH];
   for (int i = 0; i < num; i++)
     ctx_masks[i] = cdata[7 + i];
-
   unsigned int ext_masks[MAX_SEARCH];
   int weights[MAX_SEARCH];
   decode_weight_mask(stored_wmask, num, ctx_masks, weights, ext_masks);
@@ -866,14 +722,13 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
   const unsigned char *comp = cdata + 7 + num;
   unsigned char *buf = (unsigned char *)calloc(data_bytes + MAX_CTX, 1);
   unsigned char *dp = buf + MAX_CTX;
-  unsigned int tsize = next_pow2(bitlen * num);
-  if (verbose) {
-    printf("  Max models: %d\n", MAX_SEARCH);
-    printf("  Hash table size: %u entries (%u bytes)\n", tsize,
-           (unsigned)(tsize * sizeof(HashEntry)));
+
+  unsigned int dmask = (1u << direct_bits) - 1u;
+  unsigned char *dt = (unsigned char *)calloc((size_t)dmask + 1, 2);
+  if (!dt) {
+    fprintf(stderr, "calloc failed for direct-mapped table\n");
+    exit(1);
   }
-  HashEntry *ht = (HashEntry *)calloc(tsize, sizeof(HashEntry));
-  unsigned int tmask = tsize - 1;
 
   unsigned int range = 0x80000000u, low = 0, value = 0;
   int cpos = 0;
@@ -882,18 +737,21 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
 
   for (int bp = 0; bp < bitlen; bp++) {
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
-    HashEntry *matched[MAX_SEARCH];
-
+    unsigned char *matched[MAX_SEARCH];
     for (int m = 0; m < num; m++) {
       unsigned int h = (bp == 0) ? ctx_hash_initial(ext_masks[m])
                                  : ctx_hash(dp, bp - 1, ext_masks[m]);
-      matched[m] = hash_probe(ht, tmask, h, weights[m], probs);
+      unsigned char *e = &dt[2u * (h & dmask)];
+      unsigned int shift =
+          (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + weights[m];
+      probs[0] += (unsigned)e[0] << shift;
+      probs[1] += (unsigned)e[1] << shift;
+      matched[m] = e;
     }
 
     unsigned int total = probs[0] + probs[1];
     unsigned int thresh = (uint64_t)range * probs[1] / total;
     unsigned int diff = value - low;
-
     int bit;
     if (diff < thresh) {
       range = thresh;
@@ -903,16 +761,17 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
       range -= thresh;
       bit = 0;
     }
-
     while (!(range & 0x80000000u)) {
       low <<= 1;
       range <<= 1;
       value = (value << 1) | get_compressed_bit(comp, cpos++);
     }
-
-    for (int m = 0; m < num; m++)
-      counter_update(matched[m]->prob, bit);
-
+    for (int m = 0; m < num; m++) {
+      unsigned char *e = matched[m];
+      e[bit] += 1;
+      if (e[1 - bit] > 1)
+        e[1 - bit] >>= 1;
+    }
     if (bp > 0 && bit) {
       int dbp = bp - 1;
       dp[dbp >> 3] |= 1 << (7 - (dbp & 7));
@@ -920,10 +779,8 @@ static int decompress_4k(const unsigned char *cdata, unsigned char *out,
   }
 
   memcpy(out, dp, data_bytes);
-  if (verbose)
-    print_hash_table_stats(ht, tsize);
   free(buf);
-  free(ht);
+  free(dt);
   return data_bytes;
 }
 
@@ -1223,6 +1080,9 @@ static void print_usage(const char *prog) {
   printf("  -w           Optimize weights on explicit models from -m\n");
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
   printf("  -e           Extreme: use real compression during search\n");
+  printf("  -H <bits>    Direct-mapped table size = 2^bits 2-byte slots\n");
+  printf("               (default 24); loader DIRECT_BITS must match\n");
+  printf("  -R <n>       Repeat encode pass n times for stable timing\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
   printf("  -h           Show this help\n");
@@ -1240,7 +1100,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:k:sdwehv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehv")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1274,6 +1134,20 @@ int main(int argc, char *argv[]) {
       break;
     case 'e':
       extreme = 1;
+      break;
+    case 'H':
+      direct_bits = atoi(optarg);
+      if (direct_bits < 1 || direct_bits > 30) {
+        fprintf(stderr, "Direct-map bits must be 1..30 (table = 2^bits slots)\n");
+        return 1;
+      }
+      break;
+    case 'R':
+      timing_reps = atoi(optarg);
+      if (timing_reps < 1) {
+        fprintf(stderr, "Reps must be >= 1\n");
+        return 1;
+      }
       break;
     case 'b':
       base_prob = atoi(optarg);
@@ -1350,7 +1224,7 @@ int main(int argc, char *argv[]) {
     printf("Models:      %d\n", num_models);
 
     unsigned char *out_data = (unsigned char *)calloc(out_sz + 16, 1);
-    int decoded = decompress_4k(data, out_data, base_prob);
+    int decoded = decompress_4k_direct(data, out_data, base_prob);
 
     if (!write_file(output_file, out_data, decoded)) {
       fprintf(stderr, "Failed to open output '%s'\n", output_file);
@@ -1386,6 +1260,7 @@ int main(int argc, char *argv[]) {
   unsigned char ctx[MAX_CTX] = {};
   int est_size = 0;
   ModelSet ml;
+  double t_search = mono_sec();
 
   if (have_explicit_models) {
     ml = explicit_models;
@@ -1433,6 +1308,8 @@ int main(int argc, char *argv[]) {
     model_set_print(&ml, stdout);
   }
 
+  double search_ms = (mono_sec() - t_search) * 1000.0;
+
   int max_out = data_size + 1024;
   unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
   int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
@@ -1453,6 +1330,9 @@ int main(int argc, char *argv[]) {
   }
   printf("Compressed:  %d bytes %d bits (%.2f%%)\n", total_bytes, total_bits,
          100.0f * total_bytes / data_size);
+  printf("Table:       direct-mapped (lossy), 2^%d slots\n", direct_bits);
+  printf("Search time: %.1f ms\n", search_ms);
+  printf("Encode time: %.3f ms/iter (reps=%d)\n", g_encode_ms, timing_reps);
 
   unsigned char header[7];
   uint16_t bl16 = (uint16_t)bitlen;

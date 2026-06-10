@@ -9,6 +9,10 @@ org 0x300000
 %error "START_LOCATION must be defined"
 %endif
 
+%ifndef DIRECT_BITS
+  %define DIRECT_BITS 24
+%endif
+
 %define PAYLOAD_DEST 0x400000
 %define G_HT         0x800000
 %define HMUL         111
@@ -69,13 +73,7 @@ init_header:
     mul     r13d
 
 decompress4kc:
-    dec     eax
-    bsr     ecx, eax
-    push    2
-    pop     rax
-    shl     eax, cl
-    dec     eax
-    xchg    eax, r11d
+    mov     r11d, (1 << DIRECT_BITS) - 1
     mov     eax, [rdi+2]
     xor     ecx, ecx
 .wl:
@@ -143,18 +141,11 @@ decompress4kc:
     jc      .cl_hash
     jnz     .cl_next
 
-.hr:mov     edi, eax
-.pb:inc     eax
-    and     eax, r11d
-    lea     ecx, [rax*8+G_HT]
-    cmp     [rcx], edi
-    je      .po
-    cmp     dword [rcx], 0
-    jnz     .pb
-.pe:mov     [rcx], edi
+.hr:and     eax, r11d
+    lea     ecx, [rax*2+G_HT]
 .po:mov     [rsp+32+r12*4], ecx
-    movzx   eax, byte [rcx+4]
-    movzx   edi, byte [rcx+5]
+    movzx   eax, byte [rcx]
+    movzx   edi, byte [rcx+1]
     mov     ecx, [rsp+r12*8+116]
     test    al, al
     jz      .bo
@@ -198,10 +189,10 @@ decompress4kc:
     sub     edi, esi
     mov     ecx, r13d
 .ul:mov     eax, [rsp+28+rcx*4]
-    inc     byte [rax+4+rdi]
-    shr     byte [rax+4+rsi], 1
+    inc     byte [rax+rdi]
+    shr     byte [rax+rsi], 1
     jnz     .nh
-    rcl     byte [rax+4+rsi], 1
+    rcl     byte [rax+rsi], 1
 .nh:loop    .ul
     mov     ecx, r9d
     imul    ecx, edi
