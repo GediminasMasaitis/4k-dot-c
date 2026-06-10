@@ -2230,7 +2230,7 @@ S(1) void run() {
         })
 #if defined(FULL) && !defined(NOSTDLIB)
         else G(
-            258,
+            265,
             if (line[0] == 's') { bg_stop(); })
 #endif
         else G(
