@@ -21,6 +21,8 @@ enable_random_shuffle = False
 random_seed = None
 num_runs = 999
 use_compression = True
+compress_bprob = 10
+compress_direct_bits = 30
 enable_source_cache = True
 persist_source_cache = True
 enable_asm_cache = True
@@ -449,7 +451,8 @@ def run_make_and_get_size(cwd=None, source_content=None):
     exe_rel = './build/4kc'
     try:
         proc = subprocess.run(
-            ['./compressor', '-o', exe_rel + '.paq', exe_rel],
+            ['./compressor', '-b', str(compress_bprob),
+             '-H', str(compress_direct_bits), '-o', exe_rel + '.paq', exe_rel],
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
