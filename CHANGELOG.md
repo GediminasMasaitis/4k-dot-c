@@ -10397,3 +10397,13 @@ Games | N: 5000 W: 1516 L: 1132 D: 2352
 Penta | [68, 487, 1074, 735, 136]
 https://gedas.pythonanywhere.com/test/1851/
 ```
+
+### 9.1
+
+Switch compressor and loader to direct-mapped hash table
+
+4 threads: 4064 bytes (-30)
+MD5: 5d9ee0bb6e3f71d5a6d4e495a82500e9
+
+1 thread: 4033 bytes (-30)
+MD5: 34f34e45ca90e32beb504d89b1f12df5

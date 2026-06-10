@@ -1,5 +1,13 @@
 ARCH ?= 64
 BPROB ?= 10
+
+# Direct-mapped lossy hash table (Crinkler-style). Size = 2^DIRECT_BITS slots;
+# compressor (-H) and loader (DIRECT_BITS) MUST match. 2^30 = 2 GB: smallest
+# exe, but commits ~1.1 GB and decodes slower on every run. Lower it to trade
+# size for startup RAM (e.g. DIRECT_BITS=28 -> 512 MB, =26 -> 128 MB).
+DIRECT_BITS ?= 30
+COMPRESS_HASH := -H $(DIRECT_BITS)
+LOADER_HASH := -DDIRECT_BITS=$(DIRECT_BITS)
 CC := gcc
 CFLAGS := -std=gnu2x -Wno-deprecated-declarations -Wno-format
 LDFLAGS :=
@@ -72,10 +80,10 @@ compress_source: compile_asm link_asm
 
 compress: compressor compress_source
 	@$(MAP_CHECK)
-	./compressor -b $(BPROB) -o $(EXE).paq $(EXE)
+	./compressor -b $(BPROB) $(COMPRESS_HASH) -o $(EXE).paq $(EXE)
 
 loader: compress
-	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') -o $(EXE) loader.asm
+	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') $(LOADER_HASH) -o $(EXE) loader.asm
 	$(LS) $(EXE)
 	$(MD5)
 
