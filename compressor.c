@@ -37,6 +37,11 @@ static int direct_bits = 24; /* direct-mapped table of 2^direct_bits 2-byte
                                 must match. Override with -H. */
 static int timing_reps = 1;  /* repeat the encode pass for stable timing */
 static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
+static int large_field = 0;
+
+static int hdr_bitlen_bytes(void) { return large_field ? 4 : 2; }
+static int hdr_num_off(void) { return large_field ? 8 : 6; }
+static int hdr_base_bytes(void) { return large_field ? 9 : 7; }
 
 typedef struct {
   unsigned char weight;
@@ -698,29 +703,28 @@ static unsigned int real_compress_size(const unsigned char *data, int size,
   unsigned char *out = (unsigned char *)calloc(max_out, 1);
   int comp_bits = compress_4k(data, size, out, ml, base_prob);
   free(out);
-  int header_bits = (7 + ml->num_models) * 8;
+  int header_bits = (hdr_base_bytes() + ml->num_models) * 8;
   return (unsigned int)(header_bits + comp_bits) * BIT_PREC;
 }
 
 /* Inverse of encode_from_stream_direct: same direct-mapped lossy table. */
 static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
                                 int base_prob) {
-  uint16_t bl16;
-  memcpy(&bl16, cdata, 2);
-  int bitlen = bl16;
+  int bitlen = 0;
+  memcpy(&bitlen, cdata, hdr_bitlen_bytes()); /* 2 or 4 little-endian bytes */
   unsigned int stored_wmask;
-  memcpy(&stored_wmask, cdata + 2, 4);
-  int num = cdata[6];
+  memcpy(&stored_wmask, cdata + hdr_bitlen_bytes(), 4); /* wmask follows bitlen */
+  int num = cdata[hdr_num_off()];
   int data_bytes = (bitlen - 1) / 8;
 
   unsigned char ctx_masks[MAX_SEARCH];
   for (int i = 0; i < num; i++)
-    ctx_masks[i] = cdata[7 + i];
+    ctx_masks[i] = cdata[hdr_base_bytes() + i];
   unsigned int ext_masks[MAX_SEARCH];
   int weights[MAX_SEARCH];
   decode_weight_mask(stored_wmask, num, ctx_masks, weights, ext_masks);
 
-  const unsigned char *comp = cdata + 7 + num;
+  const unsigned char *comp = cdata + hdr_base_bytes() + num;
   unsigned char *buf = (unsigned char *)calloc(data_bytes + MAX_CTX, 1);
   unsigned char *dp = buf + MAX_CTX;
 
@@ -1083,6 +1087,9 @@ static void print_usage(const char *prog) {
   printf("  -e           Extreme: use real compression during search\n");
   printf("  -H <bits>    Direct-mapped table size = 2^bits 2-byte slots\n");
   printf("               (default 24); loader DIRECT_BITS must match\n");
+  printf("  -L           Large mode: 32-bit header bitlength field for inputs\n");
+  printf("               >~8KB. Not stored in file; pass -L to both compress\n");
+  printf("               and decompress\n");
   printf("  -R <n>       Repeat encode pass n times for stable timing\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
@@ -1101,7 +1108,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehv")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehvL")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1142,6 +1149,9 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Direct-map bits must be 1..30 (table = 2^bits slots)\n");
         return 1;
       }
+      break;
+    case 'L':
+      large_field = 1;
       break;
     case 'R':
       timing_reps = atoi(optarg);
@@ -1204,16 +1214,17 @@ int main(int argc, char *argv[]) {
     printf("Input:       %s (%d bytes)\n", input_file, data_size);
     printf("Base prob:   %d\n", base_prob);
 
-    if (data_size < 7) {
+    if (data_size < hdr_base_bytes()) {
       fprintf(stderr, "Input too small to be a valid .paq file\n");
       free(data);
       return 1;
     }
 
-    int bitlen = data[0] | (data[1] << 8);
-    int num_models = data[6];
+    int bitlen = 0;
+    memcpy(&bitlen, data, hdr_bitlen_bytes()); /* 2 or 4 little-endian bytes */
+    int num_models = data[hdr_num_off()];
 
-    if (bitlen < 1 || 7 + num_models > data_size) {
+    if (bitlen < 1 || hdr_base_bytes() + num_models > data_size) {
       fprintf(stderr, "Corrupt header (bitlen=%d, models=%d, filesize=%d)\n",
               bitlen, num_models, data_size);
       free(data);
@@ -1245,8 +1256,11 @@ int main(int argc, char *argv[]) {
   }
 
   int bitlen = data_size * 8 + 1;
-  if (bitlen > 65535) {
-    fprintf(stderr, "Input too large for 16-bit bitlength (%d bits)\n", bitlen);
+  if (!large_field && bitlen > 65535) {
+    fprintf(stderr,
+            "Input too large for 16-bit bitlength (%d bits); pass -L for a "
+            "32-bit field\n",
+            bitlen);
     free(data);
     return 1;
   }
@@ -1319,7 +1333,7 @@ int main(int argc, char *argv[]) {
   unsigned char ordered_masks[MAX_SEARCH];
   unsigned int wmask = encode_weight_mask(&ml, ordered_masks, 1);
 
-  int header_bytes = 7 + ml.num_models;
+  int header_bytes = hdr_base_bytes() + ml.num_models;
   int total_bytes = header_bytes + comp_bytes;
   int total_bits = header_bytes * 8 + comp_bits;
 
@@ -1335,11 +1349,11 @@ int main(int argc, char *argv[]) {
   printf("Search time: %.1f ms\n", search_ms);
   printf("Encode time: %.3f ms/iter (reps=%d)\n", g_encode_ms, timing_reps);
 
-  unsigned char header[7];
-  uint16_t bl16 = (uint16_t)bitlen;
-  memcpy(header, &bl16, 2);
-  memcpy(header + 2, &wmask, 4);
-  header[6] = ml.num_models;
+  unsigned char header[9];
+  unsigned int bl = (unsigned int)bitlen;
+  memcpy(header, &bl, hdr_bitlen_bytes());       /* bitlen: 2 or 4 bytes */
+  memcpy(header + hdr_bitlen_bytes(), &wmask, 4); /* wmask follows bitlen */
+  header[hdr_num_off()] = ml.num_models;
 
   FILE *fout = fopen(output_file, "wb");
   if (!fout) {
@@ -1348,7 +1362,7 @@ int main(int argc, char *argv[]) {
     free(data);
     return 1;
   }
-  fwrite(header, 1, 7, fout);
+  fwrite(header, 1, hdr_base_bytes(), fout);
   fwrite(ordered_masks, 1, ml.num_models, fout);
   fwrite(out_buf, 1, comp_bytes, fout);
   fclose(fout);
