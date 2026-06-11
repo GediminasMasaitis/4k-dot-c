@@ -132,6 +132,7 @@ typedef struct {
   int simple;
   int extreme;
   int base_prob;
+  int large_field; /* -L: 32-bit header bitlength field for inputs >~8KB */
 
   int compressed_bits;
   int header_bytes;
@@ -1730,6 +1731,10 @@ static void write_html_report(const char *path, const CompStats *s) {
   fprintf(f, "<tr><td>Compressed bits</td><td>%d</td></tr>\n",
     s->compressed_bits);
   fprintf(f, "<tr><td>Header</td><td>%d bytes</td></tr>\n", s->header_bytes);
+  fprintf(f, "<tr><td>Large mode (-L)</td><td class=\"%s\">%s</td></tr>\n",
+    s->large_field ? "c-blu" : "c-grn",
+    s->large_field ? "on (32-bit length field)"
+                   : "off (16-bit length field)");
   fprintf(f, "<tr><td>Estimated (pre-encode)</td><td>%.3f bytes</td></tr>\n",
     s->estimated_bytes);
   fprintf(f,
@@ -5357,6 +5362,7 @@ int main(int argc, char *argv[]) {
     cstats.simple = simple;
     cstats.extreme = extreme;
     cstats.base_prob = base_prob;
+    cstats.large_field = large_field;
     cstats.compressed_bits = comp_bits;
     cstats.header_bytes = header_bytes;
     cstats.total_bytes = total_bytes;
