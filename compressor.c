@@ -2439,7 +2439,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     else if (nb <= 2048) { cols = 64; cell = 10; }
     else if (nb <= 4096) { cols = 64; cell = 8; }
     else if (nb <= 8192) { cols = 96; cell = 6; }
-    else { cols = 128; cell = 4; }
+    else { cols = 128; cell = 6; }
     int rows = (nb + cols - 1) / cols;
     int cg = cell >= 6 ? 1 : 0;
     int stride = cell + cg;
@@ -2669,7 +2669,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     else if (nb <= 2048) { cols = 64; cell = 10; }
     else if (nb <= 4096) { cols = 64; cell = 8; }
     else if (nb <= 8192) { cols = 96; cell = 6; }
-    else { cols = 128; cell = 4; }
+    else { cols = 128; cell = 6; }
     int rows = (nb + cols - 1) / cols;
     int gap = 1;
     int stride = cell + gap;
