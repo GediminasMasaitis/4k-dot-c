@@ -462,7 +462,7 @@ G(
 
 G(
     46,
-    S(1) void swapu32(G(47, u32 *const rhs), G(47, u32 *const lhs)) {
+    S(1) void swapu32(G(47, u32 *const lhs), G(47, u32 *const rhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
@@ -527,14 +527,14 @@ G(
       G(59, const u64 blockers = theirs | pos->colour[0];)
       return G(60, G(61, (G(62, southwest(pawns)) | G(62, southeast(pawns)))) &
                        G(61, bb)) ||
-             G(60, G(63, rook(H(41, 2, blockers), H(41, 2, bb))) &
-                       G(63, (pos->pieces[Rook] | pos->pieces[Queen])) &
-                       G(63, theirs)) ||
-             G(60,
-               G(64, pos->pieces[King]) & G(64, theirs) & G(64, king(bb))) ||
              G(60, G(65, bishop(H(43, 2, blockers), H(43, 2, bb))) &
                        G(65, theirs) &
                        G(65, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
+             G(60,
+               G(64, pos->pieces[King]) & G(64, theirs) & G(64, king(bb))) ||
+             G(60, G(63, rook(H(41, 2, blockers), H(41, 2, bb))) &
+                       G(63, (pos->pieces[Rook] | pos->pieces[Queen])) &
+                       G(63, theirs)) ||
              G(60,
                G(66, pos->pieces[Knight]) & G(66, knight(bb)) & G(66, theirs));
     })
@@ -542,16 +542,16 @@ G(
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
       G(67, pos->flipped ^= 1;)
-      G(
-          67, // Hack to flip the first 10 bitboards in Position.
-          // Technically UB but works in GCC 14.2
-          u64 *pos_ptr = (u64 *)pos;
-          for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-
-      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
-        pos->colour[0] ^= pos->colour[1];)
       G(67, u32 *c = (u32 *)pos->castling;
         *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
+
+      G(
+          67, // Hack to flip the first 10 bitboards in Position.
+              // Technically UB but works in GCC 14.2
+          u64 *pos_ptr = (u64 *)pos;
+          for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
+      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
     })
 
 G(
@@ -1083,11 +1083,11 @@ S(0) i32 eval(Position *const restrict pos) {
       while (copy) {
         const i32 sq = lsb(copy);
         G(137, const i32 rank = sq >> 3;)
-        G(137, copy &= copy - 1;)
-        G(137, phase += initial_params.phases[p];)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(137, copy &= copy - 1;)
+        G(137, phase += initial_params.phases[p];)
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
@@ -2180,24 +2180,23 @@ S(1) void run() {
       run_smp();
 #endif
         })
-    else G(
-        258,
-        if (G(262, line[0]) == G(262, 'p')) {
+    else G(258, if (G(262, line[0]) == G(262, 'p')) {
 #if defined(FULL) && !defined(NOSTDLIB)
-          bg_stop();
+      bg_stop();
 #endif
           G(263, main_data->pos = start_pos;)
 #ifdef FULL
-          pv_hist_len = 0;
+        pv_hist_len = 0;
 #endif
           while (true) {
             bool line_continue = getl(line);
 
 #ifdef FULL
-            if (!strcmp(line, "fen")) {
-              getl(line);
-              line_continue = get_fen(&main_data->pos, line);
-            } else
+        if (!strcmp(line, "fen")) {
+          getl(line);
+          line_continue = get_fen(&main_data->pos, line);
+        }
+        else
 #endif
             {
               Move moves[max_moves];
@@ -2211,12 +2210,13 @@ S(1) void run() {
                        !strcmp(line, move_name));
                 if (move_string_equal(G(264, move_name), G(264, line))) {
 #ifdef FULL
-                  if (moves[i].takes_piece != None ||
-                      piece_on(&main_data->pos, moves[i].from) == Pawn) {
-                    pv_hist_len = 0;
-                  } else if (pv_hist_len < 256) {
-                    pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
-                  }
+              if (moves[i].takes_piece != None ||
+                piece_on(&main_data->pos, moves[i].from) == Pawn) {
+                pv_hist_len = 0;
+              }
+              else if (pv_hist_len < 256) {
+                pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
+              }
 #endif
                   makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
                   break;
@@ -2227,16 +2227,13 @@ S(1) void run() {
               break;
             }
           }
-        })
+    })
 #if defined(FULL) && !defined(NOSTDLIB)
-        else G(
-            265,
-            if (line[0] == 's') { bg_stop(); })
+    else G(265, if (line[0] == 's') { bg_stop(); })
 #endif
-        else G(
-            258, if (G(261, line[0]) == G(261, 'i')) {
+    else G(258, if (G(261, line[0]) == G(261, 'i')) {
               puts("readyok");
-            }) else G(258, if (G(259, line[0]) == G(259, 'q')) { exit_now(); })
+    }) else G(258, if (G(259, line[0]) == G(259, 'q')) { exit_now(); })
   }
 }
 

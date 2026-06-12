@@ -30,12 +30,12 @@ typedef uint16_t v8u16 __attribute__((vector_size(16)));
 
 #define DEFAULT_BEAM 1
 
-static int verbose = 0; /* 0=off, 1=verbose, 2=very verbose */
-static int extreme = 0; /* use real compression instead of estimator */
-static int direct_bits = 24; /* direct-mapped table of 2^direct_bits 2-byte
-                                slots (Crinkler-style, lossy); loader DIRECT_BITS
-                                must match. Override with -H. */
-static int timing_reps = 1;  /* repeat the encode pass for stable timing */
+static int verbose = 0;        /* 0=off, 1=verbose, 2=very verbose */
+static int extreme = 0;        /* use real compression instead of estimator */
+static int direct_bits = 24;   /* direct-mapped table of 2^direct_bits 2-byte
+                                  slots (Crinkler-style, lossy); loader
+                                  DIRECT_BITS   must match. Override with -H. */
+static int timing_reps = 1;    /* repeat the encode pass for stable timing */
 static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
 static int large_field = 0;
 
@@ -81,7 +81,6 @@ typedef struct {
   const unsigned char *data_ptr;
   unsigned int generation;
 } CtxEntry;
-
 
 typedef struct {
   unsigned int *hashes;
@@ -713,7 +712,8 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
   int bitlen = 0;
   memcpy(&bitlen, cdata, hdr_bitlen_bytes()); /* 2 or 4 little-endian bytes */
   unsigned int stored_wmask;
-  memcpy(&stored_wmask, cdata + hdr_bitlen_bytes(), 4); /* wmask follows bitlen */
+  memcpy(&stored_wmask, cdata + hdr_bitlen_bytes(),
+         4); /* wmask follows bitlen */
   int num = cdata[hdr_num_off()];
   int data_bytes = (bitlen - 1) / 8;
 
@@ -1087,8 +1087,10 @@ static void print_usage(const char *prog) {
   printf("  -e           Extreme: use real compression during search\n");
   printf("  -H <bits>    Direct-mapped table size = 2^bits 2-byte slots\n");
   printf("               (default 24); loader DIRECT_BITS must match\n");
-  printf("  -L           Large mode: 32-bit header bitlength field for inputs\n");
-  printf("               >~8KB. Not stored in file; pass -L to both compress\n");
+  printf(
+      "  -L           Large mode: 32-bit header bitlength field for inputs\n");
+  printf(
+      "               >~8KB. Not stored in file; pass -L to both compress\n");
   printf("               and decompress\n");
   printf("  -R <n>       Repeat encode pass n times for stable timing\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
@@ -1146,7 +1148,8 @@ int main(int argc, char *argv[]) {
     case 'H':
       direct_bits = atoi(optarg);
       if (direct_bits < 1 || direct_bits > 30) {
-        fprintf(stderr, "Direct-map bits must be 1..30 (table = 2^bits slots)\n");
+        fprintf(stderr,
+                "Direct-map bits must be 1..30 (table = 2^bits slots)\n");
         return 1;
       }
       break;
@@ -1351,7 +1354,7 @@ int main(int argc, char *argv[]) {
 
   unsigned char header[9];
   unsigned int bl = (unsigned int)bitlen;
-  memcpy(header, &bl, hdr_bitlen_bytes());       /* bitlen: 2 or 4 bytes */
+  memcpy(header, &bl, hdr_bitlen_bytes());        /* bitlen: 2 or 4 bytes */
   memcpy(header + hdr_bitlen_bytes(), &wmask, 4); /* wmask follows bitlen */
   header[hdr_num_off()] = ml.num_models;
 
