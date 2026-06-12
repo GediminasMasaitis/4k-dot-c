@@ -23,7 +23,7 @@ org 0x300000
 ;   [rsp+28]  pr1
 ;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
 ;   [rsp+116] wc[21]      (168 bytes, disp8, 8B stride: weight@+0, cmask@+4)
-; Registers: r9=bpos, r10=bitlength, r11=tinymask, r13=num_models
+; Registers: r9=bpos, r10=bitlength, r13=num_models
 ;            r8=compressed_ptr, r14=bitpos, r15=value, ebp=range, ebx=low
 
 ehdr:
@@ -73,7 +73,6 @@ init_header:
     mul     r13d
 
 decompress4kc:
-    mov     r11d, (1 << DIRECT_BITS) - 1
     mov     eax, [rdi+2]
     xor     ecx, ecx
 .wl:
@@ -141,8 +140,9 @@ decompress4kc:
     jc      .cl_hash
     jnz     .cl_next
 
-.hr:and     eax, r11d
-    lea     ecx, [rax*2+G_HT]
+.hr:shl     eax, 32 - DIRECT_BITS
+    shr     eax, 31 - DIRECT_BITS
+    lea     ecx, [rax+G_HT]
 .po:mov     [rsp+32+r12*4], ecx
     movzx   eax, byte [rcx]
     movzx   edi, byte [rcx+1]
