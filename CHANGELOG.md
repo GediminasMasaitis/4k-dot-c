@@ -10481,3 +10481,13 @@ info depth 22 score cp 29 upperbound time 9649 nodes 18200317 nps 1886149
 info depth 22 score cp 44 time 10433 nodes 19718436 nps 1889964 pv e2e4 e7e6 d2d4 d7d5 e4d5 e6d5 g1f3 g8f6 f1d3 f8d6 d1e2 c8e6 f3g5
 19718436 nodes 1889947 nps
 ```
+
+### 9.6
+
+Smaller loader
+
+4 threads: 4046 bytes (-3)
+MD5: 1ef193557f227366b2fdd1fd943290f6
+
+1 thread: 4016 bytes (-3)
+MD5: 71a1e2aac5d2441b391d3386277530ae
