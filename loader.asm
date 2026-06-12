@@ -69,11 +69,9 @@ load_output:
 init_header:
     push    rsi
     mov     r13b, [rdi+6]
-    cdq
 
 decompress4kc:
     mov     eax, [rdi+2]
-    xor     ecx, ecx
 .wl:
 .wo:add     eax, eax
     jz      .wd
