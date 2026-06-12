@@ -86,8 +86,7 @@ decompress4kc:
     mov     [rsp+120+rcx*8], ebp
     inc     ecx
     jmp     .wl
-.wd:mov     ecx, r13d
-    lea     r8, [rdi+rcx+7]
+.wd:lea     r8, [rdi+r13+7]
     stc
     rcr     eax, 1
     xchg    eax, ebp

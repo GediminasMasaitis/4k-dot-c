@@ -10429,3 +10429,13 @@ MD5: abd11d6e3008705861bb2a9e3f8fcbc6
 
 1 thread: 4022 bytes (-6)
 MD5: 7fb890a6e46d2d8dbbe5ace8096546cb
+
+### 9.4
+
+Index r13 directly in .wd
+
+4 threads: 4050 bytes (-3)
+MD5: 0c5feadb7853ad5268d98d17485a9f54
+
+1 thread: 4019 bytes (-3)
+MD5: f472a6abcbc0baa13369cce0ab524175
