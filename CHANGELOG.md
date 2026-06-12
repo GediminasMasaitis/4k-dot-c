@@ -10417,3 +10417,15 @@ MD5: 3ae6da325339e242d452324501885ee7
 
 1 thread: 4028 bytes (-5)
 MD5: bdbd20d08fd3be759aeb59b89118677f
+
+### 9.3
+
+* Drop dead probe-sizer mul (mul -> cdq)
+* Hold pr0 in freed r11 register
+* Compute pr0+pr1 with lea
+
+4 threads: 4053 bytes (-6)
+MD5: abd11d6e3008705861bb2a9e3f8fcbc6
+
+1 thread: 4022 bytes (-6)
+MD5: 7fb890a6e46d2d8dbbe5ace8096546cb
