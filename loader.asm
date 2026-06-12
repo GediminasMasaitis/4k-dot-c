@@ -19,11 +19,10 @@ org 0x300000
 
 ; Stack layout for up to 21 models (284 bytes):
 ;   [rsp+0]   output ptr (from push)
-;   [rsp+24]  pr0
-;   [rsp+28]  pr1
+;   [rsp+28]  pr1               (pr0 is held in r11d)
 ;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
 ;   [rsp+116] wc[21]      (168 bytes, disp8, 8B stride: weight@+0, cmask@+4)
-; Registers: r9=bpos, r10=bitlength, r13=num_models
+; Registers: r9=bpos, r10=bitlength, r11=pr0, r13=num_models
 ;            r8=compressed_ptr, r14=bitpos, r15=value, ebp=range, ebx=low
 
 ehdr:
@@ -70,7 +69,7 @@ load_output:
 init_header:
     push    rsi
     mov     r13b, [rdi+6]
-    mul     r13d
+    cdq
 
 decompress4kc:
     mov     eax, [rdi+2]
@@ -99,10 +98,8 @@ decompress4kc:
     loop    .il
 .body:
     push    10
-    pop     rax
-    lea     rdi, [rsp+24]
-    stosd
-    stosd
+    pop     r11
+    mov     [rsp+28], r11d
     lea     r12d, [r13-1]
 .mdl:
     mov     eax, [rsp+r12*8+120]
@@ -153,7 +150,7 @@ decompress4kc:
     jnz     .nb
 .bo:add     ecx, 2
 .nb:shl     eax, cl
-    add     [rsp+24], eax
+    add     r11d, eax
     shl     edi, cl
     add     [rsp+28], edi
     dec     r12d
@@ -162,8 +159,7 @@ decompress4kc:
     mov     eax, ebp
     mov     ecx, [rsp+28]
     mul     ecx
-    mov     esi, [rsp+24]
-    add     esi, ecx
+    lea     esi, [r11+rcx]
     div     esi
     mov     edi, r15d
     sub     edi, ebx
