@@ -10407,3 +10407,13 @@ MD5: 5d9ee0bb6e3f71d5a6d4e495a82500e9
 
 1 thread: 4033 bytes (-30)
 MD5: 34f34e45ca90e32beb504d89b1f12df5
+
+### 9.2
+
+Fold hash mask into shl/shr, free r11
+
+4 threads: 4059 bytes (-5)
+MD5: 3ae6da325339e242d452324501885ee7
+
+1 thread: 4028 bytes (-5)
+MD5: bdbd20d08fd3be759aeb59b89118677f
