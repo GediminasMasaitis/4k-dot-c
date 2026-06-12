@@ -95,8 +95,8 @@ decompress4kc:
     loop    .il
 .body:
     push    10
-    pop     r11
-    mov     [rsp+28], r11d
+    pop     rbx
+    mov     r11d, ebx
     lea     r12d, [r13-1]
 .mdl:
     mov     eax, [rsp+r12*8+120]
@@ -149,29 +149,25 @@ decompress4kc:
 .nb:shl     eax, cl
     add     r11d, eax
     shl     edi, cl
-    add     [rsp+28], edi
+    add     ebx, edi
     dec     r12d
     jns     .mdl
 .mdd:
     mov     eax, ebp
-    mov     ecx, [rsp+28]
-    mul     ecx
-    lea     esi, [r11+rcx]
+    mul     ebx
+    lea     esi, [r11+rbx]
     div     esi
-    mov     edi, r15d
-    sub     edi, ebx
-    cmp     edi, eax
+    cmp     r15d, eax
     sbb     esi, esi
     inc     esi
     jae     .ui
     xchg    eax, ebp
     jmp     .rn
-.ui:add     ebx, eax
+.ui:sub     r15d, eax
     sub     ebp, eax
 
 .rn:jmp     short .re
-.rl:add     ebx, ebx
-    add     ebp, ebp
+.rl:add     ebp, ebp
     bt      [r8], r14d
     adc     r15d, r15d
     inc     r14d
