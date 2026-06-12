@@ -85,15 +85,16 @@ decompress4kc:
     inc     ecx
     jmp     .wl
 .wd:lea     r8, [rdi+r13+7]
-    stc
-    rcr     eax, 1
-    xchg    eax, ebp
-    mov     cl, 31
-.il:bt      [r8], r14d
+    push    1
+    pop     rbp
+.body:
+    jmp     short .re
+.rl:add     ebp, ebp
+    bt      [r8], r14d
     adc     r15d, r15d
     inc     r14d
-    loop    .il
-.body:
+.re:test    ebp, ebp
+    jns     .rl
     push    10
     pop     rbx
     mov     r11d, ebx
@@ -162,17 +163,9 @@ decompress4kc:
     inc     esi
     jae     .ui
     xchg    eax, ebp
-    jmp     .rn
+    jmp     .rd
 .ui:sub     r15d, eax
     sub     ebp, eax
-
-.rn:jmp     short .re
-.rl:add     ebp, ebp
-    bt      [r8], r14d
-    adc     r15d, r15d
-    inc     r14d
-.re:test    ebp, ebp
-    jns     .rl
 .rd:push    1
     pop     rdi
     sub     edi, esi

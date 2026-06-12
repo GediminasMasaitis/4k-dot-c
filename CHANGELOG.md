@@ -10501,3 +10501,13 @@ MD5: 708717dee9c5b26e7744439aa1495103
 
 1 thread: 4002 bytes (-14)
 MD5: fcb9d686c0869231ed85dd8a616b43bc
+
+### 9.8
+
+Smaller loader
+
+4 threads: 4017 bytes (-15)
+MD5: 7fbaaeea345608382afb301e4d3be36b
+
+1 thread: 3987 bytes (-15)
+MD5: f27b4522ed14ccfc7291d870b10af009
