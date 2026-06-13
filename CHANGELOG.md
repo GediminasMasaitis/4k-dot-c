@@ -9162,7 +9162,7 @@ MD5: bcf6d5773f8092dfab13dabcfee2d0f8
 
 Smaller loader
 
-4 threads: 3865 (-45)
+4 threads: 3865 bytes (-45)
 MD5: 3e3b748dab9d5a7a2e0e75fbfbfd2682
 
 1 thread: 3793 bytes (-52)
@@ -9172,7 +9172,7 @@ MD5: e982028d1df220ee34a41242aa653e64
 
 Smaller loader
 
-4 threads: 3852 (-13)
+4 threads: 3852 bytes (-13)
 MD5: cab510227bc2c881074a414a148b8322
 
 1 thread: 3780 bytes (-13)
@@ -9182,7 +9182,7 @@ MD5: bfdcf511ffc8a423de06af8048fe5107
 
 No used check in compression
 
-4 threads: 3848 (-4)
+4 threads: 3848 bytes (-4)
 MD5: be8c26794625c2b86b65ff7bbb93661f
 
 1 thread: 3776 bytes (-4)
@@ -9192,7 +9192,7 @@ MD5: d6703799cc49d6fb8850d9d22c1faa9f
 
 Smaller loader
 
-4 threads: 3847 (-1)
+4 threads: 3847 bytes (-1)
 MD5: f37466bd721b7eeafd05c0e1c658a7bd
 
 1 thread: 3775 bytes (-1)
@@ -10338,7 +10338,7 @@ https://gedas.pythonanywhere.com/test/1843/
 
 ### 9.0
 
-Equivalent to  8.10 but with proper PV printing
+Equivalent to  8.10 but with proper PV printing, last version to use old compresor hashing
 
 4 threads: 4094 bytes (=)
 MD5: 2d4902f1494bbf7fbd989bdfb1323103
@@ -10553,3 +10553,13 @@ MD5: 58fc243e6632deab51363af49d87758a
 
 1 thread: 3944 bytes (-11)
 MD5: cdec1d5709cbc01eea39f81fb91bfb38
+
+### 9.12
+
+Loop WriteBit rcl, reuse for new-byte sentinel
+
+4 threads: 3973 bytes (-1)
+MD5: 5d4a1e259f150e58a91e053f381804f0
+
+1 thread: 3943 bytes (-1)
+MD5: c175c469f70ca1b550f8f0c409998c82

@@ -158,10 +158,10 @@ decompress4kc:
     rcl     byte [rax+rsi], 1
 .nh:loop    .ul
     shr     edi, 1
-    rcl     byte [r9], 1
+.wr:rcl     byte [r9], 1
     jnc     .nw
     inc     r9d
-    rcl     byte [r9], 1
+    jmp     short .wr
 .nw:cmp     r9d, r10d
     jb      .body
 
