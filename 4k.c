@@ -1841,7 +1841,9 @@ void iteratively_deepen(
     }
 
 #ifndef FULL
-    if (data == (ThreadData *)&thread_stacks[0][0]) {
+    // Only the main thread (its data lives at thread_stacks[0]) prints, mirroring
+    // FULL's thread_id==0; also skip the timed-out iteration.
+    if (data == (ThreadData *)&thread_stacks[0][0] && elapsed <= data->max_time) {
       print_cp(score);
     }
 #endif
