@@ -10573,3 +10573,13 @@ MD5: d228c02c1688929752185c921fb5bbd5
 
 1 thread: 3936 bytes (-7)
 MD5: f72f15573a595f0efff940b09efdf304
+
+### 9.14
+
+Weight-unpack temp ebx/bl (drop rex)
+
+4 threads: 3965 bytes (-1)
+MD5: 0b7548c67334aa41aae1c68002752895
+
+1 thread: 3935 bytes (-1)
+MD5: 888a7ac1506078a44295ffe786c6c0a2

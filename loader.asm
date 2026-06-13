@@ -78,15 +78,15 @@ decompress4kc:
     inc     edx
     jmp     .wo
 .wz:mov     [rsp+116+rcx*8], edx
-    mov     ebp, eax
-    mov     bpl, [rdi+7+rcx]
-    mov     [rsp+120+rcx*8], ebp
+    mov     ebx, eax
+    mov     bl, [rdi+7+rcx]
+    mov     [rsp+120+rcx*8], ebx
     inc     ecx
     jmp     .wl
 .wd:lea     r8, [rdi+r13+7]
     push    1
     pop     rbp
-    mov     r9d, esi                 ; r9 = output ptr; r10 stays = bitlen (bit countdown)
+    mov     r9d, esi
 .body:
     jmp     short .re
 .rl:add     ebp, ebp
