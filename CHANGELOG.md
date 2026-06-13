@@ -10543,3 +10543,13 @@ MD5: 1bcdcab15969437c0faba28fb33029e6
 
 1 thread: 3955 bytes (-30)
 MD5: 1cffe7c5f906152e86f36a9872b275d1
+
+### 9.12
+
+Drop empty byte check, priming bit always 1
+
+4 threads: 3974 bytes (-11)
+MD5: 58fc243e6632deab51363af49d87758a
+
+1 thread: 3944 bytes (-11)
+MD5: cdec1d5709cbc01eea39f81fb91bfb38

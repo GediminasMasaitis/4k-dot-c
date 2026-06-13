@@ -139,18 +139,17 @@ decompress4kc:
 .mdd:
     mov     eax, ebp
     mul     ebx
-    lea     esi, [r11+rbx]
-    div     esi
+    add     ebx, r11d
+    div     ebx
     cmp     r15d, eax
-    sbb     esi, esi
-    inc     esi
     sbb     edi, edi
     jae     .ui
     xchg    eax, ebp
     jmp     .rd
 .ui:sub     r15d, eax
     sub     ebp, eax
-.rd:neg     edi
+.rd:lea     esi, [rdi+1]
+    neg     edi
     mov     ecx, r13d
 .ul:mov     eax, [rsp+28+rcx*4]
     inc     byte [rax+rdi]
@@ -158,12 +157,8 @@ decompress4kc:
     jnz     .nh
     rcl     byte [rax+rsi], 1
 .nh:loop    .ul
-    cmp     byte [r9], 0
-    jnz     .hb
-    stc
-    jmp     short .rc
-.hb:shr     edi, 1
-.rc:rcl     byte [r9], 1
+    shr     edi, 1
+    rcl     byte [r9], 1
     jnc     .nw
     inc     r9d
     rcl     byte [r9], 1
