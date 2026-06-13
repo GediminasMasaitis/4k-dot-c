@@ -10583,3 +10583,13 @@ MD5: 0b7548c67334aa41aae1c68002752895
 
 1 thread: 3935 bytes (-1)
 MD5: 888a7ac1506078a44295ffe786c6c0a2
+
+### 9.15
+
+Model counter via mov+jnz
+
+4 threads: 3964 bytes (-1)
+MD5: 3386c6254d38c8e43bd3ccfc7a7af2e8
+
+1 thread: 3934 bytes (-1)
+MD5: 311037bb58998000cd0b812b632b7157

@@ -98,9 +98,9 @@ decompress4kc:
     push    10
     pop     rbx
     mov     r11d, ebx
-    lea     r12d, [r13-1]
+    mov     r12d, r13d
 .mdl:
-    mov     eax, [rsp+r12*8+120]
+    mov     eax, [rsp+r12*8+112]
     mov     dl, al
     mov     esi, r9d
 .hash:
@@ -119,10 +119,10 @@ decompress4kc:
     pop     rdx
     push    rdx
     lea     ecx, [rax+rdx*2]
-.po:mov     [rsp+32+r12*4], ecx
+.po:mov     [rsp+28+r12*4], ecx
     movzx   eax, byte [rcx]
     movzx   edi, byte [rcx+1]
-    mov     ecx, [rsp+r12*8+116]
+    mov     ecx, [rsp+r12*8+108]
     test    al, al
     jz      .bo
     test    edi, edi
@@ -133,7 +133,7 @@ decompress4kc:
     shl     edi, cl
     add     ebx, edi
     dec     r12d
-    jns     .mdl
+    jnz     .mdl
 .mdd:
     mov     eax, ebp
     mul     ebx
