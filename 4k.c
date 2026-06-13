@@ -1219,6 +1219,7 @@ typedef struct [[nodiscard]] {
   G(119, Move killer;)
   G(119, i32 num_moves;)
   G(119, i32 static_eval;)
+  i32 (*cont)[64][64];
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1337,6 +1338,9 @@ get_hash(const Position *const pos) {
   return (G(181, pos->pieces[Pawn]) * G(181, 0x9E3779B97F4A7C15ULL)) >> 50;
 }
 
+// 1-PLY CONTINUATION HISTORY: [prev move to-square; 64 = none][from][to]
+static i32 conthist[65][64][64];
+
 S(1)
 i32 search(
 #ifdef FULL
@@ -1433,6 +1437,7 @@ i32 search(
       Position npos = *pos;
       G(207, flip_pos(&npos);)
       G(207, npos.ep = 0;)
+      stack[ply + 2].cont = &conthist[64];
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1471,6 +1476,12 @@ i32 search(
           G(183, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
+          // CONTINUATION HISTORY (1-ply + 2-ply, quiets only)
+          (moves[order_index].takes_piece == None) *
+              (stack[ply + 1].cont[0][moves[order_index].from]
+                                 [moves[order_index].to] +
+               stack[ply].cont[0][moves[order_index].from]
+                             [moves[order_index].to]) +
           G(183, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(214, &stack[ply].best_move),
                         G(214, &moves[order_index]))
@@ -1509,6 +1520,8 @@ i32 search(
     if (!makemove(H(80, 3, &npos), H(80, 3, &moves[move_index]))) {
       continue;
     }
+
+    stack[ply + 2].cont = &conthist[moves[move_index].to];
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
@@ -1587,6 +1600,23 @@ i32 search(
                           bonus + G(232, bonus) * G(232, *prev_hist) / 1024;
                     })
               })
+          if (!in_qsearch && stack[ply].best_move.takes_piece == None) {
+            const i32 cont_bonus = depth * depth;
+            i32 (*const conts[2])[64][64] = {stack[ply + 1].cont,
+                                             stack[ply].cont};
+            for (i32 c = 0; c < 2; c++) {
+              i32 *const best_cont = &conts[c][0][stack[ply].best_move.from]
+                                                 [stack[ply].best_move.to];
+              *best_cont += cont_bonus - cont_bonus * *best_cont / 1024;
+              for (i32 prev_index = 0; prev_index < move_index; prev_index++) {
+                const Move prev = moves[prev_index];
+                if (prev.takes_piece == None) {
+                  i32 *const prev_cont = &conts[c][0][prev.from][prev.to];
+                  *prev_cont -= cont_bonus + cont_bonus * *prev_cont / 1024;
+                }
+              }
+            }
+          }
           break;
         }
       }
@@ -1786,6 +1816,7 @@ void iteratively_deepen(
 #endif
     ThreadData *data) {
   i32 score = 0;
+  data->stack[0].cont = data->stack[1].cont = &conthist[64];
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
