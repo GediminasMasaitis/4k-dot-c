@@ -1780,20 +1780,26 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 #endif
 
 #ifndef FULL
-static void print_cp(ThreadData *data, i32 score) {
+static void print_uint(u32 v) {
   char buf[16];
   i32 i = 15;
   buf[i] = 0;
-  u32 magnitude = score < 0 ? -score : score;
   do {
-    buf[--i] = '0' + magnitude % 10;
-    magnitude /= 10;
-  } while (magnitude);
-  if (score < 0) {
-    buf[--i] = '-';
-  }
-  putl("info score cp ");
+    buf[--i] = '0' + v % 10;
+    v /= 10;
+  } while (v);
   putl(&buf[i]);
+}
+
+static void print_cp(ThreadData *data, i32 depth, i32 score) {
+  putl("info depth ");
+  print_uint(depth);
+  putl(" score cp ");
+  if (score < 0) {
+    putl("-");
+    score = -score;
+  }
+  print_uint(score);
   putl(" pv ");
   char move_name[8];
   move_str(H(50, 5, data->pos.flipped), H(50, 5, &data->stack[0].best_move),
@@ -1844,8 +1850,8 @@ void iteratively_deepen(
     }
 
 #ifndef FULL
-    if (data == (ThreadData *)&thread_stacks[0][0] && elapsed <= data->max_time) {
-      print_cp(data, score);
+    if (data->max_time != -1ULL && elapsed <= data->max_time) {
+      print_cp(data, depth, score);
     }
 #endif
 
