@@ -539,6 +539,77 @@ G(
                G(66, pos->pieces[Knight]) & G(66, knight(bb)) & G(66, theirs));
     })
 
+// STATIC EXCHANGE EVALUATION
+// Piece values indexed by type (None..King); the King is a sentinel that can
+// never be profitably captured. These mirror the endgame material weights.
+static const i32 see_value[] = {0, 88, 391, 431, 722, 1343, 30000};
+
+// Bitboard of every piece (either colour) that attacks `sq` for the given
+// `occupied` set. Recomputed as the swap removes attackers from `occupied`, so
+// sliders x-raying through a captured piece are revealed automatically.
+static u64 attackers_to(const Position *const restrict pos, const u64 sq,
+                        const u64 occupied) {
+  return occupied &
+         (((southwest(sq) | southeast(sq)) & pos->colour[0] & pos->pieces[Pawn]) |
+          ((northwest(sq) | northeast(sq)) & pos->colour[1] & pos->pieces[Pawn]) |
+          (knight(sq) & pos->pieces[Knight]) | (king(sq) & pos->pieces[King]) |
+          (bishop(occupied, sq) & (pos->pieces[Bishop] | pos->pieces[Queen])) |
+          (rook(occupied, sq) & (pos->pieces[Rook] | pos->pieces[Queen])));
+}
+
+// Static exchange evaluation. Returns whether the capture described by `move`
+// wins at least `threshold` units of material for the side to move, using the
+// iterative swap algorithm with the usual early cutoffs. colour[0] is always
+// the side to move, so colour[1] makes the first recapture.
+static i32 see(const Position *const restrict pos,
+               const Move *const restrict move, i32 threshold) {
+  const u64 to = 1ull << move->to;
+
+  // Win the victim outright; if that alone can't reach the threshold, fail.
+  i32 balance = see_value[move->takes_piece] - threshold;
+  if (balance < 0)
+    return false;
+
+  // If we stay ahead even after the capturing piece is recaptured, succeed.
+  balance = see_value[piece_on(pos, move->from)] - balance;
+  if (balance <= 0)
+    return true;
+
+  u64 occupied = (pos->colour[0] | pos->colour[1]) ^ (1ull << move->from);
+  i32 side = 0;   // side that just captured; flips before each recapture
+  i32 result = 1;
+
+  while (true) {
+    side ^= 1;
+    const u64 attackers = attackers_to(pos, to, occupied);
+    const u64 ours = attackers & pos->colour[side];
+    if (!ours)
+      break;
+
+    result ^= 1;
+
+    // Recapture with the least valuable attacker.
+    i32 piece = Pawn;
+    u64 bb;
+    while (!(bb = ours & pos->pieces[piece]))
+      piece++;
+
+    // A king may only recapture if the square is otherwise undefended.
+    if (piece == King) {
+      if (attackers & pos->colour[side ^ 1])
+        result ^= 1;
+      break;
+    }
+
+    if ((balance = see_value[piece] - balance) < result)
+      break;
+
+    occupied ^= 1ull << lsb(bb);
+  }
+
+  return result;
+}
+
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
       G(67, pos->flipped ^= 1;)
@@ -1455,6 +1526,13 @@ i32 search(
   G(209, i32 quiets_evaluated = 0;)
   G(209, i32 moves_evaluated = 0;)
 
+  // STATIC EXCHANGE EVALUATION: classify captures once up front so the
+  // selection sort below can favour winning captures without recomputing SEE.
+  bool see_good[max_moves];
+  for (i32 i = 0; i < stack[ply].num_moves; i++)
+    see_good[i] = moves[i].takes_piece != None && moves[i].promo == None &&
+                  see(pos, &moves[i], 0);
+
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
     G(211, i32 move_score = ~0x1010101LL;)
@@ -1476,7 +1554,9 @@ i32 search(
                         G(214, &moves[order_index]))
              << 30)) +
           G(183, // MOST VALUABLE VICTIM
-            G(215, moves[order_index].takes_piece) * G(215, 622));
+            G(215, moves[order_index].takes_piece) * G(215, 622)) +
+          // STATIC EXCHANGE EVALUATION: float winning captures above quiets
+          see_good[order_index] * (1 << 20);
       if (order_move_score > move_score) {
         G(216, best_index = order_index;)
         G(216, move_score = order_move_score;)
@@ -1484,6 +1564,9 @@ i32 search(
     }
 
     swapmoves(G(217, &moves[best_index]), G(217, &moves[move_index]));
+    const bool see_good_tmp = see_good[best_index];
+    see_good[best_index] = see_good[move_index];
+    see_good[move_index] = see_good_tmp;
 
     G(
         218, // MOVE SCORE PRUNING
