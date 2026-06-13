@@ -86,9 +86,7 @@ decompress4kc:
 .wd:lea     r8, [rdi+r13+7]
     push    1
     pop     rbp
-    mov     r9d, esi
-    shr     r10d, 3
-    add     r10d, esi
+    mov     r9d, esi                 ; r9 = output ptr; r10 stays = bitlen (bit countdown)
 .body:
     jmp     short .re
 .rl:add     ebp, ebp
@@ -162,8 +160,8 @@ decompress4kc:
     jnc     .nw
     inc     r9d
     jmp     short .wr
-.nw:cmp     r9d, r10d
-    jb      .body
+.nw:dec     r10d
+    jnz     .body
 
 .dn:jmp     START_LOCATION
 

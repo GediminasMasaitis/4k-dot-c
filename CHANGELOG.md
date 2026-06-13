@@ -10563,3 +10563,13 @@ MD5: 5d4a1e259f150e58a91e053f381804f0
 
 1 thread: 3943 bytes (-1)
 MD5: c175c469f70ca1b550f8f0c409998c82
+
+### 9.13
+
+Bit-countdown loop bound
+
+4 threads: 3966 bytes (-7)
+MD5: d228c02c1688929752185c921fb5bbd5
+
+1 thread: 3936 bytes (-7)
+MD5: f72f15573a595f0efff940b09efdf304
