@@ -161,14 +161,13 @@ decompress4kc:
     cmp     r15d, eax
     sbb     esi, esi
     inc     esi
+    sbb     edi, edi
     jae     .ui
     xchg    eax, ebp
     jmp     .rd
 .ui:sub     r15d, eax
     sub     ebp, eax
-.rd:push    1
-    pop     rdi
-    sub     edi, esi
+.rd:neg     edi
     mov     ecx, r13d
 .ul:mov     eax, [rsp+28+rcx*4]
     inc     byte [rax+rdi]

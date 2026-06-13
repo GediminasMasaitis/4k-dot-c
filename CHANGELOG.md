@@ -10513,3 +10513,13 @@ MD5: 7fbaaeea345608382afb301e4d3be36b
 
 1 thread: 3987 bytes (-15)
 MD5: f27b4522ed14ccfc7291d870b10af009
+
+### 9.9
+
+Build 1-bit from live CF via sbb+neg
+
+4 threads: 4016 bytes (-1)
+MD5: ad049c1d606cf5fc5d9afeac8497a9de
+
+1 thread: 3986 bytes (-1)
+MD5: 47896a1cffd7b3430dd0119e3cef472a
