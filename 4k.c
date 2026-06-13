@@ -1841,8 +1841,7 @@ void iteratively_deepen(
     }
 
 #ifndef FULL
-    // Print the score for each completed depth (skip the timed-out iteration).
-    if (elapsed <= data->max_time) {
+    if (data == (ThreadData *)&thread_stacks[0][0]) {
       print_cp(score);
     }
 #endif
