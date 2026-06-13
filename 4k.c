@@ -1780,9 +1780,7 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 #endif
 
 #ifndef FULL
-// MINI score output (separate from FULL print_info). No printf in
-// MINI+NOSTDLIB, so format the signed score with putl only.
-static void print_cp(i32 score) {
+static void print_cp(ThreadData *data, i32 score) {
   char buf[16];
   i32 i = 15;
   buf[i] = 0;
@@ -1796,6 +1794,11 @@ static void print_cp(i32 score) {
   }
   putl("info score cp ");
   putl(&buf[i]);
+  putl(" pv ");
+  char move_name[8];
+  move_str(H(50, 5, data->pos.flipped), H(50, 5, &data->stack[0].best_move),
+           H(50, 5, move_name));
+  putl(move_name);
   putl("\n");
 }
 #endif
@@ -1841,10 +1844,8 @@ void iteratively_deepen(
     }
 
 #ifndef FULL
-    // Only the main thread (its data lives at thread_stacks[0]) prints, mirroring
-    // FULL's thread_id==0; also skip the timed-out iteration.
     if (data == (ThreadData *)&thread_stacks[0][0] && elapsed <= data->max_time) {
-      print_cp(score);
+      print_cp(data, score);
     }
 #endif
 
