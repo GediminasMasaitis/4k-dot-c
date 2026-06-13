@@ -1206,7 +1206,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1779,6 +1779,27 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 }
 #endif
 
+#ifndef FULL
+// MINI score output (separate from FULL print_info). No printf in
+// MINI+NOSTDLIB, so format the signed score with putl only.
+static void print_cp(i32 score) {
+  char buf[16];
+  i32 i = 15;
+  buf[i] = 0;
+  u32 magnitude = score < 0 ? -score : score;
+  do {
+    buf[--i] = '0' + magnitude % 10;
+    magnitude /= 10;
+  } while (magnitude);
+  if (score < 0) {
+    buf[--i] = '-';
+  }
+  putl("info score cp ");
+  putl(&buf[i]);
+  putl("\n");
+}
+#endif
+
 S(1)
 void iteratively_deepen(
 #ifdef FULL
@@ -1818,6 +1839,13 @@ void iteratively_deepen(
             break;
           })
     }
+
+#ifndef FULL
+    // Print the score for each completed depth (skip the timed-out iteration).
+    if (elapsed <= data->max_time) {
+      print_cp(score);
+    }
+#endif
 
     if (stop || elapsed > data->max_time / 14) {
       break;
