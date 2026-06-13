@@ -10533,3 +10533,13 @@ MD5: 40fb3c2cb398eb30b33b5351ee86b68c
 
 1 thread: 3985 bytes (-1)
 MD5: 8a907cb52270d91df8c31400a20110f6
+
+### 9.11
+
+Rcl-byte output
+
+4 threads: 3985 bytes (-30)
+MD5: 1bcdcab15969437c0faba28fb33029e6
+
+1 thread: 3955 bytes (-30)
+MD5: 1cffe7c5f906152e86f36a9872b275d1

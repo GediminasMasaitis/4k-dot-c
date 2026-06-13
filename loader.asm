@@ -21,8 +21,8 @@ org 0x300000
 ;   [rsp+28]  pr1               (pr0 is held in r11d)
 ;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
 ;   [rsp+116] wc[21]      (168 bytes, disp8, 8B stride: weight@+0, cmask@+4)
-; Registers: r9=bpos, r10=bitlength, r11=pr0, r13=num_models
-;            r8=compressed_ptr, r14=bitpos, r15=value, ebp=range, ebx=low
+; Registers: r9=output_ptr, r10=output_end, r11=pr0, r13=num_models
+;            r8=compressed_ptr, r14=bitpos, r15=code, ebp=range, ebx=pr1
 
 ehdr:
     db      0x7F, "ELF", 2, 1, 1, 0
@@ -86,6 +86,9 @@ decompress4kc:
 .wd:lea     r8, [rdi+r13+7]
     push    1
     pop     rbp
+    mov     r9d, esi
+    shr     r10d, 3
+    add     r10d, esi
 .body:
     jmp     short .re
 .rl:add     ebp, ebp
@@ -101,38 +104,17 @@ decompress4kc:
 .mdl:
     mov     eax, [rsp+r12*8+120]
     mov     dl, al
-    pop     rsi
-    push    rsi
-    xor     edi, edi
-    mov     ecx, r9d
-    jrcxz   .hash_finish
-
-    dec     ecx
-    mov     edi, ecx
-    shr     edi, 3
-    add     esi, edi
-    movzx   edi, byte [rsi]
-    bts     edi, 8
-    not     ecx
-    and     ecx, 7
-    inc     ecx
-    shr     edi, cl
-    xor     eax, edi
-.hash_finish:
-    imul    eax, eax, HMUL
-    add     al, dil
-    jmp     short .sd
-
-.cl_hash:
+    mov     esi, r9d
+.hash:
     xor     al, [rsi]
     imul    eax, eax, HMUL
     add     al, [rsi]
-.sd:dec     eax
-.cl_next:
+    dec     eax
+.next:
     dec     esi
     add     dl, dl
-    jc      .cl_hash
-    jnz     .cl_next
+    jc      .hash
+    jnz     .next
 
 .hr:shl     eax, 32 - DIRECT_BITS
     shr     eax, 31 - DIRECT_BITS
@@ -176,18 +158,17 @@ decompress4kc:
     jnz     .nh
     rcl     byte [rax+rsi], 1
 .nh:loop    .ul
-    mov     ecx, r9d
-    imul    ecx, edi
-    dec     ecx
-    js      .nw
-    xor     ecx, 7
-    pop     rdx
-    push    rdx
-    bts     [rdx], ecx
-
-.nw:inc     r9d
-    cmp     r9d, r10d
-    jl      .body
+    cmp     byte [r9], 0
+    jnz     .hb
+    stc
+    jmp     short .rc
+.hb:shr     edi, 1
+.rc:rcl     byte [r9], 1
+    jnc     .nw
+    inc     r9d
+    rcl     byte [r9], 1
+.nw:cmp     r9d, r10d
+    jb      .body
 
 .dn:jmp     START_LOCATION
 
