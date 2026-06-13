@@ -10523,3 +10523,13 @@ MD5: ad049c1d606cf5fc5d9afeac8497a9de
 
 1 thread: 3986 bytes (-1)
 MD5: 47896a1cffd7b3430dd0119e3cef472a
+
+### 9.10
+
+Synthesize G_HT from stack base via lea *2
+
+4 threads: 4015 bytes (-1)
+MD5: 40fb3c2cb398eb30b33b5351ee86b68c
+
+1 thread: 3985 bytes (-1)
+MD5: 8a907cb52270d91df8c31400a20110f6

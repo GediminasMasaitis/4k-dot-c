@@ -14,7 +14,6 @@ org 0x300000
 %endif
 
 %define PAYLOAD_DEST 0x400000
-%define G_HT         0x800000
 %define HMUL         111
 
 ; Stack layout for up to 21 models (284 bytes):
@@ -137,7 +136,9 @@ decompress4kc:
 
 .hr:shl     eax, 32 - DIRECT_BITS
     shr     eax, 31 - DIRECT_BITS
-    lea     ecx, [rax+G_HT]
+    pop     rdx
+    push    rdx
+    lea     ecx, [rax+rdx*2]
 .po:mov     [rsp+32+r12*4], ecx
     movzx   eax, byte [rcx]
     movzx   edi, byte [rcx+1]
