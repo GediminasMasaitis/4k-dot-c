@@ -1780,17 +1780,17 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 #endif
 
 #ifndef FULL
-static void fill(char *dst, u32 v, i32 n) {
-  while (n--) {
-    dst[n] = '0' + v % 10;
+static void fill(char *dst, u32 v) {
+  do {
+    *dst-- = '0' + v % 10;
     v /= 10;
-  }
+  } while (v);
 }
 
 static void print_cp(ThreadData *data, i32 depth, i32 score) {
   char line[42] = "info depth 000 score cp 000000 pv ";
-  fill(&line[11], depth, 3);
-  fill(&line[25], score < 0 ? -score : score, 5);
+  fill(&line[13], depth);
+  fill(&line[29], score < 0 ? -score : score);
   line[24] = score < 0 ? '-' : '0';
   // move_str writes 4-6 chars + NUL into the 8 reserved bytes; puts stops at it
   move_str(H(50, 5, data->pos.flipped), H(50, 5, &data->stack[0].best_move),
