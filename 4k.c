@@ -305,12 +305,12 @@ typedef struct [[nodiscard]] {
 } Move;
 
 typedef struct [[nodiscard]] {
-  G(5, u64 ep;)
-  G(5, u64 pieces[7];)
-  G(5, u64 colour[2];)
-  G(6, bool castling[4];)
-  G(6, u8 padding[11];)
-  G(6, bool flipped;)
+  u64 ep;
+  u64 pieces[7];
+  u64 colour[2];
+  bool castling[4];
+  u8 padding[11];
+  bool flipped;
 } Position;
 
 #ifdef ASSERTS
@@ -751,61 +751,58 @@ enum { max_moves = 218 };
   G(96, const u64 all = G(97, pos->colour[0]) | G(97, pos->colour[1]);)
   G(96, const Move *start = movelist;)
   G(96, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
-  G(
-      98, // PAWN PROMOTIONS
-      if (!only_captures) {
-        movelist = generate_pawn_moves(
-            H(93, 2, -16),
-            H(93, 2,
-              G(99, north(G(100,
-                            north(G(101, pos->colour[0]) &
-                                  G(101, pos->pieces[Pawn]) & G(101, 0xFF00))) &
-                          G(100, ~all))) &
-                  G(99, ~all)),
-            H(93, 2, movelist), H(93, 2, pos));
-      })
-  G(98, // PAWN DOUBLE MOVES
+  // PAWN PROMOTIONS
+  if (!only_captures) {
     movelist = generate_pawn_moves(
-        H(93, 3, -8),
-        H(93, 3,
-          north(G(102, G(103, pos->colour[0]) & G(103, pos->pieces[Pawn]))) &
-              G(102, ~all) &
-              G(102, (only_captures ? 0xFF00000000000000ull : ~0ull))),
-        H(93, 3, movelist), H(93, 3, pos));)
-  G(98, // PAWN EAST CAPTURES
-    movelist = generate_pawn_moves(
-        H(93, 4, -9),
-        H(93, 4,
-          G(104,
-            northeast(G(105, pos->colour[0]) & G(105, pos->pieces[Pawn]))) &
-              G(104, (G(106, pos->colour[1]) | G(106, pos->ep)))),
-        H(93, 4, movelist), H(93, 4, pos));)
-  G(98, // PAWN WEST CAPTURES
-    movelist = generate_pawn_moves(
-        H(93, 5, -7),
-        H(93, 5,
-          G(107,
-            northwest(G(108, pos->colour[0]) & G(108, pos->pieces[Pawn]))) &
-              G(107, (G(109, pos->colour[1]) | G(109, pos->ep)))),
-        H(93, 5, movelist), H(93, 5, pos));)
-  G(
-      98, // LONG CASTLE
-      if (G(110, !only_captures) && G(110, !(G(111, all) & G(111, 0xEull))) &&
-          G(110, pos->castling[1]) &&
-          G(112, !is_attacked(H(58, 3, pos), H(58, 3, 1ULL << 3))) &&
-          G(112, !is_attacked(H(58, 4, pos), H(58, 4, 1ULL << 4)))) {
-        *movelist++ =
-            (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
-      })
-  G(
-      98, // SHORT CASTLE
-      if (G(113, !only_captures) && G(113, !(G(114, all) & G(114, 0x60ull))) &&
-          G(113, pos->castling[0]) &&
-          G(115, !is_attacked(H(58, 5, pos), H(58, 5, 1ULL << 5))) &&
-          G(115, !is_attacked(H(58, 6, pos), H(58, 6, 1ULL << 4)))) {
-        *movelist++ =
-            (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
-      })
+        H(93, 2, -16),
+        H(93, 2,
+          G(99, north(G(100,
+                        north(G(101, pos->colour[0]) &
+                              G(101, pos->pieces[Pawn]) & G(101, 0xFF00))) &
+                      G(100, ~all))) &
+              G(99, ~all)),
+        H(93, 2, movelist), H(93, 2, pos));
+  }
+  // PAWN DOUBLE MOVES
+  movelist = generate_pawn_moves(
+      H(93, 3, -8),
+      H(93, 3,
+        north(G(102, G(103, pos->colour[0]) & G(103, pos->pieces[Pawn]))) &
+            G(102, ~all) &
+            G(102, (only_captures ? 0xFF00000000000000ull : ~0ull))),
+      H(93, 3, movelist), H(93, 3, pos));
+  // PAWN EAST CAPTURES
+  movelist = generate_pawn_moves(
+      H(93, 4, -9),
+      H(93, 4,
+        G(104,
+          northeast(G(105, pos->colour[0]) & G(105, pos->pieces[Pawn]))) &
+            G(104, (G(106, pos->colour[1]) | G(106, pos->ep)))),
+      H(93, 4, movelist), H(93, 4, pos));
+  // PAWN WEST CAPTURES
+  movelist = generate_pawn_moves(
+      H(93, 5, -7),
+      H(93, 5,
+        G(107,
+          northwest(G(108, pos->colour[0]) & G(108, pos->pieces[Pawn]))) &
+            G(107, (G(109, pos->colour[1]) | G(109, pos->ep)))),
+      H(93, 5, movelist), H(93, 5, pos));
+  // LONG CASTLE
+  if (G(110, !only_captures) && G(110, !(G(111, all) & G(111, 0xEull))) &&
+      G(110, pos->castling[1]) &&
+      G(112, !is_attacked(H(58, 3, pos), H(58, 3, 1ULL << 3))) &&
+      G(112, !is_attacked(H(58, 4, pos), H(58, 4, 1ULL << 4)))) {
+    *movelist++ =
+        (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
+  }
+  // SHORT CASTLE
+  if (G(113, !only_captures) && G(113, !(G(114, all) & G(114, 0x60ull))) &&
+      G(113, pos->castling[0]) &&
+      G(115, !is_attacked(H(58, 5, pos), H(58, 5, 1ULL << 5))) &&
+      G(115, !is_attacked(H(58, 6, pos), H(58, 6, 1ULL << 4)))) {
+    *movelist++ =
+        (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
+  }
   movelist = generate_piece_moves(H(75, 2, to_mask), H(75, 2, movelist),
                                   H(75, 2, pos));
 
@@ -1568,24 +1565,21 @@ i32 search(
           G(
               229, if (!in_qsearch) {
                 const i32 bonus = depth * depth;
-                G(230, i32 *const this_hist =
-                           &move_history[pos->flipped]
-                                        [stack[ply].best_move.takes_piece]
-                                        [stack[ply].best_move.from]
-                                        [stack[ply].best_move.to];
+                i32 *const this_hist =
+                    &move_history[pos->flipped][stack[ply].best_move.takes_piece]
+                                 [stack[ply].best_move.from]
+                                 [stack[ply].best_move.to];
 
-                  *this_hist +=
-                  bonus - G(231, bonus) * G(231, *this_hist) / 1024;)
-                G(
-                    230, for (i32 prev_index = 0; prev_index < move_index;
-                              prev_index++) {
-                      const Move prev = moves[prev_index];
-                      i32 *const prev_hist =
-                          &move_history[pos->flipped][prev.takes_piece]
-                                       [prev.from][prev.to];
-                      *prev_hist -=
-                          bonus + G(232, bonus) * G(232, *prev_hist) / 1024;
-                    })
+                *this_hist += bonus - G(231, bonus) * G(231, *this_hist) / 1024;
+                for (i32 prev_index = 0; prev_index < move_index;
+                     prev_index++) {
+                  const Move prev = moves[prev_index];
+                  i32 *const prev_hist =
+                      &move_history[pos->flipped][prev.takes_piece][prev.from]
+                                   [prev.to];
+                  *prev_hist -=
+                      bonus + G(232, bonus) * G(232, *prev_hist) / 1024;
+                }
               })
           break;
         }
