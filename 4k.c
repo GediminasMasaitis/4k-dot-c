@@ -1780,32 +1780,22 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
 #endif
 
 #ifndef FULL
-static void print_uint(u32 v) {
-  char buf[16];
-  i32 i = 15;
-  buf[i] = 0;
-  do {
-    buf[--i] = '0' + v % 10;
+static void fill(char *dst, u32 v, i32 n) {
+  while (n--) {
+    dst[n] = '0' + v % 10;
     v /= 10;
-  } while (v);
-  putl(&buf[i]);
+  }
 }
 
 static void print_cp(ThreadData *data, i32 depth, i32 score) {
-  putl("info depth ");
-  print_uint(depth);
-  putl(" score cp ");
-  if (score < 0) {
-    putl("-");
-    score = -score;
-  }
-  print_uint(score);
-  putl(" pv ");
-  char move_name[8];
+  char line[42] = "info depth 000 score cp 000000 pv ";
+  fill(&line[11], depth, 3);
+  fill(&line[25], score < 0 ? -score : score, 5);
+  line[24] = score < 0 ? '-' : '0';
+  // move_str writes 4-6 chars + NUL into the 8 reserved bytes; puts stops at it
   move_str(H(50, 5, data->pos.flipped), H(50, 5, &data->stack[0].best_move),
-           H(50, 5, move_name));
-  putl(move_name);
-  putl("\n");
+           H(50, 5, &line[34]));
+  puts(line);
 }
 #endif
 
