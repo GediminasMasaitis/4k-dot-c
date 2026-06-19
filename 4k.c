@@ -311,6 +311,7 @@ typedef struct [[nodiscard]] {
   G(6, bool castling[4];)
   G(6, u8 padding[11];)
   G(6, bool flipped;)
+  u8 halfmoves;
 } Position;
 
 #ifdef ASSERTS
@@ -690,6 +691,12 @@ G(
         return false;
       }
 
+      if (piece == Pawn || move->takes_piece != None) {
+        pos->halfmoves = 0;
+      } else {
+        pos->halfmoves++;
+      }
+
       flip_pos(pos);
 
       assert(!(pos->colour[0] & pos->colour[1]));
@@ -926,6 +933,17 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
     const i32 file = p[0] - 'a';
     const i32 rank = p[1] - '1';
     pos->ep = 1ull << (rank * 8 + file);
+  }
+
+  // HALFMOVE CLOCK
+  if (more) {
+    more = getl(fen);
+    pos->halfmoves = atoi(fen);
+  }
+
+  // FULLMOVE NUMBER (consumed, unused)
+  if (more) {
+    more = getl(fen);
   }
 
   if (black_to_move) {
@@ -1363,6 +1381,11 @@ i32 search(
     if (G(187, tt_hash) == G(187, stack[i].position_hash)) {
       return 0;
     }
+  }
+
+  // 50-MOVE RULE
+  if (ply > 0 && !in_check && pos->halfmoves >= 100) {
+    return 0;
   }
 
   // TT PROBING
