@@ -10647,5 +10647,14 @@ Free p_align
 4 threads: 3947 bytes (-4)
 MD5: 04c3a274994885c46a7de70bf12495c6
 
-1 thread: 3920 bytes (-4)
+1 thread: 3916 bytes (-4)
 MD5: c87785f319667f7a721078f7ab86a6b3
+
+### 9.22
+Low-reg model index, drop rdx peek
+
+4 threads: 3944 bytes (-3)
+MD5: e606e9f20d45e7a36b173353a938bb86
+
+1 thread: 3913 bytes (-3)
+MD5: 38f7d579ec2199c2745bfb786b9f7cf8

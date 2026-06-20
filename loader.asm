@@ -81,28 +81,26 @@ decompress4kc:
     push    10
     pop     rbx
     mov     r11d, ebx
-    mov     r12d, r13d
+    mov     edx, r13d
 .mdl:
-    mov     eax, [rsp+r12*8+112]
-    mov     dl, al
+    mov     eax, [rsp+rdx*8+112]
+    mov     cl, al
     mov     esi, r9d
 .hash:
     crc32   eax, byte [rsi]
 .next:
     dec     esi
-    add     dl, dl
+    add     cl, cl
     jc      .hash
     jnz     .next
 
 .hr:shl     eax, 32 - DIRECT_BITS
     shr     eax, 31 - DIRECT_BITS
-    pop     rdx
-    push    rdx
-    lea     ecx, [rax+rdx*2]
-.po:mov     [rsp+28+r12*4], ecx
+    lea     ecx, [rax+0x800000]
+.po:mov     [rsp+28+rdx*4], ecx
     movzx   eax, byte [rcx]
     movzx   edi, byte [rcx+1]
-    mov     ecx, [rsp+r12*8+108]
+    mov     ecx, [rsp+rdx*8+108]
     test    al, al
     jz      .bo
     test    edi, edi
@@ -112,7 +110,7 @@ decompress4kc:
     add     r11d, eax
     shl     edi, cl
     add     ebx, edi
-    dec     r12d
+    dec     edx
     jnz     .mdl
 .mdd:
     mov     eax, ebp
