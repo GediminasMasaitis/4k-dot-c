@@ -10658,3 +10658,14 @@ MD5: e606e9f20d45e7a36b173353a938bb86
 
 1 thread: 3913 bytes (-3)
 MD5: 38f7d579ec2199c2745bfb786b9f7cf8
+
+### 9.23
+Low-reg model index, drop rdx peek
+
+4 threads: 3941 bytes (-3)
+MD5: 8c3ac7a68342c41b4b6fbff9fe1d228d
+
+1 thread: 3910 bytes (-3)
+MD5: 26dcd113f74ae7a2af4e2c9d07d073cd
+
+Start decompressor in p_memsz

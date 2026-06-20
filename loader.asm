@@ -50,8 +50,9 @@ _d:
     push    rsi
     jmp     short _e
     dq      filesize
-    dq      0x580000000
 _e:
+    db      0x3E, 0x44, 0x8D, 0x8E
+    dd      0
 decompress4kc:
 .wl:
 .wo:add     eax, eax
@@ -69,7 +70,6 @@ decompress4kc:
     lea     r8, [rdi+r13+7]
     push    1
     pop     rbp
-    mov     r9d, esi
 .body:
     jmp     short .re
 .rl:add     ebp, ebp
