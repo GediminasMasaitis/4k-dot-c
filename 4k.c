@@ -941,7 +941,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(117, 1, i8 bishop_pawns[2];))
   H(116, 1,
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
-        H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];)
+        H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[6];)
             H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;))
   H(116, 1,
     H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
@@ -956,7 +956,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(117, 2, i32 bishop_pawns[2];))
   H(116, 2,
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
-        H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];)
+        H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[6];)
             H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;))
   H(116, 2,
     H(119, 2, i32 mobilities[5];) H(119, 2, i32 pst_file[48];)
@@ -976,27 +976,27 @@ G(121, // EVAL PARAMETERS
   __attribute__((aligned(8))) S(1)
       const EvalParamsInitial initial_params = {
           .phases = {0, 0, 1, 1, 2, 4},
-          .mg = {.material = {0, 67, 291, 334, 390, 825},
+          .mg = {.material = {0, 67, 291, 333, 390, 825},
                  .pst_rank =
                      {
                          0,   -14, -16, -4,  7,  27, 96,  0,   // Pawn
                          -14, -2,  11,  24,  28, 33, 14,  -95, // Knight
-                         -7,  9,   16,  18,  19, 17, -5,  -66, // Bishop
-                         4,   -5,  -10, -13, 2,  13, 4,   4,   // Rook
+                         -7,  9,   16,  18,  18, 17, -5,  -66, // Bishop
+                         4,   -6,  -10, -13, 2,  13, 4,   4,   // Rook
                          18,  19,  11,  3,   -1, -6, -20, -24, // Queen
-                         -19, -11, -11, -9,  21, 68, 72,  84,  // King
+                         -21, -13, -12, -11, 19, 66, 70,  82,  // King
                      },
                  .pst_file =
                      {
                          -9,  -11, -6,  3,   9,   12, 11, -9,  // Pawn
                          -29, -10, 0,   13,  14,  14, 4,  -5,  // Knight
                          -14, 0,   3,   1,   4,   -1, 11, -3,  // Bishop
-                         -13, -9,  -2,  8,   12,  8,  7,  -11, // Rook
+                         -13, -9,  -3,  8,   12,  8,  7,  -11, // Rook
                          -14, -8,  -3,  0,   3,   4,  13, 6,   // Queen
-                         -15, 12,  -11, -25, -26, -7, 12, 2,   // King
+                         -15, 12,  -12, -25, -26, -8, 12, 2,   // King
                      },
-                 .mobilities = {6, 5, 3, 3, -2},
-                 .king_attacks = {19, 23, 28, 28, 29},
+                 .mobilities = {6, 5, 3, 3, -1},
+                 .king_attacks = {19, 22, 27, 28, 29, -88},
                  .pawn_threat = {-19, -9, -7, -7, 0},
                  .open_files = {9, -10, -10, 17, -2, -23, 8, -11, -14, 33, -14,
                                 -57},
@@ -1015,23 +1015,23 @@ G(121, // EVAL PARAMETERS
                          0,   -5,  -9,  -8, 1,  21, 104, 0,   // Pawn
                          -33, -21, -8,  15, 22, 10, 3,   11,  // Knight
                          -15, -14, -1,  4,  8,  4,  4,   10,  // Bishop
-                         -17, -18, -12, 5,  11, 9,  17,  6,   // Rook
-                         -63, -46, -16, 14, 29, 28, 33,  21,  // Queen
-                         -39, 1,   7,   19, 30, 28, 14,  -55, // King
+                         -17, -18, -11, 5,  11, 9,  17,  6,   // Rook
+                         -63, -46, -16, 14, 29, 29, 33,  21,  // Queen
+                         -41, -1,  5,   17, 28, 26, 12,  -57, // King
                      },
                  .pst_file =
                      {
                          11,  11, -1, -11, -6, -1, 0,  -3,  // Pawn
                          -18, -4, 8,  16,  15, 4,  -1, -19, // Knight
                          -11, 0,  5,  9,   11, 5,  -3, -15, // Bishop
-                         2,   6,  6,  -3,  -5, 1,  0,  -6,  // Rook
-                         -23, -6, 4,  8,   15, 15, -1, -13, // Queen
-                         -28, 8,  23, 30,  30, 20, 8,  -36, // King
+                         2,   7,  6,  -3,  -5, 0,  0,  -6,  // Rook
+                         -23, -6, 4,  9,   15, 15, -1, -13, // Queen
+                         -33, 4,  18, 25,  26, 15, 3,  -41, // King
                      },
-                 .mobilities = {5, 3, 3, 2, -6},
-                 .king_attacks = {0, 28, 24, 0, 1},
+                 .mobilities = {4, 3, 3, 2, -6},
+                 .king_attacks = {1, 34, 30, 1, 1, -128},
                  .pawn_threat = {-1, -5, -18, -15, -9},
-                 .open_files = {20, 0, 13, 7, 23, 13, 23, -8, 2, 13, 43, 10},
+                 .open_files = {20, 0, 13, 7, 23, 14, 23, -8, 2, 13, 43, 10},
                  .passed_pawns = {10, 15, 40, 67, 115, 104},
                  .passed_blocked_pawns = {-9, -8, -32, -63, -111, -117},
                  .protected_pawn = 16,
@@ -1059,10 +1059,11 @@ S(0) i32 eval(Position *const restrict pos) {
                king(G(126, pos->colour[1]) & G(126, pos->pieces[King]));)
 
     // KING RING ATTACK (ice4-style): per-side packed S(mg,eg) accumulator,
-    // finalized quadratically per phase after the piece loop. Baseline
-    // (no-queen) added to S.
-    i32 king_attack = combine_eval_param(-97, -97) *
-                      !(pos->colour[0] & pos->pieces[Queen]);
+    // finalized quadratically per phase after the piece loop. The no-queen
+    // baseline is king_attacks[5] (a tunable weight on the "has no queen"
+    // flag).
+    i32 king_attack =
+        eval_params.king_attacks[5] * !(pos->colour[0] & pos->pieces[Queen]);
 
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
