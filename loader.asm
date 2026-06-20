@@ -24,18 +24,18 @@ org 0x300000
 ;            r8=compressed_ptr, r14=bitpos, r15=code, ebp=range, ebx=pr1
 
 ehdr:
-    db      0x7F, "ELF", 2, 1, 1, 0
+    db      0x7F, "ELF"
 _entry:
     mov     edi, payload_compressed
-    xor     ebx, ebx
+    mov     r9d, PAYLOAD_DEST
     db      0xB8
     dw      2
     dw      0x3E
-    movzx   r10d, word [rdi]
+    enter   284, 0
     dq      _entry
     dq      0x31
 _c:
-    enter   276, 0
+    movzx   r10d, word [rdi]
     mov     eax, [rdi+2]
     jmp     short _d
 phdr:
@@ -46,20 +46,17 @@ phdr:
     times   8 db 0
     dq      0x300000
 _d:
-    mov     esi, PAYLOAD_DEST
-    push    rsi
-    jmp     short _e
-    dq      filesize
-_e:
-    db      0x3E, 0x44, 0x8D, 0x8E
-    dd      0
 decompress4kc:
 .wl:
 .wo:add     eax, eax
     jz      .wd
     jnc     .wz
+    jmp     short .cont
+    dq      filesize
+.cont:
     inc     edx
     jmp     .wo
+    db      1, 0, 0, 0
 .wz:mov     [rsp+116+rcx*8], edx
     mov     ebx, eax
     mov     bl, [rdi+7+rcx]
