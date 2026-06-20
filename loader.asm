@@ -55,7 +55,6 @@ _d:
     dq      0x580000000
 _e:
     movzx   r10d, word [rdi]
-    mov     r13b, [rdi+6]
 
 decompress4kc:
 .wl:
@@ -70,7 +69,8 @@ decompress4kc:
     mov     [rsp+120+rcx*8], ebx
     inc     ecx
     jmp     .wl
-.wd:lea     r8, [rdi+r13+7]
+.wd:mov     r13d, ecx
+    lea     r8, [rdi+r13+7]
     push    1
     pop     rbp
     mov     r9d, esi

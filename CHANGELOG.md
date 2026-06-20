@@ -10631,3 +10631,12 @@ MD5: 9f2b91c288b4a8bb45361560ae42896f
 
 1 thread: 3921 bytes (-1)
 MD5: 64dc853cbcac090b2ad188ac1ccb7aac
+
+### 9.20
+Couunt models from wl loop
+
+4 threads: 3951 bytes (-1)
+MD5: d648ef2e62c72de3f16c61a856f301df
+
+1 thread: 3920 bytes (-1)
+MD5: 70393afeecb2714f020c5567f35e6a63
