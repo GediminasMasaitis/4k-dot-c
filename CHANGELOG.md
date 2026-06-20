@@ -10603,3 +10603,13 @@ MD5: 2518e2b77e999b73c2435ac753356190
 
 1 thread: 3930 bytes (-4)
 MD5: 2f0d51674fd6a0b27f546065dc096ba3
+
+### 9.17
+
+Trampoline loader back-edge
+
+4 threads: 3959 bytes (-2)
+MD5: 3204191d321ae1ca2d8265c9e9fbde15
+
+1 thread: 3928 bytes (-2)
+MD5: a789ec240c668ae63a9cd52ea1d37aa5

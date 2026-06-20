@@ -140,6 +140,7 @@ decompress4kc:
     jae     .ui
     xchg    eax, ebp
     jmp     .rd
+.bt:jmp     short .body      ; trampoline: keeps the loop back-edge a 2-byte rel8 jnz
 .ui:sub     r15d, eax
     sub     ebp, eax
 .rd:lea     esi, [rdi+1]
@@ -157,7 +158,7 @@ decompress4kc:
     inc     r9d
     jmp     short .wr
 .nw:dec     r10d
-    jnz     .body
+    jnz     .bt
 
 .dn:jmp     START_LOCATION
 
