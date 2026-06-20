@@ -10622,3 +10622,12 @@ MD5: 8b5c45fba740ef6cc1fe6c45f2cb520f
 
 1 thread: 3922 bytes (-6)
 MD5: ddf62c2a5777551f606d046602f3fc35
+
+### 9.19
+Push rsi reorder
+
+4 threads: 3952 bytes (-1)
+MD5: 9f2b91c288b4a8bb45361560ae42896f
+
+1 thread: 3921 bytes (-1)
+MD5: 64dc853cbcac090b2ad188ac1ccb7aac

@@ -49,12 +49,11 @@ phdr:
     dq      0x300000
 _d:
     mov     esi, PAYLOAD_DEST
+    push    rsi
     jmp     short _e
-    db      0
     dq      filesize
     dq      0x580000000
 _e:
-    push    rsi
     movzx   r10d, word [rdi]
     mov     r13b, [rdi+6]
 
