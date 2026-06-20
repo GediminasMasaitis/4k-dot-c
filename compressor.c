@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <nmmintrin.h> /* _mm_crc32_u8 (SSE4.2) */
 
 typedef float v4f __attribute__((vector_size(16)));
 typedef uint32_t v4u __attribute__((vector_size(16)));
@@ -18,7 +19,6 @@ typedef uint16_t v8u16 __attribute__((vector_size(16)));
 
 #define TPREC_BITS 12
 #define TPREC (1 << TPREC_BITS)
-#define HMUL 111
 #define MAX_CTX 8
 #define DEFAULT_BPROB 10
 #define BIT_PREC 256
@@ -184,19 +184,16 @@ static unsigned char *alloc_padded(const unsigned char *ctx,
   } while (0)
 
 static inline unsigned int hash_mix(unsigned int h, unsigned char byte) {
-  h ^= byte;
-  h *= HMUL;
-  h = (h & 0xFFFFFF00u) | ((h + byte) & 0xFF);
-  return h - 1;
+  return _mm_crc32_u8(h, byte);
 }
 
 static unsigned int ctx_hash_initial(unsigned int mask) {
   unsigned char cmask = (unsigned char)mask;
   unsigned int h = mask;
-  h = h * HMUL - 1;
+  h = _mm_crc32_u8(h, 0);
   while (cmask) {
     if (cmask & 0x80)
-      h = h * HMUL - 1;
+      h = _mm_crc32_u8(h, 0);
     cmask += cmask;
   }
   return h;

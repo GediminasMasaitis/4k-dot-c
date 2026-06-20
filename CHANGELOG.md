@@ -10593,3 +10593,13 @@ MD5: 3386c6254d38c8e43bd3ccfc7a7af2e8
 
 1 thread: 3934 bytes (-1)
 MD5: 311037bb58998000cd0b812b632b7157
+
+### 9.16
+
+Use crc32 hash as per Crinkler 3
+
+4 threads: 3961 bytes (-3)
+MD5: 2518e2b77e999b73c2435ac753356190
+
+1 thread: 3930 bytes (-4)
+MD5: 2f0d51674fd6a0b27f546065dc096ba3

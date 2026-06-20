@@ -14,7 +14,6 @@ org 0x300000
 %endif
 
 %define PAYLOAD_DEST 0x400000
-%define HMUL         111
 
 ; Stack layout for up to 21 models (284 bytes):
 ;   [rsp+0]   output ptr (from push)
@@ -104,10 +103,7 @@ decompress4kc:
     mov     dl, al
     mov     esi, r9d
 .hash:
-    xor     al, [rsi]
-    imul    eax, eax, HMUL
-    add     al, [rsi]
-    dec     eax
+    crc32   eax, byte [rsi]
 .next:
     dec     esi
     add     dl, dl
