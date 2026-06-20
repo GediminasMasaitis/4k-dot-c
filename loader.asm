@@ -25,51 +25,40 @@ org 0x300000
 
 ehdr:
     db      0x7F, "ELF", 2, 1, 1, 0
-
-load_input:
+_entry:
     mov     edi, payload_compressed
-    jmp     short zero_ebx
+    jmp     short _b
     db      0
-
     dw      2
     dw      0x3E
-
-zero_ebx:
+_b:
     xor     ebx, ebx
-    jmp     short setup_stack
-
-    dq      load_input
-    dq      56
-
-setup_stack:
+    jmp     short _c
+    dq      _entry
+    dq      0x31
+_c:
     enter   276, 0
-    movzx   eax, word [rdi]
-    mov     r10d, eax
-    jmp     short load_output
-
-    dw      0
-    dw      56
-
+    mov     eax, [rdi+2]
+    jmp     short _d
 phdr:
-    dd      1
-    dd      7
-    dq      0
+    db      1, 0, 0, 0
+    db      7
+    db      0x38, 0
+    db      1
+    times   8 db 0
     dq      0x300000
-
-load_output:
+_d:
     mov     esi, PAYLOAD_DEST
-    jmp     short init_header
+    jmp     short _e
     db      0
-
     dq      filesize
     dq      0x580000000
-
-init_header:
+_e:
     push    rsi
+    movzx   r10d, word [rdi]
     mov     r13b, [rdi+6]
 
 decompress4kc:
-    mov     eax, [rdi+2]
 .wl:
 .wo:add     eax, eax
     jz      .wd
@@ -140,7 +129,7 @@ decompress4kc:
     jae     .ui
     xchg    eax, ebp
     jmp     .rd
-.bt:jmp     short .body      ; trampoline: keeps the loop back-edge a 2-byte rel8 jnz
+.bt:jmp     short .body
 .ui:sub     r15d, eax
     sub     ebp, eax
 .rd:lea     esi, [rdi+1]
