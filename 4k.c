@@ -1062,7 +1062,7 @@ S(0) i32 eval(Position *const restrict pos) {
     // finalized quadratically per phase after the piece loop. Baseline
     // (no-queen) added to S.
     i32 king_attack = combine_eval_param(-97, -97) *
-                      !count(pos->colour[0] & pos->pieces[Queen]);
+                      !(pos->colour[0] & pos->pieces[Queen]);
 
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
