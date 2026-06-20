@@ -27,13 +27,11 @@ ehdr:
     db      0x7F, "ELF", 2, 1, 1, 0
 _entry:
     mov     edi, payload_compressed
-    jmp     short _b
-    db      0
+    xor     ebx, ebx
+    db      0xB8
     dw      2
     dw      0x3E
-_b:
-    xor     ebx, ebx
-    jmp     short _c
+    movzx   r10d, word [rdi]
     dq      _entry
     dq      0x31
 _c:
@@ -54,8 +52,6 @@ _d:
     dq      filesize
     dq      0x580000000
 _e:
-    movzx   r10d, word [rdi]
-
 decompress4kc:
 .wl:
 .wo:add     eax, eax
