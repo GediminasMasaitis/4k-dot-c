@@ -1210,7 +1210,9 @@ enum { thread_count = 1 };
 #else
 static i32 thread_count = 1;
 #endif
-enum { thread_stack_size = 1024 * 1024 };
+// Must exceed sizeof(ThreadData); the per-thread conthist table (~7.3MB) now
+// dominates it. In the MINI build ThreadData is overlaid on thread_stacks[0].
+enum { thread_stack_size = 16 * 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
@@ -1240,6 +1242,16 @@ typedef struct [[nodiscard]] {
   G(175, SearchStack stack[1024];)
   G(175, i32 corrhist[2][corrhist_size];)
   G(175, i32 move_history[2][6][64][64];)
+  // CONTINUATION HISTORY (per-thread, like move_history above).
+  // Table indexed [prev moving piece][prev to][cur from][cur to]: the first two
+  // indices select a sub-table by the move played N plies ago; within it we use
+  // the current move's (from, to) butterfly, matching the existing quiet
+  // history. Piece is 1..6; the None=0 row is the dummy slice used before any
+  // real move and after a null move. This dominates sizeof(ThreadData) (~7.3MB).
+  i32 conthist[7][64][64][64];
+  // Per-ply pointers into conthist. Index [ply+1] is the 1-ply-back move
+  // (countermove), [ply] the 2-ply-back move (followup).
+  i32 (*conthist_stack[1024])[64];
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1351,6 +1363,8 @@ i32 search(
 
   SearchStack *const stack = data->stack;
   i32(*const move_history)[6][64][64] = data->move_history;
+  i32(*const conthist)[64][64][64] = data->conthist;
+  i32(**const conthist_stack)[64] = data->conthist_stack;
 
   // IN-CHECK EXTENSION
   const bool in_check = find_in_check(pos);
@@ -1433,6 +1447,8 @@ i32 search(
       Position npos = *pos;
       G(207, flip_pos(&npos);)
       G(207, npos.ep = 0;)
+      // No move was made: point the child's 1-ply-back slot at the dummy slice.
+      conthist_stack[ply + 2] = conthist[0][0];
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1471,6 +1487,10 @@ i32 search(
           G(183, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
+          // CONTINUATION HISTORY: 1-ply (countermove) + 2-ply (followup)
+          conthist_stack[ply + 1][moves[order_index].from]
+                                 [moves[order_index].to] +
+          conthist_stack[ply][moves[order_index].from][moves[order_index].to] +
           G(183, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(214, &stack[ply].best_move),
                         G(214, &moves[order_index]))
@@ -1509,6 +1529,11 @@ i32 search(
     if (!makemove(H(80, 3, &npos), H(80, 3, &moves[move_index]))) {
       continue;
     }
+
+    // Record this move's (piece, to) sub-table for the children to read as their
+    // 1-ply-back (at child ply+1) and 2-ply-back (at grandchild ply) context.
+    conthist_stack[ply + 2] =
+        conthist[piece_on(pos, moves[move_index].from)][moves[move_index].to];
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
@@ -1576,6 +1601,17 @@ i32 search(
 
                   *this_hist +=
                   bonus - G(231, bonus) * G(231, *this_hist) / 1024;)
+                // CONTINUATION HISTORY bonus (quiet cutoff move only)
+                if (stack[ply].best_move.takes_piece == None) {
+                  i32 *const cont1 =
+                      &conthist_stack[ply + 1][stack[ply].best_move.from]
+                                              [stack[ply].best_move.to];
+                  *cont1 += bonus - bonus * *cont1 / 1024;
+                  i32 *const cont2 =
+                      &conthist_stack[ply][stack[ply].best_move.from]
+                                          [stack[ply].best_move.to];
+                  *cont2 += bonus - bonus * *cont2 / 1024;
+                }
                 G(
                     230, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1585,6 +1621,15 @@ i32 search(
                                        [prev.from][prev.to];
                       *prev_hist -=
                           bonus + G(232, bonus) * G(232, *prev_hist) / 1024;
+                      // CONTINUATION HISTORY penalty (quiet moves only)
+                      if (prev.takes_piece == None) {
+                        i32 *const pcont1 =
+                            &conthist_stack[ply + 1][prev.from][prev.to];
+                        *pcont1 -= bonus + bonus * *pcont1 / 1024;
+                        i32 *const pcont2 =
+                            &conthist_stack[ply][prev.from][prev.to];
+                        *pcont2 -= bonus + bonus * *pcont2 / 1024;
+                      }
                     })
               })
           break;
@@ -1786,6 +1831,8 @@ void iteratively_deepen(
 #endif
     ThreadData *data) {
   i32 score = 0;
+  // Seed the two pre-root conthist slots (read at ply 0/1) with the dummy slice.
+  data->conthist_stack[0] = data->conthist_stack[1] = data->conthist[0][0];
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
