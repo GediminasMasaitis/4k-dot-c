@@ -5,12 +5,12 @@
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
+#include <nmmintrin.h> /* _mm_crc32_u8 (SSE4.2) */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <nmmintrin.h> /* _mm_crc32_u8 (SSE4.2) */
 
 typedef float v4f __attribute__((vector_size(16)));
 typedef uint32_t v4u __attribute__((vector_size(16)));
