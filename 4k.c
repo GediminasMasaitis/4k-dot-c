@@ -1062,9 +1062,10 @@ S(0) i32 eval(Position *const restrict pos) {
     G(125, const u64 opp_king_zone =
                king(G(127, pos->colour[1]) & G(127, pos->pieces[King]));)
 
-    // KING ATTACK RING
-    i32 king_attack =
-        eval_params.king_attacks[5] * !(pos->colour[0] & pos->pieces[Queen]);
+    G(125, // KING ATTACK RING
+      i32 king_attack =
+          G(900, eval_params.king_attacks[5]) *
+          G(900, !(G(901, pos->colour[0]) & G(901, pos->pieces[Queen])));)
 
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
@@ -1119,7 +1120,8 @@ S(0) i32 eval(Position *const restrict pos) {
           score += eval_params.material[p];)
 
         // PAWN KING RING ATTACKERS
-        u64 king_attackers = northeast(piece_bb) | northwest(piece_bb);
+        u64 king_attackers =
+            G(902, northeast(piece_bb)) | G(902, northwest(piece_bb));
 
         G(
             93, if (p > Pawn) {
@@ -1176,8 +1178,9 @@ S(0) i32 eval(Position *const restrict pos) {
 
         // PIECES ATTACKING KING RING
         if (p < King) {
-          king_attack += count(king_attackers & opp_king_zone) *
-                         eval_params.king_attacks[p - 1];
+          king_attack +=
+              G(903, count(G(904, king_attackers) & G(904, opp_king_zone))) *
+              G(903, eval_params.king_attacks[p - 1]);
         }
 
         G(
@@ -1210,10 +1213,10 @@ S(0) i32 eval(Position *const restrict pos) {
     }
 
     // FINALIZE KING RING ATTACKS
-    const i32 ka_mg = (i16)king_attack;
-    const i32 ka_eg = (king_attack + 0x8000) >> 16;
-    const i32 m = ka_mg > 0 ? ka_mg : 0;
-    const i32 e = ka_eg > 0 ? ka_eg : 0;
+    G(905, const i32 ka_mg = (i16)king_attack;)
+    G(905, const i32 ka_eg = (king_attack + 0x8000) >> 16;)
+    G(906, const i32 m = ka_mg > 0 ? ka_mg : 0;)
+    G(906, const i32 e = ka_eg > 0 ? ka_eg : 0;)
     score += combine_eval_param(m * m / 160, e * e / 160);
 
     G(75, score = -score;)
