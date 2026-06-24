@@ -1128,11 +1128,11 @@ static void run() {
 #ifdef FULL
     u64 nodes = 0;
     if (!strcmp(line, "uci")) {
-      putl("id name 4k.c\n");
+      putl("id name 4k.c 1.10\n");
       putl("id author Gediminas Masaitis\n");
       putl("\n");
-      putl("option name Hash type spin default 1 min 1 max 1\n");
-      putl("option name Threads type spin default 1 min 1 max 1\n");
+      putl("option name Hash type spin default 16 min 1 max 65536\n");
+      putl("option name Threads type spin default 1 min 1 max 65536\n");
       putl("uciok\n");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, tt_length * sizeof(TTEntry));
