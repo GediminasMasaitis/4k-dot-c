@@ -1785,7 +1785,8 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
         }
 
         putl(" ");
-        move_str(cur_pos.flipped, &move, move_name);
+        move_str(H(50, 5, &move), H(50, 5, cur_pos.flipped),
+                 H(50, 5, move_name));
         putl(move_name);
         seen[seen_count++] = hash;
         cur_pos = next_pos;
