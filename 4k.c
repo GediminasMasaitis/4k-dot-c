@@ -1215,8 +1215,9 @@ S(0) i32 eval(Position *const restrict pos) {
     // FINALIZE KING RING ATTACKS
     const i32 ka_mg = (i16)king_attack;
     const i32 ka_eg = (king_attack + 0x8000) >> 16;
-    score += combine_eval_param(ka_mg > 0 ? ka_mg * ka_mg / 160 : 0,
-                                ka_eg > 0 ? ka_eg * ka_eg / 160 : 0);
+    const i32 m = ka_mg > 0 ? ka_mg : 0;
+    const i32 e = ka_eg > 0 ? ka_eg : 0;
+    score += combine_eval_param(m * m / 160, e * e / 160);
 
     G(75, score = -score;)
     G(75, flip_pos(pos);)
