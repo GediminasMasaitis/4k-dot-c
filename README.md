@@ -17,8 +17,8 @@ The engine is a <= 4096 byte UCI engine executable, without:
 
 #### For size measurements
 * You must have the *correct* `gcc` version on your system in your PATH. It is a version somewhere in-between 14.2 and 15.1. See below for installation details
-* You must have `apultra` on your PATH. https://github.com/GediminasMasaitis/apultra. Just get the source, `make` it, and `sudo mv apultra ./usr/local/bin`.
-* Run `make NOSTDLIB=true MINI=true loader`, you will see the binary size in the console output
+* You must have `nasm` on your PATH (`sudo apt install nasm`). It assembles the loader.
+* Run `make NOSTDLIB=true MINI=true loader`, you will see the binary size in the console output. The compressor (`compressor.c`) is built from source automatically as part of this target — no external compression tool is required.
 
 
 ### How to install the exact gcc version:
