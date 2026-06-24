@@ -938,14 +938,16 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];)
-        H(117, 1, i8 bishop_pawns[2];))
+        H(117, 1, i8 bishop_pawns[2];)
+        H(117, 1, i8 passed_king_distance[2];)
+  )
   H(116, 1,
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
         H(118, 1, i8 bishop_pair;) H(118, 1, i8 king_attacks[5];)
             H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;))
   H(116, 1,
     H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
-        H(119, 1, i8 passed_blocked_pawns[6];) i8 passed_king_distance[2];
+        H(119, 1, i8 passed_blocked_pawns[6];)
     H(119, 1, i8 open_files[12];) H(119, 1, i8 tempo;)
         H(119, 1, i8 pawn_attacked_penalty[2];))
 } EvalParams;
@@ -954,14 +956,16 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];)
-        H(117, 2, i32 bishop_pawns[2];))
+        H(117, 2, i32 bishop_pawns[2];)
+    H(117, 2, i32 passed_king_distance[2];)
+  )
   H(116, 2,
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
         H(118, 2, i32 bishop_pair;) H(118, 2, i32 king_attacks[5];)
             H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;))
   H(116, 2,
     H(119, 2, i32 mobilities[5];) H(119, 2, i32 pst_file[48];)
-        H(119, 2, i32 passed_blocked_pawns[6];) i32 passed_king_distance[2];
+        H(119, 2, i32 passed_blocked_pawns[6];)
     H(119, 2, i32 open_files[12];) H(119, 2, i32 tempo;)
         H(119, 2, i32 pawn_attacked_penalty[2];))
 } EvalParamsMerged;
@@ -1059,11 +1063,10 @@ S(0) i32 eval(Position *const restrict pos) {
 
   for (i32 c = 0; c < 2; c++) {
 
-    G(125, const u64 opp_king_zone =
-               king(G(126, pos->colour[1]) & G(126, pos->pieces[King]));)
+    G(125, const i32 kings[2] = { lsb(pos->colour[0] & pos->pieces[King]),
+                      lsb(pos->colour[1] & pos->pieces[King]) };)
 
-    const i32 kings[2] = {lsb(pos->colour[0] & pos->pieces[King]),
-                          lsb(pos->colour[1] & pos->pieces[King])};
+    G(125, const u64 opp_king_zone = king(G(126, pos->colour[1]) & G(126, pos->pieces[King]));)
 
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
@@ -1111,10 +1114,10 @@ S(0) i32 eval(Position *const restrict pos) {
 
               // PASSED PAWN KING DISTANCE
               for (i32 i = 0; i < 2; i++) {
-                const i32 rd = __builtin_abs(kings[i] / 8 - rank - 1);
-                const i32 fd = __builtin_abs(kings[i] % 8 - file);
-                score += eval_params.passed_king_distance[i] * (rank - 1) *
-                         (rd > fd ? rd : fd);
+                G(999, const i32 rank_distance = __builtin_abs(kings[i] / 8 - rank - 1);)
+                G(999, const i32 file_distance = __builtin_abs(kings[i] % 8 - file);)
+                score += G(998, eval_params.passed_king_distance[i]) * G(998, (rank - 1)) *
+                         G(998, (rank_distance > file_distance ? rank_distance : file_distance));
               }
             })
         G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
