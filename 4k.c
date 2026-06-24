@@ -1118,12 +1118,8 @@ S(0) i32 eval(Position *const restrict pos) {
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
-        // PAWNS ATTACKING KING RING
-        if (p == Pawn) {
-          king_attack += count((northeast(piece_bb) | northwest(piece_bb)) &
-                               opp_king_zone) *
-                         eval_params.king_attacks[0];
-        }
+        // PAWN KING RING ATTACKERS
+        u64 king_attackers = northeast(piece_bb) | northwest(piece_bb);
 
         G(
             93, if (p > Pawn) {
@@ -1166,22 +1162,23 @@ S(0) i32 eval(Position *const restrict pos) {
                                     G(162, eval_params.king_shield[1]);)
                   })
 
-              G(
-                  155, const u64 mobility = get_mobility(
-                           H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
+              G(155, const u64 mobility =
+                         get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
 
-                  // PIECES ATTACKING KING RING
-                  if (p < King) {
-                    king_attack += count(mobility & opp_king_zone) *
-                                   eval_params.king_attacks[p - 1];
-                  }
+                king_attackers = mobility;
 
-                  G(170, // MOBILITY
-                    score +=
-                    G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
-                                 G(172, ~attacked_by_pawns))) *
-                    G(171, eval_params.mobilities[p - 2]);))
+                G(170, // MOBILITY
+                  score +=
+                  G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
+                               G(172, ~attacked_by_pawns))) *
+                  G(171, eval_params.mobilities[p - 2]);))
             })
+
+        // PIECES ATTACKING KING RING
+        if (p < King) {
+          king_attack += count(king_attackers & opp_king_zone) *
+                         eval_params.king_attacks[p - 1];
+        }
 
         G(
             93, // PASSED PAWNS
