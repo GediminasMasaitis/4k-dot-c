@@ -1059,9 +1059,6 @@ S(0) i32 eval(Position *const restrict pos) {
 
   for (i32 c = 0; c < 2; c++) {
 
-    G(125, const i32 kings[2] = {lsb(pos->colour[0] & pos->pieces[King]),
-                                 lsb(pos->colour[1] & pos->pieces[King])};)
-
     G(
         125, // BISHOP PAIR
         if (count(G(135, pos->pieces[Bishop]) & G(135, pos->colour[0])) > 1) {
@@ -1120,10 +1117,12 @@ S(0) i32 eval(Position *const restrict pos) {
 
               // PASSED PAWN KING DISTANCE
               for (i32 i = 0; i < 2; i++) {
+                G(146,
+                  const i32 king_sq = lsb(G(999, pos->colour[i]) & G(999, pos->pieces[King]));)
                 G(143, const i32 rank_distance =
-                           __builtin_abs(kings[i] / 8 - rank - 1);)
+                           __builtin_abs(king_sq / 8 - G(998, rank) - G(998, 1));)
                 G(143,
-                  const i32 file_distance = __builtin_abs(kings[i] % 8 - file);)
+                  const i32 file_distance = __builtin_abs(king_sq % 8 - file);)
                 score +=
                     G(144, eval_params.passed_king_distance[i]) *
                     G(144, (rank - 1)) *
