@@ -1471,9 +1471,9 @@ i32 search(
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(211, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(211, stack[G(212, ply) + G(212, 2)].position_hash = tt_hash;)
+  G(211, u8 tt_flag = Upper;)
   G(211, i32 quiets_evaluated = 0;)
   G(211, i32 moves_evaluated = 0;)
-  G(211, u8 tt_flag = Upper;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
