@@ -1117,22 +1117,16 @@ S(0) i32 eval(Position *const restrict pos) {
         G(
             93, if (p > Pawn) {
               G(
-                  155, // KING SHIELD
-                  if (G(156, G(157, p) == G(157, King)) &&
-                      G(156, G(158, piece_bb) & G(158, 0xC3D7))) {
-                    const u64 shield = file < 3 ? 0x700 : 0xE000;
-                    G(159, score +=
-                           G(160, count(G(161, shield) & G(161, pawns[0]))) *
-                           G(160, eval_params.king_shield[0]);)
-                    G(159, score += G(162, count(G(163, north(shield)) &
-                                                 G(163, pawns[0]))) *
-                                    G(162, eval_params.king_shield[1]);)
-                  })
-
-              G(
                   155, // PIECES ATTACKED BY PAWNS
                   if (G(164, piece_bb) & G(164, no_passers)) {
                     score += eval_params.pawn_attacked_penalty[c];
+                  })
+
+              G(
+                  155, // PAWN PUSH THREATS
+                  if (G(169, in_front) & G(169, ~piece_bb) &
+                      G(169, attacked_by_pawns)) {
+                    score += eval_params.pawn_threat[p - 2];
                   })
 
               G(
@@ -1149,25 +1143,31 @@ S(0) i32 eval(Position *const restrict pos) {
                   })
 
               G(
-                  155, // PAWN PUSH THREATS
-                  if (G(169, in_front) & G(169, ~piece_bb) &
-                      G(169, attacked_by_pawns)) {
-                    score += eval_params.pawn_threat[p - 2];
+                  155, // KING SHIELD
+                  if (G(156, G(157, p) == G(157, King)) &&
+                      G(156, G(158, piece_bb) & G(158, 0xC3D7))) {
+                    const u64 shield = file < 3 ? 0x700 : 0xE000;
+                    G(159, score +=
+                           G(160, count(G(161, shield) & G(161, pawns[0]))) *
+                           G(160, eval_params.king_shield[0]);)
+                    G(159, score += G(162, count(G(163, north(shield)) &
+                                                 G(163, pawns[0]))) *
+                                    G(162, eval_params.king_shield[1]);)
                   })
 
               G(155, const u64 mobility =
                          get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
 
-                G(170, // MOBILITY
+                G(170, // KING ATTACKS
                   score +=
-                  G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
-                               G(172, ~attacked_by_pawns))) *
-                  G(171, eval_params.mobilities[p - 2]);)
+                  G(173, count(G(174, mobility) & G(174, opp_king_zone))) *
+                  G(173, eval_params.king_attacks[p - 2]);)
 
-                    G(170, // KING ATTACKS
+                    G(170, // MOBILITY
                       score +=
-                      G(173, count(G(174, mobility) & G(174, opp_king_zone))) *
-                      G(173, eval_params.king_attacks[p - 2]);))
+                      G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
+                                   G(172, ~attacked_by_pawns))) *
+                      G(171, eval_params.mobilities[p - 2]);))
             })
 
         G(
@@ -1234,10 +1234,10 @@ enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
-  G(119, u64 position_hash;)
-  G(119, Move killer;)
-  G(119, i32 num_moves;)
   G(119, i32 static_eval;)
+  G(119, Move killer;)
+  G(119, u64 position_hash;)
+  G(119, i32 num_moves;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
