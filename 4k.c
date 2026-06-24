@@ -1801,11 +1801,11 @@ S(1) void run() {
 #ifdef FULL
     u64 nodes = 0;
     if (!strcmp(line, "uci")) {
-      puts("id name 4k.c");
+      puts("id name 4k.c 5.0");
       puts("id author Gediminas Masaitis");
       puts("");
-      puts("option name Hash type spin default 1 min 1 max 1");
-      puts("option name Threads type spin default 1 min 1 max 1");
+      puts("option name Hash type spin default 64 min 1 max 65536");
+      puts("option name Threads type spin default 1 min 1 max 65536");
       puts("uciok");
     } else if (!strcmp(line, "ucinewgame")) {
       __builtin_memset(tt, 0, sizeof(tt));
