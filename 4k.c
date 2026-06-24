@@ -937,7 +937,7 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(118, 1, i8 king_attacks[5];) H(118, 1, i8 pst_rank[48];)
+    H(118, 1, i8 king_attacks[6];) H(118, 1, i8 pst_rank[48];)
         H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;)
             H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 bishop_pair;))
   H(116, 1,
@@ -953,7 +953,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(118, 2, i32 king_attacks[5];) H(118, 2, i32 pst_rank[48];)
+    H(118, 2, i32 king_attacks[6];) H(118, 2, i32 pst_rank[48];)
         H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;)
             H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 bishop_pair;))
   H(116, 2,
@@ -978,73 +978,73 @@ G(121, // EVAL PARAMETERS
   __attribute__((aligned(8))) S(1)
       const EvalParamsInitial initial_params = {
           .phases = {0, 0, 1, 1, 2, 4},
-          .mg = {.material = {0, 68, 289, 328, 380, 836},
+          .mg = {.material = {0, 67, 289, 330, 387, 821},
                  .pst_rank =
                      {
-                         0,   -15, -17, -5,  7,  30, 127, 0,   // Pawn
-                         -19, -7,  6,   21,  30, 41, 19,  -90, // Knight
-                         -8,  8,   14,  17,  18, 18, -4,  -64, // Bishop
-                         4,   -5,  -10, -13, 3,  13, 1,   7,   // Rook
-                         16,  16,  8,   0,   -4, -3, -20, -14, // Queen
-                         -6,  0,   -10, -24, -7, 38, 45,  44,  // King
+                         0,   -14, -16, -4,  7,  27, 127, 0,   // Pawn
+                         -14, -2,  11,  24,  28, 34, 15,  -96, // Knight
+                         -7,  8,   15,  18,  19, 18, -5,  -66, // Bishop
+                         4,   -6,  -10, -13, 3,  13, 4,   5,   // Rook
+                         18,  18,  11,  3,   -1, -6, -20, -24, // Queen
+                         -16, -6,  -6,  -14, 3,  40, 45,  38,  // King
                      },
                  .pst_file =
                      {
-                         -8,  -11, -7,  1,   7,   12,  12, -7,  // Pawn
-                         -30, -11, -1,  12,  14,  14,  7,  -5,  // Knight
-                         -15, 0,   3,   0,   4,   -1,  11, -3,  // Bishop
-                         -12, -8,  -2,  7,   12,  8,   6,  -11, // Rook
-                         -14, -8,  -4,  0,   3,   4,   13, 6,   // Queen
-                         -9,  15,  -10, -28, -27, -11, 11, 2,   // King
+                         -7,  -11, -7, 2,   8,   12, 11, -8,  // Pawn
+                         -29, -10, 0,  13,  14,  14, 4,  -5,  // Knight
+                         -14, 0,   4,  1,   4,   -1, 11, -4,  // Bishop
+                         -13, -8,  -2, 7,   12,  8,  7,  -11, // Rook
+                         -14, -8,  -3, 0,   3,   4,  13, 6,   // Queen
+                         -12, 16,  -9, -25, -24, -8, 12, 0,   // King
                      },
-                 .mobilities = {7, 5, 2, 3, -2},
-                 .king_attacks = {0, 13, 19, 14, 0},
-                 .pawn_threat = {-18, -8, -8, -8, -1},
-                 .open_files = {10, -10, -11, 16, -2, -22, 8, -11, -13, 33, -13,
+                 .mobilities = {6, 5, 3, 3, -2},
+                 .king_attacks = {20, 22, 26, 28, 29, -82},
+                 .pawn_threat = {-19, -8, -8, -7, 0},
+                 .open_files = {10, -10, -11, 16, -2, -21, 8, -11, -13, 33, -14,
                                 -57},
-                 .passed_pawns = {-8, -1, 11, 42, 78, 127},
-                 .passed_blocked_pawns = {1, -4, -2, 5, 3, -48},
-                 .passed_king_distance = {-1, -2},
+                 .passed_pawns = {-9, -3, 9, 41, 80, 127},
+                 .passed_blocked_pawns = {1, -3, -2, 5, 2, -51},
+                 .passed_king_distance = {-1, -1},
                  .protected_pawn = 16,
                  .phalanx_pawn = 9,
                  .bishop_pair = 27,
-                 .bishop_pawns = {-5, -5},
-                 .king_shield = {28, 20},
-                 .pawn_attacked_penalty = {-56, -108},
+                 .bishop_pawns = {-6, -5},
+                 .king_shield = {28, 19},
+                 .pawn_attacked_penalty = {-56, -109},
                  .tempo = 28},
-          .eg = {.material = {0, 88, 399, 442, 736, 1365},
+          .eg = {.material = {0, 88, 398, 441, 730, 1371},
                  .pst_rank =
                      {
-                         0,   -4,  -9,  -8, 0,  20, 94, 0,   // Pawn
-                         -30, -18, -6,  17, 21, 6,  1,  10,  // Knight
-                         -13, -11, 0,   4,  6,  2,  3,  9,   // Bishop
-                         -17, -17, -10, 4,  10, 9,  17, 4,   // Rook
-                         -58, -41, -13, 14, 29, 24, 30, 15,  // Queen
-                         -36, -4,  4,   19, 31, 29, 17, -38, // King
+                         0,   -4,  -9,  -8, 0,  21, 93, 0,   // Pawn
+                         -31, -19, -7,  15, 21, 8,  2,  11,  // Knight
+                         -14, -11, 0,   4,  6,  3,  3,  9,   // Bishop
+                         -16, -17, -10, 4,  9,  8,  16, 5,   // Rook
+                         -63, -45, -15, 14, 28, 28, 33, 21,  // Queen
+                         -35, -3,  3,   16, 28, 28, 17, -39, // King
                      },
                  .pst_file =
                      {
-                         2,   7,  -1, -6, -1, 2,  1,  -3,  // Pawn
-                         -17, -4, 7,  16, 16, 4,  -2, -19, // Knight
+                         2,   6,  -1, -6, -1, 2,  1,  -3,  // Pawn
+                         -16, -4, 7,  16, 15, 3,  -2, -19, // Knight
                          -10, 0,  4,  10, 10, 4,  -4, -15, // Bishop
-                         1,   5,  5,  -3, -6, 0,  0,  -4,  // Rook
-                         -22, -8, 3,  8,  15, 14, 0,  -10, // Queen
-                         -28, -2, 10, 16, 18, 13, 4,  -28, // King
+                         2,   6,  6,  -3, -6, 0,  0,  -4,  // Rook
+                         -22, -7, 4,  9,  15, 15, -1, -12, // Queen
+                         -28, -1, 11, 17, 19, 14, 5,  -28, // King
                      },
-                 .mobilities = {5, 3, 3, 2, -3},
-                 .king_attacks = {0, -2, -7, 8, 0},
-                 .pawn_threat = {-2, -5, -18, -13, -7},
-                 .open_files = {8, 3, 17, 9, 25, 8, 22, -8, 1, 13, 43, 6},
-                 .passed_pawns = {15, 3, 21, 49, 101, 94},
-                 .passed_blocked_pawns = {-10, -2, -13, -32, -68, -70},
+                 .mobilities = {5, 3, 3, 2, -4},
+                 .king_attacks = {1, 34, 30, 1, 1, -128},
+                 .pawn_threat = {-1, -6, -18, -13, -8},
+                 .open_files = {8, 3, 17, 10, 26, 8, 22, -8, 1, 13, 43, 7},
+                 .passed_pawns = {15, 3, 21, 49, 100, 93},
+                 .passed_blocked_pawns = {-10, -2, -13, -32, -68, -69},
                  .passed_king_distance = {-5, 9},
                  .protected_pawn = 17,
-                 .phalanx_pawn = 15,
-                 .bishop_pair = 61,
+                 .phalanx_pawn = 16,
+                 .bishop_pair = 62,
                  .bishop_pawns = {-11, -1},
-                 .king_shield = {-10, -6},
-                 .pawn_attacked_penalty = {-27, -128},
-                 .tempo = 16}};)
+                 .king_shield = {-9, -6},
+                 .pawn_attacked_penalty = {-26, -128},
+                 .tempo = 15}};)
 
 G(
     121,
@@ -1061,6 +1061,10 @@ S(0) i32 eval(Position *const restrict pos) {
 
     G(125, const u64 opp_king_zone =
                king(G(127, pos->colour[1]) & G(127, pos->pieces[King]));)
+
+    // KING ATTACK RING
+    i32 king_attack =
+        eval_params.king_attacks[5] * !(pos->colour[0] & pos->pieces[Queen]);
 
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
@@ -1114,6 +1118,13 @@ S(0) i32 eval(Position *const restrict pos) {
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
+        // PAWNS ATTACKING KING RING
+        if (p == Pawn) {
+          king_attack += count((northeast(piece_bb) | northwest(piece_bb)) &
+                               opp_king_zone) *
+                         eval_params.king_attacks[0];
+        }
+
         G(
             93, if (p > Pawn) {
               G(
@@ -1155,19 +1166,21 @@ S(0) i32 eval(Position *const restrict pos) {
                                     G(162, eval_params.king_shield[1]);)
                   })
 
-              G(155, const u64 mobility =
-                         get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
+              G(
+                  155, const u64 mobility = get_mobility(
+                           H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
 
-                G(170, // KING ATTACKS
-                  score +=
-                  G(173, count(G(174, mobility) & G(174, opp_king_zone))) *
-                  G(173, eval_params.king_attacks[p - 2]);)
+                  // PIECES ATTACKING KING RING
+                  if (p < King) {
+                    king_attack += count(mobility & opp_king_zone) *
+                                   eval_params.king_attacks[p - 1];
+                  }
 
-                    G(170, // MOBILITY
-                      score +=
-                      G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
-                                   G(172, ~attacked_by_pawns))) *
-                      G(171, eval_params.mobilities[p - 2]);))
+                  G(170, // MOBILITY
+                    score +=
+                    G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
+                                 G(172, ~attacked_by_pawns))) *
+                    G(171, eval_params.mobilities[p - 2]);))
             })
 
         G(
@@ -1199,6 +1212,12 @@ S(0) i32 eval(Position *const restrict pos) {
       }
     }
 
+    // FINALIZE KING RING ATTACKS
+    const i32 ka_mg = (i16)king_attack;
+    const i32 ka_eg = (king_attack + 0x8000) >> 16;
+    score += combine_eval_param(ka_mg > 0 ? ka_mg * ka_mg / 160 : 0,
+                                ka_eg > 0 ? ka_eg * ka_eg / 160 : 0);
+
     G(75, score = -score;)
     G(75, flip_pos(pos);)
   }
@@ -1225,7 +1244,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
