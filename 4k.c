@@ -299,9 +299,9 @@ static void putl(const char *const restrict string) {
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
-  G(4, u8 from; u8 to;)
-  G(4, u8 takes_piece;)
   G(4, u8 promo;)
+  G(4, u8 takes_piece;)
+  G(4, u8 from; u8 to;)
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -431,7 +431,7 @@ G(
       G(37,
         const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
       return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) |
-             G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
+             G(40, horizontal1 << 16) | G(40, horizontal1 >> 16);
     })
 
 G(
@@ -485,9 +485,9 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[5] = '\0';)
-
       G(51, str[4] = "\0\0nbrq"[move->promo];)
+
+      G(51, str[5] = '\0';)
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
