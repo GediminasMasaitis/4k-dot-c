@@ -1183,8 +1183,8 @@ S(0) i32 eval(Position *const restrict pos) {
 
               // PASSED PAWN KING DISTANCE
               for (i32 i = 0; i < 2; i++) {
-                G(147, const i32 king_sq = lsb(G(148, pos->colour[i]) &
-                                               G(148, pos->pieces[King]));)
+                const i32 king_sq =
+                    lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
                 G(149, const i32 rank_distance = __builtin_abs(
                            king_sq / 8 - G(150, rank) - G(150, 1));)
                 G(149,
