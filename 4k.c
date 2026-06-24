@@ -1896,7 +1896,7 @@ S(1) void run() {
     getl(line);
 #ifdef FULL
     if (!strcmp(line, "uci")) {
-      puts("id name 4k.c");
+      puts("id name 4k.c 8.0");
       puts("id author Gediminas Masaitis");
       puts("");
       puts("option name Hash type spin default 80 min 1 max 65536");
