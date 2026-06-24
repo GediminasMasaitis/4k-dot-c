@@ -937,8 +937,8 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat[5];)
-        H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 passed_king_distance[2];))
+    H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 pawn_threat[5];)
+        H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 king_shield[2];))
   H(116, 1,
     H(118, 1, i8 king_attacks[5];) H(118, 1, i8 bishop_pair;)
         H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
@@ -953,8 +953,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat[5];)
-        H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 passed_king_distance[2];))
+    H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 pawn_threat[5];)
+        H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 king_shield[2];))
   H(116, 2,
     H(118, 2, i32 king_attacks[5];) H(118, 2, i32 bishop_pair;)
         H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
@@ -1503,7 +1503,7 @@ i32 search(
       }
     }
 
-    swapmoves(G(219, &moves[best_index]), G(219, &moves[move_index]));
+    swapmoves(G(219, &moves[move_index]), G(219, &moves[best_index]));
 
     G(
         220, // MOVE SCORE PRUNING
