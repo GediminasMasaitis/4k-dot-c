@@ -1112,10 +1112,10 @@ S(0) i32 eval(Position *const restrict pos) {
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
-        // PROTECTED BY PAWNS (all piece types)
-        if (piece_bb & protected_by_pawns) {
+        G(93, // PROTECTED BY PAWNS
+        if (G(999, piece_bb) & G(999, protected_by_pawns)) {
           score += eval_params.pawn_protection[p - 1];
-        }
+        })
 
         G(
             93, if (p > Pawn) {
