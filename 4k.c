@@ -1452,7 +1452,7 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      const i32 eval_reduction = (static_eval - beta) / 200;
+      const i32 eval_reduction = (static_eval - beta) / 256;
       const i32 score = -search(
 #ifdef FULL
           nodes,
