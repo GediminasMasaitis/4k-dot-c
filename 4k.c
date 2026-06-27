@@ -2054,7 +2054,7 @@ S(1) void bench() {
   };
   const u64 start = get_time();
   start_time = start;
-  iteratively_deepen(23, &data);
+  iteratively_deepen(22, &data);
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? data.nodes * 1000 * 1000 * 1000U / elapsed : 0;
