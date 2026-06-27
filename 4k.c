@@ -1032,7 +1032,7 @@ G(121, // EVAL PARAMETERS
                          -28, -1, 11, 17, 19, 14, 5,  -28, // King
                      },
                  .mobilities = {5, 3, 3, 2, -4},
-                 .king_attacks = {1, 34, 30, 1, 1, -128},
+                 .king_attacks = {0, 0, 0, 0, 0, 0}, // midgame only (eg unused)
                  .pawn_threat = {-1, -6, -18, -13, -8},
                  .open_files = {8, 3, 17, 10, 26, 8, 22, -8, 1, 13, 43, 7},
                  .passed_pawns = {15, 3, 21, 49, 100, 93},
@@ -1215,12 +1215,9 @@ S(0) i32 eval(Position *const restrict pos) {
       }
     }
 
-    // FINALIZE KING RING ATTACKS
-    G(178, const i32 ka_mg = (i16)king_attack;)
-    G(178, const i32 ka_eg = (king_attack + 0x8000) >> 16;)
-    G(179, const i32 m = ka_mg > 0 ? ka_mg : 0;)
-    G(179, const i32 e = ka_eg > 0 ? ka_eg : 0;)
-    score += combine_eval_param(m * m / 160, e * e / 160);
+    // FINALIZE KING RING ATTACKS (midgame only, like ice4)
+    G(179, const i32 m = king_attack > 0 ? king_attack : 0;)
+    score += combine_eval_param(m * m / 160, 0);
 
     G(75, score = -score;)
     G(75, flip_pos(pos);)
