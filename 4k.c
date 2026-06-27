@@ -1355,7 +1355,8 @@ get_hash(const Position *const pos) {
 
 S(1) void get_piece_hashes(const Position *const pos, u64 hashes[4]) {
   for (i32 p = Pawn; p <= Queen; p++) {
-    hashes[p / 2] ^= (pos->pieces[p] * 0x9E3779B97F4A7C15ULL) >> 50;
+    hashes[p / 2] ^=
+        (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 50;
   }
 }
 
@@ -1412,9 +1413,9 @@ i32 search(
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  corr_hashes[3] = get_material_hash(pos);
-  get_piece_hashes(pos, corr_hashes);
-  i32 *corr_entries[4];
+  G(197, corr_hashes[3] = get_material_hash(pos);)
+  G(197, get_piece_hashes(pos, corr_hashes);)
+  G(197, i32 * corr_entries[4];)
   for (i32 i = 0; i < 4; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
