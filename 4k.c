@@ -1640,9 +1640,9 @@ i32 search(
 
         for (i32 i = 0; i < 2; i++) {
           *corr_entries[i] =
-              (G(248, G(249, *corr_entries[i]) * G(249, (600 - dd))) +
+              (G(248, G(249, *corr_entries[i]) * G(249, (512 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
-              600;
+              512;
         }
       })
 
