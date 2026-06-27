@@ -1097,6 +1097,15 @@ S(0) i32 eval(Position *const restrict pos) {
         G(139, phase += initial_params.phases[p];)
         G(139, copy &= copy - 1;)
         G(139, const i32 rank = sq >> 3;)
+
+        // KING RING ATTACKERS: fixed here (before every G(93) block) so the
+        // permuter can't reorder a block between this and its uses.
+        const u64 mobility =
+            p > Pawn ? get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq)) : 0;
+        const u64 king_attackers =
+            p == Pawn ? (G(149, northeast(piece_bb)) | G(149, northwest(piece_bb)))
+                      : mobility;
+
         G(
             93, // OPEN FILES / DOUBLED PAWNS
             if ((G(141, north(in_front)) & G(141, pawns[0])) == 0) {
@@ -1118,10 +1127,6 @@ S(0) i32 eval(Position *const restrict pos) {
           score +=
           eval_params
               .pst_rank[G(147, G(148, (p - 1)) * G(148, 8)) + G(147, rank)];)
-
-        // PAWN KING RING ATTACKERS
-        u64 king_attackers =
-            G(149, northeast(piece_bb)) | G(149, northwest(piece_bb));
 
         G(
             93, // PASSED PAWNS
@@ -1150,12 +1155,12 @@ S(0) i32 eval(Position *const restrict pos) {
               }
             })
 
-        // PIECES ATTACKING KING RING
-        if (p < King) {
-          king_attack +=
-              G(168, count(G(169, king_attackers) & G(169, opp_king_zone))) *
-              G(168, eval_params.king_attacks[p - 1]);
-        }
+        G(93, // KING RING ATTACK
+          if (p < King) {
+            king_attack +=
+                G(168, count(G(169, king_attackers) & G(169, opp_king_zone))) *
+                G(168, eval_params.king_attacks[p - 1]);
+          })
 
         G(
             93, if (p > Pawn) {
@@ -1166,16 +1171,11 @@ S(0) i32 eval(Position *const restrict pos) {
                     score += eval_params.pawn_threat[p - 2];
                   })
 
-              G(150, const u64 mobility =
-                         get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
-
-                king_attackers = mobility;
-
-                G(165, // MOBILITY
-                  score +=
-                  G(166, count(G(167, ~pos->colour[0]) & G(167, mobility) &
-                               G(167, ~attacked_by_pawns))) *
-                  G(166, eval_params.mobilities[p - 2]);))
+              G(150, G(165, // MOBILITY
+                score +=
+                G(166, count(G(167, ~pos->colour[0]) & G(167, mobility) &
+                             G(167, ~attacked_by_pawns))) *
+                G(166, eval_params.mobilities[p - 2]);))
 
               G(
                   150, // KING SHIELD
