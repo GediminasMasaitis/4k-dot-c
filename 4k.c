@@ -1119,9 +1119,15 @@ S(0) i32 eval(Position *const restrict pos) {
         G(93, // MATERIAL
           score += eval_params.material[p];)
 
-        // PAWN KING RING ATTACKERS
-        u64 king_attackers =
-            G(902, northeast(piece_bb)) | G(902, northwest(piece_bb));
+        G(
+            93, // PAWNS ATTACKING KING RING
+            if (p == Pawn) {
+              king_attack +=
+                  G(900, count(G(901, (G(902, northeast(piece_bb)) |
+                                       G(902, northwest(piece_bb)))) &
+                               G(901, opp_king_zone))) *
+                  G(900, eval_params.king_attacks[0]);
+            })
 
         G(
             93, if (p > Pawn) {
@@ -1164,24 +1170,23 @@ S(0) i32 eval(Position *const restrict pos) {
                                     G(162, eval_params.king_shield[1]);)
                   })
 
-              G(155, const u64 mobility =
-                         get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
+              G(
+                  155, const u64 mobility = get_mobility(
+                           H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
 
-                king_attackers = mobility;
+                  // PIECES ATTACKING KING RING
+                  if (p < King) {
+                    king_attack += G(903, count(G(904, mobility) &
+                                                G(904, opp_king_zone))) *
+                                   G(903, eval_params.king_attacks[p - 1]);
+                  }
 
-                G(170, // MOBILITY
-                  score +=
-                  G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
-                               G(172, ~attacked_by_pawns))) *
-                  G(171, eval_params.mobilities[p - 2]);))
+                  G(170, // MOBILITY
+                    score +=
+                    G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
+                                 G(172, ~attacked_by_pawns))) *
+                    G(171, eval_params.mobilities[p - 2]);))
             })
-
-        // PIECES ATTACKING KING RING
-        if (p < King) {
-          king_attack +=
-              G(903, count(G(904, king_attackers) & G(904, opp_king_zone))) *
-              G(903, eval_params.king_attacks[p - 1]);
-        }
 
         G(
             93, // PASSED PAWNS
