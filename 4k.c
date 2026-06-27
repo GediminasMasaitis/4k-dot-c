@@ -938,7 +938,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(118, 1, i8 king_attacks[5];) H(118, 1, i8 pst_rank[48];)
-        H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;)
+        H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 pawn_protection[6];)
             H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 bishop_pair;))
   H(116, 1,
     H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 pawn_threat[5];)
@@ -954,7 +954,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(118, 2, i32 king_attacks[5];) H(118, 2, i32 pst_rank[48];)
-        H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;)
+        H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 pawn_protection[6];)
             H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 bishop_pair;))
   H(116, 2,
     H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 pawn_threat[5];)
@@ -1005,7 +1005,7 @@ G(121, // EVAL PARAMETERS
                  .passed_pawns = {-8, -1, 11, 42, 78, 127},
                  .passed_blocked_pawns = {1, -4, -2, 5, 3, -48},
                  .passed_king_distance = {-1, -2},
-                 .protected_pawn = 16,
+                 .pawn_protection = {16, 0, 0, 0, 0, 0},
                  .phalanx_pawn = 9,
                  .bishop_pair = 27,
                  .bishop_pawns = {-5, -5},
@@ -1038,7 +1038,7 @@ G(121, // EVAL PARAMETERS
                  .passed_pawns = {15, 3, 21, 49, 101, 94},
                  .passed_blocked_pawns = {-10, -2, -13, -32, -68, -70},
                  .passed_king_distance = {-5, 9},
-                 .protected_pawn = 17,
+                 .pawn_protection = {17, 0, 0, 0, 0, 0},
                  .phalanx_pawn = 15,
                  .bishop_pair = 61,
                  .bishop_pawns = {-11, -1},
@@ -1067,16 +1067,13 @@ S(0) i32 eval(Position *const restrict pos) {
           pawns[i] = G(128, pos->colour[i]) & G(128, pos->pieces[Pawn]);
         } const u64 attacked_by_pawns = G(129, southwest(pawns[1])) |
                                         G(129, southeast(pawns[1]));
+        const u64 protected_by_pawns = northwest(pawns[0]) | northeast(pawns[0]);
         G(130,
           const u64 no_passers = G(131, pawns[1]) | G(131, attacked_by_pawns);)
             G(130, // PHALANX PAWNS
               score -=
               G(132, eval_params.phalanx_pawn) *
-              G(132, count(G(133, pawns[1]) & G(133, west(pawns[1]))));)
-                G(130, // PROTECTED PAWNS
-                  score -=
-                  G(134, eval_params.protected_pawn) *
-                  G(134, count(G(135, pawns[1]) & G(135, attacked_by_pawns)));))
+              G(132, count(G(133, pawns[1]) & G(133, west(pawns[1]))));))
     G(
         125, // BISHOP PAIR
         if (count(G(126, pos->pieces[Bishop]) & G(126, pos->colour[0])) > 1) {
@@ -1113,6 +1110,11 @@ S(0) i32 eval(Position *const restrict pos) {
 
         G(93, // MATERIAL
           score += eval_params.material[p];)
+
+        // PROTECTED BY PAWNS (all piece types)
+        if (piece_bb & protected_by_pawns) {
+          score += eval_params.pawn_protection[p - 1];
+        }
 
         G(
             93, if (p > Pawn) {
