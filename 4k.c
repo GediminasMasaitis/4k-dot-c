@@ -385,9 +385,9 @@ G(
 
 G(
     16, [[nodiscard]] S(1) u64 southwest(const u64 bb) {
-      return G(23, G(24, south)(G(24, west)(bb)));
       return G(23, shift(H(10, 5, -9), H(10, 5, ~0x8080808080808080ull),
                          H(10, 5, bb)));
+      return G(23, G(24, south)(G(24, west)(bb)));
     })
 
 G(25, S(1) u64 diag_mask[64];)
@@ -417,7 +417,7 @@ G(
 
 G(
     32, [[nodiscard]] S(0) u64 king(const u64 bb) {
-      const u64 vertical = G(33, south(bb)) | G(33, north(bb));
+      const u64 vertical = G(33, north(bb)) | G(33, south(bb));
       const u64 vertical_inclusive = G(34, bb) | G(34, vertical);
       return G(35, vertical) | G(35, east(vertical_inclusive)) |
              G(35, west(vertical_inclusive));
@@ -485,9 +485,9 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[4] = "\0\0nbrq"[move->promo];)
-
       G(51, str[5] = '\0';)
+
+      G(51, str[4] = "\0\0nbrq"[move->promo];)
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
@@ -541,17 +541,17 @@ G(
 
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
-      G(67, pos->flipped ^= 1;)
       G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
         pos->colour[0] ^= pos->colour[1];)
+      G(67, u32 *c = (u32 *)pos->castling;
+        *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
 
       G(
           67, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-      G(67, u32 *c = (u32 *)pos->castling;
-        *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
+      G(67, pos->flipped ^= 1;)
     })
 
 G(
@@ -1059,8 +1059,10 @@ S(0) i32 eval(Position *const restrict pos) {
 
   for (i32 c = 0; c < 2; c++) {
 
-    G(125, const u64 opp_king_zone =
-               king(G(126, pos->pieces[King]) & G(126, pos->colour[1]));)
+    G(125, // KING ATTACK RING
+      i32 king_attack =
+          G(127, eval_params.king_attacks[5]) *
+          G(127, !(G(128, pos->colour[0]) & G(128, pos->pieces[Queen])));)
 
     G(
         125, // BISHOP PAIR
@@ -1068,10 +1070,8 @@ S(0) i32 eval(Position *const restrict pos) {
           score += eval_params.bishop_pair;
         })
 
-    G(125, // KING ATTACK RING
-      i32 king_attack =
-          G(127, eval_params.king_attacks[5]) *
-          G(127, !(G(128, pos->colour[0]) & G(128, pos->pieces[Queen])));)
+    G(125, const u64 opp_king_zone =
+               king(G(126, pos->pieces[King]) & G(126, pos->colour[1]));)
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
           pawns[i] = G(129, pos->colour[i]) & G(129, pos->pieces[Pawn]);
@@ -1091,42 +1091,22 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(138, pos->colour[0]) & G(138, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(139, const u64 piece_bb = 1ULL << sq;)
-        G(139, const i32 file = G(140, sq) & G(140, 7);)
         G(139, const u64 in_front = 0x101010101010101ULL << sq;)
-        G(139, phase += initial_params.phases[p];)
-        G(139, copy &= copy - 1;)
+        G(139, const u64 piece_bb = 1ULL << sq;)
         G(139, const i32 rank = sq >> 3;)
+        G(139, copy &= copy - 1;)
+        G(139, const i32 file = G(140, sq) & G(140, 7);)
+        G(139, phase += initial_params.phases[p];)
 
-        // KING RING ATTACKERS: fixed here (before every G(93) block) so the
+        // KING RING ATTACKERS: fixed here (before every G(93, ) block) so the
         // permuter can't reorder a block between this and its uses.
         const u64 mobility =
-            p > Pawn ? get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq)) : 0;
+            p > Pawn ? get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq))
+                     : 0;
         const u64 king_attackers =
-            p == Pawn ? (G(149, northeast(piece_bb)) | G(149, northwest(piece_bb)))
-                      : mobility;
-
-        G(
-            93, // OPEN FILES / DOUBLED PAWNS
-            if ((G(141, north(in_front)) & G(141, pawns[0])) == 0) {
-              score +=
-                  eval_params.open_files[G(142, G(143, !(G(144, in_front) &
-                                                         G(144, pawns[1]))) *
-                                                    G(143, 6)) +
-                                         G(142, -1) + G(142, p)];
-            })
-
-        G(93, // MATERIAL
-          score += eval_params.material[p];)
-        G(93, // SPLIT PIECE-SQUARE TABLES FOR FILE
-          score +=
-          eval_params
-              .pst_file[G(145, G(146, (p - 1)) * G(146, 8)) + G(145, file)];)
-
-        G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
-          score +=
-          eval_params
-              .pst_rank[G(147, G(148, (p - 1)) * G(148, 8)) + G(147, rank)];)
+            p == Pawn
+                ? (G(149, northeast(piece_bb)) | G(149, northwest(piece_bb)))
+                : mobility;
 
         G(
             93, // PASSED PAWNS
@@ -1155,12 +1135,32 @@ S(0) i32 eval(Position *const restrict pos) {
               }
             })
 
-        G(93, // KING RING ATTACK
-          if (p < King) {
-            king_attack +=
-                G(168, count(G(169, king_attackers) & G(169, opp_king_zone))) *
-                G(168, eval_params.king_attacks[p - 1]);
-          })
+        G(93, // SPLIT PIECE-SQUARE TABLES FOR FILE
+          score +=
+          eval_params
+              .pst_file[G(145, G(146, (p - 1)) * G(146, 8)) + G(145, file)];)
+        G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
+          score +=
+          eval_params
+              .pst_rank[G(147, G(148, (p - 1)) * G(148, 8)) + G(147, rank)];)
+
+        G(
+            93, // OPEN FILES / DOUBLED PAWNS
+            if ((G(141, north(in_front)) & G(141, pawns[0])) == 0) {
+              score +=
+                  eval_params.open_files[G(142, G(143, !(G(144, in_front) &
+                                                         G(144, pawns[1]))) *
+                                                    G(143, 6)) +
+                                         G(142, -1) + G(142, p)];
+            })
+
+        G(
+            93, // KING RING ATTACK
+            if (p < King) {
+              king_attack += G(168, count(G(169, king_attackers) &
+                                          G(169, opp_king_zone))) *
+                             G(168, eval_params.king_attacks[p - 1]);
+            })
 
         G(
             93, if (p > Pawn) {
@@ -1172,10 +1172,10 @@ S(0) i32 eval(Position *const restrict pos) {
                   })
 
               G(150, G(165, // MOBILITY
-                score +=
-                G(166, count(G(167, ~pos->colour[0]) & G(167, mobility) &
-                             G(167, ~attacked_by_pawns))) *
-                G(166, eval_params.mobilities[p - 2]);))
+                       score +=
+                       G(166, count(G(167, ~pos->colour[0]) & G(167, mobility) &
+                                    G(167, ~attacked_by_pawns))) *
+                       G(166, eval_params.mobilities[p - 2]);))
 
               G(
                   150, // KING SHIELD
@@ -1209,6 +1209,9 @@ S(0) i32 eval(Position *const restrict pos) {
                     }
                   })
             })
+
+        G(93, // MATERIAL
+          score += eval_params.material[p];)
       }
     }
 
