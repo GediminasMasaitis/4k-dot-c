@@ -1259,6 +1259,7 @@ typedef struct [[nodiscard]] {
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[2][corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
+  i32 pos_history_count;
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1378,7 +1379,8 @@ i32 search(
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (i32 i = G(189, ply); G(190, i >= 0) && G(190, do_null); i -= 2) {
+  for (i32 i = G(189, ply) + data->pos_history_count;
+       G(190, i >= 0) && G(190, do_null); i -= 2) {
     if (G(191, tt_hash) == G(191, stack[i].position_hash)) {
       return 0;
     }
@@ -1469,7 +1471,8 @@ i32 search(
     stack[ply].num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(213, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(213, stack[G(214, ply) + G(214, 2)].position_hash = tt_hash;)
+  G(213, stack[data->pos_history_count + G(214, ply) + G(214, 2)].position_hash =
+             tt_hash;)
   G(213, u8 tt_flag = Upper;)
   G(213, i32 quiets_evaluated = 0;)
   G(213, i32 moves_evaluated = 0;)
@@ -2205,6 +2208,7 @@ S(1) void run() {
       bg_stop();
 #endif
           G(265, main_data->pos = start_pos;)
+          main_data->pos_history_count = 0;
 #ifdef FULL
         pv_hist_len = 0;
 #endif
@@ -2238,6 +2242,12 @@ S(1) void run() {
                 pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
               }
 #endif
+                  main_data->stack[main_data->pos_history_count].position_hash =
+                      get_hash(&main_data->pos);
+                  main_data->pos_history_count++;
+                  if (moves[i].takes_piece) {
+                    main_data->pos_history_count = 0;
+                  }
                   makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
                   break;
                 }
