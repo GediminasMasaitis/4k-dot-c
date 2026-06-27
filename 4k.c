@@ -1229,7 +1229,7 @@ enum { thread_count = 1 };
 #else
 static i32 thread_count = 1;
 #endif
-enum { thread_stack_size = 1024 * 1024 };
+enum { thread_stack_size = 4 * 1024 * 1024 };
 enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
@@ -1238,6 +1238,8 @@ typedef struct [[nodiscard]] {
   G(119, Move killer;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
+  i32 cont_piece;
+  i32 cont_to;
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1259,6 +1261,7 @@ typedef struct [[nodiscard]] {
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[2][corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
+  i32 conthist[2][7][64][7][64];
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1452,6 +1455,8 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
+      stack[ply].cont_piece = None;
+      stack[ply].cont_to = 0;
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1474,6 +1479,15 @@ i32 search(
   G(213, i32 quiets_evaluated = 0;)
   G(213, i32 moves_evaluated = 0;)
 
+  // CONTINUATION HISTORY SETUP
+  i32 prev_piece = ply ? stack[ply - 1].cont_piece : None;
+  i32 prev_to = ply ? stack[ply - 1].cont_to : 0;
+  i32 (*cont)[64] = data->conthist[pos->flipped][prev_piece][prev_to];
+  u8 movers[max_moves];
+  for (i32 i = 0; i < stack[ply].num_moves; i++) {
+    movers[i] = piece_on(pos, moves[i].from);
+  }
+
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
     G(215, i32 move_score = ~0x1010101LL;)
@@ -1495,7 +1509,9 @@ i32 search(
           G(187, // KILLER MOVE
             G(216, move_equal(G(217, &moves[order_index]),
                               G(217, &stack[ply].killer))) *
-                G(216, 819));
+                G(216, 819)) +
+          // CONTINUATION HISTORY
+          cont[movers[order_index]][moves[order_index].to];
       if (order_move_score > move_score) {
         G(220, best_index = order_index;)
         G(220, move_score = order_move_score;)
@@ -1503,6 +1519,9 @@ i32 search(
     }
 
     swapmoves(G(221, &moves[move_index]), G(221, &moves[best_index]));
+    u8 mover_tmp = movers[move_index];
+    movers[move_index] = movers[best_index];
+    movers[best_index] = mover_tmp;
 
     G(
         222, // MOVE SCORE PRUNING
@@ -1539,6 +1558,10 @@ i32 search(
                               G(229, (G(230, alpha) == G(230, beta - 1))) +
                               G(229, moves_evaluated / 9)
                         : 0;
+
+    // CONTINUATION HISTORY: record move played for child
+    stack[ply].cont_piece = movers[move_index];
+    stack[ply].cont_to = moves[move_index].to;
 
     i32 score;
     while (true) {
@@ -1595,6 +1618,9 @@ i32 search(
 
                   *this_hist +=
                   bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                i32 *const this_cont =
+                    &cont[movers[move_index]][moves[move_index].to];
+                *this_cont += bonus - bonus * *this_cont / 1024;
                 G(
                     234, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1604,6 +1630,9 @@ i32 search(
                                        [prev.from][prev.to];
                       *prev_hist -=
                           bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                      i32 *const prev_cont =
+                          &cont[movers[prev_index]][prev.to];
+                      *prev_cont -= bonus + bonus * *prev_cont / 1024;
                     })
               })
           break;
