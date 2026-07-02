@@ -1225,7 +1225,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1812,11 +1812,11 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    i32 delta = 16;
-    i32 alpha = depth > 3 ? score - delta : -inf;
-    i32 beta = depth > 3 ? score + delta : inf;
-    i32 reduction = 0;
-    size_t elapsed;
+    G(254, i32 delta = 16;)
+    G(254, i32 reduction = 0;)
+    G(254, size_t elapsed;)
+    G(255, i32 alpha = depth > 3 ? score - delta : -inf;)
+    G(255, i32 beta = depth > 3 ? score + delta : inf;)
     while (true) {
       i32 search_depth = depth - reduction;
       if (search_depth < 1) {
@@ -1826,7 +1826,9 @@ void iteratively_deepen(
 #ifdef FULL
           &data->nodes,
 #endif
-          &data->pos, beta, search_depth, data, 0, false, alpha);
+          H(186, 4, H(187, 4, &data->pos), H(187, 4, beta),
+            H(187, 4, search_depth), H(187, 4, data)),
+          H(186, 4, H(188, 4, 0), H(188, 4, false), H(188, 4, alpha)));
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
@@ -1837,15 +1839,13 @@ void iteratively_deepen(
       if (elapsed > data->max_time) {
         break;
       }
-      if (score <= alpha) {
+      if (H(259, 1, score <= alpha)) {
         // Fail low: widen down, pull the top of the window toward the middle
-        beta = (alpha + beta) / 2;
-        alpha = score - delta;
-        reduction = 0;
-      } else if (score >= beta) {
+        H(259, 2, beta = (G(256, alpha) + G(256, beta)) / 2;
+          G(257, alpha = score - delta;) G(257, reduction = 0;))
+      } else if (H(259, 1, score >= beta)) {
         // Fail high: widen up, reduce depth to resolve faster
-        beta = score + delta;
-        reduction++;
+        H(259, 2, G(258, beta = score + delta;) G(258, reduction++;))
       } else {
         break;
       }
