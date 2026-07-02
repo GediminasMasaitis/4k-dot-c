@@ -1812,18 +1812,21 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(254, i32 window = 16;)
-    G(254, size_t elapsed;)
+    i32 delta = 16;
+    i32 alpha = depth > 3 ? score - delta : -inf;
+    i32 beta = depth > 3 ? score + delta : inf;
+    i32 reduction = 0;
+    size_t elapsed;
     while (true) {
-      G(255, const i32 alpha = score - window;)
-      G(255, const i32 beta = G(256, score) + G(256, window);)
+      i32 search_depth = depth - reduction;
+      if (search_depth < 1) {
+        search_depth = 1;
+      }
       score = search(
 #ifdef FULL
           &data->nodes,
 #endif
-          H(186, 4, H(187, 4, &data->pos), H(187, 4, beta), H(187, 4, depth),
-            H(187, 4, data)),
-          H(186, 4, H(188, 4, 0), H(188, 4, false), H(188, 4, alpha)));
+          &data->pos, beta, search_depth, data, 0, false, alpha);
 #ifdef FULL
       if (data->thread_id == 0) {
         print_info(&data->pos, depth, alpha, beta, score, data->nodes,
@@ -1831,12 +1834,22 @@ void iteratively_deepen(
       }
 #endif
       elapsed = get_time() - start_time;
-      G(257, window *= 2;)
-      G(
-          257, if (G(258, elapsed > data->max_time) ||
-                   G(258, (G(259, score > alpha) && G(259, score < beta)))) {
-            break;
-          })
+      if (elapsed > data->max_time) {
+        break;
+      }
+      if (score <= alpha) {
+        // Fail low: widen down, pull the top of the window toward the middle
+        beta = (alpha + beta) / 2;
+        alpha = score - delta;
+        reduction = 0;
+      } else if (score >= beta) {
+        // Fail high: widen up, reduce depth to resolve faster
+        beta = score + delta;
+        reduction++;
+      } else {
+        break;
+      }
+      delta *= 2;
     }
 
     if (stop || elapsed > data->max_time / 14) {
