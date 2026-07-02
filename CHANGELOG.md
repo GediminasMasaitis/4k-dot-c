@@ -10735,3 +10735,13 @@ Games | N: 1820 W: 544 L: 458 D: 818
 Penta | [29, 201, 373, 269, 38]
 https://gedas.pythonanywhere.com/test/1885/
 ```
+
+### 9.26
+* Top-bits slot index, table at 0x80000000, stc+rcr addressing
+* Drop unused num_models header byte, derive count from wmask
+
+4 threads: 3983 bytes (-6)
+MD5: e3f9937ac6fccb53a48e0b166a9f06f2
+
+1 thread: 3958 bytes (-6)
+MD5: 75261cf5ebfa82a2c6bbe63a270b1d6e

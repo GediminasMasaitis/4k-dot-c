@@ -59,12 +59,12 @@ decompress4kc:
     db      1, 0, 0, 0
 .wz:mov     [rsp+116+rcx*8], edx
     mov     ebx, eax
-    mov     bl, [rdi+7+rcx]
+    mov     bl, [rdi+6+rcx]
     mov     [rsp+120+rcx*8], ebx
     inc     ecx
     jmp     .wl
 .wd:mov     r13d, ecx
-    lea     r8, [rdi+r13+7]
+    lea     r8, [rdi+r13+6]
     push    1
     pop     rbp
 .body:
@@ -91,20 +91,28 @@ decompress4kc:
     jc      .hash
     jnz     .next
 
-.hr:shl     eax, 32 - DIRECT_BITS
-    shr     eax, 31 - DIRECT_BITS
-    lea     ecx, [rax+0x800000]
-.po:mov     [rsp+28+rdx*4], ecx
-    movzx   eax, byte [rcx]
-    movzx   edi, byte [rcx+1]
+; Slot index = top DIRECT_BITS bits of the hash; table base = 0x80000000 so
+; the base bit is OR'd in for free (max addr stays < 4 GB for <= 30 bits).
+%if DIRECT_BITS == 30
+.hr:and     al, 0xFD                     ; clear bit 1: keep slot 2-byte aligned
+    stc
+    rcr     eax, 1                       ; addr = 0x80000000 | ((hash & ~2) >> 1)
+%else
+.hr:shr     eax, 31 - DIRECT_BITS
+    and     al, 0xFE
+    bts     eax, 31
+%endif
+.po:mov     [rsp+28+rdx*4], eax
+    movzx   esi, byte [rax]
+    movzx   edi, byte [rax+1]
     mov     ecx, [rsp+rdx*8+108]
-    test    al, al
+    test    esi, esi
     jz      .bo
     test    edi, edi
     jnz     .nb
 .bo:add     ecx, 2
-.nb:shl     eax, cl
-    add     r11d, eax
+.nb:shl     esi, cl
+    add     r11d, esi
     shl     edi, cl
     add     ebx, edi
     dec     edx

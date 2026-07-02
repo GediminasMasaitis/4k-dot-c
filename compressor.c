@@ -40,8 +40,23 @@ static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
 static int large_field = 0;
 
 static int hdr_bitlen_bytes(void) { return large_field ? 4 : 2; }
-static int hdr_num_off(void) { return large_field ? 8 : 6; }
-static int hdr_base_bytes(void) { return large_field ? 9 : 7; }
+static int hdr_base_bytes(void) { return large_field ? 8 : 6; }
+
+/* The model count is not stored in the header; recover it by replaying the
+   loader's wmask consumption: bits MSB-first, a 0 bit stores a model, a 1 bit
+   bumps the weight, and the field ends when the register hits zero. */
+static int wmask_num_models(unsigned int w) {
+  int num = 0;
+  for (;;) {
+    unsigned int bit = w & 0x80000000u;
+    w <<= 1;
+    if (!w)
+      break;
+    if (!bit)
+      num++;
+  }
+  return num;
+}
 
 typedef struct {
   unsigned char weight;
@@ -640,7 +655,7 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
     for (int m = 0; m < num; m++) {
       unsigned int h = hb->hashes[hpos++];
-      unsigned char *e = &dt[2u * (h & dmask)];
+      unsigned char *e = &dt[2u * (h >> (32 - direct_bits))];
       unsigned int shift =
           (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + hb->weights[m];
       probs[0] += (unsigned)e[0] << shift;
@@ -711,7 +726,7 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
   unsigned int stored_wmask;
   memcpy(&stored_wmask, cdata + hdr_bitlen_bytes(),
          4); /* wmask follows bitlen */
-  int num = cdata[hdr_num_off()];
+  int num = wmask_num_models(stored_wmask);
   int data_bytes = (bitlen - 1) / 8;
 
   unsigned char ctx_masks[MAX_SEARCH];
@@ -743,7 +758,7 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
     for (int m = 0; m < num; m++) {
       unsigned int h = (bp == 0) ? ctx_hash_initial(ext_masks[m])
                                  : ctx_hash(dp, bp - 1, ext_masks[m]);
-      unsigned char *e = &dt[2u * (h & dmask)];
+      unsigned char *e = &dt[2u * (h >> (32 - direct_bits))];
       unsigned int shift =
           (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + weights[m];
       probs[0] += (unsigned)e[0] << shift;
@@ -1222,7 +1237,9 @@ int main(int argc, char *argv[]) {
 
     int bitlen = 0;
     memcpy(&bitlen, data, hdr_bitlen_bytes()); /* 2 or 4 little-endian bytes */
-    int num_models = data[hdr_num_off()];
+    unsigned int wm;
+    memcpy(&wm, data + hdr_bitlen_bytes(), 4);
+    int num_models = wmask_num_models(wm);
 
     if (bitlen < 1 || hdr_base_bytes() + num_models > data_size) {
       fprintf(stderr, "Corrupt header (bitlen=%d, models=%d, filesize=%d)\n",
@@ -1349,11 +1366,10 @@ int main(int argc, char *argv[]) {
   printf("Search time: %.1f ms\n", search_ms);
   printf("Encode time: %.3f ms/iter (reps=%d)\n", g_encode_ms, timing_reps);
 
-  unsigned char header[9];
+  unsigned char header[8];
   unsigned int bl = (unsigned int)bitlen;
   memcpy(header, &bl, hdr_bitlen_bytes());        /* bitlen: 2 or 4 bytes */
   memcpy(header + hdr_bitlen_bytes(), &wmask, 4); /* wmask follows bitlen */
-  header[hdr_num_off()] = ml.num_models;
 
   FILE *fout = fopen(output_file, "wb");
   if (!fout) {
