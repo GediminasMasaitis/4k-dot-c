@@ -1230,7 +1230,7 @@ enum { thread_count = 1 };
 static i32 thread_count = 1;
 #endif
 enum { thread_stack_size = 1024 * 1024 };
-enum { corrhist_size = 16384 };
+enum { corrhist_size = 1024 * 64 };
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
@@ -1353,7 +1353,7 @@ get_hash(const Position *const pos) {
 }
 
 [[nodiscard]] S(1) u64 get_pawn_hash(const Position *const pos) {
-  return (G(185, pos->pieces[Pawn]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 50;
+  return (G(185, pos->pieces[Pawn]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
 }
 
 S(1)
