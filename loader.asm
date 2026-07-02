@@ -16,10 +16,10 @@ org 0x300000
 %define PAYLOAD_DEST 0x400000
 
 ; Stack layout for up to 21 models (284 bytes):
-;   [rsp+0]   output ptr (from push)
-;   [rsp+28]  pr1               (pr0 is held in r11d)
-;   [rsp+32]  ent[21]     (84 bytes, disp8, 4B stride)
-;   [rsp+116] wc[21]      (168 bytes, disp8, 8B stride: weight@+0, cmask@+4)
+;   [rsp+24]  ent[21]     (84 bytes, disp8, 4B stride)
+;   [rsp+108] wc[21]      (168 bytes, disp8, 8B stride: weight@+0, cmask@+4)
+;   (.wl stores run with rsp 8 lower from the range-seed push, hence its
+;    displacements are +8 relative to the body's)
 ; Registers: r9=output_ptr, r10=output_end, r11=pr0, r13=num_models
 ;            r8=compressed_ptr, r14=bitpos, r15=code, ebp=range, ebx=pr1
 
@@ -36,7 +36,9 @@ _entry:
     dq      0x31
 _c:
     movzx   r10d, word [rdi]
-    mov     eax, [rdi+2]
+    mov     ebp, [rdi+2]    ; wmask decodes in ebp so rax keeps 0x3e0002 (a
+                            ; mapped RWX pointer): the phdr islands below then
+                            ; execute as harmless add [rax], reg
     jmp     short _d
 phdr:
     db      1, 0, 0, 0
@@ -47,25 +49,25 @@ phdr:
     dq      0x300000
 _d:
 decompress4kc:
+    push    1               ; range seed, popped at .wd
 .wl:
-.wo:add     eax, eax
+.wo:add     ebp, ebp
     jz      .wd
     jnc     .wz
-    jmp     short .cont
-    dq      filesize
-.cont:
+    ; p_filesz, page-rounded: bytes 00 X0 00.. execute as add [rax], reg,
+    ; so the weight-increment path falls straight through the field
+    dq      (filesize + 4095) & ~4095
     inc     edx
     jmp     .wo
     db      1, 0, 0, 0
 .wz:mov     [rsp+116+rcx*8], edx
-    mov     ebx, eax
+    mov     ebx, ebp
     mov     bl, [rdi+6+rcx]
     mov     [rsp+120+rcx*8], ebx
     inc     ecx
     jmp     .wl
 .wd:mov     r13d, ecx
     lea     r8, [rdi+r13+6]
-    push    1
     pop     rbp
 .body:
     jmp     short .re
@@ -80,7 +82,7 @@ decompress4kc:
     mov     r11d, ebx
     mov     edx, r13d
 .mdl:
-    mov     eax, [rsp+rdx*8+112]
+    mov     eax, [rsp+rdx*8+104]
     mov     cl, al
     mov     esi, r9d
 .hash:
@@ -102,10 +104,10 @@ decompress4kc:
     and     al, 0xFE
     bts     eax, 31
 %endif
-.po:mov     [rsp+28+rdx*4], eax
+.po:mov     [rsp+20+rdx*4], eax
     movzx   esi, byte [rax]
     movzx   edi, byte [rax+1]
-    mov     ecx, [rsp+rdx*8+108]
+    mov     ecx, [rsp+rdx*8+100]
     test    esi, esi
     jz      .bo
     test    edi, edi
@@ -133,7 +135,7 @@ decompress4kc:
 .rd:lea     esi, [rdi+1]
     neg     edi
     mov     ecx, r13d
-.ul:mov     eax, [rsp+28+rcx*4]
+.ul:mov     eax, [rsp+20+rcx*4]
     inc     byte [rax+rdi]
     shr     byte [rax+rsi], 1
     jnz     .nh

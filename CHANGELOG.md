@@ -10745,3 +10745,12 @@ MD5: e3f9937ac6fccb53a48e0b166a9f06f2
 
 1 thread: 3958 bytes (-6)
 MD5: 75261cf5ebfa82a2c6bbe63a270b1d6e
+
+### 9.27
+Fall through p_filesz in loader
+
+4 threads: 3981 bytes (-2)
+MD5: ffe10cc39dc186a5a0a3d7329142bc44
+
+1 thread: 3956 bytes (-2)
+MD5: f2307c015ef882163eca636ac80d4f5a
