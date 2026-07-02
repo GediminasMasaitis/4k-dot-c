@@ -23,6 +23,9 @@ num_runs = 999
 use_compression = True
 compress_bprob = 10
 compress_direct_bits = 30
+use_score_server = True   # persistent compressor processes (-S) instead of
+                          # spawning one per iteration
+score_server_count = 4    # each pins a 2^direct_bits-slot table (2 GB at 30)
 enable_source_cache = True
 persist_source_cache = True
 enable_asm_cache = True
@@ -178,6 +181,69 @@ def _save_cache(cache, lock, path, persist):
 source_cache = _load_cache(SOURCE_CACHE_PATH, 'source', persist_source_cache)
 asm_cache = _load_cache(ASM_CACHE_PATH, 'asm', persist_asm_cache)
 binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary', persist_binary_cache)
+
+# =============================================
+# Score server pool (persistent ./compressor -S processes)
+# =============================================
+class ScoreServer:
+    def __init__(self):
+        self.proc = None
+
+    def _start(self):
+        self.proc = subprocess.Popen(
+            ['./compressor', '-S', '-b', str(compress_bprob),
+             '-H', str(compress_direct_bits)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            text=True, bufsize=1)
+
+    def score(self, path):
+        """Exact compressed size in bits (identical to the 'Compressed: N
+        bytes M bits' integer the standalone compressor prints)."""
+        for attempt in range(2):
+            if self.proc is None or self.proc.poll() is not None:
+                self._start()
+            try:
+                self.proc.stdin.write(f'score {path}\n')
+                self.proc.stdin.flush()
+                line = self.proc.stdout.readline().strip()
+            except (BrokenPipeError, OSError):
+                line = ''
+            if line.startswith('bits '):
+                return int(line.split()[1])
+            if line.startswith('err'):
+                raise RuntimeError(f'score server: {line!r} for {path}')
+            # No reply: server died — restart and retry once
+            try:
+                self.proc.kill()
+            except Exception:
+                pass
+            self.proc = None
+        raise RuntimeError(f'score server failed twice for {path}')
+
+    def stop(self):
+        if self.proc is not None and self.proc.poll() is None:
+            try:
+                self.proc.stdin.write('quit\n')
+                self.proc.stdin.flush()
+                self.proc.wait(timeout=5)
+            except Exception:
+                try:
+                    self.proc.kill()
+                except Exception:
+                    pass
+
+score_server_pool = Queue()
+
+def setup_score_servers():
+    for _ in range(score_server_count):
+        score_server_pool.put(ScoreServer())
+
+def shutdown_score_servers():
+    while not score_server_pool.empty():
+        try:
+            score_server_pool.get_nowait().stop()
+        except Exception:
+            break
 
 # =============================================
 # Node classes and parsing (unchanged)
@@ -447,27 +513,35 @@ def run_make_and_get_size(cwd=None, source_content=None):
     else:
         binary_hash = None
 
-    # Step 5: Cache miss — run compressor (paths relative to cwd)
+    # Step 5: Cache miss — score via server pool, or spawn compressor
     exe_rel = './build/4kc'
-    try:
-        proc = subprocess.run(
-            ['./compressor', '-b', str(compress_bprob),
-             '-H', str(compress_direct_bits), '-o', exe_rel + '.paq', exe_rel],
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            check=True
-        )
-    except subprocess.CalledProcessError as e:
-        print("Compressor failed with output:")
-        print(e.output)
-        print("cwd:", cwd)
-        raise
-    m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
-    if not m:
-        raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
-    size = int(m.group(1))
+    if use_score_server:
+        exe_abs = os.path.abspath(os.path.join(cwd or '.', 'build', '4kc'))
+        srv = score_server_pool.get()
+        try:
+            size = srv.score(exe_abs)
+        finally:
+            score_server_pool.put(srv)
+    else:
+        try:
+            proc = subprocess.run(
+                ['./compressor', '-b', str(compress_bprob),
+                 '-H', str(compress_direct_bits), '-o', exe_rel + '.paq', exe_rel],
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print("Compressor failed with output:")
+            print(e.output)
+            print("cwd:", cwd)
+            raise
+        m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
+        if not m:
+            raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
+        size = int(m.group(1))
 
     # Step 6: Store in caches and persist periodically
     if binary_hash is not None:
@@ -954,6 +1028,9 @@ def main():
         print('Building compressor...')
         subprocess.run(['make', 'compressor'], check=True)
         os.chmod('compressor', 0o755)
+        if use_score_server:
+            print(f'Starting {score_server_count} score servers...')
+            setup_score_servers()
 
     setup_workers()
 
@@ -1028,6 +1105,7 @@ def main():
         print_cache_stats()
 
     engine.shutdown()
+    shutdown_score_servers()
 
     print(f'\nAll runs completed. Global best size: {fmt_size(global_best_size)}')
     print_cache_stats()

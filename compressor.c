@@ -38,6 +38,7 @@ static int direct_bits = 24;   /* direct-mapped table of 2^direct_bits 2-byte
 static int timing_reps = 1;    /* repeat the encode pass for stable timing */
 static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
 static int large_field = 0;
+static int serve_mode = 0; /* -S: persistent score server on stdin/stdout */
 
 static int hdr_bitlen_bytes(void) { return large_field ? 4 : 2; }
 static int hdr_base_bytes(void) { return large_field ? 8 : 6; }
@@ -264,7 +265,7 @@ static void arith_encode(ArithCoder *ac, unsigned int p0, unsigned int p1,
   if (bit) {
     unsigned int old_low = ac->low;
     ac->low += thresh;
-    if (ac->low < old_low)
+    if (ac->low < old_low && ac->dest)
       propagate_carry(ac->dest, ac->bit_pos);
     ac->range -= thresh;
   } else {
@@ -272,7 +273,7 @@ static void arith_encode(ArithCoder *ac, unsigned int p0, unsigned int p1,
   }
   while (ac->range < 0x80000000u) {
     ac->bit_pos++;
-    if (ac->low & 0x80000000u)
+    if ((ac->low & 0x80000000u) && ac->dest)
       propagate_carry(ac->dest, ac->bit_pos);
     ac->low <<= 1;
     ac->range <<= 1;
@@ -284,7 +285,8 @@ static int arith_finish(const ArithCoder *ac) {
   if (ac->low > 0) {
     if (ac->low + ac->range - 1 >= ac->low)
       pos++;
-    propagate_carry(ac->dest, pos);
+    if (ac->dest)
+      propagate_carry(ac->dest, pos);
   }
   return pos;
 }
@@ -639,6 +641,13 @@ static HashBitStream compute_hash_stream(const unsigned char *data, int size,
   return out;
 }
 
+/* When set (serve mode), the encoder records the offset of every slot it
+   dirties so score_4k can restore the persistent table to all-zero without
+   a 2^direct_bits memset. */
+static unsigned int *g_touched = NULL;
+static unsigned int g_num_touched = 0;
+static int g_track_touched = 0;
+
 /* Direct-mapped, lossy, no-probing encoder (original Crinkler scheme).
    Table is 2 bytes per slot (prob[0], prob[1]); slot = hash & dmask. Two
    different contexts that map to the same slot silently share a counter. */
@@ -665,6 +674,8 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
     arith_encode(ac, probs[1], probs[0], 1 - bit);
     for (int m = 0; m < num; m++) {
       unsigned char *e = matched[m];
+      if (g_track_touched && !e[0] && !e[1])
+        g_touched[g_num_touched++] = (unsigned int)(e - dt);
       e[bit] += 1;
       if (e[1 - bit] > 1)
         e[1 - bit] >>= 1;
@@ -706,6 +717,51 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
 
   hbs_free(&hb);
   return total;
+}
+
+/* Exact compressed bit count without producing output. The arithmetic coder's
+   bit_pos/low/range evolve independently of the destination buffer (carries
+   only mutate dest), so encoding with dest=NULL yields the identical count.
+   The table persists across calls and is restored to all-zero via the
+   touched-slot list, skipping the per-call 2^direct_bits calloc. */
+static int score_4k(const unsigned char *data, int size, const ModelSet *ml,
+                    int base_prob) {
+  static unsigned char *dt = NULL;
+  static unsigned int touched_cap = 0;
+
+  unsigned char ctx[MAX_CTX] = {};
+  HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
+
+  if (!dt) {
+    size_t dbytes = ((size_t)1 << direct_bits) * 2;
+    dt = (unsigned char *)calloc(dbytes, 1);
+    if (!dt) {
+      fprintf(stderr, "calloc(%zu) failed for direct-mapped table\n", dbytes);
+      exit(1);
+    }
+  }
+  if (touched_cap < hb.hashes_len + 1) {
+    touched_cap = hb.hashes_len + 1;
+    g_touched =
+        (unsigned int *)realloc(g_touched, touched_cap * sizeof(unsigned int));
+  }
+  g_num_touched = 0;
+  g_track_touched = 1;
+
+  ArithCoder ac;
+  arith_init(&ac, NULL);
+  encode_from_stream_direct(&ac, &hb, dt, (1u << direct_bits) - 1u, base_prob);
+  int comp_bits = arith_finish(&ac);
+
+  g_track_touched = 0;
+  for (unsigned int i = 0; i < g_num_touched; i++) {
+    dt[g_touched[i]] = 0;
+    dt[g_touched[i] + 1] = 0;
+  }
+  g_num_touched = 0;
+
+  hbs_free(&hb);
+  return comp_bits;
 }
 
 static unsigned int real_compress_size(const unsigned char *data, int size,
@@ -997,7 +1053,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
     qsort(sets, nsets, sizeof(ModelSet), model_set_cmp);
     if (mask_helped)
       masks_accepted++;
-    if (!verbose) {
+    if (!verbose && !serve_mode) {
       printf("\rCalculating models... %d/%d", mi + 1, 256);
       fflush(stdout);
     }
@@ -1105,6 +1161,9 @@ static void print_usage(const char *prog) {
       "               >~8KB. Not stored in file; pass -L to both compress\n");
   printf("               and decompress\n");
   printf("  -R <n>       Repeat encode pass n times for stable timing\n");
+  printf("  -S           Serve mode: read \"score <path>\" lines on stdin,\n");
+  printf("               reply \"bits <n> models <set>\" per line. Table and\n");
+  printf("               process persist across requests\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
   printf("  -h           Show this help\n");
@@ -1122,7 +1181,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehvL")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehvLS")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1168,6 +1227,9 @@ int main(int argc, char *argv[]) {
     case 'L':
       large_field = 1;
       break;
+    case 'S':
+      serve_mode = 1;
+      break;
     case 'R':
       timing_reps = atoi(optarg);
       if (timing_reps < 1) {
@@ -1200,6 +1262,57 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
+  if (serve_mode) {
+    char line[4096];
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    while (fgets(line, sizeof(line), stdin)) {
+      line[strcspn(line, "\r\n")] = 0;
+      if (!strcmp(line, "quit"))
+        break;
+      if (strncmp(line, "score ", 6) != 0) {
+        printf("err unknown command\n");
+        continue;
+      }
+      const char *path = line + 6;
+      int data_size;
+      unsigned char *data = read_file(path, &data_size);
+      if (!data) {
+        printf("err read '%s'\n", path);
+        continue;
+      }
+      if (!large_field && data_size * 8 + 1 > 65535) {
+        printf("err input too large for 16-bit bitlength; use -L\n");
+        free(data);
+        continue;
+      }
+
+      unsigned char ctx[MAX_CTX] = {};
+      int est_size = 0;
+      ModelSet ml;
+      if (have_explicit_models) {
+        ml = explicit_models;
+      } else {
+        ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
+                                &est_size, NULL);
+        for (int pass = 2; pass <= max_passes; pass++) {
+          int prev_size = est_size;
+          ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
+                                  &est_size, &ml);
+          if (est_size >= prev_size)
+            break;
+        }
+      }
+
+      int comp_bits = score_4k(data, data_size, &ml, base_prob);
+      int total_bits = (hdr_base_bytes() + ml.num_models) * 8 + comp_bits;
+      char setbuf[512] = "";
+      model_set_sprint(&ml, setbuf, sizeof(setbuf));
+      printf("bits %d models %s\n", total_bits, setbuf);
+      free(data);
+    }
+    return 0;
+  }
+
   if (optind >= argc) {
     fprintf(stderr, "Error: no input file specified\n");
     print_usage(argv[0]);
