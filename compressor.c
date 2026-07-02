@@ -39,6 +39,7 @@ static int direct_bits = 24;   /* direct-mapped table of 2^direct_bits 2-byte
 static int timing_reps = 1;    /* repeat the encode pass for stable timing */
 static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
 static int large_field = 0;
+static int exact_final = 0; /* -x: finish search against exact coder cost */
 static int exact_stage = 0; /* final polish: cost the real coder exactly */
 static int exact_evals = 0;
 
@@ -1091,7 +1092,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
            masks_tried, masks_accepted, masks_tried - masks_accepted);
 
   int final_sz;
-  if (extreme) {
+  if (extreme || !exact_final) {
     if (verbose)
       printf("  Final weight optimization:\n");
     final_sz = optimize_weights(cs, &best, data, size, base_prob);
@@ -1209,6 +1210,9 @@ static void print_usage(const char *prog) {
   printf("  -w           Optimize weights on explicit models from -m\n");
   printf("  -b <n>       Base probability (default: %d)\n", DEFAULT_BPROB);
   printf("  -e           Extreme: use real compression during search\n");
+  printf("  -x           Exact final stage: re-rank candidates and polish\n");
+  printf("               weights against the real coder cost (slower, saves\n");
+  printf("               a few bytes; prediction matches output exactly)\n");
   printf("  -H <bits>    Direct-mapped table size = 2^bits 2-byte slots\n");
   printf("               (default 24); loader DIRECT_BITS must match\n");
   printf(
@@ -1234,7 +1238,7 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehvL")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehvLx")) != -1) {
     switch (opt) {
     case 'o':
       output_file = optarg;
@@ -1268,6 +1272,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'e':
       extreme = 1;
+      break;
+    case 'x':
+      exact_final = 1;
       break;
     case 'H':
       direct_bits = atoi(optarg);
@@ -1412,9 +1419,17 @@ int main(int argc, char *argv[]) {
     model_set_print(&ml, stdout);
     if (optimize_explicit_weights) {
       printf("Optimizing weights for %d explicit models...\n", ml.num_models);
-      exact_stage = !extreme;
-      est_size = optimize_weights(NULL, &ml, data, data_size, base_prob);
-      exact_stage = 0;
+      if (!extreme && !exact_final) {
+        Evaluator eval = {0};
+        CompState *cs = state_new(data, data_size, base_prob, &eval, ctx);
+        est_size = optimize_weights(cs, &ml, data, data_size, base_prob);
+        state_destroy(cs);
+        eval_destroy(&eval);
+      } else {
+        exact_stage = !extreme;
+        est_size = optimize_weights(NULL, &ml, data, data_size, base_prob);
+        exact_stage = 0;
+      }
       printf("Optimized:   ");
       model_set_print(&ml, stdout);
       printf("Estimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
