@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
+#include <math.h>
 #include <nmmintrin.h> /* _mm_crc32_u8 (SSE4.2) */
 #include <stdint.h>
 #include <stdio.h>
@@ -38,6 +39,8 @@ static int direct_bits = 24;   /* direct-mapped table of 2^direct_bits 2-byte
 static int timing_reps = 1;    /* repeat the encode pass for stable timing */
 static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
 static int large_field = 0;
+static int exact_stage = 0; /* final polish: cost the real coder exactly */
+static int exact_evals = 0;
 
 static int hdr_bitlen_bytes(void) { return large_field ? 4 : 2; }
 static int hdr_base_bytes(void) { return large_field ? 8 : 6; }
@@ -718,6 +721,75 @@ static unsigned int real_compress_size(const unsigned char *data, int size,
   return (unsigned int)(header_bits + comp_bits) * BIT_PREC;
 }
 
+/* Exact cost of the real coder (shared lossy direct-mapped table, ext_mask
+   hashing), in the same BIT_PREC units as eval_get_size/real_compress_size.
+   Replays encode_from_stream_direct but sums -log2(p) instead of driving the
+   arithmetic coder, and keeps one persistent table cleared via a touched-slot
+   list instead of a per-call calloc/memset of 2^direct_bits slots. */
+static unsigned char *exact_dt = NULL;
+static unsigned int *exact_touched = NULL;
+static unsigned int exact_touched_cap = 0;
+
+static unsigned int exact_cost_size(const unsigned char *data, int size,
+                                    const ModelSet *ml, int base_prob) {
+  unsigned char ctx[MAX_CTX] = {};
+  HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
+  exact_evals++;
+
+  if (!exact_dt) {
+    size_t dbytes = ((size_t)1 << direct_bits) * 2;
+    exact_dt = (unsigned char *)calloc(dbytes, 1);
+    if (!exact_dt) {
+      fprintf(stderr, "calloc(%zu) failed for exact-cost table\n", dbytes);
+      exit(1);
+    }
+  }
+  if (exact_touched_cap < hb.hashes_len + 1) {
+    exact_touched_cap = hb.hashes_len + 1;
+    exact_touched = (unsigned int *)realloc(
+        exact_touched, exact_touched_cap * sizeof(unsigned int));
+  }
+  unsigned int num_touched = 0;
+
+  int num = hb.num_weights;
+  int total_bits = (num == 0) ? hb.bits_len : (int)(hb.hashes_len / num);
+
+  double cost_bits = 0;
+  unsigned char *matched[MAX_SEARCH];
+  int hpos = 0;
+  for (int bp = 0; bp < total_bits; bp++) {
+    int bit = hb.bits[bp];
+    unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
+    for (int m = 0; m < num; m++) {
+      unsigned int h = hb.hashes[hpos++];
+      unsigned char *e = &exact_dt[2u * (h >> (32 - direct_bits))];
+      unsigned int shift =
+          (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + hb.weights[m];
+      probs[0] += (unsigned)e[0] << shift;
+      probs[1] += (unsigned)e[1] << shift;
+      matched[m] = e;
+    }
+    cost_bits += log2((double)(probs[0] + probs[1]) / (double)probs[bit]);
+    for (int m = 0; m < num; m++) {
+      unsigned char *e = matched[m];
+      if (!e[0] && !e[1])
+        exact_touched[num_touched++] = (unsigned int)(e - exact_dt);
+      e[bit] += 1;
+      if (e[1 - bit] > 1)
+        e[1 - bit] >>= 1;
+    }
+  }
+
+  for (unsigned int i = 0; i < num_touched; i++) {
+    exact_dt[exact_touched[i]] = 0;
+    exact_dt[exact_touched[i] + 1] = 0;
+  }
+
+  hbs_free(&hb);
+  int header_bits = (hdr_base_bytes() + ml->num_models) * 8;
+  return (unsigned int)((header_bits + cost_bits) * BIT_PREC + 0.5);
+}
+
 /* Inverse of encode_from_stream_direct: same direct-mapped lossy table. */
 static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
                                 int base_prob) {
@@ -804,10 +876,13 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
 static unsigned int approximate_weights(CompState *cs, ModelSet *ml,
                                         const unsigned char *data, int size,
                                         int base_prob) {
-  for (int i = 0; i < ml->num_models; i++)
-    ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
+  if (!exact_stage)
+    for (int i = 0; i < ml->num_models; i++)
+      ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
   if (extreme)
     return real_compress_size(data, size, ml, base_prob);
+  if (exact_stage)
+    return exact_cost_size(data, size, ml, base_prob);
   eval_evaluate(cs->eval, ml);
   return eval_get_size(cs->eval);
 }
@@ -832,6 +907,8 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml,
       unsigned int trial;
       if (extreme) {
         trial = real_compress_size(data, size, &cand, base_prob);
+      } else if (exact_stage) {
+        trial = exact_cost_size(data, size, &cand, base_prob);
       } else {
         eval_evaluate(cs->eval, &cand);
         trial = eval_get_size(cs->eval);
@@ -1009,12 +1086,47 @@ static ModelSet search_best_models(const unsigned char *data, int size,
 
   ModelSet best = sets[0];
 
-  if (verbose) {
+  if (verbose)
     printf("\n  Search: %d masks tried, %d accepted, %d rejected\n",
            masks_tried, masks_accepted, masks_tried - masks_accepted);
-    printf("  Final weight optimization:\n");
+
+  int final_sz;
+  if (extreme) {
+    if (verbose)
+      printf("  Final weight optimization:\n");
+    final_sz = optimize_weights(cs, &best, data, size, base_prob);
+  } else {
+    /* The estimator ignores collisions in the shared direct-mapped table and
+       the wmask bits hashed into each context, so finish against the real
+       coder: re-rank the surviving candidates by exact cost, then polish
+       weights against it. */
+    double t0 = mono_sec();
+    exact_stage = 1;
+    exact_evals = 0;
+    int best_exact = INT_MAX;
+    for (int s = 0; s < nsets; s++) {
+      if (sets[s].size == INT_MAX)
+        continue;
+      int ex = (int)exact_cost_size(data, size, &sets[s], base_prob);
+      if (verbose) {
+        char setbuf[512] = "";
+        model_set_sprint(&sets[s], setbuf, sizeof(setbuf));
+        printf("  rerank: est %.1f -> exact %.1f bytes [%s]\n",
+               sets[s].size / (float)(BIT_PREC * 8), ex / (float)(BIT_PREC * 8),
+               setbuf);
+      }
+      if (ex < best_exact) {
+        best_exact = ex;
+        best = sets[s];
+      }
+    }
+    if (verbose)
+      printf("  Final weight optimization (exact):\n");
+    final_sz = optimize_weights(cs, &best, data, size, base_prob);
+    exact_stage = 0;
+    printf("%sExact polish: %d evals, %.1f ms\n", verbose ? "  " : "\n",
+           exact_evals, (mono_sec() - t0) * 1000.0);
   }
-  int final_sz = optimize_weights(cs, &best, data, size, base_prob);
   if (out_size)
     *out_size = final_sz;
   if (verbose) {
@@ -1300,14 +1412,9 @@ int main(int argc, char *argv[]) {
     model_set_print(&ml, stdout);
     if (optimize_explicit_weights) {
       printf("Optimizing weights for %d explicit models...\n", ml.num_models);
-      Evaluator eval = {0};
-      CompState *cs =
-          extreme ? NULL : state_new(data, data_size, base_prob, &eval, ctx);
-      est_size = optimize_weights(cs, &ml, data, data_size, base_prob);
-      if (!extreme) {
-        state_destroy(cs);
-        eval_destroy(&eval);
-      }
+      exact_stage = !extreme;
+      est_size = optimize_weights(NULL, &ml, data, data_size, base_prob);
+      exact_stage = 0;
       printf("Optimized:   ");
       model_set_print(&ml, stdout);
       printf("Estimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
