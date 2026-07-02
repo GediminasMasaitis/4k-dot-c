@@ -1812,7 +1812,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(254, i32 window = 16;)
+    G(254, i32 window = 16 + (score * score >> 14);)
     G(254, size_t elapsed;)
     while (true) {
       G(255, const i32 alpha = score - window;)
