@@ -10754,3 +10754,34 @@ MD5: ffe10cc39dc186a5a0a3d7329142bc44
 
 1 thread: 3956 bytes (-2)
 MD5: f2307c015ef882163eca636ac80d4f5a
+
+### 9.28
+Passed pawn to king distance eval
+
+4  thread: 4006 bytes (+50)
+MD5: 52474df844e7494330f06a1dd05b980f
+
+1 thread: 3988 bytes (+32)
+MD5: 24934005d343ddf9f19e0de961626988
+
+```py
+
+```
+
+```py
+Elo   | 12.18 +- 6.68 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=80MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 4450 W: 1294 L: 1138 D: 2018
+Penta | [87, 496, 934, 590, 118]
+https://gedas.pythonanywhere.com/test/1905/
+```
+
+```py
+Elo   | 11.56 +- 9.81 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=480MB
+LLR   | 1.27 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 1954 W: 551 L: 486 D: 917
+Penta | [35, 210, 435, 249, 48]
+https://gedas.pythonanywhere.com/test/1907/
+```
