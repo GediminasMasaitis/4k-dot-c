@@ -1448,7 +1448,8 @@ i32 search(
     }
 
     // NULL MOVE PRUNING
-    if (G(210, depth > 2) && G(210, do_null) && G(210, static_eval >= beta)) {
+    if (G(210, depth > 2) && G(210, do_null) && G(210, static_eval >= beta) &&
+        G(210, beta < mate - max_ply)) {
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
