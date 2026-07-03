@@ -1242,12 +1242,13 @@ typedef struct [[nodiscard]] {
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   G(178, i16 score;)
+  i16 static_eval;
   G(178, u16 partial_hash;)
   G(178, Move move;)
   G(178, i8 depth;)
   G(178, u8 flag;)
 } TTEntry;
-_Static_assert(sizeof(TTEntry) == 10);
+_Static_assert(sizeof(TTEntry) == 12);
 
 typedef struct [[nodiscard]] {
 #ifdef FULL
@@ -1388,7 +1389,8 @@ i32 search(
   G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(192, stack[ply].best_move = (Move){0};)
-  if (G(193, tt_entry->partial_hash) == G(193, tt_hash_partial)) {
+  const bool tt_hit = tt_entry->partial_hash == tt_hash_partial;
+  if (tt_hit) {
     stack[ply].best_move = tt_entry->move;
 
     // TT PRUNING
@@ -1404,7 +1406,17 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  G(197, i32 static_eval = eval(pos); assert(static_eval < mate);
+  const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
+#ifdef DBGEVAL
+  extern u64 dbg_hits, dbg_mismatch, dbg_nodes;
+  dbg_nodes++;
+  if (tt_hit) {
+    dbg_hits++;
+    if (tt_entry->static_eval != (i16)eval(pos))
+      dbg_mismatch++;
+  }
+#endif
+  G(197, i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, const u64 corr_hashes[2] = {G(198, get_material_hash(pos)),
                                      G(198, get_pawn_hash(pos))};)
@@ -1419,7 +1431,7 @@ i32 search(
 
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
-  if (G(199, G(200, tt_entry->partial_hash) == G(200, tt_hash_partial)) &&
+  if (tt_hit &&
       G(199, G(201, tt_entry->flag) != G(201, static_eval) > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
@@ -1650,6 +1662,7 @@ i32 search(
         *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                               .move = stack[ply].best_move,
                               .score = best_score,
+                              .static_eval = raw_eval,
                               .depth = depth,
                               .flag = tt_flag};)
 
@@ -2039,6 +2052,10 @@ const Position start_pos =
                           0x800000000000008ull, 0x1000000000000010ull},
                .castling = {true, true, true, true}};
 
+#ifdef DBGEVAL
+u64 dbg_hits, dbg_mismatch, dbg_nodes;
+#endif
+
 #ifdef FULL
 S(1) void bench() {
   stop = false;
@@ -2055,6 +2072,10 @@ S(1) void bench() {
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? data.nodes * 1000 * 1000 * 1000U / elapsed : 0;
   printf("%llu nodes %llu nps\n", data.nodes, nps);
+#ifdef DBGEVAL
+  printf("evalnodes %llu tthits %llu mismatch %llu\n", dbg_nodes, dbg_hits,
+         dbg_mismatch);
+#endif
 }
 #endif
 
