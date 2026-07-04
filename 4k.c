@@ -1059,8 +1059,8 @@ S(0) i32 eval(Position *const restrict pos) {
 
   for (i32 c = 0; c < 2; c++) {
 
-    G(125, const u64 opp_king_zone =
-               king(G(127, pos->colour[1]) & G(127, pos->pieces[King]));)
+    G(125, u64 opp_king_zone = G(127, pos->colour[1]) & G(127, pos->pieces[King]);
+    opp_king_zone |= king(opp_king_zone);)
 
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
