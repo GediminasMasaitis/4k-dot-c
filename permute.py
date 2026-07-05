@@ -880,6 +880,113 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
             f.write(pass_best['best_content'])
     return any_improved
 
+# =============================================
+# Type flips: T(id, type) macro sites. All sites sharing an id form one
+# correlated group and are rewritten to the same candidate type in lockstep
+# (pointers into a table must match the table's element type, etc.).
+# =============================================
+type_candidates = ['i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64']
+T_MACRO_RE = re.compile(r'\bT\(\s*(\d+)\s*,\s*([A-Za-z0-9_]+)\s*\)')
+
+def collect_type_groups(baseline):
+    """Map each T() id to its current type. Sites of one id must agree."""
+    groups = {}
+    bad = set()
+    for m in T_MACRO_RE.finditer(baseline):
+        tid, cur = m.group(1), m.group(2)
+        prev = groups.setdefault(tid, cur)
+        if prev != cur:
+            bad.add(tid)
+    for tid in bad:
+        print(f'Warning: T({tid}, ...) sites disagree on current type; '
+              f'skipping this group')
+        del groups[tid]
+    return groups
+
+def render_type_variant(baseline, tid, new_type):
+    """Rewrite every T(tid, ...) site to new_type; other ids untouched."""
+    def repl(m):
+        return f'T({tid}, {new_type})' if m.group(1) == tid else m.group(0)
+    return T_MACRO_RE.sub(repl, baseline)
+
+def build_type_option(baseline, tid, new_type, src_path, worker_id):
+    variant = render_type_variant(baseline, tid, new_type)
+    workdir = f'worker_{worker_id}'
+    dest = os.path.join(workdir, src_path)
+    with open(dest, 'w') as f:
+        f.write(variant)
+    try:
+        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+    except Exception as e:
+        save_error_source(variant, e)
+        raise
+    return size, cache_tag, variant, tid, new_type
+
+def stage_types(src_path, pass_best, stats_prefix, worker_slot_queue):
+    global global_best_size, global_best_src
+    baseline = pass_best['best_content']
+    groups = collect_type_groups(baseline)
+    if not groups:
+        return False
+
+    tasks = [(tid, cand)
+             for tid, cur in sorted(groups.items(), key=lambda kv: int(kv[0]))
+             for cand in type_candidates if cand != cur]
+
+    any_improved = False
+    stats_bar = tqdm(
+        total=len(tasks),
+        desc=f'{stats_prefix}   Type flips ({len(groups)} groups)',
+        unit='it',
+        position=0,
+        leave=True
+    )
+
+    all_futures = []
+
+    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
+        for tid, cand in tasks:
+            wid = worker_slot_queue.get()
+            fut = execr.submit(
+                build_type_option,
+                baseline, tid, cand, src_path, wid
+            )
+            fut.add_done_callback(lambda f, w=wid: worker_slot_queue.put(w))
+            all_futures.append(fut)
+
+        for future in all_futures:
+            try:
+                size, cache_tag, variant, tid, new_type = future.result()
+            except Exception as e:
+                stats_bar.write(f'  Type flip task failed: {e}')
+                stats_bar.update(1)
+                continue
+            with global_best_lock:
+                run_improved = False
+                if size < pass_best['best']:
+                    pass_best['best'] = size
+                    pass_best['best_content'] = variant
+                    any_improved = True
+                    run_improved = True
+                global_improved = False
+                if size < global_best_size:
+                    global_best_size = size
+                    global_best_src = variant
+                    with open('global_best.c', 'w') as gf:
+                        gf.write(global_best_src)
+                    print(f'*** New GLOBAL best via type flip: {fmt_size(size)} ***')
+                    global_improved = True
+
+            tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
+            stats_bar.write(f'[{stats_prefix}] T({tid}) -> {new_type} size {fmt_size(size)} {cache_tag} {tag}')
+            stats_bar.update(1)
+
+    stats_bar.close()
+    if any_improved:
+        with open(src_path, 'w') as f:
+            f.write(pass_best['best_content'])
+    return any_improved
+
 def shuffle_tree(root_nodes, src_filename):
     """Randomly shuffle all G and H groups. Returns shuffled content string."""
     global _uid_counter
@@ -1019,7 +1126,22 @@ def main():
                 else:
                     break
 
-            if not (improved_perm or static_improved):
+            types_improved = False
+            while True:
+                improved = stage_types(
+                    src_filename, pass_best, stats_prefix=f'Run {run}',
+                    worker_slot_queue=static_worker_slots)
+                if improved:
+                    types_improved = True
+                    engine.best_size = pass_best['best']
+                    engine.best_content = pass_best['best_content']
+                    # Type flips are cross-cutting, same as static toggles
+                    engine.group_versions['__types__'] = \
+                        engine.group_versions.get('__types__', 0) + 1
+                else:
+                    break
+
+            if not (improved_perm or static_improved or types_improved):
                 break
             iteration += 1
 

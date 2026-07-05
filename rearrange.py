@@ -65,12 +65,28 @@ def main():
         return f"G({new_key},"
     
     final_text = g_pattern.sub(repl_G, new_text)
-    
+
+    # 5) Renumber T(...) type-group ids (own id space, independent of G/H).
+    #    Same id must map to same new id to preserve correlated groups.
+    t_pattern = re.compile(r"\bT\(\s*(\d+)\s*,")
+    t_map = {}
+    next_t = 1
+    for m in t_pattern.finditer(final_text):
+        old_key = m.group(1)
+        if old_key not in t_map:
+            t_map[old_key] = str(next_t)
+            next_t += 1
+
+    def repl_T(m):
+        return f"T({t_map[m.group(1)]},"
+
+    final_text = t_pattern.sub(repl_T, final_text)
+
     # Write out
     with open(dst_path, 'w', encoding="utf-8") as f:
         f.write(final_text)
-    
-    print(f"Renumbered {len(id_map)} keys; wrote {dst_path}")
+
+    print(f"Renumbered {len(id_map)} G/H keys and {len(t_map)} T keys; wrote {dst_path}")
 
 if __name__ == "__main__":
     main()
