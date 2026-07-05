@@ -7,7 +7,7 @@ import os
 import shutil
 import hashlib
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
 import threading
 import random
@@ -801,18 +801,22 @@ class SpeculativeEngine:
 
         return improved
 
-def build_static_option(baseline, span, new_val, src_path, worker_id):
+def build_static_option(baseline, span, new_val, src_path, worker_slot_queue):
     start, end = span
     variant = baseline[:start] + f'S({new_val})' + baseline[end:]
-    workdir = f'worker_{worker_id}'
-    dest = os.path.join(workdir, src_path)
-    with open(dest, 'w') as f:
-        f.write(variant)
+    worker_id = worker_slot_queue.get()
     try:
-        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
-    except Exception as e:
-        save_error_source(variant, e)
-        raise
+        workdir = f'worker_{worker_id}'
+        dest = os.path.join(workdir, src_path)
+        with open(dest, 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+    finally:
+        worker_slot_queue.put(worker_id)
     return size, cache_tag, variant, span, new_val
 
 def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
@@ -839,15 +843,12 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
             span = m.span()
             new_val = '1' if cur == '0' else '0'
 
-            wid = worker_slot_queue.get()
-            fut = execr.submit(
+            all_futures.append(execr.submit(
                 build_static_option,
-                baseline, span, new_val, src_path, wid
-            )
-            fut.add_done_callback(lambda f, w=wid: worker_slot_queue.put(w))
-            all_futures.append(fut)
+                baseline, span, new_val, src_path, worker_slot_queue
+            ))
 
-        for future in all_futures:
+        for future in as_completed(all_futures):
             try:
                 size, cache_tag, variant, span, new_val = future.result()
             except Exception as e:
@@ -909,17 +910,21 @@ def render_type_variant(baseline, tid, new_type):
         return f'T({tid}, {new_type})' if m.group(1) == tid else m.group(0)
     return T_MACRO_RE.sub(repl, baseline)
 
-def build_type_option(baseline, tid, new_type, src_path, worker_id):
+def build_type_option(baseline, tid, new_type, src_path, worker_slot_queue):
     variant = render_type_variant(baseline, tid, new_type)
-    workdir = f'worker_{worker_id}'
-    dest = os.path.join(workdir, src_path)
-    with open(dest, 'w') as f:
-        f.write(variant)
+    worker_id = worker_slot_queue.get()
     try:
-        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
-    except Exception as e:
-        save_error_source(variant, e)
-        raise
+        workdir = f'worker_{worker_id}'
+        dest = os.path.join(workdir, src_path)
+        with open(dest, 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+    finally:
+        worker_slot_queue.put(worker_id)
     return size, cache_tag, variant, tid, new_type
 
 def stage_types(src_path, pass_best, stats_prefix, worker_slot_queue):
@@ -946,15 +951,12 @@ def stage_types(src_path, pass_best, stats_prefix, worker_slot_queue):
 
     with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
         for tid, cand in tasks:
-            wid = worker_slot_queue.get()
-            fut = execr.submit(
+            all_futures.append(execr.submit(
                 build_type_option,
-                baseline, tid, cand, src_path, wid
-            )
-            fut.add_done_callback(lambda f, w=wid: worker_slot_queue.put(w))
-            all_futures.append(fut)
+                baseline, tid, cand, src_path, worker_slot_queue
+            ))
 
-        for future in all_futures:
+        for future in as_completed(all_futures):
             try:
                 size, cache_tag, variant, tid, new_type = future.result()
             except Exception as e:
