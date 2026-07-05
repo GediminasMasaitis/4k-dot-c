@@ -1055,9 +1055,9 @@ G(
       return G(123, mg_val) + G(123, (eg_val << 16));
     })
 
-S(0) T(14, u8) eval(Position *const restrict pos) {
-  G(124, T(14, u8) score = eval_params.tempo;)
-  G(124, T(15, u64) phase = 0;)
+S(0) T(14, i32) eval(Position *const restrict pos) {
+  G(124, T(14, i32) score = eval_params.tempo;)
+  G(124, T(15, i32) phase = 0;)
 
   for (T(17, i32) c = 0; c < 2; c++) {
 
@@ -1260,7 +1260,7 @@ typedef struct [[nodiscard]] {
   G(179, Position pos;)
   G(179, u64 max_time;)
   G(179, SearchStack stack[1024];)
-  G(179, T(24, u8) corrhist[2][corrhist_size];)
+  G(179, T(24, i32) corrhist[2][corrhist_size];)
   G(179, T(25, i32) move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1367,7 +1367,7 @@ search(
 #endif
     H(186, 1, H(187, 1, Position *const pos), H(187, 1, const T(12, i32) beta),
       H(187, 1, T(21, i32) depth), H(187, 1, ThreadData *data)),
-    H(186, 1, H(188, 1, const T(28, u64) ply), H(188, 1, const bool do_null),
+    H(186, 1, H(188, 1, const T(28, i32) ply), H(188, 1, const bool do_null),
       H(188, 1, T(12, i32) alpha))) {
   assert(alpha < beta);
   assert(ply >= 0);
@@ -1382,7 +1382,7 @@ search(
   // FULL REPETITION DETECTION
   const u64 tt_hash = get_hash(pos);
   bool in_qsearch = depth <= 0;
-  for (T(28, u64) i = G(189, ply); G(190, i >= 0) && G(190, do_null); i -= 2) {
+  for (T(28, i32) i = G(189, ply); G(190, i >= 0) && G(190, do_null); i -= 2) {
     if (G(191, tt_hash) == G(191, stack[i].position_hash)) {
       return 0;
     }
@@ -1414,7 +1414,7 @@ search(
   G(197, const T(13, i32) raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     T(13, i32) static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  G(197, T(24, u8) * corr_entries[2];)
+  G(197, T(24, i32) * corr_entries[2];)
   for (T(17, i32) i = 0; i < 2; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
@@ -1484,12 +1484,12 @@ search(
        move_index++) {
     // MOVE ORDERING
     G(215, T(10, u32) best_index = 0;)
-    G(215, T(11, i8) move_score = ~0x1010101LL;)
+    G(215, T(11, i32) move_score = ~0x1010101LL;)
     for (T(10, u32) order_index = move_index;
          order_index < stack[ply].num_moves; order_index++) {
       assert(moves[order_index].takes_piece ==
              piece_on(H(55, 7, pos), H(55, 7, moves[order_index].to)));
-      const T(11, i8) order_move_score =
+      const T(11, i32) order_move_score =
           G(187, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
@@ -1594,7 +1594,7 @@ search(
               })
           G(
               233, if (!in_qsearch) {
-                const T(26, u32) bonus = depth * depth;
+                const T(26, i32) bonus = depth * depth;
                 G(234, T(25, i32) *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
@@ -1641,8 +1641,8 @@ search(
       if (G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval))) &&
           G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None))) {
-        G(246, T(27, u32) dd = depth * depth; if (dd > 64) { dd = 64; })
-        G(246, T(27, u32) target = best_score - stack[ply].static_eval; G(
+        G(246, T(27, i32) dd = depth * depth; if (dd > 64) { dd = 64; })
+        G(246, T(27, i32) target = best_score - stack[ply].static_eval; G(
               247, if (target > 96) { target = 96; })
               G(247, if (target < -96) { target = -96; }))
 

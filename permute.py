@@ -887,6 +887,33 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
 # (pointers into a table must match the table's element type, etc.).
 # =============================================
 type_candidates = ['i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64']
+
+# Per-group candidate restrictions, keyed by T() id. Groups not listed try
+# all of type_candidates. These encode semantic invariants the size objective
+# cannot see: values that pack fields in high bits, arithmetic that must stay
+# signed (unsigned contagion silently breaks comparisons/negation/division),
+# and value ranges that must not truncate. Without these the search "wins"
+# by making the compiler delete engine features (dead-code elimination of
+# eval eg terms, PV-move ordering, corrhist, ...).
+# NOTE: rearrange.py renumbers T ids; update this dict if you run it.
+type_allowed = {
+    '9':  ['u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # num_moves <= 218: no i8
+    '11': ['i32', 'i64'],                # move ordering: needs the <<30 PV term
+    '12': ['i32', 'i64'],                # scores/bounds: aspiration windows overflow i16
+    '13': ['i16', 'i32', 'i64'],         # static_eval: fits i16 (TT stores i16), signed
+    '14': ['i32', 'i64'],                # eval score: mg + (eg << 16) packing
+    '15': ['i8', 'i16', 'i32', 'i64'],   # phase 0..24, must stay signed in eval return
+    '19': ['i8', 'i16', 'i32', 'i64'],   # king distances: signed products with params
+    '21': ['i8', 'i16', 'i32', 'i64'],   # depth goes negative in qsearch: signed
+    '22': ['i8', 'i16', 'i32', 'i64'],   # reduction: signed
+    '24': ['i16', 'i32', 'i64'],         # corrhist: values +-24576, /256, signed
+    '25': ['i16', 'i32', 'i64'],         # move_history: values +-1024ish, signed
+    '26': ['i16', 'i32', 'i64'],         # bonus: multiplies signed history
+    '27': ['i32', 'i64'],                # corr target*256*dd up to ~1.5M, signed
+    '28': ['i16', 'i32', 'i64'],         # ply: repetition loop needs i >= 0 to terminate
+    '32': ['i8', 'i16', 'i32', 'i64'],   # pawn offsets are negative: signed
+}
+
 T_MACRO_RE = re.compile(r'\bT\(\s*(\d+)\s*,\s*([A-Za-z0-9_]+)\s*\)')
 
 def collect_type_groups(baseline):
@@ -936,7 +963,7 @@ def stage_types(src_path, pass_best, stats_prefix, worker_slot_queue):
 
     tasks = [(tid, cand)
              for tid, cur in sorted(groups.items(), key=lambda kv: int(kv[0]))
-             for cand in type_candidates if cand != cur]
+             for cand in type_allowed.get(tid, type_candidates) if cand != cur]
 
     any_improved = False
     stats_bar = tqdm(
