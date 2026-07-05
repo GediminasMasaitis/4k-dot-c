@@ -1108,8 +1108,8 @@ def main():
 
         iteration = 1
         while True:
-            improved_perm = engine.run_pass(iteration, pass_best, stats_prefix=f'Run {run}')
-
+            # Static toggles and type flips run before the permutation pass;
+            # on later iterations this also means right after the previous one.
             static_improved = False
             while True:
                 improved = stage_static(
@@ -1140,6 +1140,8 @@ def main():
                         engine.group_versions.get('__types__', 0) + 1
                 else:
                     break
+
+            improved_perm = engine.run_pass(iteration, pass_best, stats_prefix=f'Run {run}')
 
             if not (improved_perm or static_improved or types_improved):
                 break
