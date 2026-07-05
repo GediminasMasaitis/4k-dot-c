@@ -73,7 +73,7 @@ G(
       ssize_t tv_nsec; // nanoseconds
     } timespec;
 
-    [[nodiscard]] S(1) u64 get_time() {
+    [[nodiscard]] S(0) u64 get_time() {
       timespec ts;
       ssize_t ret; // Unused
       asm volatile("syscall"
@@ -491,7 +491,7 @@ G(
       G(51, str[4] = "\0\0nbrq"[move->promo];)
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
-          for (T(17, i32) i = 0; i < 2; i++) {
+          for (T(17, i16) i = 0; i < 2; i++) {
             G(52, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
             G(52, str[i * 2] = 'a' + (&move->from)[i] % 8;)
           })
@@ -635,7 +635,7 @@ G(
       G(81, const u64 to = 1ull << move->to;)
       G(81, const u64 from = 1ull << move->from;)
       G(82,
-        const T(6, i32) piece = piece_on(H(55, 4, pos), H(55, 4, move->from));
+        const T(6, u32) piece = piece_on(H(55, 4, pos), H(55, 4, move->from));
         assert(piece != None);)
       G(82, const u64 mask = G(83, from) | G(83, to);)
 
@@ -1059,13 +1059,13 @@ S(0) T(14, i32) eval(Position *const restrict pos) {
   G(124, T(14, i32) score = eval_params.tempo;)
   G(124, T(15, i32) phase = 0;)
 
-  for (T(17, i32) c = 0; c < 2; c++) {
+  for (T(17, i16) c = 0; c < 2; c++) {
 
     G(125, const u64 opp_king_zone =
                king(G(127, pos->colour[1]) & G(127, pos->pieces[King]));)
 
     G(
-        125, u64 pawns[2]; for (T(17, i32) i = 0; i < 2; i++) {
+        125, u64 pawns[2]; for (T(17, i16) i = 0; i < 2; i++) {
           pawns[i] = G(128, pos->colour[i]) & G(128, pos->pieces[Pawn]);
         } const u64 attacked_by_pawns = G(129, southwest(pawns[1])) |
                                         G(129, southeast(pawns[1]));
@@ -1087,11 +1087,11 @@ S(0) T(14, i32) eval(Position *const restrict pos) {
     for (T(8, u8) p = Pawn; p <= King; p++) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
-        const T(16, u32) sq = lsb(copy);
-        G(137, const T(18, u32) rank = sq >> 3;)
+        const T(16, u64) sq = lsb(copy);
+        G(137, const T(18, i32) rank = sq >> 3;)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, phase += initial_params.phases[p];)
-        G(137, const T(18, u32) file = G(138, sq) & G(138, 7);)
+        G(137, const T(18, i32) file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(137, copy &= copy - 1;)
         G(
@@ -1138,7 +1138,7 @@ S(0) T(14, i32) eval(Position *const restrict pos) {
                     if (!(G(166, piece_bb) & G(166, mask))) {
                       mask = ~mask;
                     }
-                    for (T(17, i32) i = 0; i < 2; i++) {
+                    for (T(17, i16) i = 0; i < 2; i++) {
                       score += G(167, eval_params.bishop_pawns[i]) *
                                G(167, count(G(168, pawns[i]) & G(168, mask)));
                     }
@@ -1184,8 +1184,8 @@ S(0) T(14, i32) eval(Position *const restrict pos) {
                   })
 
               // PASSED PAWN KING DISTANCE
-              for (T(17, i32) i = 0; i < 2; i++) {
-                const T(16, u32) king_sq =
+              for (T(17, i16) i = 0; i < 2; i++) {
+                const T(16, u64) king_sq =
                     lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
                 G(149, const T(19, i32) rank_distance = __builtin_abs(
                            king_sq / 8 - G(150, rank) - G(150, 1));)
@@ -1415,7 +1415,7 @@ search(
     T(13, i32) static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, T(24, i32) * corr_entries[2];)
-  for (T(17, i32) i = 0; i < 2; i++) {
+  for (T(17, i16) i = 0; i < 2; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1476,8 +1476,8 @@ search(
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(213, T(12, i32) best_score = in_qsearch ? static_eval : -inf;)
   G(213, stack[G(214, ply) + G(214, 2)].position_hash = tt_hash;)
-  G(213, T(23, i32) quiets_evaluated = 0;)
-  G(213, T(23, i32) moves_evaluated = 0;)
+  G(213, T(23, u8) quiets_evaluated = 0;)
+  G(213, T(23, u8) moves_evaluated = 0;)
   G(213, u8 tt_flag = Upper;)
 
   for (T(10, u32) move_index = 0; move_index < stack[ply].num_moves;
@@ -1646,7 +1646,7 @@ search(
               247, if (target > 96) { target = 96; })
               G(247, if (target < -96) { target = -96; }))
 
-        for (T(17, i32) i = 0; i < 2; i++) {
+        for (T(17, i16) i = 0; i < 2; i++) {
           *corr_entries[i] =
               (G(248, G(249, *corr_entries[i]) * G(249, (600 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
@@ -1874,7 +1874,7 @@ S(1) void entry_mini(ThreadHead *head) {
 }
 
 #ifdef NOSTDLIB
-__attribute__((naked)) S(1) long newthread(ThreadHead *head) {
+__attribute__((naked)) S(0) long newthread(ThreadHead *head) {
   __asm__ volatile("mov  rsi, rdi\n"     // arg2 = stack
                    "mov  edi, 0x50f00\n" // arg1 = clone flags
                    "mov  eax, 56\n"      // SYS_clone
@@ -2201,7 +2201,7 @@ S(1) void run() {
       run_smp();
 #endif
 #else
-      for (T(17, i32) i = 2 << main_data->pos.flipped; i > 0; i--) {
+      for (T(17, i16) i = 2 << main_data->pos.flipped; i > 0; i--) {
         getl(line);
         main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
