@@ -7,7 +7,7 @@ import os
 import shutil
 import hashlib
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
 import threading
 import random
@@ -801,18 +801,22 @@ class SpeculativeEngine:
 
         return improved
 
-def build_static_option(baseline, span, new_val, src_path, worker_id):
+def build_static_option(baseline, span, new_val, src_path, worker_slot_queue):
     start, end = span
     variant = baseline[:start] + f'S({new_val})' + baseline[end:]
-    workdir = f'worker_{worker_id}'
-    dest = os.path.join(workdir, src_path)
-    with open(dest, 'w') as f:
-        f.write(variant)
+    worker_id = worker_slot_queue.get()
     try:
-        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
-    except Exception as e:
-        save_error_source(variant, e)
-        raise
+        workdir = f'worker_{worker_id}'
+        dest = os.path.join(workdir, src_path)
+        with open(dest, 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+    finally:
+        worker_slot_queue.put(worker_id)
     return size, cache_tag, variant, span, new_val
 
 def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
@@ -839,15 +843,12 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
             span = m.span()
             new_val = '1' if cur == '0' else '0'
 
-            wid = worker_slot_queue.get()
-            fut = execr.submit(
+            all_futures.append(execr.submit(
                 build_static_option,
-                baseline, span, new_val, src_path, wid
-            )
-            fut.add_done_callback(lambda f, w=wid: worker_slot_queue.put(w))
-            all_futures.append(fut)
+                baseline, span, new_val, src_path, worker_slot_queue
+            ))
 
-        for future in all_futures:
+        for future in as_completed(all_futures):
             try:
                 size, cache_tag, variant, span, new_val = future.result()
             except Exception as e:
@@ -872,6 +873,144 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
 
             tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
             stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {fmt_size(size)} {cache_tag} {tag}')
+            stats_bar.update(1)
+
+    stats_bar.close()
+    if any_improved:
+        with open(src_path, 'w') as f:
+            f.write(pass_best['best_content'])
+    return any_improved
+
+# =============================================
+# Type flips: T(id, type) macro sites. All sites sharing an id form one
+# correlated group and are rewritten to the same candidate type in lockstep
+# (pointers into a table must match the table's element type, etc.).
+# =============================================
+type_candidates = ['i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64']
+
+# Per-group candidate restrictions, keyed by T() id. Groups not listed try
+# all of type_candidates. These encode semantic invariants the size objective
+# cannot see: values that pack fields in high bits, arithmetic that must stay
+# signed (unsigned contagion silently breaks comparisons/negation/division),
+# and value ranges that must not truncate. Without these the search "wins"
+# by making the compiler delete engine features (dead-code elimination of
+# eval eg terms, PV-move ordering, corrhist, ...).
+# NOTE: rearrange.py renumbers T ids; update this dict if you run it.
+type_allowed = {
+    '9':  ['u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # num_moves <= 218: no i8
+    '10': ['u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # move indexes <= 217: no i8
+    '11': ['i32', 'i64'],                # move ordering: needs the <<30 PV term
+    '12': ['i32', 'i64'],                # scores/bounds: aspiration windows overflow i16
+    '13': ['i16', 'i32', 'i64'],         # static_eval: fits i16 (TT stores i16), signed
+    '14': ['i32', 'i64'],                # eval score: mg + (eg << 16) packing
+    '15': ['i8', 'i16', 'i32', 'i64'],   # phase 0..24, must stay signed in eval return
+    '19': ['i8', 'i16', 'i32', 'i64'],   # king distances: signed products with params
+    '21': ['i8', 'i16', 'i32', 'i64'],   # depth goes negative in qsearch: signed
+    '22': ['i8', 'i16', 'i32', 'i64'],   # reduction: signed
+    '23': ['u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # counters <= 218: no i8
+    '24': ['i16', 'i32', 'i64'],         # corrhist: values +-24576, /256, signed
+    '25': ['i16', 'i32', 'i64'],         # move_history: values +-1024ish, signed
+    '26': ['i16', 'i32', 'i64'],         # bonus: multiplies signed history
+    '27': ['i32', 'i64'],                # corr target*256*dd up to ~1.5M, signed
+    '28': ['i16', 'i32', 'i64'],         # ply: repetition loop needs i >= 0 to terminate
+    '29': ['i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # FULL thread_count can be 256
+    '32': ['i8', 'i16', 'i32', 'i64'],   # pawn offsets are negative: signed
+}
+
+T_MACRO_RE = re.compile(r'\bT\(\s*(\d+)\s*,\s*([A-Za-z0-9_]+)\s*\)')
+
+def collect_type_groups(baseline):
+    """Map each T() id to its current type. Sites of one id must agree."""
+    groups = {}
+    bad = set()
+    for m in T_MACRO_RE.finditer(baseline):
+        tid, cur = m.group(1), m.group(2)
+        prev = groups.setdefault(tid, cur)
+        if prev != cur:
+            bad.add(tid)
+    for tid in bad:
+        print(f'Warning: T({tid}, ...) sites disagree on current type; '
+              f'skipping this group')
+        del groups[tid]
+    return groups
+
+def render_type_variant(baseline, tid, new_type):
+    """Rewrite every T(tid, ...) site to new_type; other ids untouched."""
+    def repl(m):
+        return f'T({tid}, {new_type})' if m.group(1) == tid else m.group(0)
+    return T_MACRO_RE.sub(repl, baseline)
+
+def build_type_option(baseline, tid, new_type, src_path, worker_slot_queue):
+    variant = render_type_variant(baseline, tid, new_type)
+    worker_id = worker_slot_queue.get()
+    try:
+        workdir = f'worker_{worker_id}'
+        dest = os.path.join(workdir, src_path)
+        with open(dest, 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+    finally:
+        worker_slot_queue.put(worker_id)
+    return size, cache_tag, variant, tid, new_type
+
+def stage_types(src_path, pass_best, stats_prefix, worker_slot_queue):
+    global global_best_size, global_best_src
+    baseline = pass_best['best_content']
+    groups = collect_type_groups(baseline)
+    if not groups:
+        return False
+
+    tasks = [(tid, cand)
+             for tid, cur in sorted(groups.items(), key=lambda kv: int(kv[0]))
+             for cand in type_allowed.get(tid, type_candidates) if cand != cur]
+
+    any_improved = False
+    stats_bar = tqdm(
+        total=len(tasks),
+        desc=f'{stats_prefix}   Type flips ({len(groups)} groups)',
+        unit='it',
+        position=0,
+        leave=True
+    )
+
+    all_futures = []
+
+    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
+        for tid, cand in tasks:
+            all_futures.append(execr.submit(
+                build_type_option,
+                baseline, tid, cand, src_path, worker_slot_queue
+            ))
+
+        for future in as_completed(all_futures):
+            try:
+                size, cache_tag, variant, tid, new_type = future.result()
+            except Exception as e:
+                stats_bar.write(f'  Type flip task failed: {e}')
+                stats_bar.update(1)
+                continue
+            with global_best_lock:
+                run_improved = False
+                if size < pass_best['best']:
+                    pass_best['best'] = size
+                    pass_best['best_content'] = variant
+                    any_improved = True
+                    run_improved = True
+                global_improved = False
+                if size < global_best_size:
+                    global_best_size = size
+                    global_best_src = variant
+                    with open('global_best.c', 'w') as gf:
+                        gf.write(global_best_src)
+                    print(f'*** New GLOBAL best via type flip: {fmt_size(size)} ***')
+                    global_improved = True
+
+            tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
+            stats_bar.write(f'[{stats_prefix}] T({tid}) -> {new_type} size {fmt_size(size)} {cache_tag} {tag}')
             stats_bar.update(1)
 
     stats_bar.close()
@@ -1001,8 +1140,8 @@ def main():
 
         iteration = 1
         while True:
-            improved_perm = engine.run_pass(iteration, pass_best, stats_prefix=f'Run {run}')
-
+            # Static toggles and type flips run before the permutation pass;
+            # on later iterations this also means right after the previous one.
             static_improved = False
             while True:
                 improved = stage_static(
@@ -1019,7 +1158,24 @@ def main():
                 else:
                     break
 
-            if not (improved_perm or static_improved):
+            types_improved = False
+            while True:
+                improved = stage_types(
+                    src_filename, pass_best, stats_prefix=f'Run {run}',
+                    worker_slot_queue=static_worker_slots)
+                if improved:
+                    types_improved = True
+                    engine.best_size = pass_best['best']
+                    engine.best_content = pass_best['best_content']
+                    # Type flips are cross-cutting, same as static toggles
+                    engine.group_versions['__types__'] = \
+                        engine.group_versions.get('__types__', 0) + 1
+                else:
+                    break
+
+            improved_perm = engine.run_pass(iteration, pass_best, stats_prefix=f'Run {run}')
+
+            if not (improved_perm or static_improved or types_improved):
                 break
             iteration += 1
 
