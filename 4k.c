@@ -1222,7 +1222,7 @@ enum : u64 { tt_length = 1ULL << 23 }; // 80MB
 // enum : u64 { tt_length = 1ULL << 31 }; // 20GB
 #endif
 enum { Upper = 0, Lower = 1, Exact = 2 };
-enum { max_ply = 96 };
+enum {  max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
 enum { thread_count = 1 };
@@ -1436,18 +1436,18 @@ i32 search(
   }
 
   if (G(203, !in_check) && G(203, G(204, alpha) == G(204, beta - 1))) {
-    if (G(205, depth < 9) && G(205, !in_qsearch)) {
+    if (G(205, depth < 8) && G(205, !in_qsearch)) {
 
       G(206, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(207, 57) * G(207, (depth - improving)) >= beta) {
+        if (static_eval - G(207, 61) * G(207, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(206, // RAZORING
         in_qsearch =
-            G(208, static_eval) + G(208, G(209, 115) * G(209, depth)) <= alpha;)
+            G(208, static_eval) + G(208, G(209, 121) * G(209, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1490,7 +1490,7 @@ i32 search(
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
           G(187, // MOST VALUABLE VICTIM
-            G(219, moves[order_index].takes_piece) * G(219, 622)) +
+            G(219, moves[order_index].takes_piece) * G(219, 646)) +
           G(187, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(218, &stack[ply].best_move),
                         G(218, &moves[order_index]))
@@ -1498,7 +1498,7 @@ i32 search(
           G(187, // KILLER MOVE
             G(216, move_equal(G(217, &moves[order_index]),
                               G(217, &stack[ply].killer))) *
-                G(216, 819));
+                G(216, 798));
       if (order_move_score > move_score) {
         G(220, best_index = order_index;)
         G(220, move_score = order_move_score;)
@@ -1510,13 +1510,13 @@ i32 search(
     G(
         222, // MOVE SCORE PRUNING
         if (G(223, moves_evaluated) &&
-            G(223, move_score < G(224, -125) * G(224, depth))) { break; })
+            G(223, move_score < G(224, -141) * G(224, depth))) { break; })
 
     G(
         222, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(225, depth < 8) &&
+        if (G(225, depth < 7) &&
             G(225,
-              G(226, static_eval) + G(226, G(227, 154) * G(227, depth)) +
+              G(226, static_eval) + G(226, G(227, 146) * G(227, depth)) +
                       G(226,
                         initial_params.eg.material[moves[move_index].promo]) +
                       G(226, initial_params.eg
@@ -1538,7 +1538,7 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
-                        ? G(229, !improving) + G(229, (move_score / -358)) +
+                        ? G(229, !improving) + G(229, (move_score / -316)) +
                               G(229, (G(230, alpha) == G(230, beta - 1))) +
                               G(229, moves_evaluated / 9)
                         : 0;
@@ -1636,16 +1636,16 @@ i32 search(
       if (G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval))) &&
           G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None))) {
-        G(246, i32 dd = depth * depth; if (dd > 64) { dd = 64; })
+        G(246, i32 dd = depth * depth; if (dd > 60) { dd = 60; })
         G(246, i32 target = best_score - stack[ply].static_eval; G(
-              247, if (target > 96) { target = 96; })
-              G(247, if (target < -96) { target = -96; }))
+              247, if (target > 100) { target = 100; })
+              G(247, if (target < -100) { target = -100; }))
 
         for (i32 i = 0; i < 2; i++) {
           *corr_entries[i] =
-              (G(248, G(249, *corr_entries[i]) * G(249, (600 - dd))) +
+              (G(248, G(249, *corr_entries[i]) * G(249, (564 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
-              600;
+              564;
         }
       })
 
@@ -1816,7 +1816,7 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(254, i32 window = 16;)
+    G(254, i32 window = 15;)
     G(254, size_t elapsed;)
     while (true) {
       G(255, const i32 alpha = score - window;)
