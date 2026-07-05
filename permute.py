@@ -898,6 +898,7 @@ type_candidates = ['i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64']
 # NOTE: rearrange.py renumbers T ids; update this dict if you run it.
 type_allowed = {
     '9':  ['u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # num_moves <= 218: no i8
+    '10': ['u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # move indexes <= 217: no i8
     '11': ['i32', 'i64'],                # move ordering: needs the <<30 PV term
     '12': ['i32', 'i64'],                # scores/bounds: aspiration windows overflow i16
     '13': ['i16', 'i32', 'i64'],         # static_eval: fits i16 (TT stores i16), signed
@@ -906,11 +907,13 @@ type_allowed = {
     '19': ['i8', 'i16', 'i32', 'i64'],   # king distances: signed products with params
     '21': ['i8', 'i16', 'i32', 'i64'],   # depth goes negative in qsearch: signed
     '22': ['i8', 'i16', 'i32', 'i64'],   # reduction: signed
+    '23': ['u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # counters <= 218: no i8
     '24': ['i16', 'i32', 'i64'],         # corrhist: values +-24576, /256, signed
     '25': ['i16', 'i32', 'i64'],         # move_history: values +-1024ish, signed
     '26': ['i16', 'i32', 'i64'],         # bonus: multiplies signed history
     '27': ['i32', 'i64'],                # corr target*256*dd up to ~1.5M, signed
     '28': ['i16', 'i32', 'i64'],         # ply: repetition loop needs i >= 0 to terminate
+    '29': ['i16', 'u16', 'i32', 'u32', 'i64', 'u64'],  # FULL thread_count can be 256
     '32': ['i8', 'i16', 'i32', 'i64'],   # pawn offsets are negative: signed
 }
 
