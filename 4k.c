@@ -1225,7 +1225,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -2063,7 +2063,7 @@ S(1) void bench() {
 #endif
 
 #if !defined(FULL) && defined(NOSTDLIB)
-void _start() {
+__attribute__((section(".first"))) void _start() {
 #else
 S(1) void run() {
 #endif

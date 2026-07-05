@@ -83,7 +83,7 @@ compress: compressor compress_source
 	./compressor -b $(BPROB) $(COMPRESS_HASH) -o $(EXE).paq $(EXE)
 
 loader: compress
-	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') $(LOADER_HASH) -o $(EXE) loader.asm
+	nasm -f bin $(LOADER_HASH) -o $(EXE) loader.asm
 	$(LS) $(EXE)
 	$(MD5)
 

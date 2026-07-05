@@ -5,10 +5,6 @@
 bits 64
 org 0x300000
 
-%ifndef START_LOCATION
-%error "START_LOCATION must be defined"
-%endif
-
 %ifndef DIRECT_BITS
   %define DIRECT_BITS 24
 %endif
@@ -16,10 +12,12 @@ org 0x300000
 %define PAYLOAD_DEST 0x400000
 
 ; Stack layout for up to 21 models (284 bytes):
+;   [rsp+0]   PAYLOAD_DEST (pushed at .wd), popped by the final ret;
+;             _start must be linked at the very start of the payload
 ;   [rsp+24]  ent[21]     (84 bytes, disp8, 4B stride)
 ;   [rsp+108] wc[21]      (168 bytes, disp8, 8B stride: weight@+0, cmask@+4)
-;   (.wl stores run with rsp 8 lower from the range-seed push, hence its
-;    displacements are +8 relative to the body's)
+;   (.wl runs with the range seed pushed where the body keeps PAYLOAD_DEST,
+;    so both phases use the same displacements)
 ; Registers: r9=output_ptr, r10=output_end, r11=pr0, r13=num_models
 ;            r8=compressed_ptr, r14=bitpos, r15=code, ebp=range, ebx=pr1
 
@@ -60,15 +58,16 @@ decompress4kc:
     inc     edx
     jmp     .wo
     db      1, 0, 0, 0
-.wz:mov     [rsp+116+rcx*8], edx
+.wz:mov     [rsp+108+rcx*8], edx
     mov     ebx, ebp
     mov     bl, [rdi+6+rcx]
-    mov     [rsp+120+rcx*8], ebx
+    mov     [rsp+112+rcx*8], ebx
     inc     ecx
     jmp     .wl
 .wd:mov     r13d, ecx
     lea     r8, [rdi+r13+6]
     pop     rbp
+    push    r9              ; payload entry, consumed by the final ret
 .body:
     jmp     short .re
 .rl:add     ebp, ebp
@@ -149,7 +148,7 @@ decompress4kc:
 .nw:dec     r10d
     jnz     .bt
 
-.dn:jmp     START_LOCATION
+.dn:ret                     ; pops PAYLOAD_DEST pushed at .wd
 
 payload_compressed:
     incbin  './build/4kc.paq'

@@ -44,6 +44,7 @@ SECTIONS
 	/* Code and Data Sections */
 	data_lma = . - start_address;
 	.data : AT(data_lma) {
+		*(.first)
 		*(.rodata) *(.rodata.*)
 		*(.data) *(.data.*)
 		*(.text) *(.text.*)
