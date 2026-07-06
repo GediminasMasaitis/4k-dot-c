@@ -1008,6 +1008,9 @@ TUNE_PARAMETER(aw_margin, 16, 10, 36, 1.3)
 TUNE_PARAMETER(corrhist_dd_clamp, 70, 32, 128, 4.8)
 TUNE_PARAMETER(corrhist_clamp, 126, 32, 192, 8)
 TUNE_PARAMETER(corrhist_weight, 557, 256, 1024, 38.4)
+TUNE_PARAMETER(history_bonus_scale, 256, 64, 1024, 48)
+TUNE_PARAMETER(history_gravity, 1024, 512, 2048, 76.8)
+TUNE_PARAMETER(soft_time_divisor, 14, 8, 24, 0.8)
 
 G(121, S(0) EvalParamsMerged eval_params;)
 
@@ -1634,7 +1637,7 @@ i32 search(
               })
           G(
               233, if (!in_qsearch) {
-                const i32 bonus = depth * depth;
+                const i32 bonus = history_bonus_scale * depth * depth / 256;
                 G(234, i32 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
@@ -1642,7 +1645,7 @@ i32 search(
                                         [stack[ply].best_move.to];
 
                   *this_hist +=
-                  bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                  bonus - G(235, bonus) * G(235, *this_hist) / history_gravity;)
                 G(
                     234, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1651,7 +1654,7 @@ i32 search(
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
-                          bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                          bonus + G(236, bonus) * G(236, *prev_hist) / history_gravity;
                     })
               })
           break;
@@ -1889,7 +1892,7 @@ void iteratively_deepen(
           })
     }
 
-    if (stop || elapsed > data->max_time / 14) {
+    if (stop || elapsed > data->max_time / soft_time_divisor) {
       break;
     }
   }
@@ -2158,6 +2161,9 @@ S(1) void run() {
       PRINT_TUNE_OPTION(corrhist_dd_clamp);
       PRINT_TUNE_OPTION(corrhist_clamp);
       PRINT_TUNE_OPTION(corrhist_weight);
+      PRINT_TUNE_OPTION(history_bonus_scale);
+      PRINT_TUNE_OPTION(history_gravity);
+      PRINT_TUNE_OPTION(soft_time_divisor);
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
 #if defined(FULL) && !defined(NOSTDLIB)
@@ -2199,6 +2205,9 @@ S(1) void run() {
       READ_TUNE_OPTION(corrhist_dd_clamp)
       READ_TUNE_OPTION(corrhist_clamp)
       READ_TUNE_OPTION(corrhist_weight)
+      READ_TUNE_OPTION(history_bonus_scale)
+      READ_TUNE_OPTION(history_gravity)
+      READ_TUNE_OPTION(soft_time_divisor)
     } else if (!strcmp(line, "tune")) {
       PRINT_TUNE_INPUT(rfp_depth);
       PRINT_TUNE_INPUT(rfp_margin);
@@ -2214,6 +2223,9 @@ S(1) void run() {
       PRINT_TUNE_INPUT(corrhist_dd_clamp);
       PRINT_TUNE_INPUT(corrhist_clamp);
       PRINT_TUNE_INPUT(corrhist_weight);
+      PRINT_TUNE_INPUT(history_bonus_scale);
+      PRINT_TUNE_INPUT(history_gravity);
+      PRINT_TUNE_INPUT(soft_time_divisor);
     } else if (!strcmp(line, "ucinewgame")) {
 #if defined(FULL) && !defined(NOSTDLIB)
       bg_stop();
