@@ -1253,8 +1253,9 @@ _Static_assert(sizeof(TTEntry) == 12);
 typedef struct [[nodiscard]] {
 #ifdef FULL
   i32 thread_id;
-  u64 nodes;
 #endif
+  u64 nodes;
+  u64 best_nodes;
   G(179, Position pos;)
   G(179, u64 max_time;)
   G(179, SearchStack stack[1024];)
@@ -1362,9 +1363,6 @@ S(1) void get_piece_hashes(const Position *const pos, u64 hashes[4]) {
 
 S(1)
 i32 search(
-#ifdef FULL
-    u64 *nodes,
-#endif
     H(186, 1, H(187, 1, Position *const pos), H(187, 1, const i32 beta),
       H(187, 1, i32 depth), H(187, 1, ThreadData *data)),
     H(186, 1, H(188, 1, const i32 ply), H(188, 1, const bool do_null),
@@ -1460,9 +1458,6 @@ i32 search(
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
       const i32 score = -search(
-#ifdef FULL
-          nodes,
-#endif
           H(186, 2, H(187, 2, &npos), H(187, 2, -alpha),
             H(187, 2, depth - G(212, depth / 4) - G(212, 4)), H(187, 2, data)),
           H(186, 2, H(188, 2, ply + 1), H(188, 2, false), H(188, 2, -beta)));
@@ -1530,9 +1525,7 @@ i32 search(
             G(223, move_score < G(224, -175) * G(224, depth))) { break; })
 
     Position npos = *pos;
-#ifdef FULL
-    (*nodes)++;
-#endif
+    data->nodes++;
     if (!makemove(H(80, 3, &npos), H(80, 3, &moves[move_index]))) {
       continue;
     }
@@ -1540,6 +1533,7 @@ i32 search(
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     moves_evaluated++;
+    const u64 nodes_before = data->nodes;
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1551,9 +1545,6 @@ i32 search(
     i32 score;
     while (true) {
       score = -search(
-#ifdef FULL
-          nodes,
-#endif
           H(186, 3, H(187, 3, &npos), H(187, 3, -alpha),
             H(187, 3, depth - G(231, 1) - G(231, reduction)), H(187, 3, data)),
           H(186, 3, H(188, 3, ply + 1), H(188, 3, true), H(188, 3, low)));
@@ -1575,6 +1566,13 @@ i32 search(
         }
       }
       break;
+    }
+
+    // NODE-COUNT TIME SCALING
+    // The first root move searched is the previous best move, so this tracks
+    // nodes spent confirming the current best move.
+    if (ply == 0 && moves_evaluated == 1) {
+      data->best_nodes += data->nodes - nodes_before;
     }
 
     if (score > best_score) {
@@ -1815,6 +1813,8 @@ void iteratively_deepen(
 #endif
     ThreadData *data) {
   i32 score = 0;
+  data->nodes = 0;
+  data->best_nodes = 0;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1827,9 +1827,6 @@ void iteratively_deepen(
       G(255, const i32 alpha = score - window;)
       G(255, const i32 beta = G(256, score) + G(256, window);)
       score = search(
-#ifdef FULL
-          &data->nodes,
-#endif
           H(186, 4, H(187, 4, &data->pos), H(187, 4, beta), H(187, 4, depth),
             H(187, 4, data)),
           H(186, 4, H(188, 4, 0), H(188, 4, false), H(188, 4, alpha)));
@@ -1848,7 +1845,12 @@ void iteratively_deepen(
           })
     }
 
-    if (stop || elapsed > data->max_time / 14) {
+    // NODE-COUNT TIME SCALING
+    // Soft limit scales with best move instability: from max_time / 8 when
+    // all nodes went elsewhere down to max_time / 32 when all nodes agree.
+    if (stop || elapsed > data->max_time / 4096 *
+                              (512 - 384 * data->best_nodes /
+                                         (data->nodes | 1))) {
       break;
     }
   }
