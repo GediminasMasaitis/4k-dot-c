@@ -1230,7 +1230,7 @@ enum { thread_count = 1 };
 static i32 thread_count = 1;
 #endif
 enum { thread_stack_size = 1024 * 1024 };
-enum { corrhist_size = 65536 };
+enum { corrhist_size = 16384 };
 
 typedef struct [[nodiscard]] {
   G(119, i32 static_eval;)
@@ -1258,7 +1258,7 @@ typedef struct [[nodiscard]] {
   G(179, Position pos;)
   G(179, u64 max_time;)
   G(179, SearchStack stack[1024];)
-  G(179, i32 corrhist[2][corrhist_size];)
+  G(179, i32 corrhist[4][2][corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1418,7 +1418,7 @@ i32 search(
   G(197, i32 * corr_entries[4];)
   for (i32 i = 0; i < 4; i++) {
     corr_entries[i] =
-        &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+        &data->corrhist[i][pos->flipped][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
     assert(static_eval > -mate);
