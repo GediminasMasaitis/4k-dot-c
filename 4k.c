@@ -1221,7 +1221,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1257,6 +1257,7 @@ typedef struct [[nodiscard]] {
   G(179, SearchStack stack[1024];)
   G(179, i32 move_history[2][6][64][64];)
   G(179, i32 corrhist[2][corrhist_size];)
+  i32 corr_cont[2][2][6 * 64];
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1350,7 +1351,7 @@ get_hash(const Position *const pos) {
   return hash;
 }
 
-S(1) void get_piece_hashes(const Position *const pos, u64 hashes[7]) {
+S(1) void get_piece_hashes(const Position *const pos, u64 hashes[5]) {
   for (i32 c = 0; c < 2; c++) {
     // PAWNS / NON-PAWNS PER SIDE / MINOR PIECES
     for (i32 p = Pawn; p <= King; p++) {
@@ -1414,21 +1415,21 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[7] = {0};
+  u64 corr_hashes[5] = {0};
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, corr_hashes[4] = get_material_hash(pos);)
   G(197, get_piece_hashes(pos, corr_hashes);)
-  // CONTINUATION CORRECTION KEYS FROM THE LAST TWO MOVES
-  corr_hashes[5] =
-      ((u64)(stack[ply + 1].move_key * 2 + 1) * 0x9E3779B97F4A7C15ULL) >> 48;
-  corr_hashes[6] =
-      ((u64)(stack[ply].move_key * 2 + 2) * 0x9E3779B97F4A7C15ULL) >> 48;
   G(197, i32 * corr_entries[7];)
-  for (i32 i = 0; i < 7; i++) {
+  for (i32 i = 0; i < 5; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+  }
+  // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
+  corr_entries[5] = &data->corr_cont[pos->flipped][0][stack[ply + 1].move_key];
+  corr_entries[6] = &data->corr_cont[pos->flipped][1][stack[ply].move_key];
+  for (i32 i = 0; i < 7; i++) {
     static_eval += *corr_entries[i] >> 9;
     assert(static_eval < mate);
     assert(static_eval > -mate);
@@ -1552,7 +1553,8 @@ i32 search(
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     moves_evaluated++;
     stack[ply + 2].move_key =
-        moves[move_index].from * 64 + moves[move_index].to;
+        (piece_on(pos, moves[move_index].from) - 1) * 64 +
+        moves[move_index].to;
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
