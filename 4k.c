@@ -1342,21 +1342,15 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
-[[nodiscard]] S(1) u64 get_material_hash(const Position *const pos) {
-  u64 hash = 0;
-  for (i32 c = 0; c < 2; c++) {
-    for (i32 p = Pawn; p <= Queen; p++) {
-      hash = G(182, count(G(184, pos->pieces[p]) & G(184, pos->colour[c]))) +
-             G(182, G(183, hash) * G(183, 9));
-    }
-  }
-  return hash;
-}
-
-S(1) void get_piece_hashes(const Position *const pos, u64 hashes[4]) {
+S(1) void get_corr_hashes(const Position *const pos, u64 hashes[4]) {
   for (i32 p = Pawn; p <= Queen; p++) {
     hashes[p / 2] ^=
         (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
+    for (i32 c = 0; c < 2; c++) {
+      hashes[3] =
+          G(182, count(G(184, pos->pieces[p]) & G(184, pos->colour[c]))) +
+          G(182, G(183, hashes[3]) * G(183, 9));
+    }
   }
 }
 
@@ -1413,8 +1407,7 @@ i32 search(
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  G(197, corr_hashes[3] = get_material_hash(pos);)
-  G(197, get_piece_hashes(pos, corr_hashes);)
+  G(197, get_corr_hashes(pos, corr_hashes);)
   G(197, i32 * corr_entries[4];)
   for (i32 i = 0; i < 4; i++) {
     corr_entries[i] =
