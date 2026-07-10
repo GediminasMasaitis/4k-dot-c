@@ -1260,7 +1260,6 @@ typedef struct [[nodiscard]] {
   G(179, u64 max_time;)
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[2][corrhist_size];)
-  i32 corr_cont[2][2][6 * 64];
   G(179, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1355,18 +1354,10 @@ get_hash(const Position *const pos) {
   return hash;
 }
 
-S(1) void get_piece_hashes(const Position *const pos, u64 hashes[5]) {
-  for (i32 c = 0; c < 2; c++) {
-    // PAWNS / NON-PAWNS PER SIDE / MINOR PIECES
-    for (i32 p = Pawn; p <= King; p++) {
-      const u64 mixed =
-          ((pos->pieces[p] & pos->colour[c]) * 0x9E3779B97F4A7C15ULL) >> 48;
-      hashes[p == Pawn ? 0 : 1 + c] =
-          hashes[p == Pawn ? 0 : 1 + c] * 9 + mixed;
-      if (p == Knight || p == Bishop) {
-        hashes[3] = hashes[3] * 9 + mixed;
-      }
-    }
+S(1) void get_piece_hashes(const Position *const pos, u64 hashes[4]) {
+  for (i32 p = Pawn; p <= Queen; p++) {
+    hashes[p / 2] ^=
+        (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
   }
 }
 
@@ -1419,21 +1410,20 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[5] = {0};
+  u64 corr_hashes[6] = {0};
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  G(197, corr_hashes[4] = get_material_hash(pos);)
+  G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, i32 * corr_entries[7];)
-  for (i32 i = 0; i < 5; i++) {
+  // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (FROM, TO),
+  // SHARING THE CORRHIST TABLE AT DIRECT INDICES
+  corr_hashes[4] = stack[ply + 1].move_key;
+  corr_hashes[5] = stack[ply].move_key;
+  G(197, i32 * corr_entries[6];)
+  for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
-  }
-  // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
-  corr_entries[5] = &data->corr_cont[pos->flipped][0][stack[ply + 1].move_key];
-  corr_entries[6] = &data->corr_cont[pos->flipped][1][stack[ply].move_key];
-  for (i32 i = 0; i < 7; i++) {
     static_eval += *corr_entries[i] >> 9;
     assert(static_eval < mate);
     assert(static_eval > -mate);
@@ -1474,7 +1464,6 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      stack[ply + 2].move_key = 0;
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1556,9 +1545,7 @@ i32 search(
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     moves_evaluated++;
-    stack[ply + 2].move_key =
-        (piece_on(pos, moves[move_index].from) - 1) * 64 +
-        moves[move_index].to;
+    stack[ply + 2].move_key = *(const u16 *)&moves[move_index].from;
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1659,14 +1646,13 @@ i32 search(
       242, // UPDATE CORRECTION HISTORY
       if (G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval))) &&
-          G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None)) &&
-          !in_check && !in_qsearch) {
+          G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None))) {
         G(246, i32 weight = depth * depth; if (weight > 32) { weight = 32; })
         G(246, i32 target = best_score - stack[ply].static_eval; G(
-              247, if (target < -192) { target = -192; })
-              G(247, if (target > 192) { target = 192; }))
+              247, if (target < -126) { target = -126; })
+              G(247, if (target > 126) { target = 126; }))
 
-        for (i32 i = 0; i < 7; i++) {
+        for (i32 i = 0; i < 6; i++) {
           *corr_entries[i] =
               target * weight - (*corr_entries[i] * (weight - 512) >> 9);
         }
