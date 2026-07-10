@@ -1221,7 +1221,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1234,6 +1234,7 @@ typedef struct [[nodiscard]] {
   G(119, Move killer;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
+  G(119, i32 move_key;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1405,14 +1406,18 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[4] = {0};
+  u64 corr_hashes[6] = {0};
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, i32 * corr_entries[4];)
-  for (i32 i = 0; i < 4; i++) {
+  // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (FROM, TO),
+  // SHARING THE CORRHIST TABLE AT DIRECT INDICES
+  G(197, corr_hashes[4] = stack[ply + 1].move_key;)
+  G(197, corr_hashes[5] = stack[ply].move_key;)
+  G(197, i32 * corr_entries[6];)
+  for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1535,7 +1540,8 @@ i32 search(
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
-    moves_evaluated++;
+    G(270, moves_evaluated++;)
+    G(270, stack[ply + 2].move_key = moves[move_index].from;)
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1638,16 +1644,15 @@ i32 search(
       if (G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval))) &&
           G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None))) {
-        G(246, i32 dd = depth * depth; if (dd > 70) { dd = 70; })
+        G(246, i32 weight = depth * depth; if (weight > 70) { weight = 70; })
         G(246, i32 target = best_score - stack[ply].static_eval; G(
               247, if (target < -126) { target = -126; })
               G(247, if (target > 126) { target = 126; }))
 
-        for (i32 i = 0; i < 4; i++) {
+        for (i32 i = 0; i < 6; i++) {
           *corr_entries[i] =
-              (G(248, G(249, *corr_entries[i]) * G(249, (557 - dd))) +
-               G(248, G(250, target) * G(250, 256) * G(250, dd))) /
-              557;
+              G(248, target) * G(248, weight) -
+              (G(249, *corr_entries[i]) * G(249, (weight - 512)) >> 9);
         }
       })
 
