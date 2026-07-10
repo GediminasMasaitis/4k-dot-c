@@ -1638,7 +1638,7 @@ i32 search(
 
   G(
       242, // UPDATE CORRECTION HISTORY
-      if (G(243,
+      if (G(243, !in_check) && G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval))) &&
           G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None))) {
         G(246, i32 dd = depth * depth; if (dd > 70) { dd = 70; })
