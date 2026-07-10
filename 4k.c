@@ -1238,6 +1238,7 @@ typedef struct [[nodiscard]] {
   G(119, Move best_move;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
+  G(119, i32 *cont_corr;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1259,6 +1260,7 @@ typedef struct [[nodiscard]] {
   G(179, u64 max_time;)
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[2][corrhist_size];)
+  G(179, i32 cont_corr[64][64];)
   G(179, i32 move_history[2][6][64][64];)
 } ThreadData;
 
@@ -1415,10 +1417,13 @@ i32 search(
     assert(static_eval > -mate);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, i32 * corr_entries[4];)
-  for (i32 i = 0; i < 4; i++) {
-    corr_entries[i] =
-        &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+  G(197, i32 * corr_entries[5];)
+  G(197, corr_entries[4] = stack[ply].cont_corr;)
+  for (i32 i = 0; i < 5; i++) {
+    if (i < 4) {
+      corr_entries[i] =
+          &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+    }
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
     assert(static_eval > -mate);
@@ -1459,6 +1464,7 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
+      stack[ply + 1].cont_corr = &data->cont_corr[0][0];
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1536,6 +1542,9 @@ i32 search(
     if (!makemove(H(80, 3, &npos), H(80, 3, &moves[move_index]))) {
       continue;
     }
+
+    stack[ply + 1].cont_corr =
+        &data->cont_corr[moves[move_index].from][moves[move_index].to];
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
@@ -1646,7 +1655,7 @@ i32 search(
               247, if (target < -126) { target = -126; })
               G(247, if (target > 126) { target = 126; }))
 
-        for (i32 i = 0; i < 4; i++) {
+        for (i32 i = 0; i < 5; i++) {
           *corr_entries[i] =
               (G(248, G(249, *corr_entries[i]) * G(249, (557 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
@@ -1815,6 +1824,7 @@ void iteratively_deepen(
 #endif
     ThreadData *data) {
   i32 score = 0;
+  data->stack[0].cont_corr = &data->cont_corr[0][0];
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
