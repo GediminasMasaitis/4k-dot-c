@@ -1225,7 +1225,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1594,7 +1594,7 @@ i32 search(
               })
           G(
               233, if (!in_qsearch) {
-                const i32 bonus = 2 * depth * depth;
+                const i32 bonus = depth * depth;
                 G(234, i32 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
@@ -1848,7 +1848,7 @@ void iteratively_deepen(
           })
     }
 
-    if (stop || elapsed > data->max_time / 10) {
+    if (stop || elapsed > data->max_time / 12) {
       break;
     }
   }
