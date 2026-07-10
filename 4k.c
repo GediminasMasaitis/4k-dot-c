@@ -1344,12 +1344,11 @@ get_hash(const Position *const pos) {
 
 S(1) void get_corr_hashes(const Position *const pos, u64 hashes[4]) {
   for (i32 p = Pawn; p <= Queen; p++) {
-    hashes[p / 2] ^=
-        (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
     for (i32 c = 0; c < 2; c++) {
-      hashes[3] =
-          G(182, count(G(184, pos->pieces[p]) & G(184, pos->colour[c]))) +
-          G(182, G(183, hashes[3]) * G(183, 9));
+      const u64 bb = G(184, pos->pieces[p]) & G(184, pos->colour[c]);
+      hashes[p / 2] ^=
+          (G(185, bb) * G(185, 0x9E3779B97F4A7C15ULL)) >> (48 - 2 * p - c);
+      hashes[3] = G(182, count(bb)) + G(182, G(183, hashes[3]) * G(183, 9));
     }
   }
 }
