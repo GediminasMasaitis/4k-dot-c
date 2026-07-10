@@ -309,8 +309,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
   G(6, bool castling[4];)
-  G(6, u8 padding[11];)
   G(6, bool flipped;)
+  G(6, u8 padding[11];)
 } Position;
 
 #ifdef ASSERTS
@@ -564,12 +564,12 @@ G(
       else G(70, if (piece == King) { moves = king(bb); }) else {
         const u64 blockers = G(71, pos->colour[1]) | G(71, pos->colour[0]);
         G(
-            72, if (piece != Bishop) {
-              moves |= rook(H(41, 3, blockers), H(41, 3, bb));
-            })
-        G(
             72, if (piece != Rook) {
               moves |= bishop(H(43, 3, blockers), H(43, 3, bb));
+            })
+        G(
+            72, if (piece != Bishop) {
+              moves |= rook(H(41, 3, blockers), H(41, 3, bb));
             })
       }
       return moves;
@@ -941,8 +941,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn;)
             H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];))
   H(116, 1,
-    H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 pawn_threat[5];)
-        H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 king_shield[2];))
+    H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 bishop_pawns[2];)
+        H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];))
   H(116, 1,
     H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
         H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 mobilities[5];)
@@ -957,8 +957,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
         H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn;)
             H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];))
   H(116, 2,
-    H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 pawn_threat[5];)
-        H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 king_shield[2];))
+    H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 bishop_pawns[2];)
+        H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];))
   H(116, 2,
     H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
         H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 mobilities[5];)
@@ -1064,7 +1064,7 @@ S(0) i32 eval(Position *const restrict pos) {
 
     G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
-          pawns[i] = G(128, pos->colour[i]) & G(128, pos->pieces[Pawn]);
+          pawns[i] = G(128, pos->pieces[Pawn]) & G(128, pos->colour[i]);
         } const u64 attacked_by_pawns = G(129, southwest(pawns[1])) |
                                         G(129, southeast(pawns[1]));
         G(130,
@@ -1130,19 +1130,6 @@ S(0) i32 eval(Position *const restrict pos) {
                   })
 
               G(
-                  155, // BISHOP COLOUR PAWNS
-                  if (G(165, p) == G(165, Bishop)) {
-                    u64 mask = 0xAA55AA55AA55AA55ULL;
-                    if (!(G(166, piece_bb) & G(166, mask))) {
-                      mask = ~mask;
-                    }
-                    for (i32 i = 0; i < 2; i++) {
-                      score += G(167, eval_params.bishop_pawns[i]) *
-                               G(167, count(G(168, pawns[i]) & G(168, mask)));
-                    }
-                  })
-
-              G(
                   155, // KING SHIELD
                   if (G(156, G(157, p) == G(157, King)) &&
                       G(156, G(158, piece_bb) & G(158, 0xC3D7))) {
@@ -1153,6 +1140,19 @@ S(0) i32 eval(Position *const restrict pos) {
                     G(159, score += G(162, count(G(163, north(shield)) &
                                                  G(163, pawns[0]))) *
                                     G(162, eval_params.king_shield[1]);)
+                  })
+
+              G(
+                  155, // BISHOP COLOUR PAWNS
+                  if (G(165, p) == G(165, Bishop)) {
+                    u64 mask = 0xAA55AA55AA55AA55ULL;
+                    if (!(G(166, piece_bb) & G(166, mask))) {
+                      mask = ~mask;
+                    }
+                    for (i32 i = 0; i < 2; i++) {
+                      score += G(167, eval_params.bishop_pawns[i]) *
+                               G(167, count(G(168, pawns[i]) & G(168, mask)));
+                    }
                   })
 
               G(155, const u64 mobility =
@@ -1186,7 +1186,7 @@ S(0) i32 eval(Position *const restrict pos) {
                 const i32 king_sq =
                     lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
                 G(149, const i32 rank_distance = __builtin_abs(
-                           king_sq / 8 - G(150, rank) - G(150, 1));)
+                           king_sq / 8 - G(150, 1) - G(150, rank));)
                 G(149,
                   const i32 file_distance = __builtin_abs(king_sq % 8 - file);)
                 score +=
@@ -1234,9 +1234,9 @@ enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
   G(119, i32 static_eval;)
-  G(119, Move killer;)
-  G(119, Move best_move;)
   G(119, u64 position_hash;)
+  G(119, Move best_move;)
+  G(119, Move killer;)
   G(119, i32 num_moves;)
 } SearchStack;
 
@@ -1245,8 +1245,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   G(178, u16 partial_hash;)
   G(178, i16 static_eval;)
   G(178, u8 flag;)
-  G(178, i8 depth;)
   G(178, i16 score;)
+  G(178, i8 depth;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 12);
 
@@ -1258,8 +1258,8 @@ typedef struct [[nodiscard]] {
   G(179, Position pos;)
   G(179, u64 max_time;)
   G(179, SearchStack stack[1024];)
-  G(179, i32 corrhist[2][corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
+  G(179, i32 corrhist[2][corrhist_size];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1483,8 +1483,8 @@ i32 search(
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
-    G(215, i32 best_index = 0;)
     G(215, i32 move_score = ~0x1010101LL;)
+    G(215, i32 best_index = 0;)
     for (i32 order_index = move_index; order_index < stack[ply].num_moves;
          order_index++) {
       assert(moves[order_index].takes_piece ==
@@ -1650,7 +1650,7 @@ i32 search(
           *corr_entries[i] =
               (G(248, G(249, *corr_entries[i]) * G(249, (484 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
-            484;
+              484;
         }
       })
 
@@ -1843,7 +1843,7 @@ void iteratively_deepen(
       G(257, window *= 2;)
       G(
           257, if (G(258, elapsed > data->max_time) ||
-                   G(258, (G(259, score > alpha) && G(259, score < beta)))) {
+                   G(258, (G(259, score < beta) && G(259, score > alpha)))) {
             break;
           })
     }
