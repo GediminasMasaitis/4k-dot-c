@@ -66,25 +66,6 @@ G(
     })
 
 G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
     1, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
@@ -112,19 +93,6 @@ G(
     })
 
 G(
-    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                        const char *restrict rhs) {
-      while (*lhs || *rhs) {
-        if (*lhs != *rhs) {
-          return true;
-        }
-        lhs++;
-        rhs++;
-      }
-      return false;
-    })
-
-G(
     1,
     typedef struct [[nodiscard]] {
       ssize_t tv_sec;  // seconds
@@ -140,6 +108,38 @@ G(
                    : "rcx", "r11", "memory");
       return G(2, ts.tv_nsec) +
              G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+G(
+    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                        const char *restrict rhs) {
+      while (*lhs || *rhs) {
+        if (*lhs != *rhs) {
+          return true;
+        }
+        lhs++;
+        rhs++;
+      }
+      return false;
     })
 
 #ifdef FULL
@@ -791,7 +791,7 @@ enum { max_moves = 218 };
               G(104, (G(106, pos->colour[1]) | G(106, pos->ep)))),
         H(93, 4, movelist), H(93, 4, pos));)
   G(
-      286, // LONG CASTLE
+      98, // LONG CASTLE
       if (G(110, !only_captures) && G(110, !(G(111, all) & G(111, 0xEull))) &&
           G(110, pos->castling[1]) &&
           G(112, !is_attacked(H(58, 3, pos), H(58, 3, 1ULL << 3))) &&
@@ -801,7 +801,7 @@ enum { max_moves = 218 };
                    G(284, .takes_piece = None)};
       })
   G(
-      286, // SHORT CASTLE
+      98, // SHORT CASTLE
       if (G(113, !only_captures) && G(113, !(G(114, all) & G(114, 0x60ull))) &&
           G(113, pos->castling[0]) &&
           G(115, !is_attacked(H(58, 5, pos), H(58, 5, 1ULL << 5))) &&
@@ -810,7 +810,7 @@ enum { max_moves = 218 };
             (Move){G(285, .from = 4), G(285, .to = 6), G(285, .promo = None),
                    G(285, .takes_piece = None)};
       })
-  G(286, // PIECE MOVES
+  G(98, // PIECE MOVES
     movelist = generate_piece_moves(H(75, 2, to_mask), H(75, 2, movelist),
                                     H(75, 2, pos));)
 
@@ -1363,7 +1363,7 @@ G(
 
 G(
     277, S(1) void get_piece_hashes(H(189, 1, const Position *const pos),
-                                    H(189, 1, u64 hashes[6])) {
+                                    H(189, 1, u64 hashes[5])) {
       for (i32 p = Pawn; p <= Queen; p++) {
         hashes[p / 2] ^=
             (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
@@ -1419,8 +1419,7 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[6] = {0};
-  G(197, corr_hashes[5] = stack[ply].move_key;)
+  u64 corr_hashes[5] = {0};
   G(197, get_piece_hashes(H(189, 2, pos), H(189, 2, corr_hashes));)
   G(197, corr_hashes[4] = stack[ply + 1].move_key;)
   // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
@@ -1428,8 +1427,8 @@ i32 search(
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  G(197, i32 * corr_entries[6];)
-  for (i32 i = 0; i < 6; i++) {
+  G(197, i32 * corr_entries[5];)
+  for (i32 i = 0; i < 5; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1661,7 +1660,7 @@ i32 search(
               247, if (target < -126) { target = -126; })
               G(247, if (target > 126) { target = 126; }))
 
-        for (i32 i = 0; i < 6; i++) {
+        for (i32 i = 0; i < 5; i++) {
           *corr_entries[i] =
               (G(248, G(249, *corr_entries[i]) * G(249, (557 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
