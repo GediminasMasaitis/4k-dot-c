@@ -607,10 +607,11 @@ G(
 
             G(79, moves &= moves - 1;)
             G(79, *movelist++ = ((Move){
-                      .from = from,
-                      .to = to,
-                      .promo = None,
-                      .takes_piece = piece_on(H(55, 2, pos), H(55, 2, to))});)
+                      G(281, .from = from),
+                      G(281, .to = to),
+                      G(281, .promo = None),
+                      G(281, .takes_piece =
+                                 piece_on(H(55, 2, pos), H(55, 2, to)))});)
           }
         }
       }
@@ -730,12 +731,14 @@ G(
         const u8 takes = piece_on(H(55, 6, pos), H(55, 6, to));
         if (to > 55) {
           for (u8 piece = Queen; piece >= Knight; piece--) {
-            *movelist++ = ((Move){
-                .from = from, .to = to, .promo = piece, .takes_piece = takes});
+            *movelist++ = ((Move){G(282, .from = from), G(282, .to = to),
+                                  G(282, .promo = piece),
+                                  G(282, .takes_piece = takes)});
           }
         } else {
-          *movelist++ = ((Move){
-              .from = from, .to = to, .promo = None, .takes_piece = takes});
+          *movelist++ = ((Move){G(283, .from = from), G(283, .to = to),
+                                G(283, .promo = None),
+                                G(283, .takes_piece = takes)});
         }
       }
 
@@ -795,7 +798,8 @@ enum { max_moves = 218 };
           G(112, !is_attacked(H(58, 3, pos), H(58, 3, 1ULL << 3))) &&
           G(112, !is_attacked(H(58, 4, pos), H(58, 4, 1ULL << 4)))) {
         *movelist++ =
-            (Move){.from = 4, .to = 2, .promo = None, .takes_piece = None};
+            (Move){G(284, .from = 4), G(284, .to = 2), G(284, .promo = None),
+                   G(284, .takes_piece = None)};
       })
   G(
       98, // SHORT CASTLE
@@ -804,10 +808,12 @@ enum { max_moves = 218 };
           G(115, !is_attacked(H(58, 5, pos), H(58, 5, 1ULL << 5))) &&
           G(115, !is_attacked(H(58, 6, pos), H(58, 6, 1ULL << 4)))) {
         *movelist++ =
-            (Move){.from = 4, .to = 6, .promo = None, .takes_piece = None};
+            (Move){G(285, .from = 4), G(285, .to = 6), G(285, .promo = None),
+                   G(285, .takes_piece = None)};
       })
-  movelist = generate_piece_moves(H(75, 2, to_mask), H(75, 2, movelist),
-                                  H(75, 2, pos));
+  G(98, // PIECE MOVES
+    movelist = generate_piece_moves(H(75, 2, to_mask), H(75, 2, movelist),
+                                    H(75, 2, pos));)
 
   const i32 num_moves = movelist - start;
   assert(num_moves < max_moves);
@@ -967,7 +973,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  i8 phases[6];
+  G(120, i8 phases[6];)
   G(120, EvalParams eg;)
   G(120, EvalParams mg;)
 } EvalParamsInitial;
@@ -1343,23 +1349,27 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
-[[nodiscard]] S(1) u64 get_material_hash(const Position *const pos) {
-  u64 hash = 0;
-  for (i32 c = 0; c < 2; c++) {
-    for (i32 p = Pawn; p <= Queen; p++) {
-      hash = G(182, count(G(184, pos->pieces[p]) & G(184, pos->colour[c]))) +
-             G(182, G(183, hash) * G(183, 9));
-    }
-  }
-  return hash;
-}
+G(
+    277, [[nodiscard]] S(1) u64 get_material_hash(const Position *const pos) {
+      u64 hash = 0;
+      for (i32 c = 0; c < 2; c++) {
+        for (i32 p = Pawn; p <= Queen; p++) {
+          hash =
+              G(182, count(G(184, pos->pieces[p]) & G(184, pos->colour[c]))) +
+              G(182, G(183, hash) * G(183, 9));
+        }
+      }
+      return hash;
+    })
 
-S(1) void get_piece_hashes(const Position *const pos, u64 hashes[6]) {
-  for (i32 p = Pawn; p <= Queen; p++) {
-    hashes[p / 2] ^=
-        (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
-  }
-}
+G(
+    277, S(1) void get_piece_hashes(H(189, 1, const Position *const pos),
+                                    H(189, 1, u64 hashes[6])) {
+      for (i32 p = Pawn; p <= Queen; p++) {
+        hashes[p / 2] ^=
+            (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
+      }
+    })
 
 S(1)
 i32 search(
@@ -1373,16 +1383,16 @@ i32 search(
   assert(alpha < beta);
   assert(ply >= 0);
 
-  SearchStack *const stack = data->stack;
-  i32(*const move_history)[6][64][64] = data->move_history;
+  G(270, SearchStack *const stack = data->stack;)
+  G(270, i32(*const move_history)[6][64][64] = data->move_history;)
 
   // IN-CHECK EXTENSION
   const bool in_check = find_in_check(pos);
   depth += in_check;
 
   // FULL REPETITION DETECTION
-  const u64 tt_hash = get_hash(pos);
-  bool in_qsearch = depth <= 0;
+  G(271, const u64 tt_hash = get_hash(pos);)
+  G(271, bool in_qsearch = depth <= 0;)
   for (i32 i = G(189, ply); G(190, i >= 0) && G(190, do_null); i -= 2) {
     if (G(191, tt_hash) == G(191, stack[i].position_hash)) {
       return 0;
@@ -1411,8 +1421,8 @@ i32 search(
 
   // STATIC EVAL WITH CORRECTION HISTORY
   u64 corr_hashes[6] = {0};
-  G(197, corr_hashes[5] = stack[ply].move_key + 6 * 64;)
-  G(197, get_piece_hashes(pos, corr_hashes);)
+  G(197, corr_hashes[5] = G(275, stack[ply].move_key) + G(275, 6 * 64);)
+  G(197, get_piece_hashes(H(189, 2, pos), H(189, 2, corr_hashes));)
   G(197, corr_hashes[4] = stack[ply + 1].move_key;)
   // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
   G(197, corr_hashes[3] = get_material_hash(pos);)
@@ -1428,8 +1438,9 @@ i32 search(
     assert(static_eval > -mate);
   }
 
-  stack[ply].static_eval = static_eval;
-  const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
+  G(272, stack[ply].static_eval = static_eval;)
+  G(272, const bool improving =
+             ply > 1 && static_eval > stack[ply - 2].static_eval;)
   if (G(199, tt_hit) &&
       G(199, G(201, tt_entry->flag) != G(201, static_eval) > tt_entry->score)) {
     static_eval = tt_entry->score;
@@ -1543,10 +1554,13 @@ i32 search(
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
-    moves_evaluated++;
-    stack[ply + 2].move_key =
-        (piece_on(H(55, 10, pos), H(55, 10, moves[move_index].from)) - 1) * 64 +
-        moves[move_index].to;
+    G(273, moves_evaluated++;)
+    G(273, stack[ply + 2].move_key =
+               G(274, (piece_on(H(55, 10, pos),
+                                H(55, 10, moves[move_index].from)) -
+                       1) *
+                          64) +
+               G(274, moves[move_index].to);)
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1566,7 +1580,9 @@ i32 search(
           H(186, 3, H(188, 3, ply + 1), H(188, 3, true), H(188, 3, low)));
 
       // EARLY EXITS
-      if (stop || (depth > 4 && get_time() - start_time > data->max_time)) {
+      if (G(279, stop) ||
+          G(279,
+            (depth > 4 && get_time() - start_time > data->max_time))) {
         return best_score;
       }
 
@@ -1662,12 +1678,12 @@ i32 search(
       })
 
   G(242, // UPDATE TRANSPOSITION TABLE
-        *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                              .move = stack[ply].best_move,
-                              .score = best_score,
-                              .static_eval = raw_eval,
-                              .depth = depth,
-                              .flag = tt_flag};)
+        *tt_entry = (TTEntry){G(276, .partial_hash = tt_hash_partial),
+                              G(276, .move = stack[ply].best_move),
+                              G(276, .score = best_score),
+                              G(276, .static_eval = raw_eval),
+                              G(276, .depth = depth),
+                              G(276, .flag = tt_flag)};)
 
   return best_score;
 }
@@ -1855,7 +1871,7 @@ void iteratively_deepen(
           })
     }
 
-    if (stop || elapsed > data->max_time / 14) {
+    if (G(280, stop) || G(280, elapsed > data->max_time / 14)) {
       break;
     }
   }
@@ -1935,7 +1951,7 @@ void run_smp() {
 #ifdef FULL
     helper_head->data.thread_id = i;
 #endif
-    helper_head->entry = entry_mini;
+    G(260, helper_head->entry = entry_mini;)
     newthread(helper_head);
   }
 
