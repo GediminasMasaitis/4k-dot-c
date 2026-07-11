@@ -16,7 +16,7 @@ The engine is a <= 4096 byte UCI engine executable, without:
 * No need to touch the changelog. I will amend the commit and you will get credited there (as well as the git history)
 
 #### For size measurements
-* You must have the *correct* `gcc` version on your system in your PATH. It is a version somewhere in-between 14.2 and 15.1. See below for installation details
+* You must have the *correct* `gcc` version on your system in your PATH. It is a development version of GCC 17, based on trunk as of July 2026. See below for installation details
 * You must have `nasm` on your PATH (`sudo apt install nasm`). It assembles the loader.
 * Run `make NOSTDLIB=true MINI=true loader`, you will see the binary size in the console output. The compressor (`compressor.c`) is built from source automatically as part of this target — no external compression tool is required.
 
