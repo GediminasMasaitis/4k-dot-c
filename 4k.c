@@ -1225,7 +1225,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1238,6 +1238,7 @@ typedef struct [[nodiscard]] {
   G(119, Move best_move;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
+  i32 move_key;
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1353,7 +1354,7 @@ get_hash(const Position *const pos) {
   return hash;
 }
 
-S(1) void get_piece_hashes(const Position *const pos, u64 hashes[4]) {
+S(1) void get_piece_hashes(const Position *const pos, u64 hashes[6]) {
   for (i32 p = Pawn; p <= Queen; p++) {
     hashes[p / 2] ^=
         (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
@@ -1409,14 +1410,17 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[4] = {0};
+  u64 corr_hashes[6] = {0};
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, i32 * corr_entries[4];)
-  for (i32 i = 0; i < 4; i++) {
+  // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
+  corr_hashes[4] = stack[ply + 1].move_key;
+  corr_hashes[5] = stack[ply].move_key + 64 * 64;
+  G(197, i32 * corr_entries[6];)
+  for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1459,6 +1463,7 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
+      stack[ply + 2].move_key = 0;
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1540,6 +1545,8 @@ i32 search(
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     moves_evaluated++;
+    stack[ply + 2].move_key =
+        moves[move_index].from * 64 + moves[move_index].to;
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1646,7 +1653,7 @@ i32 search(
               247, if (target < -126) { target = -126; })
               G(247, if (target > 126) { target = 126; }))
 
-        for (i32 i = 0; i < 4; i++) {
+        for (i32 i = 0; i < 6; i++) {
           *corr_entries[i] =
               (G(248, G(249, *corr_entries[i]) * G(249, (557 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
