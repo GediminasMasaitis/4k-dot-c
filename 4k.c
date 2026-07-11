@@ -66,25 +66,6 @@ G(
     })
 
 G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
     1, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
@@ -122,6 +103,25 @@ G(
         rhs++;
       }
       return false;
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
     })
 
 G(
@@ -430,7 +430,7 @@ G(
       G(37, const u64 horizontal1 = G(38, west_bb) | G(38, east_bb);)
       G(37,
         const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
-      return G(40, horizontal2 >> 8) | G(40, horizontal2 << 8) |
+      return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) |
              G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
     })
 
@@ -485,15 +485,15 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[4] = "\0\0nbrq"[move->promo];)
-
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
             G(52, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
             G(52, str[i * 2] = 'a' + (&move->from)[i] % 8;)
           })
+
       G(51, str[5] = '\0';)
+      G(51, str[4] = "\0\0nbrq"[move->promo];)
     })
 
 G(
@@ -545,8 +545,8 @@ G(
                                             H(69, 1, const i32 sq)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(70, if (piece == Knight) { moves = knight(bb); })
-      else G(70, if (piece == King) { moves = king(bb); }) else {
+      G(70, if (piece == King) { moves = king(bb); })
+      else G(70, if (piece == Knight) { moves = knight(bb); }) else {
         const u64 blockers = G(71, pos->colour[1]) | G(71, pos->colour[0]);
         G(
             72, if (piece != Bishop) {
@@ -748,7 +748,7 @@ enum { max_moves = 218 };
                                H(95, 1, const i32 only_captures),
                                H(95, 1, Move *restrict movelist)) {
 
-  G(96, const u64 all = G(97, pos->colour[0]) | G(97, pos->colour[1]);)
+  G(96, const u64 all = G(97, pos->colour[1]) | G(97, pos->colour[0]);)
   G(96, const Move *start = movelist;)
   G(96, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
   G(98, // PAWN DOUBLE MOVES
