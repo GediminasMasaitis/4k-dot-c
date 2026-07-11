@@ -1234,6 +1234,7 @@ typedef struct [[nodiscard]] {
   G(119, Move killer;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
+  G(119, Move prev_move;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1405,14 +1406,19 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[4] = {0};
+  u64 corr_hashes[6] = {0};
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, i32 * corr_entries[4];)
-  for (i32 i = 0; i < 4; i++) {
+  G(197, corr_hashes[4] =
+             stack[ply + 1].prev_move.from | stack[ply + 1].prev_move.to << 8;)
+  G(197, corr_hashes[5] =
+             (stack[ply].prev_move.from | stack[ply].prev_move.to << 8) +
+             16384;)
+  G(197, i32 * corr_entries[6];)
+  for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1455,6 +1461,7 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
+      G(211, stack[ply + 2].prev_move = (Move){0};)
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1532,6 +1539,8 @@ i32 search(
     if (!makemove(H(80, 3, &npos), H(80, 3, &moves[move_index]))) {
       continue;
     }
+
+    stack[ply + 2].prev_move = moves[move_index];
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
@@ -1643,7 +1652,7 @@ i32 search(
               247, if (target < -126) { target = -126; })
               G(247, if (target > 126) { target = 126; }))
 
-        for (i32 i = 0; i < 4; i++) {
+        for (i32 i = 0; i < 6; i++) {
           *corr_entries[i] =
               (G(248, G(249, *corr_entries[i]) * G(249, (557 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
