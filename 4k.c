@@ -1257,11 +1257,6 @@ typedef struct [[nodiscard]] {
   G(179, SearchStack stack[1024];)
   G(179, i32 move_history[2][6][64][64];)
   G(179, i32 corrhist[2][corrhist_size];)
-<<<<<<< HEAD
-  i32 corr_cont[2][2][6 * 64];
-=======
-  G(179, i32 move_history[2][6][64][64];)
->>>>>>> b31df35 (Sort of)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
