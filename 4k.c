@@ -1234,7 +1234,7 @@ typedef struct [[nodiscard]] {
   G(119, Move killer;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
-  i32 move_key;
+  G(119, i32 move_key;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1414,8 +1414,8 @@ i32 search(
   G(197, get_piece_hashes(pos, corr_hashes);)
   // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (FROM, TO),
   // SHARING THE CORRHIST TABLE AT DIRECT INDICES
-  corr_hashes[4] = stack[ply + 1].move_key;
-  corr_hashes[5] = stack[ply].move_key;
+  G(197, corr_hashes[4] = stack[ply + 1].move_key;)
+  G(197, corr_hashes[5] = stack[ply].move_key;)
   G(197, i32 * corr_entries[6];)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
@@ -1540,8 +1540,8 @@ i32 search(
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
-    moves_evaluated++;
-    stack[ply + 2].move_key = *(const u16 *)&moves[move_index].from;
+    G(270, moves_evaluated++;)
+    G(270, stack[ply + 2].move_key = *(const u16 *)&moves[move_index].from;)
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1651,7 +1651,8 @@ i32 search(
 
         for (i32 i = 0; i < 6; i++) {
           *corr_entries[i] =
-              target * weight - (*corr_entries[i] * (weight - 512) >> 9);
+              G(248, target) * G(248, weight) -
+              (G(249, *corr_entries[i]) * G(249, (weight - 512)) >> 9);
         }
       })
 
