@@ -1420,7 +1420,7 @@ i32 search(
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
         &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
-    static_eval += *corr_entries[i] / 256;
+    static_eval += *corr_entries[i] >> 9;
     assert(static_eval < mate);
     assert(static_eval > -mate);
   }
@@ -1541,7 +1541,7 @@ i32 search(
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     G(270, moves_evaluated++;)
-    G(270, stack[ply + 2].move_key = moves[move_index].from;)
+    G(270, stack[ply + 2].move_key = *(const u16 *)&moves[move_index].from;)
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1644,7 +1644,7 @@ i32 search(
       if (G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval))) &&
           G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None))) {
-        G(246, i32 weight = depth * depth; if (weight > 70) { weight = 70; })
+        G(246, i32 weight = depth * depth; if (weight > 32) { weight = 32; })
         G(246, i32 target = best_score - stack[ply].static_eval; G(
               247, if (target < -126) { target = -126; })
               G(247, if (target > 126) { target = 126; }))
