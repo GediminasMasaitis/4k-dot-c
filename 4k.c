@@ -364,9 +364,9 @@ G(
 
 G(
     16, [[nodiscard]] S(1) u64 southeast(const u64 bb) {
+      return G(17, G(18, east)(G(18, south)(bb)));
       return G(17, shift(H(10, 2, -7), H(10, 2, ~0x101010101010101ull),
                          H(10, 2, bb)));
-      return G(17, G(18, east)(G(18, south)(bb)));
     })
 
 G(
@@ -518,15 +518,15 @@ G(
 
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
-      G(67, pos->flipped ^= 1;)
-      G(67, u32 *c = (u32 *)pos->castling;
-        *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
-
       G(
           67, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
+      G(67, u32 *c = (u32 *)pos->castling;
+        *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
+
+      G(67, pos->flipped ^= 1;)
       G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
         pos->colour[0] ^= pos->colour[1];)
     })
@@ -606,12 +606,11 @@ G(
             assert(to < 64);
 
             G(79, moves &= moves - 1;)
-            G(79, *movelist++ = ((Move){
-                      G(281, .from = from),
-                      G(281, .to = to),
-                      G(281, .promo = None),
-                      G(281, .takes_piece =
-                                 piece_on(H(55, 2, pos), H(55, 2, to)))});)
+            G(79, *movelist++ =
+                      ((Move){G(281, .from = from), G(281, .to = to),
+                              G(281, .promo = None),
+                              G(281, .takes_piece = piece_on(H(55, 2, pos),
+                                                             H(55, 2, to)))});)
           }
         }
       }
@@ -731,14 +730,14 @@ G(
         const u8 takes = piece_on(H(55, 6, pos), H(55, 6, to));
         if (to > 55) {
           for (u8 piece = Queen; piece >= Knight; piece--) {
-            *movelist++ = ((Move){G(282, .from = from), G(282, .to = to),
-                                  G(282, .promo = piece),
-                                  G(282, .takes_piece = takes)});
+            *movelist++ =
+                ((Move){G(282, .from = from), G(282, .to = to),
+                        G(282, .promo = piece), G(282, .takes_piece = takes)});
           }
         } else {
-          *movelist++ = ((Move){G(283, .from = from), G(283, .to = to),
-                                G(283, .promo = None),
-                                G(283, .takes_piece = takes)});
+          *movelist++ =
+              ((Move){G(283, .from = from), G(283, .to = to),
+                      G(283, .promo = None), G(283, .takes_piece = takes)});
         }
       }
 
@@ -1439,8 +1438,8 @@ i32 search(
   }
 
   G(272, stack[ply].static_eval = static_eval;)
-  G(272, const bool improving =
-             ply > 1 && static_eval > stack[ply - 2].static_eval;)
+  G(272,
+    const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;)
   if (G(199, tt_hit) &&
       G(199, G(201, tt_entry->flag) != G(201, static_eval) > tt_entry->score)) {
     static_eval = tt_entry->score;
@@ -1555,12 +1554,12 @@ i32 search(
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     G(273, moves_evaluated++;)
-    G(273, stack[ply + 2].move_key =
-               G(274, (piece_on(H(55, 10, pos),
-                                H(55, 10, moves[move_index].from)) -
-                       1) *
-                          64) +
-               G(274, moves[move_index].to);)
+    G(273,
+      stack[ply + 2].move_key =
+          G(274,
+            (piece_on(H(55, 10, pos), H(55, 10, moves[move_index].from)) - 1) *
+                64) +
+          G(274, moves[move_index].to);)
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
@@ -1581,8 +1580,7 @@ i32 search(
 
       // EARLY EXITS
       if (G(279, stop) ||
-          G(279,
-            (depth > 4 && get_time() - start_time > data->max_time))) {
+          G(279, (depth > 4 && get_time() - start_time > data->max_time))) {
         return best_score;
       }
 
@@ -1682,8 +1680,7 @@ i32 search(
                               G(276, .move = stack[ply].best_move),
                               G(276, .score = best_score),
                               G(276, .static_eval = raw_eval),
-                              G(276, .depth = depth),
-                              G(276, .flag = tt_flag)};)
+                              G(276, .depth = depth), G(276, .flag = tt_flag)};)
 
   return best_score;
 }
@@ -2163,7 +2160,6 @@ S(1) void run() {
       bench();
     } else if (!strcmp(line, "gi")) {
       stop = false;
-      start_time = get_time();
       main_data->max_time = -1LL;
       run_smp();
     } else if (!strcmp(line, "d")) {
@@ -2232,7 +2228,6 @@ S(1) void run() {
             getl(line);
             main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
           }
-          start_time = get_time();
           run_smp();
 #endif
     })
