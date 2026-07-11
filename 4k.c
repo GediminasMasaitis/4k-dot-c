@@ -1238,7 +1238,7 @@ typedef struct [[nodiscard]] {
   G(119, Move best_move;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
-  i32 move_key;
+  G(119, i32 move_key;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1417,8 +1417,8 @@ i32 search(
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, get_piece_hashes(pos, corr_hashes);)
   // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
-  corr_hashes[4] = stack[ply + 1].move_key;
-  corr_hashes[5] = stack[ply].move_key + 64 * 64;
+  G(197, corr_hashes[4] = stack[ply + 1].move_key;)
+  G(197, corr_hashes[5] = stack[ply].move_key + 6 * 64;)
   G(197, i32 * corr_entries[6];)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
@@ -1463,7 +1463,7 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      stack[ply + 2].move_key = 0;
+      G(211, stack[ply + 2].move_key = 0;)
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1546,7 +1546,8 @@ i32 search(
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     moves_evaluated++;
     stack[ply + 2].move_key =
-        moves[move_index].from * 64 + moves[move_index].to;
+        (piece_on(H(55, 10, pos), H(55, 10, moves[move_index].from)) - 1) * 64 +
+        moves[move_index].to;
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
