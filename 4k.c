@@ -299,9 +299,9 @@ static void putl(const char *const restrict string) {
 enum [[nodiscard]] { None, Pawn, Knight, Bishop, Rook, Queen, King };
 
 typedef struct [[nodiscard]] {
+  G(4, u8 promo;)
   G(4, u8 from; u8 to;)
   G(4, u8 takes_piece;)
-  G(4, u8 promo;)
 } Move;
 
 typedef struct [[nodiscard]] {
@@ -364,9 +364,9 @@ G(
 
 G(
     16, [[nodiscard]] S(1) u64 southeast(const u64 bb) {
-      return G(17, G(18, east)(G(18, south)(bb)));
       return G(17, shift(H(10, 2, -7), H(10, 2, ~0x101010101010101ull),
                          H(10, 2, bb)));
+      return G(17, G(18, east)(G(18, south)(bb)));
     })
 
 G(
@@ -562,7 +562,7 @@ G(
       const u64 bb = 1ULL << sq;
       G(70, if (piece == Knight) { moves = knight(bb); })
       else G(70, if (piece == King) { moves = king(bb); }) else {
-        const u64 blockers = G(71, pos->colour[1]) | G(71, pos->colour[0]);
+        const u64 blockers = G(71, pos->colour[0]) | G(71, pos->colour[1]);
         G(
             72, if (piece != Bishop) {
               moves |= rook(H(41, 3, blockers), H(41, 3, bb));
@@ -937,32 +937,32 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(118, 1, i8 king_attacks[5];) H(118, 1, i8 protected_pawn;)
-        H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn;)
-            H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];))
+    H(118, 1, i8 king_attacks[5];) H(118, 1, i8 pst_rank[48];)
+        H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 protected_pawn;)
+            H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 bishop_pair;))
   H(116, 1,
     H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 pawn_threat[5];)
         H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 king_shield[2];))
   H(116, 1,
-    H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
-        H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 mobilities[5];)
-            H(119, 1, i8 passed_blocked_pawns[6];)
+    H(119, 1, i8 pst_file[48];) H(119, 1, i8 tempo;)
+        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 mobilities[5];)
+            H(119, 1, i8 pawn_attacked_penalty[2];)
                 H(119, 1, i8 open_files[12];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(118, 2, i32 king_attacks[5];) H(118, 2, i32 protected_pawn;)
-        H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn;)
-            H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];))
+    H(118, 2, i32 king_attacks[5];) H(118, 2, i32 pst_rank[48];)
+        H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 protected_pawn;)
+            H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 bishop_pair;))
   H(116, 2,
     H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 pawn_threat[5];)
         H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 king_shield[2];))
   H(116, 2,
-    H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
-        H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 mobilities[5];)
-            H(119, 2, i32 passed_blocked_pawns[6];)
+    H(119, 2, i32 pst_file[48];) H(119, 2, i32 tempo;)
+        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 mobilities[5];)
+            H(119, 2, i32 pawn_attacked_penalty[2];)
                 H(119, 2, i32 open_files[12];))
 } EvalParamsMerged;
 
@@ -1086,12 +1086,12 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, copy &= copy - 1;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const i32 rank = sq >> 3;)
         G(137, phase += initial_params.phases[p];)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(137, copy &= copy - 1;)
         G(
             93, // OPEN FILES / DOUBLED PAWNS
             if ((G(139, north(in_front)) & G(139, pawns[0])) == 0) {
@@ -1233,20 +1233,20 @@ enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
-  G(119, i32 static_eval;)
-  G(119, Move killer;)
   G(119, Move best_move;)
+  G(119, i32 move_key;)
+  G(119, i32 static_eval;)
   G(119, u64 position_hash;)
   G(119, i32 num_moves;)
-  G(119, i32 move_key;)
+  G(119, Move killer;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
+  G(178, i8 depth;)
   G(178, Move move;)
-  G(178, u16 partial_hash;)
   G(178, i16 static_eval;)
   G(178, u8 flag;)
-  G(178, i8 depth;)
+  G(178, u16 partial_hash;)
   G(178, i16 score;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 12);
@@ -1282,8 +1282,8 @@ __attribute__((
     aligned(4096))) u8 thread_stacks[thread_count][thread_stack_size];
 __attribute__((section(".bss.zztt"))) S(0) TTEntry tt[tt_length];
 #endif
-G(180, S(1) u64 start_time;)
 G(180, S(1) volatile bool stop;)
+G(180, S(1) u64 start_time;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1390,8 +1390,8 @@ i32 search(
   }
 
   // TT PROBING
-  G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
+  G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(192, stack[ply].best_move = (Move){0};)
   const bool tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);
   if (tt_hit) {
@@ -1411,14 +1411,14 @@ i32 search(
 
   // STATIC EVAL WITH CORRECTION HISTORY
   u64 corr_hashes[6] = {0};
+  G(197, corr_hashes[5] = stack[ply].move_key + 6 * 64;)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
-  G(197, get_piece_hashes(pos, corr_hashes);)
   // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
+  G(197, get_piece_hashes(pos, corr_hashes);)
   G(197, corr_hashes[4] = stack[ply + 1].move_key;)
-  G(197, corr_hashes[5] = stack[ply].move_key + 6 * 64;)
   G(197, i32 * corr_entries[6];)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
@@ -1520,11 +1520,10 @@ i32 search(
         222, // FORWARD FUTILITY PRUNING / DELTA PRUNING
         if (G(225, depth < 6) &&
             G(225,
-              G(226,
-                initial_params.eg.material[moves[move_index].takes_piece]) +
-                      G(226,
-                        initial_params.eg.material[moves[move_index].promo]) +
+              G(226, initial_params.eg.material[moves[move_index].promo]) +
                       G(226, G(227, 140) * G(227, depth)) +
+                      G(226, initial_params.eg
+                                 .material[moves[move_index].takes_piece]) +
                       G(226, static_eval) <
                   alpha) &&
             G(225, moves_evaluated) && G(225, !in_check)) { break; })
