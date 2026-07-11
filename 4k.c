@@ -309,8 +309,8 @@ typedef struct [[nodiscard]] {
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
   G(6, bool castling[4];)
-  G(6, u8 padding[11];)
   G(6, bool flipped;)
+  G(6, u8 padding[11];)
 } Position;
 
 #ifdef ASSERTS
@@ -485,9 +485,9 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[5] = '\0';)
-
       G(51, str[4] = "\0\0nbrq"[move->promo];)
+
+      G(51, str[5] = '\0';)
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
@@ -791,7 +791,7 @@ enum { max_moves = 218 };
               G(104, (G(106, pos->colour[1]) | G(106, pos->ep)))),
         H(93, 4, movelist), H(93, 4, pos));)
   G(
-      98, // LONG CASTLE
+      286, // LONG CASTLE
       if (G(110, !only_captures) && G(110, !(G(111, all) & G(111, 0xEull))) &&
           G(110, pos->castling[1]) &&
           G(112, !is_attacked(H(58, 3, pos), H(58, 3, 1ULL << 3))) &&
@@ -801,7 +801,7 @@ enum { max_moves = 218 };
                    G(284, .takes_piece = None)};
       })
   G(
-      98, // SHORT CASTLE
+      286, // SHORT CASTLE
       if (G(113, !only_captures) && G(113, !(G(114, all) & G(114, 0x60ull))) &&
           G(113, pos->castling[0]) &&
           G(115, !is_attacked(H(58, 5, pos), H(58, 5, 1ULL << 5))) &&
@@ -810,7 +810,7 @@ enum { max_moves = 218 };
             (Move){G(285, .from = 4), G(285, .to = 6), G(285, .promo = None),
                    G(285, .takes_piece = None)};
       })
-  G(98, // PIECE MOVES
+  G(286, // PIECE MOVES
     movelist = generate_piece_moves(H(75, 2, to_mask), H(75, 2, movelist),
                                     H(75, 2, pos));)
 
@@ -1420,7 +1420,7 @@ i32 search(
 
   // STATIC EVAL WITH CORRECTION HISTORY
   u64 corr_hashes[6] = {0};
-  G(197, corr_hashes[5] = G(275, stack[ply].move_key) + G(275, 6 * 64);)
+  G(197, corr_hashes[5] = stack[ply].move_key;)
   G(197, get_piece_hashes(H(189, 2, pos), H(189, 2, corr_hashes));)
   G(197, corr_hashes[4] = stack[ply + 1].move_key;)
   // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
@@ -1473,7 +1473,6 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      G(211, stack[ply + 2].move_key = 0;)
       const i32 score = -search(
 #ifdef FULL
           nodes,
@@ -1554,12 +1553,7 @@ i32 search(
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
     G(273, moves_evaluated++;)
-    G(273,
-      stack[ply + 2].move_key =
-          G(274,
-            (piece_on(H(55, 10, pos), H(55, 10, moves[move_index].from)) - 1) *
-                64) +
-          G(274, moves[move_index].to);)
+    G(273, stack[ply + 2].move_key = *(u16 *)&moves[move_index].from;)
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
