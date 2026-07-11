@@ -944,10 +944,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 pawn_threat[5];)
         H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 king_shield[2];))
   H(116, 1,
-    H(119, 1, i8 pst_file[48];) H(119, 1, i8 tempo;)
-        H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 mobilities[5];)
-            H(119, 1, i8 pawn_attacked_penalty[2];)
-                H(119, 1, i8 open_files[12];))
+    H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
+        H(119, 1, i8 mobilities[5];) H(119, 1, i8 open_files[12];)
+            H(119, 1, i8 passed_blocked_pawns[6];)
+                H(119, 1, i8 pawn_attacked_penalty[2];))
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -960,10 +960,10 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 pawn_threat[5];)
         H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 king_shield[2];))
   H(116, 2,
-    H(119, 2, i32 pst_file[48];) H(119, 2, i32 tempo;)
-        H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 mobilities[5];)
-            H(119, 2, i32 pawn_attacked_penalty[2];)
-                H(119, 2, i32 open_files[12];))
+    H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
+        H(119, 2, i32 mobilities[5];) H(119, 2, i32 open_files[12];)
+            H(119, 2, i32 passed_blocked_pawns[6];)
+                H(119, 2, i32 pawn_attacked_penalty[2];))
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1412,13 +1412,13 @@ i32 search(
   // STATIC EVAL WITH CORRECTION HISTORY
   u64 corr_hashes[6] = {0};
   G(197, corr_hashes[5] = stack[ply].move_key + 6 * 64;)
+  G(197, get_piece_hashes(pos, corr_hashes);)
+  G(197, corr_hashes[4] = stack[ply + 1].move_key;)
+  // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
+  G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  G(197, corr_hashes[3] = get_material_hash(pos);)
-  // CONTINUATION CORRECTIONS KEYED BY THE LAST TWO MOVES (PIECE, TO)
-  G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, corr_hashes[4] = stack[ply + 1].move_key;)
   G(197, i32 * corr_entries[6];)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
@@ -1483,8 +1483,8 @@ i32 search(
   G(213, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(213, stack[G(214, ply) + G(214, 2)].position_hash = tt_hash;)
   G(213, u8 tt_flag = Upper;)
-  G(213, i32 quiets_evaluated = 0;)
   G(213, i32 moves_evaluated = 0;)
+  G(213, i32 quiets_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
