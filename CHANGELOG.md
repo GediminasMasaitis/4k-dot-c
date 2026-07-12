@@ -11025,3 +11025,46 @@ Games | N: 6900 W: 1922 L: 1764 D: 3214
 Penta | [87, 835, 1508, 873, 147]
 https://gedas.pythonanywhere.com/test/1963/
 ```
+
+### 9.33
+Remove reduntant time check
+
+4  thread: 4074 bytes (-4)
+MD5: 025e59dfb7d9fc70fe2638dca77323aa
+
+1 thread: 4001 bytes (-8)
+MD5: 9537fa1402402de7bb69e6b1359ad3fc
+
+```py
+info depth 1 score cp 16 lowerbound time 0 nodes 18 nps 420226
+info depth 1 score cp 20 time 0 nodes 38 nps 424827 pv b1c3
+info depth 2 score cp 28 time 0 nodes 111 nps 479748 pv b1c3 b8c6
+info depth 3 score cp 19 time 0 nodes 230 nps 676898 pv b1c3 b8c6 e2e3
+info depth 4 score cp 28 time 0 nodes 594 nps 974521 pv e2e3 b8c6 b1c3 e7e6
+info depth 5 score cp 12 upperbound time 1 nodes 955 nps 939226
+info depth 5 score cp 2 time 2 nodes 2718 nps 1117440 pv b1c3 d7d5 d2d4 g8f6 g1f3
+info depth 6 score cp 16 time 3 nodes 3946 nps 1124795 pv b1c3 d7d5 d2d4 g8f6 g1f3 c7c6
+info depth 7 score cp 6 time 5 nodes 5778 nps 1123609 pv b1c3 d7d5 d2d4 g8f6 g1f3 c7c6 c1f4
+info depth 8 score cp 10 time 12 nodes 14504 nps 1126793 pv b1c3 d7d5 d2d4 g8f6 g1f3 b8c6 e2e3 e7e6
+info depth 9 score cp 11 time 19 nodes 24013 nps 1213473 pv e2e4 d7d5 e4e5 d5d4 g1f3 d8d5 b1a3 b8c6 a3b5
+info depth 10 score cp 23 time 50 nodes 68132 nps 1348229 pv d2d4 d7d5 c1f4 g8f6 e2e3 e7e6 c2c4 f8b4 b1c3 e8g8 c4d5
+info depth 11 score cp 23 time 79 nodes 119814 nps 1512746 pv d2d4 d7d5 c1f4 g8f6 e2e3 e7e6 c2c4 f8b4 b1c3 e8g8 c4d5 e6d5
+info depth 12 score cp 28 time 127 nodes 217570 nps 1702157 pv d2d4 d7d5 e2e3 b8c6 c2c4 g8f6 g1f3 c8g4 b1c3 e7e6 c4d5 f6d5 c3d5
+info depth 13 score cp 16 time 217 nodes 422435 nps 1942134 pv d2d4 d7d5
+info depth 14 score cp 32 lowerbound time 350 nodes 725377 nps 2070770
+info depth 14 score cp 41 time 414 nodes 873001 nps 2104773 pv e2e4 e7e5 g1f3 g8f6 d2d4 f6e4 f1d3 d7d5 f3e5 b8c6 e5c6 b7c6 e1g1
+info depth 15 score cp 25 upperbound time 495 nodes 1058660 nps 2137151
+info depth 15 score cp 37 time 589 nodes 1273543 nps 2159524 pv e2e4 e7e5 g1f3 g8f6 b1c3 b8c6 d2d4 e5d4 f3d4 f8b4
+info depth 16 score cp 21 upperbound time 783 nodes 1732267 nps 2211206
+info depth 16 score cp 24 time 830 nodes 1843310 nps 2218845 pv e2e4 d7d5
+info depth 17 score cp 24 time 1037 nodes 2304211 nps 2220172 pv e2e4 d7d5 e4d5 c7c6 d5c6 b8c6 g1f3 e7e5 f1d3 g8f6 b1c3 f8c5 e1g1 c8g4 f1e1 e8g8
+info depth 18 score cp 40 lowerbound time 1199 nodes 2691806 nps 2244181
+info depth 18 score cp 28 time 1600 nodes 3586837 nps 2241016 pv e2e4 d7d5 e4d5 c7c6 d5c6 b8c6 b1c3 a7a6 g1f3 g8f6
+info depth 19 score cp 44 lowerbound time 1791 nodes 4029080 nps 2248863
+info depth 19 score cp 37 time 2472 nodes 5580072 nps 2256571 pv e2e4 d7d5 e4d5 g8f6 g1f3 f6d5 d2d4 c8f5 f1d3 f5d3 d1d3 b8c6 e1g1 e7e6 b1c3 f8b4 c3d5 d8d5 c1e3
+info depth 20 score cp 40 time 3170 nodes 7179645 nps 2264713 pv e2e4 d7d5 e4d5 g8f6 g1f3 f6d5
+info depth 21 score cp 56 lowerbound time 3492 nodes 7910400 nps 2264785
+info depth 21 score cp 24 upperbound time 5511 nodes 12496883 nps 2267246
+info depth 21 score cp 38 time 5796 nodes 13162536 nps 2270704 pv e2e4 e7e5 g1f3
+13162536 nodes 2270686 nps
+```
