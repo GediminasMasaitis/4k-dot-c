@@ -1460,6 +1460,7 @@ i32 search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
+      G(211, stack[ply + 2].prev_move = (Move){0};)
       const i32 score = -search(
 #ifdef FULL
           nodes,
