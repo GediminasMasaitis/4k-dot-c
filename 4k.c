@@ -35,6 +35,10 @@
 #define i8 signed char
 #define u8 unsigned char
 
+// Types for aliasing-safe type punning (exempt from TBAA)
+typedef u32 __attribute__((may_alias)) u32a;
+typedef u64 __attribute__((may_alias)) u64a;
+
 #ifdef NOSTDLIB
 
 #if __GNUC__ < 13
@@ -308,7 +312,11 @@ typedef struct [[nodiscard]] {
   G(5, u64 ep;)
   G(5, u64 pieces[7];)
   G(5, u64 colour[2];)
-  G(6, bool castling[4];)
+  G(
+      6, union {
+        bool castling[4];
+        u32 castling32;
+      };)
   G(6, bool flipped;)
   G(6, u8 padding[11];)
 } Position;
@@ -328,7 +336,7 @@ G(
     7,
     [[nodiscard]] S(1) bool move_string_equal(G(8, const char *restrict rhs),
                                               G(8, const char *restrict lhs)) {
-      return (G(9, *(const u64 *)rhs) ^ G(9, *(const u64 *)lhs)) << 24 == 0;
+      return (G(9, *(const u64a *)rhs) ^ G(9, *(const u64a *)lhs)) << 24 == 0;
     })
 
 G(
@@ -462,14 +470,14 @@ G(
 
 G(
     46,
-    S(1) void swapu32(G(47, u32 *const lhs), G(47, u32 *const rhs)) {
+    S(1) void swapu32(G(47, u32a *const lhs), G(47, u32a *const rhs)) {
       const u32 temp = *lhs;
       *lhs = *rhs;
       *rhs = temp;
     }
 
     S(1) void swapmoves(G(48, Move *const rhs), G(48, Move *const lhs)) {
-      swapu32(G(49, (u32 *)rhs), G(49, (u32 *)lhs));
+      swapu32(G(49, (u32a *)rhs), G(49, (u32a *)lhs));
     })
 
 G(
@@ -499,7 +507,7 @@ G(
 G(
     46, [[nodiscard]] S(1) bool move_equal(G(53, Move *const rhs),
                                            G(53, Move *const lhs)) {
-      return G(54, *(u32 *)lhs) == G(54, *(u32 *)rhs);
+      return G(54, *(u32a *)lhs) == G(54, *(u32a *)rhs);
     })
 
 G(
@@ -566,12 +574,11 @@ G(
         pos->colour[0] ^= pos->colour[1];)
       G(
           67, // Hack to flip the first 10 bitboards in Position.
-              // Technically UB but works in GCC 14.2
-          u64 *pos_ptr = (u64 *)pos;
+          u64a *pos_ptr = (u64a *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
 
-      G(67, u32 *c = (u32 *)pos->castling;
-        *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
+      G(67, pos->castling32 = G(68, (pos->castling32 >> 16)) |
+                              G(68, (pos->castling32 << 16));)
       G(67, pos->flipped ^= 1;)
     })
 
