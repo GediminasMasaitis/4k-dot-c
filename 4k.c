@@ -2266,7 +2266,6 @@ S(1) void run() {
         getl(line);
         main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
-      start_time = get_time();
       run_smp();
 #endif
     })
