@@ -1389,8 +1389,14 @@ i32 search(
   G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(192, stack[ply].best_move = (Move){0};)
   const bool tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);
+  G(277, i32 tt_static_eval;)
+  G(277, i32 tt_score;)
+  G(277, u8 tt_entry_flag;)
   if (tt_hit) {
-    stack[ply].best_move = tt_entry->move;
+    G(276, stack[ply].best_move = tt_entry->move;)
+    G(276, tt_static_eval = tt_entry->static_eval;)
+    G(276, tt_score = tt_entry->score;)
+    G(276, tt_entry_flag = tt_entry->flag;)
 
     // TT PRUNING
     if (G(194, tt_entry->depth >= depth) &&
@@ -1411,7 +1417,7 @@ i32 search(
                                   G(272, stack[ply].prev_move.to << 8))) +
                           G(271, 16384);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
-  G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
+  G(197, const i32 raw_eval = tt_hit ? tt_static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
   G(197, i32 * corr_entries[6];)
@@ -1428,8 +1434,8 @@ i32 search(
   stack[ply].static_eval = static_eval;
   const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
   if (G(199, tt_hit) &&
-      G(199, G(201, tt_entry->flag) != G(201, static_eval) > tt_entry->score)) {
-    static_eval = tt_entry->score;
+      G(199, G(201, tt_entry_flag) != G(201, static_eval) > tt_score)) {
+    static_eval = tt_score;
   }
 
   // QUIESCENCE
