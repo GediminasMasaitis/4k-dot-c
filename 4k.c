@@ -66,24 +66,6 @@ G(
     })
 
 G(
-    1,
-    typedef struct [[nodiscard]] {
-      ssize_t tv_sec;  // seconds
-      ssize_t tv_nsec; // nanoseconds
-    } timespec;
-
-    [[nodiscard]] S(0) u64 get_time() {
-      timespec ts;
-      ssize_t ret; // Unused
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(228), "D"(1), "S"(&ts)
-                   : "rcx", "r11", "memory");
-      return G(2, ts.tv_nsec) +
-             G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
-    })
-
-G(
     1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
                                         const char *restrict rhs) {
       while (*lhs || *rhs) {
@@ -94,25 +76,6 @@ G(
         rhs++;
       }
       return false;
-    })
-
-G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
     })
 
 G(
@@ -140,6 +103,43 @@ G(
 
         string++;
       }
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+G(
+    1,
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
+
+    [[nodiscard]] S(0) u64 get_time() {
+      timespec ts;
+      ssize_t ret; // Unused
+      asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(2, ts.tv_nsec) +
+             G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
     })
 
 #ifdef FULL
@@ -469,7 +469,7 @@ G(
     }
 
     S(1) void swapmoves(G(48, Move *const rhs), G(48, Move *const lhs)) {
-      swapu32(G(49, (u32 *)lhs), G(49, (u32 *)rhs));
+      swapu32(G(49, (u32 *)rhs), G(49, (u32 *)lhs));
     })
 
 G(
@@ -530,11 +530,11 @@ G(
              G(60, G(65, rook(H(41, 2, blockers), H(41, 2, bb))) &
                        G(65, (pos->pieces[Rook] | pos->pieces[Queen])) &
                        G(65, theirs)) ||
-             G(60,
-               G(64, pos->pieces[King]) & G(64, king(bb)) & G(64, theirs)) ||
              G(60, G(63, bishop(H(43, 2, blockers), H(43, 2, bb))) &
                        G(63, theirs) &
                        G(63, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
+             G(60,
+               G(64, pos->pieces[King]) & G(64, king(bb)) & G(64, theirs)) ||
              G(60,
                G(66, pos->pieces[Knight]) & G(66, knight(bb)) & G(66, theirs));
     })
@@ -562,13 +562,13 @@ G(
 
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
+      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
       G(
           67, // Hack to flip the first 10 bitboards in Position.
               // Technically UB but works in GCC 14.2
           u64 *pos_ptr = (u64 *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
-      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
-        pos->colour[0] ^= pos->colour[1];)
 
       G(67, u32 *c = (u32 *)pos->castling;
         *c = G(68, (*c >> 16)) | G(68, (*c << 16));)
@@ -1220,7 +1220,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
