@@ -1225,7 +1225,7 @@ enum { thread_count = 1 };
 static i32 thread_count = 1;
 #endif
 enum { thread_stack_size = 1024 * 1024 };
-enum { corrhist_size = 65536 };
+enum { corrhist_size = 16 * 1024 };
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
@@ -1255,7 +1255,7 @@ typedef struct [[nodiscard]] {
   G(179, Position pos;)
   G(179, SearchStack stack[1024];)
   G(179, i32 move_history[2][6][64][64];)
-  G(179, i32 corrhist[2][corrhist_size];)
+  G(179, i32 corrhist[2][6][corrhist_size];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1407,9 +1407,8 @@ i32 search(
   // STATIC EVAL WITH CORRECTION HISTORY
   u64 corr_hashes[6] = {0};
   G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, corr_hashes[5] = G(271, (G(272, stack[ply].prev_move.from) |
-                                  G(272, stack[ply].prev_move.to << 8))) +
-                          G(271, 16384);)
+  G(197, corr_hashes[5] = G(272, stack[ply].prev_move.from) |
+                          G(272, stack[ply].prev_move.to << 8);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
@@ -1419,7 +1418,7 @@ i32 search(
                           G(270, stack[ply + 1].prev_move.to << 8);)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] =
-        &data->corrhist[pos->flipped][corr_hashes[i] % corrhist_size];
+        &data->corrhist[pos->flipped][i][corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
     assert(static_eval > -mate);
