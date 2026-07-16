@@ -70,25 +70,6 @@ G(
     })
 
 G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
     1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
                                         const char *restrict rhs) {
       while (*lhs || *rhs) {
@@ -126,6 +107,25 @@ G(
 
         string++;
       }
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
     })
 
 G(
@@ -438,7 +438,7 @@ G(
       G(37, const u64 horizontal1 = G(38, west_bb) | G(38, east_bb);)
       G(37,
         const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
-      return G(40, horizontal2 >> 8) | G(40, horizontal2 << 8) |
+      return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) |
              G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
     })
 
@@ -680,8 +680,8 @@ G(
             const u64 bb = move->to - move->from == 2   ? 0xa0
                            : move->from - move->to == 2 ? 0x9
                                                         : 0;
-            G(85, pos->colour[0] ^= bb;)
             G(85, pos->pieces[Rook] ^= bb;)
+            G(85, pos->colour[0] ^= bb;)
           })
 
       G(84, pos->colour[0] ^= mask;)
@@ -1088,9 +1088,9 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
+        G(137, copy &= copy - 1;)
         G(137, const i32 rank = sq >> 3;)
         G(137, phase += initial_params.phases[p];)
-        G(137, copy &= copy - 1;)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
@@ -1183,7 +1183,7 @@ S(0) i32 eval(Position *const restrict pos) {
                 const i32 king_sq =
                     lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
                 G(149, const i32 rank_distance = __builtin_abs(
-                           king_sq / 8 - G(150, rank) - G(150, 1));)
+                           king_sq / 8 - G(150, 1) - G(150, rank));)
                 G(149,
                   const i32 file_distance = __builtin_abs(king_sq % 8 - file);)
                 score +=
@@ -1235,12 +1235,12 @@ enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
-  G(119, u64 position_hash;)
-  G(119, Move prev_move;)
   G(119, Move best_move;)
-  G(119, i32 num_moves;)
-  G(119, Move killer;)
   G(119, i32 static_eval;)
+  G(119, Move prev_move;)
+  G(119, Move killer;)
+  G(119, u64 position_hash;)
+  G(119, i32 num_moves;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1345,16 +1345,16 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
-S(1) void get_corr_hashes(H(276, 1, const Position *const pos),
-                          H(276, 1, u64 hashes[4])) {
+S(1)
+void get_corr_hashes(H(276, 1, const Position *const pos),
+                     H(276, 1, u64 hashes[4])) {
   u64 mat = 0;
   for (i32 c = 0; c < 2; c++) {
     for (i32 p = Pawn; p <= Queen; p++) {
       const u64 masked = G(184, pos->pieces[p]) & G(184, pos->colour[c]);
-      G(277, mat = G(182, count(masked)) +
-                   G(182, G(183, mat) * G(183, 9));)
       G(277, hashes[p / 2] ^=
              (G(185, masked) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;)
+      G(277, mat = G(182, count(masked)) + G(182, G(183, mat) * G(183, 9));)
     }
   }
   hashes[3] = mat;
@@ -1415,11 +1415,11 @@ i32 search(
                                   G(272, stack[ply].prev_move.to << 8))) +
                           G(271, 16384);)
   G(197, i32 * corr_entries[6];)
-  G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
-                          G(270, stack[ply + 1].prev_move.to << 8);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
+  G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
+                          G(270, stack[ply + 1].prev_move.to << 8);)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1480,9 +1480,9 @@ i32 search(
     stack[ply].num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(213, i32 best_score = in_qsearch ? static_eval : -inf;)
-  G(213, u8 tt_flag = Upper;)
-  G(213, i32 moves_evaluated = 0;)
   G(213, i32 quiets_evaluated = 0;)
+  G(213, i32 moves_evaluated = 0;)
+  G(213, u8 tt_flag = Upper;)
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
