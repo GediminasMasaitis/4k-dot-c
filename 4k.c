@@ -1525,10 +1525,10 @@ i32 search(
             G(225,
               G(226,
                 initial_params.eg.material[moves[move_index].takes_piece]) +
-                      G(226, static_eval) +
-                      G(226, G(227, 176) * G(227, depth)) +
                       G(226,
-                        initial_params.eg.material[moves[move_index].promo]) <
+                        initial_params.eg.material[moves[move_index].promo]) +
+                      G(226, static_eval) +
+                      G(226, G(227, 176) * G(227, depth)) <
                   alpha) &&
             G(225, !in_check) && G(225, moves_evaluated)) { break; })
 
