@@ -1347,16 +1347,19 @@ get_hash(const Position *const pos) {
 
 S(1) void get_corr_hashes(const Position *const pos, u64 hashes[8]) {
   u64 mat = 0;
-  for (i32 p = Pawn; p <= King; p++) {
-    // p == King writes hashes[3]; dead - overwritten by mat below
-    hashes[p / 2] ^= (pos->pieces[p] * 0x9E3779B97F4A7C15ULL) >> 48;
-    for (i32 c = 0; c < 2; c++) {
+  for (i32 c = 0; c < 2; c++) {
+    u64 side = 0;
+    for (i32 p = Pawn; p <= King; p++) {
       const u64 masked = pos->pieces[p] & pos->colour[c];
+      const u64 h = (masked * 0x9E3779B97F4A7C15ULL) >> 48;
       mat = count(masked) + mat * 9;
+      // p == King writes hashes[3]; dead - overwritten by mat below
+      hashes[p / 2] ^= h;
       if (p > Pawn) {
-        hashes[6 + c] ^= (masked * 0x9E3779B97F4A7C15ULL) >> 48;
+        side ^= h;
       }
     }
+    hashes[6 + c] = side;
   }
   hashes[3] = mat;
 }
