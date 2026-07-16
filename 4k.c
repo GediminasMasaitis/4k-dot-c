@@ -1227,7 +1227,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1345,22 +1345,20 @@ get_hash(const Position *const pos) {
 #error "Unsupported architecture: get_hash only for x86_64 and aarch64"
 #endif
 
-[[nodiscard]] S(1) u64 get_material_hash(const Position *const pos) {
-  u64 hash = 0;
-  for (i32 c = 0; c < 2; c++) {
-    for (i32 p = Pawn; p <= Queen; p++) {
-      hash = G(182, count(G(184, pos->pieces[p]) & G(184, pos->colour[c]))) +
-             G(182, G(183, hash) * G(183, 9));
+S(1) void get_corr_hashes(const Position *const pos, u64 hashes[8]) {
+  u64 mat = 0;
+  for (i32 p = Pawn; p <= King; p++) {
+    // p == King writes hashes[3]; dead - overwritten by mat below
+    hashes[p / 2] ^= (pos->pieces[p] * 0x9E3779B97F4A7C15ULL) >> 48;
+    for (i32 c = 0; c < 2; c++) {
+      const u64 masked = pos->pieces[p] & pos->colour[c];
+      mat = count(masked) + mat * 9;
+      if (p > Pawn) {
+        hashes[6 + c] ^= (masked * 0x9E3779B97F4A7C15ULL) >> 48;
+      }
     }
   }
-  return hash;
-}
-
-S(1) void get_piece_hashes(const Position *const pos, u64 hashes[4]) {
-  for (i32 p = Pawn; p <= Queen; p++) {
-    hashes[p / 2] ^=
-        (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
-  }
+  hashes[3] = mat;
 }
 
 S(1)
@@ -1412,19 +1410,18 @@ i32 search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[6] = {0};
-  G(197, get_piece_hashes(pos, corr_hashes);)
+  u64 corr_hashes[8] = {0};
+  G(197, get_corr_hashes(pos, corr_hashes);)
   G(197, corr_hashes[5] = G(271, (G(272, stack[ply].prev_move.from) |
                                   G(272, stack[ply].prev_move.to << 8))) +
                           G(271, 16384);)
-  G(197, corr_hashes[3] = get_material_hash(pos);)
-  G(197, i32 * corr_entries[6];)
+  G(197, i32 * corr_entries[8];)
   G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
                           G(270, stack[ply + 1].prev_move.to << 8);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  for (i32 i = 0; i < 6; i++) {
+  for (i32 i = 0; i < 8; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
@@ -1657,7 +1654,7 @@ i32 search(
               247, if (target < -176) { target = -176; })
               G(247, if (target > 176) { target = 176; }))
 
-        for (i32 i = 0; i < 6; i++) {
+        for (i32 i = 0; i < 8; i++) {
           *corr_entries[i] =
               (G(248, G(249, *corr_entries[i]) * G(249, (484 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
