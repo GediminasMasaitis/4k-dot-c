@@ -317,8 +317,8 @@ typedef struct [[nodiscard]] {
         bool castling[4];
         u32 castling32;
       };)
-  G(6, u8 padding[11];)
   G(6, bool flipped;)
+  G(6, u8 padding[11];)
 } Position;
 
 #ifdef ASSERTS
@@ -717,10 +717,10 @@ G(
 
       G(89, // Update castling permissions
         const u64 oppMask = mask >> 56;
-        G(92, pos->castling[0] &= !(mask & 0x90);)
-            G(92, pos->castling[2] &= !(oppMask & 0x90);)
-                G(92, pos->castling[3] &= !(oppMask & 0x11);)
-                    G(92, pos->castling[1] &= !(mask & 0x11);))
+        G(92, pos->castling[1] &= !(mask & 0x11);)
+            G(92, pos->castling[3] &= !(oppMask & 0x11);)
+                G(92, pos->castling[2] &= !(oppMask & 0x90);)
+                    G(92, pos->castling[0] &= !(mask & 0x90);))
 
       if (find_in_check(pos)) {
         return false;
@@ -755,7 +755,7 @@ enum { max_moves = 218 };
                                H(95, 1, const i32 only_captures),
                                H(95, 1, Move *restrict movelist)) {
 
-  G(96, const u64 all = G(97, pos->colour[1]) | G(97, pos->colour[0]);)
+  G(96, const u64 all = G(97, pos->colour[0]) | G(97, pos->colour[1]);)
   G(96, const Move *start = movelist;)
   G(96, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
   G(98, // PAWN DOUBLE MOVES
@@ -765,13 +765,6 @@ enum { max_moves = 218 };
               G(102, ~all) &
               G(102, (only_captures ? 0xFF00000000000000ull : ~0ull))),
         H(93, 3, pos), H(93, 3, movelist), H(93, 3, -8));)
-  G(98, // PAWN EAST CAPTURES
-    movelist = generate_pawn_moves(
-        H(93, 5,
-          G(107,
-            northeast(G(108, pos->colour[0]) & G(108, pos->pieces[Pawn]))) &
-              G(107, (G(109, pos->colour[1]) | G(109, pos->ep)))),
-        H(93, 5, pos), H(93, 5, movelist), H(93, 5, -9));)
   G(98, // PAWN WEST CAPTURES
     movelist = generate_pawn_moves(
         H(93, 4,
@@ -779,6 +772,13 @@ enum { max_moves = 218 };
             northwest(G(105, pos->colour[0]) & G(105, pos->pieces[Pawn]))) &
               G(104, (G(106, pos->colour[1]) | G(106, pos->ep)))),
         H(93, 4, pos), H(93, 4, movelist), H(93, 4, -7));)
+  G(98, // PAWN EAST CAPTURES
+    movelist = generate_pawn_moves(
+        H(93, 5,
+          G(107,
+            northeast(G(108, pos->colour[0]) & G(108, pos->pieces[Pawn]))) &
+              G(107, (G(109, pos->colour[1]) | G(109, pos->ep)))),
+        H(93, 5, pos), H(93, 5, movelist), H(93, 5, -9));)
   G(
       98, // LONG CASTLE
       if (G(110, !only_captures) && G(110, !(G(111, all) & G(111, 0xEull))) &&
@@ -941,8 +941,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 passed_pawns[6];)
-        H(118, 1, i8 king_attacks[5];) H(118, 1, i8 protected_pawn;)
-            H(118, 1, i8 bishop_pair;) H(118, 1, i8 pst_rank[48];))
+        H(118, 1, i8 king_attacks[5];) H(118, 1, i8 bishop_pair;)
+            H(118, 1, i8 protected_pawn;) H(118, 1, i8 pst_rank[48];))
   H(116, 1,
     H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 bishop_pawns[2];)
         H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 king_shield[2];))
@@ -957,8 +957,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 passed_pawns[6];)
-        H(118, 2, i32 king_attacks[5];) H(118, 2, i32 protected_pawn;)
-            H(118, 2, i32 bishop_pair;) H(118, 2, i32 pst_rank[48];))
+        H(118, 2, i32 king_attacks[5];) H(118, 2, i32 bishop_pair;)
+            H(118, 2, i32 protected_pawn;) H(118, 2, i32 pst_rank[48];))
   H(116, 2,
     H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 bishop_pawns[2];)
         H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 king_shield[2];))
@@ -1448,18 +1448,18 @@ i32 search(
   }
 
   if (G(203, !in_check) && G(203, G(204, alpha) == G(204, beta - 1))) {
-    if (G(205, depth < 8) && G(205, !in_qsearch)) {
+    if (G(205, depth < 10) && G(205, !in_qsearch)) {
 
       G(206, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(207, 64) * G(207, (depth - improving)) >= beta) {
+        if (static_eval - G(207, 32) * G(207, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(206, // RAZORING
         in_qsearch =
-            G(208, static_eval) + G(208, G(209, 109) * G(209, depth)) <= alpha;)
+            G(208, static_eval) + G(208, G(209, 83) * G(209, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1501,7 +1501,7 @@ i32 search(
           G(187, // KILLER MOVE
             G(216, move_equal(G(217, &moves[order_index]),
                               G(217, &stack[ply].killer))) *
-                G(216, 712)) +
+                G(216, 730)) +
           G(187, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(218, &stack[ply].best_move),
                         G(218, &moves[order_index]))
@@ -1510,7 +1510,7 @@ i32 search(
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
           G(187, // MOST VALUABLE VICTIM
-            G(219, moves[order_index].takes_piece) * G(219, 584));
+            G(219, moves[order_index].takes_piece) * G(219, 545));
       if (order_move_score > move_score) {
         G(220, best_index = order_index;)
         G(220, move_score = order_move_score;)
@@ -1521,14 +1521,14 @@ i32 search(
 
     G(
         222, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(225, depth < 6) &&
+        if (G(225, depth < 5) &&
             G(225,
               G(226,
                 initial_params.eg.material[moves[move_index].takes_piece]) +
-                      G(226, static_eval) +
-                      G(226, G(227, 140) * G(227, depth)) +
                       G(226,
-                        initial_params.eg.material[moves[move_index].promo]) <
+                        initial_params.eg.material[moves[move_index].promo]) +
+                      G(226, static_eval) +
+                      G(226, G(227, 176) * G(227, depth)) <
                   alpha) &&
             G(225, !in_check) && G(225, moves_evaluated)) { break; })
 
@@ -1553,8 +1553,8 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
-                        ? G(229, (move_score / -376)) +
-                              G(229, moves_evaluated / 10) +
+                        ? G(229, (move_score / -334)) +
+                              G(229, moves_evaluated / 11) +
                               G(229, (G(230, alpha) == G(230, beta - 1))) +
                               G(229, !improving)
                         : 0;
@@ -1605,7 +1605,7 @@ i32 search(
               })
           G(
               233, if (!in_qsearch) {
-                const i32 bonus = depth * depth;
+                const i32 bonus = 2 * depth * depth;
                 G(234, i32 *const this_hist =
                            &move_history[pos->flipped]
                                         [stack[ply].best_move.takes_piece]
@@ -1653,16 +1653,16 @@ i32 search(
       if (G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None)) &&
           G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval)))) {
-        G(246, i32 dd = depth * depth; if (dd > 70) { dd = 70; })
+        G(246, i32 dd = depth * depth; if (dd > 78) { dd = 78; })
         G(246, i32 target = best_score - stack[ply].static_eval; G(
-              247, if (target < -126) { target = -126; })
-              G(247, if (target > 126) { target = 126; }))
+              247, if (target < -176) { target = -176; })
+              G(247, if (target > 176) { target = 176; }))
 
         for (i32 i = 0; i < 6; i++) {
           *corr_entries[i] =
-              (G(248, G(249, *corr_entries[i]) * G(249, (557 - dd))) +
+              (G(248, G(249, *corr_entries[i]) * G(249, (484 - dd))) +
                G(248, G(250, target) * G(250, 256) * G(250, dd))) /
-              557;
+              484;
         }
       })
 
@@ -1833,11 +1833,11 @@ void iteratively_deepen(
   for (i32 depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(254, i32 window = 16;)
+    G(254, i32 window = 12;)
     G(254, size_t elapsed;)
     while (true) {
-      G(255, const i32 beta = G(256, score) + G(256, window);)
       G(255, const i32 alpha = score - window;)
+      G(255, const i32 beta = G(256, score) + G(256, window);)
       score = search(
 #ifdef FULL
           &data->nodes,
@@ -1852,15 +1852,15 @@ void iteratively_deepen(
       }
 #endif
       elapsed = get_time() - start_time;
-      G(257, window *= 2;)
       G(
           257, if (G(258, elapsed > data->max_time) ||
                    G(258, (G(259, score > alpha) && G(259, score < beta)))) {
             break;
           })
+      G(257, window *= 2;)
     }
 
-    if (stop || elapsed > data->max_time / 14) {
+    if (stop || elapsed > data->max_time / 10) {
       break;
     }
   }
@@ -2071,7 +2071,7 @@ S(1) void bench() {
   };
   const u64 start = get_time();
   start_time = start;
-  iteratively_deepen(22, &data);
+  iteratively_deepen(23, &data);
   const u64 end = get_time();
   const u64 elapsed = end - start;
   const u64 nps = elapsed ? data.nodes * 1000 * 1000 * 1000U / elapsed : 0;

@@ -11107,3 +11107,69 @@ info depth 20 score cp 30 time 9444 nodes 13979453 nps 1480224 pv g1f3 d7d5 d2d4
 info depth 21 score cp 21 time 16293 nodes 24124669 nps 1480626 pv g1f3 g8f6 d2d4 c7c5 d4c5 b8c6 b1c3 e7e6 a2a3 f8c5
 24124669 nodes 1480617 nps
 ```
+
+### 9.35
+SPSA tune
+
+Ran (mostly) by Viren
+
+4  thread: 4079 bytes (+4)
+MD5: 0f6564e17f78f51aa3a04734b9b41197
+
+1 thread: 4009 bytes (+2)
+MD5: 14d11432f17888a6e15137682c7ad78c
+
+```py
+info depth 1 score cp 12 lowerbound time 0 nodes 18 nps 424909
+info depth 1 score cp 20 time 0 nodes 38 nps 419884 pv b1c3
+info depth 2 score cp 28 time 0 nodes 100 nps 581368 pv b1c3 b8c6
+info depth 3 score cp 19 time 0 nodes 207 nps 659137 pv b1c3 b8c6 e2e3
+info depth 4 score cp 28 time 0 nodes 533 nps 968147 pv e2e3 b8c6 b1c3 e7e6
+info depth 5 score cp 16 upperbound time 0 nodes 771 nps 1042321
+info depth 5 score cp 8 time 0 nodes 1046 nps 1184944 pv e2e3 b8c6 b1c3 e7e6 d2d4
+info depth 6 score cp 20 lowerbound time 1 nodes 1376 nps 1214247
+info depth 6 score cp 11 time 2 nodes 2717 nps 1330345 pv e2e3 d7d5 b1c3 d5d4 e3d4 d8d4
+info depth 7 score cp 13 time 4 nodes 6051 nps 1260501 pv e2e4 d7d5 e4e5 b8c6 d2d4 e7e6 c2c3
+info depth 8 score cp 9 time 7 nodes 9549 nps 1288417 pv e2e4 d7d5 e4e5 c7c5 d2d4 b8c6 c2c3 c5d4 c3d4
+info depth 9 score cp -3 upperbound time 12 nodes 16088 nps 1302713
+info depth 9 score cp -8 time 15 nodes 21038 nps 1350690 pv e2e4 d7d5 e4e5 c7c5 d2d4 b8c6 c2c3 e7e6 f1d3
+info depth 10 score cp 4 lowerbound time 21 nodes 29563 nps 1378473
+info depth 10 score cp 16 time 34 nodes 48827 nps 1409473 pv e2e3 d7d5 g1f3 c7c5 d2d4 e7e6 f1e2 b8c6 e1g1 c5d4 f3d4
+info depth 11 score cp 16 time 53 nodes 78608 nps 1477938 pv e2e3 d7d5 d2d4 c8f5 c2c4 e7e6 b1c3 b8c6 c4d5 e6d5 f1d3
+info depth 12 score cp 12 time 87 nodes 139365 nps 1595484 pv e2e3 d7d5 d2d4 g8f6 g1f3 b8c6 b1c3 c8f5 f1d3 f5d3 d1d3 e7e6
+info depth 13 score cp 24 lowerbound time 181 nodes 339166 nps 1869326
+info depth 13 score cp 13 time 199 nodes 383648 nps 1920599 pv d2d4 d7d5 c1f4 e7e6 e2e3 g8f6 g1f3 b8c6 b1c3 f8b4 f1d3 f6e4 e1g1 b4c3
+info depth 14 score cp 25 lowerbound time 264 nodes 533989 nps 2019008
+info depth 14 score cp 26 time 290 nodes 593067 nps 2044259 pv d2d4 d7d5 b1c3 e7e6 e2e4 d5e4 c3e4 g8f6 c1g5 f8e7 g5f6 e7f6 g1f3 e8g8
+info depth 15 score cp 19 time 421 nodes 893048 nps 2118542 pv d2d4 g8f6 g1f3
+info depth 16 score cp 24 time 542 nodes 1161010 nps 2141438 pv d2d4 g8f6 g1f3 d7d5 c1f4
+info depth 17 score cp 23 time 808 nodes 1762270 nps 2179869 pv d2d4 d7d5
+info depth 18 score cp 31 time 1117 nodes 2481475 nps 2221119 pv d2d4 d7d5
+info depth 19 score cp 38 time 1451 nodes 3265608 nps 2249812 pv d2d4 d7d5 e2e3
+info depth 20 score cp 26 upperbound time 1912 nodes 4336574 nps 2268027
+info depth 20 score cp 15 time 3167 nodes 7234466 nps 2284252 pv d2d4 d7d5
+info depth 21 score cp 27 lowerbound time 4180 nodes 9549195 nps 2283959
+info depth 21 score cp 28 time 5306 nodes 12129841 nps 2285863 pv g1f3 d7d5 d2d4 g8f6 c2c4 d5c4
+info depth 22 score cp 40 lowerbound time 6403 nodes 14633258 nps 2285196
+info depth 22 score cp 16 upperbound time 7886 nodes 18077910 nps 2292401
+info depth 22 score cp 18 time 10534 nodes 24206542 nps 2297759 pv d2d4 d7d5 g1f3
+24206542 nodes 2297748 nps
+```
+
+```py
+Elo   | 4.30 +- 3.36 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=80MB
+LLR   | 3.00 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 18600 W: 5312 L: 5082 D: 8206
+Penta | [466, 2199, 3764, 2381, 490]
+https://gedas.pythonanywhere.com/test/1980/
+```
+
+```py
+Elo   | 5.65 +- 4.06 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=80MB
+LLR   | 2.96 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 10762 W: 2995 L: 2820 D: 4947
+Penta | [159, 1284, 2368, 1363, 207]
+https://gedas.pythonanywhere.com/test/1981/
+```
