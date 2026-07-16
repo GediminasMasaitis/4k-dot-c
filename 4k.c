@@ -1227,7 +1227,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1286,6 +1286,7 @@ __attribute__((section(".bss.zztt"))) S(0) TTEntry tt[tt_length];
 #endif
 G(180, S(1) u64 start_time;)
 G(180, S(1) volatile bool stop;)
+G(180, S(1) i32 optimism;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1422,8 +1423,8 @@ i32 search(
   G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
                           G(270, stack[ply + 1].prev_move.to << 8);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
-    i32 static_eval = raw_eval; assert(static_eval < mate);
-    assert(static_eval > -mate);)
+    i32 static_eval = raw_eval + (ply & 1 ? -optimism : optimism);
+    assert(static_eval < mate); assert(static_eval > -mate);)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1834,6 +1835,7 @@ void iteratively_deepen(
     // ASPIRATION WINDOWS
     G(254, i32 window = 12;)
     G(254, size_t elapsed;)
+    optimism = score / (__builtin_abs(score) / 48 + 2);
     while (true) {
       G(255, const i32 alpha = score - window;)
       G(255, const i32 beta = G(256, score) + G(256, window);)
