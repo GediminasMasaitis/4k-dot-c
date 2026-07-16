@@ -317,8 +317,8 @@ typedef struct [[nodiscard]] {
         bool castling[4];
         u32 castling32;
       };)
-  G(6, bool flipped;)
   G(6, u8 padding[11];)
+  G(6, bool flipped;)
 } Position;
 
 #ifdef ASSERTS
@@ -1415,11 +1415,11 @@ i32 search(
                                   G(272, stack[ply].prev_move.to << 8))) +
                           G(271, 16384);)
   G(197, i32 * corr_entries[6];)
+  G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
+                          G(270, stack[ply + 1].prev_move.to << 8);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
-                          G(270, stack[ply + 1].prev_move.to << 8);)
   for (i32 i = 0; i < 6; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
