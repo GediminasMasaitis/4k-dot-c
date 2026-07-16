@@ -70,6 +70,25 @@ G(
     })
 
 G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
+    })
+
+G(
     1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
                                         const char *restrict rhs) {
       while (*lhs || *rhs) {
@@ -107,25 +126,6 @@ G(
 
         string++;
       }
-    })
-
-G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
     })
 
 G(
@@ -438,7 +438,7 @@ G(
       G(37, const u64 horizontal1 = G(38, west_bb) | G(38, east_bb);)
       G(37,
         const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
-      return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) |
+      return G(40, horizontal2 >> 8) | G(40, horizontal2 << 8) |
              G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
     })
 
@@ -675,13 +675,6 @@ G(
       G(82, const u64 mask = G(83, from) | G(83, to);)
 
       G(
-          84, // Captures
-          if (move->takes_piece != None) {
-            G(86, pos->colour[1] ^= to;)
-            G(86, pos->pieces[move->takes_piece] ^= to;)
-          })
-
-      G(
           84, // Castling
           if (piece == King) {
             const u64 bb = move->to - move->from == 2   ? 0xa0
@@ -691,8 +684,15 @@ G(
             G(85, pos->pieces[Rook] ^= bb;)
           })
 
-      // Move the piece
       G(84, pos->colour[0] ^= mask;)
+
+      // Move the piece
+      G(
+          84, // Captures
+          if (move->takes_piece != None) {
+            G(86, pos->colour[1] ^= to;)
+            G(86, pos->pieces[move->takes_piece] ^= to;)
+          })
       G(84, pos->pieces[piece] ^= mask;)
 
       // En passant
@@ -755,7 +755,7 @@ enum { max_moves = 218 };
                                H(95, 1, const i32 only_captures),
                                H(95, 1, Move *restrict movelist)) {
 
-  G(96, const u64 all = G(97, pos->colour[0]) | G(97, pos->colour[1]);)
+  G(96, const u64 all = G(97, pos->colour[1]) | G(97, pos->colour[0]);)
   G(96, const Move *start = movelist;)
   G(96, const u64 to_mask = only_captures ? pos->colour[1] : ~pos->colour[0];)
   G(98, // PAWN DOUBLE MOVES
@@ -941,8 +941,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
     H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 passed_pawns[6];)
-        H(118, 1, i8 king_attacks[5];) H(118, 1, i8 bishop_pair;)
-            H(118, 1, i8 protected_pawn;) H(118, 1, i8 pst_rank[48];))
+        H(118, 1, i8 king_attacks[5];) H(118, 1, i8 protected_pawn;)
+            H(118, 1, i8 pst_rank[48];) H(118, 1, i8 bishop_pair;))
   H(116, 1,
     H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 bishop_pawns[2];)
         H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 king_shield[2];))
@@ -957,8 +957,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
     H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 passed_pawns[6];)
-        H(118, 2, i32 king_attacks[5];) H(118, 2, i32 bishop_pair;)
-            H(118, 2, i32 protected_pawn;) H(118, 2, i32 pst_rank[48];))
+        H(118, 2, i32 king_attacks[5];) H(118, 2, i32 protected_pawn;)
+            H(118, 2, i32 pst_rank[48];) H(118, 2, i32 bishop_pair;))
   H(116, 2,
     H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 bishop_pawns[2];)
         H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 king_shield[2];))
@@ -1127,19 +1127,6 @@ S(0) i32 eval(Position *const restrict pos) {
                   })
 
               G(
-                  155, // KING SHIELD
-                  if (G(156, G(157, p) == G(157, King)) &&
-                      G(156, G(158, piece_bb) & G(158, 0xC3D7))) {
-                    const u64 shield = file < 3 ? 0x700 : 0xE000;
-                    G(159, score +=
-                           G(160, count(G(161, shield) & G(161, pawns[0]))) *
-                           G(160, eval_params.king_shield[0]);)
-                    G(159, score += G(162, count(G(163, north(shield)) &
-                                                 G(163, pawns[0]))) *
-                                    G(162, eval_params.king_shield[1]);)
-                  })
-
-              G(
                   155, // BISHOP COLOUR PAWNS
                   if (G(165, p) == G(165, Bishop)) {
                     u64 mask = 0xAA55AA55AA55AA55ULL;
@@ -1150,6 +1137,19 @@ S(0) i32 eval(Position *const restrict pos) {
                       score += G(167, eval_params.bishop_pawns[i]) *
                                G(167, count(G(168, pawns[i]) & G(168, mask)));
                     }
+                  })
+
+              G(
+                  155, // KING SHIELD
+                  if (G(156, G(157, p) == G(157, King)) &&
+                      G(156, G(158, piece_bb) & G(158, 0xC3D7))) {
+                    const u64 shield = file < 3 ? 0x700 : 0xE000;
+                    G(159, score +=
+                           G(160, count(G(161, shield) & G(161, pawns[0]))) *
+                           G(160, eval_params.king_shield[0]);)
+                    G(159, score += G(162, count(G(163, north(shield)) &
+                                                 G(163, pawns[0]))) *
+                                    G(162, eval_params.king_shield[1]);)
                   })
 
               G(155, const u64 mobility =
@@ -1235,12 +1235,12 @@ enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
-  G(119, Move best_move;)
-  G(119, Move killer;)
-  G(119, i32 static_eval;)
-  G(119, i32 num_moves;)
   G(119, u64 position_hash;)
   G(119, Move prev_move;)
+  G(119, Move best_move;)
+  G(119, i32 num_moves;)
+  G(119, Move killer;)
+  G(119, i32 static_eval;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1418,15 +1418,14 @@ i32 search(
                                   G(272, stack[ply].prev_move.to << 8))) +
                           G(271, 16384);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
-  G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
-    i32 static_eval = raw_eval; assert(static_eval < mate);
-    assert(static_eval > -mate);)
   G(197, i32 * corr_entries[6];)
   G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
                           G(270, stack[ply + 1].prev_move.to << 8);)
+  G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
+    i32 static_eval = raw_eval; assert(static_eval < mate);
+    assert(static_eval > -mate);)
   for (i32 i = 0; i < 6; i++) {
-    corr_entries[i] =
-        &data->corrhist[corr_hashes[i] % corrhist_size];
+    corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
     assert(static_eval > -mate);
@@ -1525,10 +1524,10 @@ i32 search(
             G(225,
               G(226,
                 initial_params.eg.material[moves[move_index].takes_piece]) +
+                      G(226, G(227, 176) * G(227, depth)) +
                       G(226,
                         initial_params.eg.material[moves[move_index].promo]) +
-                      G(226, static_eval) +
-                      G(226, G(227, 176) * G(227, depth)) <
+                      G(226, static_eval) <
                   alpha) &&
             G(225, !in_check) && G(225, moves_evaluated)) { break; })
 
