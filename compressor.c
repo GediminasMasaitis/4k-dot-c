@@ -164,6 +164,11 @@ typedef struct {
 
   unsigned int ht_occupied;
   unsigned int ht_size;
+  /* direct-mapped table occupancy growth: fresh-slot activations sampled
+     every occ_interval bits during the stats pass */
+  unsigned int occ_samples[257];
+  int occ_nsamples;
+  int occ_interval;
 
   unsigned int sat_lopsided;
   unsigned int sat_strong;
@@ -174,6 +179,7 @@ typedef struct {
   unsigned int byte_freq[256];
   float *byte_costs; /* cost per data byte during encoding */
   float *byte_model_contrib; /* [num_data_bytes * num_models] per-byte per-model */
+  float *bit_costs; /* [num_data_bytes * 8] per-bit cost, MSB-first */
   int num_data_bytes;
   const unsigned char
       *input_data; /* pointer to original input (valid during report write) */
@@ -797,11 +803,18 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
   int num_data_bytes = (total_bits > 1) ? (total_bits - 1 + 7) / 8 : 0;
   float *byte_costs = NULL;
   float *byte_model_contrib = NULL;
+  float *bit_costs = NULL;
   if (stats && num_data_bytes > 0) {
     byte_costs = (float *)calloc(num_data_bytes, sizeof(float));
     byte_model_contrib = (float *)calloc(
         (size_t)num_data_bytes * num, sizeof(float));
+    bit_costs = (float *)calloc((size_t)num_data_bytes * 8, sizeof(float));
   }
+  /* table occupancy growth: fresh-slot activations, sampled periodically */
+  unsigned int occ_run = 0;
+  unsigned int occ_samps[257];
+  int occ_n = 0;
+  int occ_interval = total_bits / 256 + 1;
   for (int bp = 0; bp < total_bits; bp++) {
     int bit = hb->bits[bp];
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
@@ -834,6 +847,7 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
           }
         } else {
           model_misses[m]++;
+          occ_run++; /* empty slot: about to be occupied by this bit's update */
         }
       }
     }
@@ -863,6 +877,13 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
         if (byte_idx < num_data_bytes)
           byte_costs[byte_idx] += bit_cost;
       }
+      if (bit_costs && bp > 0) {
+        int byte_idx = (bp - 1) / 8;
+        if (byte_idx < num_data_bytes)
+          bit_costs[byte_idx * 8 + ((bp - 1) & 7)] = bit_cost;
+      }
+      if ((bp + 1) % occ_interval == 0 && occ_n < 256)
+        occ_samps[occ_n++] = occ_run;
     }
     arith_encode(ac, probs[1], probs[0], 1 - bit);
     if (collect && ac->range < min_range)
@@ -977,11 +998,18 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
     }
     stats->byte_costs = byte_costs;
     stats->byte_model_contrib = byte_model_contrib;
+    stats->bit_costs = bit_costs;
+    if (occ_n < 257)
+      occ_samps[occ_n++] = occ_run; /* final value */
+    memcpy(stats->occ_samples, occ_samps, occ_n * sizeof(unsigned int));
+    stats->occ_nsamples = occ_n;
+    stats->occ_interval = occ_interval;
     stats->num_data_bytes = num_data_bytes;
     stats->valid = 1;
   } else {
     free(byte_costs);
     free(byte_model_contrib);
+    free(bit_costs);
   }
 }
 
@@ -1686,10 +1714,12 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-dominance\">Model Dominance</a>\n"
     "<a href=\"#sec-hurt\">Model Hurt</a>\n"
     "<a href=\"#sec-net\">Model Net</a>\n"
+    "<a href=\"#sec-depth\">Context Depth</a>\n"
     "<a href=\"#sec-corr\">Model Correlation</a>\n"
     "<a href=\"#sec-surprises\">Top Surprises</a>\n"
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
     "<a href=\"#sec-cumcost\">Cumulative Cost</a>\n"
+    "<a href=\"#sec-bitmap\">Bit Heatmap</a>\n"
     "<a href=\"#sec-search\">Search Trajectory</a>\n"
     "<a href=\"#sec-maskgrid\">Mask Outcomes</a>\n"
     "<a href=\"#sec-models\">Model Statistics</a>\n"
@@ -1697,6 +1727,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-calib\">Calibration</a>\n"
     "<a href=\"#sec-bytepos\">Byte Position</a>\n"
     "<a href=\"#sec-hash\">Direct-Mapped Table</a>\n"
+    "<a href=\"#sec-occ\">Table Growth</a>\n"
     "<a href=\"#sec-sat\">Counter Saturation</a>\n"
     "<button id=\"theme-toggle\" class=\"theme-toggle\" type=\"button\" "
     "title=\"Toggle theme\">"
@@ -4399,6 +4430,171 @@ static void write_html_report(const char *path, const CompStats *s) {
     free(mdata);
   }
 
+  /* ── Context Depth Timeline ── */
+  if (s->byte_model_contrib && s->num_data_bytes > 1 && s->num_models > 0) {
+    fprintf(f, "%s",
+      "<div class=\"card full\" id=\"sec-depth\">\n"
+      "<h2>Context Depth Timeline</h2>\n"
+      "<p class=\"desc\">Stacked area of bits saved per byte, grouped by the "
+      "contributing model's context depth (mask popcount). Shows how deep "
+      "the useful context is across regions of the file.</p>\n"
+      "<div id=\"ctxd-legend\" style=\"display:flex;flex-wrap:wrap;"
+      "gap:6px 14px;margin-bottom:10px;font-size:11px;"
+      "font-family:var(--mono)\"></div>\n"
+      "<div class=\"scrub-wrap\">\n"
+      "<div id=\"ctxd-chart\"></div>\n"
+      "<div id=\"ctxd-tip\" class=\"hover-tip\"></div>\n"
+      "</div>\n");
+
+    /* built from BD.m (per-byte contributions) + MI (masks) */
+    fprintf(f, "%s",
+      "<script>(function(){\n"
+      "if(typeof BD==='undefined'||typeof MI==='undefined'"
+      "||!BD.length||!BD[0].m) return;\n"
+      "var nb=BD.length, nm=MI.length;\n"
+      "function pop(x){var c=0;while(x){c+=x&1;x>>=1;}return c;}\n"
+      "var depth=[];\n"
+      "for(var m=0;m<nm;m++) depth.push(pop(parseInt(MI[m].mask,16)));\n"
+      "var depths=[];\n"
+      "for(var m=0;m<nm;m++) if(depths.indexOf(depth[m])<0) depths.push(depth[m]);\n"
+      "depths.sort(function(a,b){return a-b;});\n"
+      "var nd=depths.length;\n"
+      "var gidx=depth.map(function(d){return depths.indexOf(d);});\n"
+      "/* per-byte positive contribution per depth group */\n"
+      "var pb=new Float32Array(nb*nd);\n"
+      "for(var i=0;i<nb;i++){\n"
+      "  var mm=BD[i].m;\n"
+      "  for(var m=0;m<nm;m++){\n"
+      "    var v=mm[m];\n"
+      "    if(v>0) pb[i*nd+gidx[m]]+=v;\n"
+      "  }\n"
+      "}\n"
+      "/* rolling window via prefix sums */\n"
+      "var win=Math.max(4,Math.min(64,nb>>6));\n"
+      "var npts=Math.max(2,nb-win+1);\n"
+      "var pre=new Float64Array((nb+1)*nd);\n"
+      "for(var i=0;i<nb;i++)\n"
+      "  for(var d=0;d<nd;d++) pre[(i+1)*nd+d]=pre[i*nd+d]+pb[i*nd+d];\n"
+      "var mdata=new Float32Array(npts*nd);\n"
+      "var smax=0;\n"
+      "for(var i=0;i<npts;i++){\n"
+      "  var end=Math.min(i+win,nb), c=end-i, tot=0;\n"
+      "  for(var d=0;d<nd;d++){\n"
+      "    var v=(pre[end*nd+d]-pre[i*nd+d])/c;\n"
+      "    mdata[i*nd+d]=v; tot+=v;\n"
+      "  }\n"
+      "  if(tot>smax) smax=tot;\n"
+      "}\n"
+      "if(smax<0.01) smax=1;\n"
+      "/* sequential palette shallow (green) -> deep (purple) */\n"
+      "var cols=[];\n"
+      "for(var d=0;d<nd;d++){\n"
+      "  var hue=nd>1?160+120*d/(nd-1):190;\n"
+      "  cols.push('hsl('+hue+',70%,55%)');\n"
+      "}\n"
+      "var dcnt=[];\n"
+      "for(var d=0;d<nd;d++){\n"
+      "  var c=0;\n"
+      "  for(var m=0;m<nm;m++) if(gidx[m]===d) c++;\n"
+      "  dcnt.push(c);\n"
+      "}\n"
+      "var lh='';\n"
+      "for(var d=0;d<nd;d++){\n"
+      "  lh+='<span style=\"display:inline-flex;align-items:center;gap:4px;'\n"
+      "    +'padding:2px 5px\">'\n"
+      "    +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
+      "    +'border-radius:2px;background:'+cols[d]+'\"></span>'\n"
+      "    +'depth '+depths[d]+' ('+dcnt[d]+' model'+(dcnt[d]===1?'':'s')+')</span>';\n"
+      "}\n"
+      "document.getElementById('ctxd-legend').innerHTML=lh;\n"
+      "var W=960,H=200,PL=44,PR=12,PT=12,PB=28;\n"
+      "var pw=W-PL-PR,ph=H-PT-PB;\n"
+      "function xC(i){return (PL+i*pw/(npts>1?npts-1:1))|0;}\n"
+      "function yC(v){\n"
+      "  var y=(PT+ph*(1-v/smax))|0;\n"
+      "  if(y<PT)y=PT;if(y>PT+ph)y=PT+ph;return y;\n"
+      "}\n"
+      "var stk=new Float32Array(npts*nd);\n"
+      "for(var i=0;i<npts;i++){\n"
+      "  var c=0;\n"
+      "  for(var d=0;d<nd;d++){c+=mdata[i*nd+d];stk[i*nd+d]=c;}\n"
+      "}\n"
+      "var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H+'\" style=\"display:block\">';\n"
+      "s+='<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "  +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
+      "for(var i=0;i<=4;i++){\n"
+      "  var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
+      "  s+='<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+      "    +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+      "    +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+val.toFixed(1)+'</text>';\n"
+      "}\n"
+      "for(var i=0;i<=5;i++){\n"
+      "  var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
+      "  s+='<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
+      "}\n"
+      "for(var d=nd-1;d>=0;d--){\n"
+      "  var p='';\n"
+      "  for(var i=0;i<npts;i++) p+=(i?'L':'M')+xC(i)+','+yC(stk[i*nd+d])+' ';\n"
+      "  for(var i=npts-1;i>=0;i--) p+='L'+xC(i)+','+yC(d>0?stk[i*nd+d-1]:0)+' ';\n"
+      "  s+='<path d=\"'+p+'Z\" fill=\"'+cols[d]+'\" fill-opacity=\".75\"/>';\n"
+      "}\n"
+      "s+='<line id=\"ctxd-scrub\" class=\"scrub-line\" x1=\"0\" y1=\"'+PT\n"
+      "  +'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
+      "s+='</svg>';\n"
+      "var chart=document.getElementById('ctxd-chart');\n"
+      "chart.innerHTML=s;\n"
+      "var tip=document.getElementById('ctxd-tip');\n"
+      "function hide(){\n"
+      "  var l=document.getElementById('ctxd-scrub');\n"
+      "  if(l) l.setAttribute('opacity','0');\n"
+      "  tip.style.display='none';\n"
+      "}\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
+      "  var r=svg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*W;\n"
+      "  if(px<PL||px>PL+pw){hide();return;}\n"
+      "  var i=Math.round((px-PL)/pw*(npts-1));\n"
+      "  if(i<0)i=0; if(i>=npts)i=npts-1;\n"
+      "  var bytePos=Math.round(i*(nb-1)/(npts-1));\n"
+      "  var l=document.getElementById('ctxd-scrub');\n"
+      "  if(l){\n"
+      "    var x=PL+i*pw/(npts-1);\n"
+      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+      "    l.setAttribute('opacity','0.5');\n"
+      "  }\n"
+      "  var tot=0;\n"
+      "  for(var d=0;d<nd;d++) tot+=mdata[i*nd+d];\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">total</span>'\n"
+      "    +'<span style=\"color:#34d399;font-weight:600\">'+tot.toFixed(2)+' b/B</span></div>'\n"
+      "    +'<div style=\"border-top:1px solid var(--bdr);margin:4px 0 2px;'\n"
+      "    +'padding-top:4px\"></div>';\n"
+      "  for(var d=nd-1;d>=0;d--){\n"
+      "    var v=mdata[i*nd+d];\n"
+      "    if(v<0.001) continue;\n"
+      "    h+='<div class=\"tip-row\">'\n"
+      "      +'<span><span class=\"tip-sw\" style=\"background:'+cols[d]+'\"></span>'\n"
+      "      +'depth '+depths[d]+'</span>'\n"
+      "      +'<span style=\"color:var(--fg)\">'+v.toFixed(2)+'</span></div>';\n"
+      "  }\n"
+      "  tip.innerHTML=h;\n"
+      "  var wr=chart.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+200>wr.width) tx=(e.clientX-wr.left)-200;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+  }
+
   /* ── Model Correlation Matrix ── */
   if (s->byte_model_contrib && s->num_data_bytes > 1 && s->num_models >= 2) {
     int nb = s->num_data_bytes;
@@ -4988,6 +5184,104 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  tip.style.display='block';\n"
       "});\n"
       "chart.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Bit-Position Heatmap ── */
+  if (s->bit_costs && s->num_data_bytes > 1) {
+    int nb = s->num_data_bytes;
+    fprintf(f, "%s",
+      "<div class=\"card full\" id=\"sec-bitmap\" style=\"position:relative\">\n"
+      "<h2>Bit-Position Heatmap</h2>\n"
+      "<p class=\"desc\">Cost of each bit position over file position: "
+      "x = byte offset, y = bit (MSB top). The Byte Position card shows the "
+      "file-wide average; this shows where each bit is cheap or "
+      "expensive.</p>\n"
+      "<div style=\"display:flex;gap:6px;align-items:stretch\">\n"
+      "<div style=\"width:26px;flex-shrink:0;display:flex;"
+      "flex-direction:column;font-family:var(--mono);font-size:9px;"
+      "color:var(--fg3)\">"
+      "<div style=\"flex:1;display:flex;align-items:center;"
+      "justify-content:flex-end\">b7</div>"
+      "<div style=\"flex:1\"></div><div style=\"flex:1\"></div>"
+      "<div style=\"flex:1\"></div><div style=\"flex:1\"></div>"
+      "<div style=\"flex:1\"></div><div style=\"flex:1\"></div>"
+      "<div style=\"flex:1;display:flex;align-items:center;"
+      "justify-content:flex-end\">b0</div>"
+      "</div>\n"
+      "<canvas id=\"bh-cv\" style=\"flex:1;min-width:0;height:96px;"
+      "image-rendering:pixelated;background:var(--bg3);"
+      "border:1px solid var(--bdr);cursor:crosshair\"></canvas>\n"
+      "</div>\n"
+      "<div id=\"bh-tip\" class=\"hover-tip\"></div>\n");
+
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var nb=%d;\n", nb);
+    fprintf(f, "var BB=[");
+    for (int i = 0; i < nb * 8; i++)
+      fprintf(f, "%s%.3g", i ? "," : "", s->bit_costs[i]);
+    fprintf(f, "];\n");
+    fprintf(f, "%s",
+      "var cv=document.getElementById('bh-cv');\n"
+      "var tip=document.getElementById('bh-tip');\n"
+      "var card=document.getElementById('sec-bitmap');\n"
+      "var agg=Math.ceil(nb/2048);\n"
+      "var cw=Math.ceil(nb/agg);\n"
+      "cv.width=cw; cv.height=8;\n"
+      "var ctx=cv.getContext('2d');\n"
+      "var img=ctx.createImageData(cw,8);\n"
+      "var cmax=0;\n"
+      "for(var i=0;i<BB.length;i++) if(BB[i]>cmax) cmax=BB[i];\n"
+      "if(cmax<=0) cmax=1;\n"
+      "function cellAvg(x,b){\n"
+      "  var sum=0,c=0;\n"
+      "  for(var k=x*agg;k<Math.min((x+1)*agg,nb);k++){sum+=BB[k*8+b];c++;}\n"
+      "  return c?sum/c:0;\n"
+      "}\n"
+      "for(var x=0;x<cw;x++){\n"
+      "  for(var b=0;b<8;b++){\n"
+      "    var t=cellAvg(x,b)/cmax; if(t>1)t=1;\n"
+      "    var r,g,bl;\n"
+      "    if(t<0.5){var u=t*2;r=16+(180-16)*u;g=185+(140-185)*u;bl=129+(40-129)*u;}\n"
+      "    else{var u=(t-0.5)*2;r=180+(248-180)*u;g=140+(113-140)*u;bl=40+(113-40)*u;}\n"
+      "    var px=(b*cw+x)*4;\n"
+      "    img.data[px]=r|0;img.data[px+1]=g|0;img.data[px+2]=bl|0;img.data[px+3]=255;\n"
+      "  }\n"
+      "}\n"
+      "ctx.putImageData(img,0,0);\n"
+      "cv.addEventListener('mousemove',function(e){\n"
+      "  var r=cv.getBoundingClientRect();\n"
+      "  var x=Math.floor((e.clientX-r.left)/r.width*cw);\n"
+      "  var b=Math.floor((e.clientY-r.top)/r.height*8);\n"
+      "  if(x<0)x=0; if(x>=cw)x=cw-1;\n"
+      "  if(b<0)b=0; if(b>7)b=7;\n"
+      "  var lo=x*agg, hi=Math.min((x+1)*agg,nb)-1;\n"
+      "  var v=cellAvg(x,b);\n"
+      "  var clr=v<3?'#34d399':v<6?'#fbbf24':'#f87171';\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">'+(lo===hi?lo:lo+'\\u2013'+hi)+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">bit</span>'\n"
+      "    +'<span>'+(7-b)+(b===0?' (MSB)':b===7?' (LSB)':'')+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">'\n"
+      "    +(lo===hi?'cost':'avg cost')+'</span>'\n"
+      "    +'<span style=\"color:'+clr+';font-weight:600\">'+v.toFixed(2)+' bits</span></div>';\n"
+      "  if(lo===hi&&typeof BD!=='undefined'&&BD[lo]){\n"
+      "    var d=BD[lo];\n"
+      "    var ch=d.ch?\" '\"+(d.ch==='<'?'&lt;':d.ch==='>'?'&gt;':d.ch==='&'?'&amp;':d.ch)+\"'\":'';\n"
+      "    h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">value</span>'\n"
+      "      +'<span>0x'+d.h+ch+'</span></div>';\n"
+      "  }\n"
+      "  tip.innerHTML=h;\n"
+      "  var cr=card.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-cr.left)+14, ty=(e.clientY-cr.top)-60;\n"
+      "  if(tx+180>cr.width) tx=(e.clientX-cr.left)-180;\n"
+      "  if(ty<0) ty=(e.clientY-cr.top)+18;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "cv.addEventListener('mouseleave',function(){tip.style.display='none';});\n"
       "})();</script>\n");
 
     fprintf(f, "</div>\n\n");
@@ -5915,6 +6209,107 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</table></div>\n\n");
   }
 
+  /* ── Table Occupancy Growth ── */
+  if (s->occ_nsamples > 1) {
+    fprintf(f, "%s",
+      "<div class=\"card\" id=\"sec-occ\">\n"
+      "<h2>Table Occupancy Growth</h2>\n"
+      "<p class=\"desc\">Fresh slots claimed in the direct-mapped table as "
+      "encoding progresses. A straight line means mostly-new contexts; "
+      "flattening means contexts repeat (or collide).</p>\n"
+      "<div class=\"scrub-wrap\">\n"
+      "<div id=\"occ-chart\"></div>\n"
+      "<div id=\"occ-tip\" class=\"hover-tip\"></div>\n"
+      "</div>\n");
+
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var OI=%d,TB=%d,HT=%u;\n",
+      s->occ_interval, s->total_bits, s->ht_size);
+    fprintf(f, "var OS=[");
+    for (int i = 0; i < s->occ_nsamples; i++)
+      fprintf(f, "%s%u", i ? "," : "", s->occ_samples[i]);
+    fprintf(f, "];\n");
+    fprintf(f, "%s",
+      "var n=OS.length;\n"
+      "function bitsAt(k){return k<n-1?(k+1)*OI:TB;}\n"
+      "var maxY=OS[n-1]*1.05;\n"
+      "if(maxY<=0) maxY=1;\n"
+      "var W=460,H=190,PL=52,PR=10,PT=10,PB=28;\n"
+      "var pw=W-PL-PR,ph=H-PT-PB;\n"
+      "function X(k){return PL+bitsAt(k)/TB*pw;}\n"
+      "function Y(v){return PT+ph-v/maxY*ph;}\n"
+      "var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
+      "  +'\" style=\"display:block;max-width:560px\">';\n"
+      "s+='<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "  +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
+      "for(var i=0;i<=3;i++){\n"
+      "  var v=maxY*(3-i)/3, y=(PT+ph*i/3)|0;\n"
+      "  s+='<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+      "    +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+      "    +'<text x=\"'+(PL-4)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+Math.round(v)+'</text>';\n"
+      "}\n"
+      "for(var i=0;i<=4;i++){\n"
+      "  var bits=TB*i/4, x=(PL+pw*i/4)|0;\n"
+      "  s+='<text x=\"'+x+'\" y=\"'+(PT+ph+15)+'\" text-anchor=\"middle\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+Math.round(bits/8)+' B</text>';\n"
+      "}\n"
+      "var d='M'+PL+','+Y(0).toFixed(1);\n"
+      "for(var k=0;k<n;k++) d+=' L'+X(k).toFixed(1)+','+Y(OS[k]).toFixed(1);\n"
+      "s+='<path d=\"'+d+' L'+(PL+pw)+','+(PT+ph)+' L'+PL+','+(PT+ph)\n"
+      "  +' Z\" fill=\"#22d3ee\" fill-opacity=\".08\"/>';\n"
+      "s+='<path d=\"'+d+'\" fill=\"none\" stroke=\"#22d3ee\" '\n"
+      "  +'stroke-width=\"1.5\" stroke-linejoin=\"round\"/>';\n"
+      "s+='<line id=\"occ-scrub\" class=\"scrub-line\" x1=\"0\" y1=\"'+PT\n"
+      "  +'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
+      "s+='</svg>';\n"
+      "var chart=document.getElementById('occ-chart');\n"
+      "chart.innerHTML=s;\n"
+      "var tip=document.getElementById('occ-tip');\n"
+      "function hide(){\n"
+      "  var l=document.getElementById('occ-scrub');\n"
+      "  if(l) l.setAttribute('opacity','0');\n"
+      "  tip.style.display='none';\n"
+      "}\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
+      "  var r=svg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*W;\n"
+      "  if(px<PL||px>PL+pw){hide();return;}\n"
+      "  var bits=(px-PL)/pw*TB;\n"
+      "  var k=Math.round(bits/OI)-1;\n"
+      "  if(k<0)k=0; if(k>=n)k=n-1;\n"
+      "  var occ=OS[k];\n"
+      "  var prev=k>0?OS[k-1]:0;\n"
+      "  var span=k>0?bitsAt(k)-bitsAt(k-1):bitsAt(0);\n"
+      "  var rate=span>0?(occ-prev)/span:0;\n"
+      "  var l=document.getElementById('occ-scrub');\n"
+      "  if(l){\n"
+      "    var x=X(k);\n"
+      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+      "    l.setAttribute('opacity','0.5');\n"
+      "  }\n"
+      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">at</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">'+Math.round(bitsAt(k)/8)+' B in</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">slots</span>'\n"
+      "    +'<span style=\"color:#22d3ee;font-weight:600\">'+occ+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">of table</span>'\n"
+      "    +'<span>'+(100*occ/HT).toFixed(2)+'%</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">new/bit</span>'\n"
+      "    +'<span>'+rate.toFixed(2)+'</span></div>';\n"
+      "  var wr=chart.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+170>wr.width) tx=(e.clientX-wr.left)-170;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+  }
+
   /* ── Counter Saturation ── */
   {
     unsigned int total_sat =
@@ -6517,6 +6912,7 @@ int main(int argc, char *argv[]) {
     printf("HTML report: %s\n", html_output);
     free(cstats.byte_costs);
     free(cstats.byte_model_contrib);
+    free(cstats.bit_costs);
     free(cstats.search_best);
     free(cstats.search_events);
   }
