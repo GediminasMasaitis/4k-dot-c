@@ -1227,7 +1227,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1649,7 +1649,8 @@ i32 search(
 
   G(
       242, // UPDATE CORRECTION HISTORY
-      if (G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None)) &&
+      if (G(243, !in_qsearch) &&
+          G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None)) &&
           G(243,
             G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval)))) {
         G(246, i32 dd = depth * depth; if (dd > 78) { dd = 78; })
