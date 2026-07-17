@@ -1728,6 +1728,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
     "<a href=\"#sec-cumcost\">Cumulative Cost</a>\n"
     "<a href=\"#sec-bitmap\">Bit Heatmap</a>\n"
+    "<a href=\"#sec-repeat\">Repetition</a>\n"
     "<a href=\"#sec-search\">Search Trajectory</a>\n"
     "<a href=\"#sec-maskgrid\">Mask Outcomes</a>\n"
     "<a href=\"#sec-models\">Model Statistics</a>\n"
@@ -5713,6 +5714,247 @@ static void write_html_report(const char *path, const CompStats *s) {
       "})();</script>\n");
 
     fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Repetition Structure ── */
+  if (s->input_data && s->input_size > 4) {
+    int n = s->input_size;
+    const unsigned char *d = s->input_data;
+
+    /* longest backward match per position (LZ77-style): hash chains over
+       4-byte prefixes, capped depth/length so degenerate inputs stay fast */
+    enum { REP_MAXM = 4096, REP_DEPTH = 64 };
+    int *mlen = (int *)calloc(n, sizeof(int));
+    int *mdist = (int *)calloc(n, sizeof(int));
+    int hbits = 12;
+    while ((1 << hbits) < n * 2 && hbits < 20)
+      hbits++;
+    int hsize = 1 << hbits;
+    int *head = (int *)malloc(hsize * sizeof(int));
+    int *prevp = (int *)malloc(n * sizeof(int));
+    memset(head, -1, hsize * sizeof(int));
+
+    for (int i = 0; i + 4 <= n; i++) {
+      unsigned int key;
+      memcpy(&key, d + i, 4);
+      unsigned int h = (key * 2654435761u) >> (32 - hbits);
+      int best = 0, bestj = -1;
+      int maxl = n - i;
+      if (maxl > REP_MAXM)
+        maxl = REP_MAXM;
+      int depth = 0;
+      for (int j = head[h]; j >= 0 && depth < REP_DEPTH;
+           j = prevp[j], depth++) {
+        if (d[j + best] != d[i + best])
+          continue;
+        int l = 0;
+        while (l < maxl && d[j + l] == d[i + l])
+          l++;
+        if (l > best) {
+          best = l;
+          bestj = j;
+          if (best >= maxl)
+            break;
+        }
+      }
+      if (best >= 4) {
+        mlen[i] = best;
+        mdist[i] = i - bestj;
+      }
+      prevp[i] = head[h];
+      head[h] = i;
+    }
+    free(head);
+    free(prevp);
+
+    int matched = 0, max_len = 0;
+    double len_sum = 0;
+    for (int i = 0; i < n; i++) {
+      if (mlen[i] >= 4) {
+        matched++;
+        len_sum += mlen[i];
+        if (mlen[i] > max_len)
+          max_len = mlen[i];
+      }
+    }
+
+    if (matched > 0) {
+      fprintf(f,
+        "<div class=\"card full\" id=\"sec-repeat\">\n"
+        "<h2>Repetition Structure</h2>\n"
+        "<p class=\"desc\">Longest backward match at each position "
+        "(<span style=\"color:#a78bfa\">purple area</span>, log scale, "
+        "&ge;4 bytes) with rolling cost overlaid "
+        "(<span style=\"color:#22d3ee\">cyan</span>, right axis). "
+        "%.1f%% of positions start a match; mean %.0f, max %d bytes. "
+        "Long matches should be cheap &mdash; expensive repeated regions "
+        "mean the models miss the redundancy. "
+        "<span style=\"color:var(--fg3)\">Click to jump to the match "
+        "source in the Hex View.</span></p>\n",
+        100.0 * matched / n, len_sum / matched, max_len);
+      fprintf(f, "<div class=\"scrub-wrap\">\n");
+      fprintf(f, "<div id=\"rep-chart\"></div>\n");
+      fprintf(f, "<div id=\"rep-tip\" class=\"hover-tip\"></div>\n");
+      fprintf(f, "</div>\n");
+
+      fprintf(f, "<script>(function(){\n");
+      fprintf(f, "var ML=[");
+      for (int i = 0; i < n; i++)
+        fprintf(f, "%s%d", i ? "," : "", mlen[i]);
+      fprintf(f, "];\nvar MD=[");
+      for (int i = 0; i < n; i++)
+        fprintf(f, "%s%d", i ? "," : "", mdist[i]);
+      fprintf(f, "];\n");
+      fprintf(f, "%s",
+        "var n=ML.length; if(n<2) return;\n"
+        "var maxL=0;\n"
+        "for(var i=0;i<n;i++) if(ML[i]>maxL) maxL=ML[i];\n"
+        "var lden=Math.log2(1+maxL); if(lden<=0) lden=1;\n"
+        "var W=960,H=220,PL=48,PR=48,PT=12,PB=28;\n"
+        "var pw=W-PL-PR,ph=H-PT-PB;\n"
+        "function X(i){return PL+i*pw/(n-1);}\n"
+        "function yL(l){return PT+ph-(Math.log2(1+l)/lden)*ph;}\n"
+        "/* rolling cost overlay from BD */\n"
+        "var haveC=(typeof BD!=='undefined')&&BD.length>=2;\n"
+        "var R=null,cmax=0,cn=0;\n"
+        "if(haveC){\n"
+        "  cn=Math.min(n,BD.length);\n"
+        "  var win=Math.max(4,Math.min(64,cn>>6));\n"
+        "  var pre=new Float64Array(cn+1);\n"
+        "  for(var i=0;i<cn;i++) pre[i+1]=pre[i]+BD[i].c;\n"
+        "  R=new Float32Array(cn);\n"
+        "  for(var i=0;i<cn;i++){\n"
+        "    var a=Math.max(0,i-(win>>1)), b=Math.min(cn,a+win);\n"
+        "    R[i]=(pre[b]-pre[a])/(b-a);\n"
+        "    if(R[i]>cmax) cmax=R[i];\n"
+        "  }\n"
+        "  if(cmax<=0) haveC=false;\n"
+        "}\n"
+        "function yC(v){return PT+ph-(v/cmax)*ph;}\n"
+        "var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H+'\" style=\"display:block\">';\n"
+        "s+='<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+        "  +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
+        "/* left axis: match length, powers of 4 */\n"
+        "var ticks=[4,16,64,256,1024,4096];\n"
+        "for(var k=0;k<ticks.length;k++){\n"
+        "  var t=ticks[k]; if(t>maxL) break;\n"
+        "  var y=yL(t).toFixed(1);\n"
+        "  s+='<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+        "    +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+        "    +'<text x=\"'+(PL-4)+'\" y=\"'+(+y+3)+'\" text-anchor=\"end\" '\n"
+        "    +'font-size=\"9\" fill=\"#a78bfa\">'+t+'</text>';\n"
+        "}\n"
+        "/* right axis: cost */\n"
+        "if(haveC){\n"
+        "  for(var k=1;k<=3;k++){\n"
+        "    var v=cmax*k/3, y=yC(v).toFixed(1);\n"
+        "    s+='<text x=\"'+(PL+pw+4)+'\" y=\"'+(+y+3)+'\" '\n"
+        "      +'text-anchor=\"start\" font-size=\"9\" fill=\"#22d3ee\">'\n"
+        "      +v.toFixed(1)+'</text>';\n"
+        "  }\n"
+        "}\n"
+        "/* x labels */\n"
+        "for(var k=0;k<=5;k++){\n"
+        "  var off=(((n-1)*k/5)|0), x=(PL+(pw*k/5))|0;\n"
+        "  s+='<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
+        "    +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
+        "}\n"
+        "/* match-length area: per-slot maxima so spikes survive downsampling */\n"
+        "var slots=Math.min(n,960);\n"
+        "var per=n/slots;\n"
+        "var d2='M'+PL+','+(PT+ph);\n"
+        "for(var s2=0;s2<slots;s2++){\n"
+        "  var lo=Math.floor(s2*per), hi=Math.min(n,Math.ceil((s2+1)*per));\n"
+        "  var mx=0;\n"
+        "  for(var k=lo;k<hi;k++) if(ML[k]>mx) mx=ML[k];\n"
+        "  var x=PL+(s2+0.5)*pw/slots;\n"
+        "  d2+=' L'+x.toFixed(1)+','+yL(mx).toFixed(1);\n"
+        "}\n"
+        "d2+=' L'+(PL+pw)+','+(PT+ph)+' Z';\n"
+        "s+='<path d=\"'+d2+'\" fill=\"#a78bfa\" fill-opacity=\".45\" '\n"
+        "  +'stroke=\"#a78bfa\" stroke-width=\"0.5\"/>';\n"
+        "if(haveC){\n"
+        "  var dc='';\n"
+        "  for(var s2=0;s2<slots;s2++){\n"
+        "    var i=Math.min(cn-1,Math.floor((s2+0.5)*per));\n"
+        "    dc+=(s2?'L':'M')+(PL+(s2+0.5)*pw/slots).toFixed(1)+','\n"
+        "      +yC(R[i]).toFixed(1)+' ';\n"
+        "  }\n"
+        "  s+='<path d=\"'+dc+'\" fill=\"none\" stroke=\"#22d3ee\" '\n"
+        "    +'stroke-width=\"1.2\"/>';\n"
+        "}\n"
+        "s+='<line id=\"rep-scrub\" class=\"scrub-line\" x1=\"0\" y1=\"'+PT\n"
+        "  +'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
+        "s+='</svg>';\n"
+        "var chart=document.getElementById('rep-chart');\n"
+        "chart.innerHTML=s;\n"
+        "var tip=document.getElementById('rep-tip');\n"
+        "function hide(){\n"
+        "  var l=document.getElementById('rep-scrub');\n"
+        "  if(l) l.setAttribute('opacity','0');\n"
+        "  tip.style.display='none';\n"
+        "}\n"
+        "function idxFromEvent(e){\n"
+        "  var svg=chart.querySelector('svg'); if(!svg) return -1;\n"
+        "  var r=svg.getBoundingClientRect();\n"
+        "  var px=(e.clientX-r.left)/r.width*W;\n"
+        "  if(px<PL||px>PL+pw) return -1;\n"
+        "  var i=Math.round((px-PL)/pw*(n-1));\n"
+        "  if(i<0)i=0; if(i>=n)i=n-1;\n"
+        "  return i;\n"
+        "}\n"
+        "chart.addEventListener('mousemove',function(e){\n"
+        "  var i=idxFromEvent(e);\n"
+        "  if(i<0){hide();return;}\n"
+        "  var l=document.getElementById('rep-scrub');\n"
+        "  if(l){\n"
+        "    var x=PL+i*pw/(n-1);\n"
+        "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+        "    l.setAttribute('opacity','0.5');\n"
+        "  }\n"
+        "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+        "    +'<span style=\"color:var(--fg)\">'+i+'</span></div>';\n"
+        "  if(ML[i]>=4){\n"
+        "    h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">match</span>'\n"
+        "      +'<span style=\"color:#a78bfa;font-weight:600\">'+ML[i]+' B</span></div>'\n"
+        "      +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">source</span>'\n"
+        "      +'<span>'+(i-MD[i])+' (dist '+MD[i]+')</span></div>';\n"
+        "  } else {\n"
+        "    h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">match</span>'\n"
+        "      +'<span>none \\u22654</span></div>';\n"
+        "  }\n"
+        "  if(haveC&&i<cn){\n"
+        "    var c=BD[i].c;\n"
+        "    var clr=c<3?'#34d399':c<6?'#fbbf24':'#f87171';\n"
+        "    h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">cost</span>'\n"
+        "      +'<span style=\"color:'+clr+';font-weight:600\">'+c.toFixed(2)\n"
+        "      +' bits</span></div>'\n"
+        "      +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">rolling</span>'\n"
+        "      +'<span>'+R[i].toFixed(2)+' b/B</span></div>';\n"
+        "  }\n"
+        "  tip.innerHTML=h;\n"
+        "  var wr=chart.parentNode.getBoundingClientRect();\n"
+        "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-50;\n"
+        "  if(tx+200>wr.width) tx=(e.clientX-wr.left)-200;\n"
+        "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+        "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+        "  tip.style.display='block';\n"
+        "});\n"
+        "chart.addEventListener('mouseleave',hide);\n"
+        "chart.addEventListener('click',function(e){\n"
+        "  var i=idxFromEvent(e);\n"
+        "  if(i<0||!window.hexHighlight) return;\n"
+        "  var target=ML[i]>=4?(i-MD[i]):i;\n"
+        "  window.hexHighlight(target);\n"
+        "  var hx=document.getElementById('sec-hex');\n"
+        "  if(hx) hx.scrollIntoView({behavior:'smooth',block:'start'});\n"
+        "});\n"
+        "})();</script>\n");
+
+      fprintf(f, "</div>\n\n");
+    }
+    free(mlen);
+    free(mdist);
   }
 
   /* ── Search Trajectory ── */
