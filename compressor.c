@@ -140,6 +140,11 @@ typedef struct {
   float estimated_bytes;
   double search_ms; /* model search wall time */
 
+  /* actual emitted header, for the anatomy card */
+  unsigned int hdr_wmask;
+  unsigned char hdr_masks[MAX_SEARCH]; /* header order: ascending weight */
+  int hdr_bitlen;
+
   int num_models;
   unsigned char model_masks[MAX_SEARCH];
   int model_weights[MAX_SEARCH];
@@ -1703,6 +1708,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<div class=\"sb-title\">Sections</div>\n"
     "<a href=\"#sec-params\">Parameters</a>\n"
     "<a href=\"#sec-output\">Output Breakdown</a>\n"
+    "<a href=\"#sec-header\">Header Anatomy</a>\n"
     "<a href=\"#sec-mctrib\">Model Contribution</a>\n"
     "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
     "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
@@ -2026,6 +2032,172 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</div>\n"
       "</div>\n"
       "</div>\n\n");
+  }
+
+  /* ── Header Anatomy ── */
+  if (s->num_models > 0) {
+    int len_bytes = s->large_field ? 4 : 2;
+
+    /* classify the 32 wmask bits by replaying the loader's walk:
+       0 bit = store next mask at current weight, 1 bit = bump weight,
+       field ends when the shifted register hits zero */
+    int bit_kind[32];   /* 0=model, 1=bump, 2=fill/end */
+    int bit_model[32];
+    int bit_weight[32];
+    int hdr_w[MAX_SEARCH] = {0}; /* weight of each header mask */
+    {
+      unsigned int w = s->hdr_wmask;
+      int wval = 0, mi2 = 0, ended = 0;
+      for (int i = 0; i < 32; i++) {
+        unsigned int bit = w & 0x80000000u;
+        w <<= 1;
+        bit_model[i] = 0;
+        bit_weight[i] = wval;
+        if (ended || !w) {
+          bit_kind[i] = 2;
+          ended = 1;
+        } else if (bit) {
+          bit_kind[i] = 1;
+          bit_weight[i] = ++wval;
+        } else {
+          bit_kind[i] = 0;
+          bit_model[i] = mi2++;
+          if (bit_model[i] < MAX_SEARCH)
+            hdr_w[bit_model[i]] = wval;
+        }
+      }
+    }
+
+    fprintf(f, "%s",
+      "<div class=\"card\" id=\"sec-header\" style=\"position:relative\">\n"
+      "<h2>Header Anatomy</h2>\n"
+      "<p class=\"desc\">The emitted .paq header, byte by byte: "
+      "<span style=\"color:#60a5fa\">bitlength</span> &middot; "
+      "<span style=\"color:#fbbf24\">weight mask</span> &middot; "
+      "<span style=\"color:#22d3ee\">context masks</span> "
+      "(stored by ascending weight).</p>\n");
+
+    /* ── byte row ── */
+    fprintf(f, "<div style=\"display:flex;flex-wrap:wrap;gap:3px;"
+      "margin-bottom:14px;font-family:var(--mono)\">\n");
+    for (int i = 0; i < len_bytes; i++)
+      fprintf(f,
+        "<div data-d=\"bitlength byte %d of %d (little-endian)\" "
+        "style=\"width:32px;text-align:center;cursor:default;"
+        "background:rgba(96,165,250,.14);border:1px solid #60a5fa;"
+        "border-radius:3px;padding:2px 0\">"
+        "<div style=\"font-size:11px;color:var(--fg)\">%02X</div>"
+        "<div style=\"font-size:8px;color:var(--fg3)\">len</div></div>\n",
+        i, len_bytes, (s->hdr_bitlen >> (8 * i)) & 0xFF);
+    for (int i = 0; i < 4; i++)
+      fprintf(f,
+        "<div data-d=\"weight mask byte %d of 4 (little-endian)\" "
+        "style=\"width:32px;text-align:center;cursor:default;"
+        "background:rgba(251,191,36,.14);border:1px solid #fbbf24;"
+        "border-radius:3px;padding:2px 0\">"
+        "<div style=\"font-size:11px;color:var(--fg)\">%02X</div>"
+        "<div style=\"font-size:8px;color:var(--fg3)\">wm</div></div>\n",
+        i, (s->hdr_wmask >> (8 * i)) & 0xFF);
+    for (int i = 0; i < s->num_models; i++)
+      fprintf(f,
+        "<div data-d=\"context mask %d (weight %d)\" "
+        "style=\"width:32px;text-align:center;cursor:default;"
+        "background:rgba(34,211,238,.14);border:1px solid #22d3ee;"
+        "border-radius:3px;padding:2px 0\">"
+        "<div style=\"font-size:11px;color:var(--fg)\">%02X</div>"
+        "<div style=\"font-size:8px;color:var(--fg3)\">m%d</div></div>\n",
+        i, hdr_w[i], s->hdr_masks[i], i);
+    fprintf(f, "</div>\n");
+
+    /* ── wmask bit strip ── */
+    fprintf(f, "%s",
+      "<div style=\"font-size:11px;color:var(--fg3);margin-bottom:6px\">"
+      "Weight mask, MSB first: <span style=\"color:#22d3ee\">0 = store "
+      "next mask</span> at current weight (digit = mask index), "
+      "<span style=\"color:#fbbf24\">1 = bump weight</span>; field ends "
+      "when the register empties.</div>\n"
+      "<div id=\"ha-bits\" style=\"display:flex;flex-wrap:wrap;gap:2px;"
+      "margin-bottom:14px;font-family:var(--mono)\">\n");
+    for (int i = 0; i < 32; i++) {
+      const char *bg, *fg, *ch;
+      char chbuf[8];
+      if (bit_kind[i] == 0) {
+        bg = "#22d3ee"; fg = "#0c0e14";
+        snprintf(chbuf, sizeof(chbuf), "%d", bit_model[i]);
+        ch = chbuf;
+      } else if (bit_kind[i] == 1) {
+        bg = "#fbbf24"; fg = "#0c0e14"; ch = "+";
+      } else {
+        bg = "var(--bg4)"; fg = "var(--fg3)"; ch = "&middot;";
+      }
+      fprintf(f,
+        "<div data-i=\"%d\" data-k=\"%d\" data-m=\"%d\" data-w=\"%d\" "
+        "style=\"width:18px;height:18px;display:flex;align-items:center;"
+        "justify-content:center;font-size:9px;border-radius:2px;"
+        "cursor:default;background:%s;color:%s\">%s</div>\n",
+        i, bit_kind[i], bit_model[i], bit_weight[i], bg, fg, ch);
+    }
+    fprintf(f, "</div>\n");
+
+    /* ── decoded values ── */
+    fprintf(f, "<table class=\"kv\">\n");
+    fprintf(f,
+      "<tr><td>Bitlength field</td><td>%d (%d data bits + 1 stop bit)"
+      "</td></tr>\n",
+      s->hdr_bitlen, s->hdr_bitlen - 1);
+    fprintf(f, "<tr><td>Weight mask</td><td>0x%08X</td></tr>\n",
+      s->hdr_wmask);
+    fprintf(f,
+      "<tr><td>Termination parity</td><td>low-byte parity = %d "
+      "(1 = stream terminates)</td></tr>\n",
+      __builtin_parity(s->hdr_wmask & 0xFF));
+    fprintf(f,
+      "<tr><td>Layout</td><td>%d len + 4 wmask + %d masks = %d bytes"
+      "</td></tr>\n",
+      len_bytes, s->num_models, s->header_bytes);
+    fprintf(f, "</table>\n");
+
+    fprintf(f, "<div id=\"ha-tip\" class=\"hover-tip\"></div>\n");
+
+    /* hover tooltips for bytes + bits */
+    fprintf(f, "<script>\n(function(){\nvar HAM=[");
+    for (int i = 0; i < s->num_models; i++)
+      fprintf(f, "%s\"%02X\"", i ? "," : "", s->hdr_masks[i]);
+    fprintf(f, "];\n");
+    fprintf(f, "%s",
+      "var card=document.getElementById('sec-header');\n"
+      "var tip=document.getElementById('ha-tip');\n"
+      "function hide(){tip.style.display='none';}\n"
+      "card.addEventListener('mousemove',function(e){\n"
+      "  var el=e.target.closest('[data-d],[data-i]');\n"
+      "  if(!el){hide();return;}\n"
+      "  var txt;\n"
+      "  if(el.hasAttribute('data-d')){\n"
+      "    txt=el.getAttribute('data-d');\n"
+      "  } else {\n"
+      "    var i=+el.getAttribute('data-i');\n"
+      "    var k=+el.getAttribute('data-k');\n"
+      "    var m=+el.getAttribute('data-m');\n"
+      "    var w=+el.getAttribute('data-w');\n"
+      "    if(k===0) txt='bit '+i+': store mask '+(HAM[m]||m)\n"
+      "      +' at weight '+w+' (model '+m+')';\n"
+      "    else if(k===1) txt='bit '+i+': bump weight \\u2192 '+w;\n"
+      "    else txt='bit '+i+': fill / end of field'\n"
+      "      +(i>=24?'; low-byte parity encodes termination':'');\n"
+      "  }\n"
+      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg)\">'\n"
+      "    +txt+'</span></div>';\n"
+      "  var cr=card.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-cr.left)+14, ty=(e.clientY-cr.top)-34;\n"
+      "  if(tx+240>cr.width) tx=(e.clientX-cr.left)-240;\n"
+      "  if(ty<0) ty=(e.clientY-cr.top)+18;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "card.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
   }
 
   /* ── Model Contribution donut ── */
@@ -7147,6 +7319,9 @@ int main(int argc, char *argv[]) {
     cstats.total_bytes = total_bytes;
     cstats.estimated_bytes = est_size / (float)(BIT_PREC * 8);
     cstats.search_ms = search_ms;
+    cstats.hdr_wmask = wmask;
+    memcpy(cstats.hdr_masks, ordered_masks, ml.num_models);
+    cstats.hdr_bitlen = bitlen;
     model_set_sprint(&ml, cstats.model_string, sizeof(cstats.model_string));
 
     /* compute Shannon H0 entropy */
