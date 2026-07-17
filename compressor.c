@@ -150,6 +150,10 @@ typedef struct {
   double model_bits_saved[MAX_SEARCH];
 
   unsigned int conf_hist[11];
+  /* calibration: predicted P(bit=1) in 5% buckets vs actual outcomes */
+  unsigned int calib_count[20];
+  unsigned int calib_ones[20];
+  double calib_psum[20];
   int total_bits;
 
   unsigned int bytepos_count[8];
@@ -780,6 +784,9 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
   unsigned int min_range = 0xFFFFFFFFu;
   double model_bits_saved[MAX_SEARCH] = {};
   unsigned int conf_hist[11] = {};
+  unsigned int calib_count[20] = {};
+  unsigned int calib_ones[20] = {};
+  double calib_psum[20] = {};
   unsigned int bytepos_count[8] = {};
   double bytepos_cost[8] = {};
   double total_cost = 0;
@@ -836,6 +843,15 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
       if (bucket > 10)
         bucket = 10;
       conf_hist[bucket]++;
+
+      /* calibration: predicted P(bit=1) vs outcome, 5% buckets */
+      double p1f = (double)probs[1] / (probs[0] + probs[1]);
+      int cb = (int)(p1f * 20);
+      if (cb > 19)
+        cb = 19;
+      calib_count[cb]++;
+      calib_ones[cb] += (unsigned)bit;
+      calib_psum[cb] += p1f;
 
       float bit_cost = -fast_log2f((float)probs[bit] / (probs[0] + probs[1]));
       total_cost += bit_cost;
@@ -925,6 +941,9 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
     stats->total_cost = total_cost;
     stats->min_range = min_range;
     memcpy(stats->conf_hist, conf_hist, sizeof(conf_hist));
+    memcpy(stats->calib_count, calib_count, sizeof(calib_count));
+    memcpy(stats->calib_ones, calib_ones, sizeof(calib_ones));
+    memcpy(stats->calib_psum, calib_psum, sizeof(calib_psum));
     memcpy(stats->bytepos_count, bytepos_count, sizeof(bytepos_count));
     memcpy(stats->bytepos_cost, bytepos_cost, sizeof(bytepos_cost));
     for (int m = 0; m < snum; m++) {
@@ -1661,6 +1680,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
     "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
     "<a href=\"#sec-costhist\">Cost Histogram</a>\n"
+    "<a href=\"#sec-infoscatter\">Cost vs Entropy</a>\n"
     "<a href=\"#sec-hex\">Hex View</a>\n"
     "<a href=\"#sec-attr\">Model Attribution</a>\n"
     "<a href=\"#sec-dominance\">Model Dominance</a>\n"
@@ -1669,10 +1689,12 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-corr\">Model Correlation</a>\n"
     "<a href=\"#sec-surprises\">Top Surprises</a>\n"
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
+    "<a href=\"#sec-cumcost\">Cumulative Cost</a>\n"
     "<a href=\"#sec-search\">Search Trajectory</a>\n"
     "<a href=\"#sec-maskgrid\">Mask Outcomes</a>\n"
     "<a href=\"#sec-models\">Model Statistics</a>\n"
     "<a href=\"#sec-conf\">Pred. Confidence</a>\n"
+    "<a href=\"#sec-calib\">Calibration</a>\n"
     "<a href=\"#sec-bytepos\">Byte Position</a>\n"
     "<a href=\"#sec-hash\">Direct-Mapped Table</a>\n"
     "<a href=\"#sec-sat\">Counter Saturation</a>\n"
@@ -2880,6 +2902,117 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  var tx=(e.clientX-cr.left)+14, ty=(e.clientY-cr.top)-40;\n"
       "  if(tx+170>cr.width) tx=(e.clientX-cr.left)-170;\n"
       "  if(ty<0) ty=(e.clientY-cr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',function(){tip.style.display='none';});\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Cost vs Self-Information scatter ── */
+  if (s->byte_costs && s->num_data_bytes > 0) {
+    fprintf(f, "%s",
+      "<div class=\"card\" id=\"sec-infoscatter\" style=\"position:relative\">\n"
+      "<h2>Cost vs Self-Information</h2>\n"
+      "<p class=\"desc\">One dot per byte value: order-0 self-information vs "
+      "average actual cost. Dot size = frequency. "
+      "<span style=\"color:#34d399\">Below the diagonal</span> = context "
+      "models beat the histogram, "
+      "<span style=\"color:#f87171\">above</span> = they do worse.</p>\n"
+      "<div id=\"is-chart\"></div>\n"
+      "<div id=\"is-tip\" class=\"hover-tip\"></div>\n");
+
+    /* built from BD (per-byte costs) + BF (byte frequencies) */
+    fprintf(f, "%s",
+      "<script>(function(){\n"
+      "if(typeof BD==='undefined'||typeof BF==='undefined'||!BD.length) return;\n"
+      "var total=0;\n"
+      "for(var v=0;v<256;v++) total+=BF[v];\n"
+      "if(!total) return;\n"
+      "var sum=new Float64Array(256), cnt=new Uint32Array(256);\n"
+      "for(var i=0;i<BD.length;i++){\n"
+      "  var v=parseInt(BD[i].h,16);\n"
+      "  sum[v]+=BD[i].c; cnt[v]++;\n"
+      "}\n"
+      "var pts=[], maxv=1;\n"
+      "for(var v=0;v<256;v++){\n"
+      "  if(!cnt[v]) continue;\n"
+      "  var si=-Math.log2(BF[v]/total);\n"
+      "  var ac=sum[v]/cnt[v];\n"
+      "  if(si>maxv) maxv=si;\n"
+      "  if(ac>maxv) maxv=ac;\n"
+      "  pts.push({v:v,si:si,ac:ac,n:cnt[v]});\n"
+      "}\n"
+      "maxv=Math.ceil(maxv);\n"
+      "var W=460,H=340,PL=40,PR=10,PT=10,PB=32;\n"
+      "var pw=W-PL-PR,ph=H-PT-PB;\n"
+      "function X(x){return PL+x/maxv*pw;}\n"
+      "function Y(y){return PT+ph-y/maxv*ph;}\n"
+      "var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
+      "  +'\" style=\"display:block;max-width:560px\">';\n"
+      "s+='<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "  +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
+      "var tick=maxv>8?2:1;\n"
+      "for(var t2=0;t2<=maxv;t2+=tick){\n"
+      "  var gx=X(t2), gy=Y(t2);\n"
+      "  s+='<line x1=\"'+gx.toFixed(1)+'\" y1=\"'+PT+'\" x2=\"'+gx.toFixed(1)\n"
+      "    +'\" y2=\"'+(PT+ph)+'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+      "    +'<line x1=\"'+PL+'\" y1=\"'+gy.toFixed(1)+'\" x2=\"'+(PL+pw)\n"
+      "    +'\" y2=\"'+gy.toFixed(1)+'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+      "    +'<text x=\"'+gx.toFixed(1)+'\" y=\"'+(PT+ph+14)\n"
+      "    +'\" text-anchor=\"middle\" font-size=\"9\" fill=\"var(--fg3)\">'+t2+'</text>'\n"
+      "    +'<text x=\"'+(PL-5)+'\" y=\"'+(gy+3).toFixed(1)\n"
+      "    +'\" text-anchor=\"end\" font-size=\"9\" fill=\"var(--fg3)\">'+t2+'</text>';\n"
+      "}\n"
+      "s+='<line x1=\"'+X(0).toFixed(1)+'\" y1=\"'+Y(0).toFixed(1)\n"
+      "  +'\" x2=\"'+X(maxv).toFixed(1)+'\" y2=\"'+Y(maxv).toFixed(1)\n"
+      "  +'\" stroke=\"var(--fg3)\" stroke-width=\"1\" stroke-dasharray=\"5,3\" opacity=\".6\"/>';\n"
+      "for(var i=0;i<pts.length;i++){\n"
+      "  var p=pts[i];\n"
+      "  var r=1.5+Math.log2(p.n+1)*0.7; if(r>7)r=7;\n"
+      "  var clr=p.ac<p.si-0.15?'#34d399':p.ac>p.si+0.15?'#f87171':'#60a5fa';\n"
+      "  s+='<circle cx=\"'+X(p.si).toFixed(1)+'\" cy=\"'+Y(p.ac).toFixed(1)\n"
+      "    +'\" r=\"'+r.toFixed(1)+'\" fill=\"'+clr+'\" fill-opacity=\".7\" '\n"
+      "    +'data-i=\"'+i+'\" style=\"cursor:pointer\"/>';\n"
+      "}\n"
+      "s+='<text x=\"'+(PL+pw/2)+'\" y=\"'+(H-2)+'\" text-anchor=\"middle\" '\n"
+      "  +'font-size=\"10\" fill=\"var(--fg3)\">self-information H\\u2080 (bits)</text>';\n"
+      "s+='<text x=\"12\" y=\"'+(PT+ph/2)+'\" text-anchor=\"middle\" '\n"
+      "  +'font-size=\"10\" fill=\"var(--fg3)\" transform=\"rotate(-90 12 '\n"
+      "  +(PT+ph/2)+')\">avg cost (bits)</text>';\n"
+      "s+='</svg>';\n"
+      "var chart=document.getElementById('is-chart');\n"
+      "chart.innerHTML=s;\n"
+      "var tip=document.getElementById('is-tip');\n"
+      "var card=document.getElementById('sec-infoscatter');\n"
+      "function esc(c){return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':c;}\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var t=e.target;\n"
+      "  if(t.tagName!=='circle'){tip.style.display='none';return;}\n"
+      "  var p=pts[+t.getAttribute('data-i')]; if(!p) return;\n"
+      "  var hex='0x'+(p.v<16?'0':'')+p.v.toString(16).toUpperCase();\n"
+      "  var ch=(p.v>=0x20&&p.v<=0x7E)?\" '\"+esc(String.fromCharCode(p.v))+\"'\":'';\n"
+      "  var d=p.ac-p.si;\n"
+      "  var dClr=d<-0.15?'#34d399':d>0.15?'#f87171':'var(--fg)';\n"
+      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg)\">'\n"
+      "    +hex+ch+'</span></div>'\n"
+      "    +'<div style=\"border-top:1px solid var(--bdr);margin:4px 0 2px;'\n"
+      "    +'padding-top:4px\"></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">count</span>'\n"
+      "    +'<span>'+p.n+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">H\\u2080</span>'\n"
+      "    +'<span>'+p.si.toFixed(2)+' bits</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">actual</span>'\n"
+      "    +'<span>'+p.ac.toFixed(2)+' bits</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">\\u0394</span>'\n"
+      "    +'<span style=\"color:'+dClr+';font-weight:600\">'+(d>=0?'+':'')\n"
+      "    +d.toFixed(2)+'</span></div>';\n"
+      "  var cr=card.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-cr.left)+14, ty=(e.clientY-cr.top)-60;\n"
+      "  if(tx+170>cr.width) tx=(e.clientX-cr.left)-170;\n"
+      "  if(ty<0) ty=(e.clientY-cr.top)+18;\n"
       "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
       "  tip.style.display='block';\n"
       "});\n"
@@ -4748,6 +4881,118 @@ static void write_html_report(const char *path, const CompStats *s) {
     free(rolling);
   }
 
+  /* ── Cumulative Cost ── */
+  if (s->byte_costs && s->num_data_bytes > 1) {
+    fprintf(f, "%s",
+      "<div class=\"card full\" id=\"sec-cumcost\">\n"
+      "<h2>Cumulative Cost</h2>\n"
+      "<p class=\"desc\">Running compressed size over input position: "
+      "<span style=\"color:#22d3ee\">actual</span>, "
+      "<span style=\"color:var(--fg3)\">average slope</span>, "
+      "<span style=\"color:#f87171\">order-0 (H\xe2\x82\x80)</span>. "
+      "Steep spans are where the budget goes.</p>\n"
+      "<div class=\"scrub-wrap\">\n"
+      "<div id=\"cc-chart\"></div>\n"
+      "<div id=\"cc-tip\" class=\"hover-tip\"></div>\n"
+      "</div>\n");
+
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var H0=%.4f;\n", s->entropy);
+    fprintf(f, "%s",
+      "if(typeof BD==='undefined'||BD.length<2) return;\n"
+      "var n=BD.length;\n"
+      "var cum=new Float64Array(n), t=0;\n"
+      "for(var i=0;i<n;i++){t+=BD[i].c;cum[i]=t;}\n"
+      "var totalB=t/8, h0B=H0*n/8;\n"
+      "var maxY=Math.max(totalB,h0B)*1.02;\n"
+      "if(maxY<=0) return;\n"
+      "var W=960,H=200,PL=48,PR=12,PT=12,PB=28;\n"
+      "var pw=W-PL-PR,ph=H-PT-PB;\n"
+      "function X(i){return PL+i*pw/(n-1);}\n"
+      "function Y(b){return PT+ph-b/maxY*ph;}\n"
+      "var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H+'\" style=\"display:block\">';\n"
+      "s+='<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "  +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
+      "for(var i=0;i<=4;i++){\n"
+      "  var val=maxY*(4-i)/4, y=(PT+ph*i/4)|0;\n"
+      "  s+='<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+      "    +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+      "    +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+val.toFixed(0)+' B</text>';\n"
+      "}\n"
+      "for(var i=0;i<=5;i++){\n"
+      "  var off=(((n-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
+      "  s+='<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
+      "}\n"
+      "/* H0 reference (straight by construction) and average chord */\n"
+      "s+='<line x1=\"'+X(0).toFixed(1)+'\" y1=\"'+Y(H0/8).toFixed(1)\n"
+      "  +'\" x2=\"'+X(n-1).toFixed(1)+'\" y2=\"'+Y(h0B).toFixed(1)\n"
+      "  +'\" stroke=\"#f87171\" stroke-width=\"1\" stroke-dasharray=\"5,3\" opacity=\".6\"/>';\n"
+      "s+='<line x1=\"'+X(0).toFixed(1)+'\" y1=\"'+Y(0).toFixed(1)\n"
+      "  +'\" x2=\"'+X(n-1).toFixed(1)+'\" y2=\"'+Y(totalB).toFixed(1)\n"
+      "  +'\" stroke=\"var(--fg3)\" stroke-width=\"1\" stroke-dasharray=\"3,3\" opacity=\".5\"/>';\n"
+      "var step=Math.max(1,Math.floor(n/960));\n"
+      "var d='M'+X(0).toFixed(1)+','+Y(cum[0]/8).toFixed(1);\n"
+      "for(var i=step;i<n;i+=step)\n"
+      "  d+=' L'+X(i).toFixed(1)+','+Y(cum[i]/8).toFixed(1);\n"
+      "d+=' L'+X(n-1).toFixed(1)+','+Y(totalB).toFixed(1);\n"
+      "s+='<path d=\"'+d+' L'+X(n-1).toFixed(1)+','+(PT+ph)+' L'+X(0).toFixed(1)\n"
+      "  +','+(PT+ph)+' Z\" fill=\"#22d3ee\" fill-opacity=\".08\"/>';\n"
+      "s+='<path d=\"'+d+'\" fill=\"none\" stroke=\"#22d3ee\" stroke-width=\"1.5\" '\n"
+      "  +'stroke-linejoin=\"round\"/>';\n"
+      "s+='<line id=\"cc-scrub\" class=\"scrub-line\" x1=\"0\" y1=\"'+PT\n"
+      "  +'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
+      "s+='</svg>';\n"
+      "var chart=document.getElementById('cc-chart');\n"
+      "chart.innerHTML=s;\n"
+      "var tip=document.getElementById('cc-tip');\n"
+      "function hide(){\n"
+      "  var l=document.getElementById('cc-scrub');\n"
+      "  if(l) l.setAttribute('opacity','0');\n"
+      "  tip.style.display='none';\n"
+      "}\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
+      "  var r=svg.getBoundingClientRect();\n"
+      "  var px=(e.clientX-r.left)/r.width*W;\n"
+      "  if(px<PL||px>PL+pw){hide();return;}\n"
+      "  var i=Math.round((px-PL)/pw*(n-1));\n"
+      "  if(i<0)i=0; if(i>=n)i=n-1;\n"
+      "  var cb=cum[i]/8;\n"
+      "  var avgB=totalB*i/(n-1);\n"
+      "  var h0i=H0*(i+1)/8;\n"
+      "  var dAvg=cb-avgB, dH0=cb-h0i;\n"
+      "  var l=document.getElementById('cc-scrub');\n"
+      "  if(l){\n"
+      "    var x=PL+i*pw/(n-1);\n"
+      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+      "    l.setAttribute('opacity','0.5');\n"
+      "  }\n"
+      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">'+i+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">so far</span>'\n"
+      "    +'<span style=\"color:#22d3ee;font-weight:600\">'+cb.toFixed(1)+' B ('\n"
+      "    +(100*cb/totalB).toFixed(1)+'%)</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">vs avg</span>'\n"
+      "    +'<span style=\"color:'+(dAvg<0?'#34d399':'#f87171')+'\">'\n"
+      "    +(dAvg>=0?'+':'')+dAvg.toFixed(1)+' B</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">vs H\\u2080</span>'\n"
+      "    +'<span style=\"color:'+(dH0<0?'#34d399':'#f87171')+'\">'\n"
+      "    +(dH0>=0?'+':'')+dH0.toFixed(1)+' B</span></div>';\n"
+      "  var wr=chart.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+      "  if(tx+200>wr.width) tx=(e.clientX-wr.left)-200;\n"
+      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+  }
+
   /* ── Search Trajectory ── */
   if (s->search_best && s->search_len > 0) {
     int npts = s->search_len;
@@ -5463,6 +5708,146 @@ static void write_html_report(const char *path, const CompStats *s) {
         conf_labels[i], s->conf_hist[i], pct, bcls, bar_w);
     }
     fprintf(f, "</table></div>\n\n");
+  }
+
+  /* ── Calibration ── */
+  {
+    unsigned int total_cal = 0;
+    for (int i = 0; i < 20; i++)
+      total_cal += s->calib_count[i];
+    if (total_cal > 0) {
+      double ece = 0;
+      for (int i = 0; i < 20; i++) {
+        if (!s->calib_count[i])
+          continue;
+        double pred = s->calib_psum[i] / s->calib_count[i];
+        double obs = (double)s->calib_ones[i] / s->calib_count[i];
+        ece += (double)s->calib_count[i] / total_cal *
+               (pred > obs ? pred - obs : obs - pred);
+      }
+
+      int W = 320, Hh = 320;
+      int pl = 38, pr = 10, pt = 10, pb = 34;
+      int pw = W - pl - pr, ph = Hh - pt - pb;
+
+      fprintf(f,
+        "<div class=\"card\" id=\"sec-calib\" style=\"position:relative\">\n"
+        "<h2>Calibration</h2>\n"
+        "<p class=\"desc\">Predicted P(bit=1) vs observed rate, 5%% buckets "
+        "over %u bits. Points on the diagonal = honest probabilities. "
+        "ECE = %.4f (lower is better).</p>\n",
+        total_cal, ece);
+      fprintf(f, "<div class=\"scrub-wrap\">\n");
+      fprintf(f, "<div id=\"calib-tip\" class=\"hover-tip\"></div>\n");
+      fprintf(f,
+        "<svg id=\"calib-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
+        "style=\"display:block;max-width:420px;margin:0 auto\">\n", W, Hh);
+      fprintf(f,
+        "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
+        "fill=\"var(--bg3)\" rx=\"4\"/>\n", pl, pt, pw, ph);
+
+      /* gridlines at 0, .25, .5, .75, 1 on both axes */
+      for (int i = 0; i <= 4; i++) {
+        double v = i / 4.0;
+        int x = pl + (int)(v * pw);
+        int y = pt + ph - (int)(v * ph);
+        fprintf(f,
+          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+          "stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>\n",
+          x, pt, x, pt + ph);
+        fprintf(f,
+          "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+          "stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>\n",
+          pl, y, pl + pw, y);
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" font-size=\"9\" "
+          "fill=\"var(--fg3)\">%.2f</text>\n", x, pt + ph + 13, v);
+        fprintf(f,
+          "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" font-size=\"9\" "
+          "fill=\"var(--fg3)\">%.2f</text>\n", pl - 4, y + 3, v);
+      }
+      /* ideal diagonal */
+      fprintf(f,
+        "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" "
+        "stroke=\"var(--fg3)\" stroke-width=\"1\" stroke-dasharray=\"5,3\" "
+        "opacity=\".6\"/>\n", pl, pt + ph, pl + pw, pt);
+
+      /* one dot per bucket: x = mean predicted, y = observed */
+      for (int i = 0; i < 20; i++) {
+        if (!s->calib_count[i])
+          continue;
+        double pred = s->calib_psum[i] / s->calib_count[i];
+        double obs = (double)s->calib_ones[i] / s->calib_count[i];
+        double dev = pred > obs ? pred - obs : obs - pred;
+        const char *clr = dev < 0.02 ? "#34d399"
+                        : dev < 0.06 ? "#fbbf24" : "#f87171";
+        float r = 2.0f + fast_log2f((float)s->calib_count[i] + 1) * 0.5f;
+        if (r > 7) r = 7;
+        fprintf(f,
+          "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"%s\" "
+          "fill-opacity=\".8\" data-cb=\"%d\" style=\"cursor:pointer\"/>\n",
+          pl + pred * pw, pt + ph - obs * ph, r, clr, i);
+      }
+
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" font-size=\"10\" "
+        "fill=\"var(--fg3)\">predicted P(1)</text>\n",
+        pl + pw / 2, Hh - 4);
+      fprintf(f,
+        "<text x=\"12\" y=\"%d\" text-anchor=\"middle\" font-size=\"10\" "
+        "fill=\"var(--fg3)\" transform=\"rotate(-90 12 %d)\">"
+        "observed P(1)</text>\n",
+        pt + ph / 2, pt + ph / 2);
+      fprintf(f, "</svg>\n</div>\n");
+
+      /* bucket data + hover tooltip */
+      fprintf(f, "<script>\n(function(){\nvar CAL=[");
+      for (int i = 0; i < 20; i++) {
+        if (s->calib_count[i])
+          fprintf(f, "%s[%.4f,%.4f,%u]", i ? "," : "",
+            s->calib_psum[i] / s->calib_count[i],
+            (double)s->calib_ones[i] / s->calib_count[i],
+            s->calib_count[i]);
+        else
+          fprintf(f, "%s0", i ? "," : "");
+      }
+      fprintf(f, "];\n");
+      fprintf(f, "%s",
+        "var svg=document.getElementById('calib-svg');\n"
+        "var tip=document.getElementById('calib-tip');\n"
+        "function hide(){tip.style.display='none';}\n"
+        "svg.addEventListener('mousemove',function(e){\n"
+        "  var t=e.target;\n"
+        "  if(t.tagName!=='circle'){hide();return;}\n"
+        "  var b=+t.getAttribute('data-cb');\n"
+        "  var c=CAL[b]; if(!c){hide();return;}\n"
+        "  var dev=c[0]-c[1];\n"
+        "  var dClr=Math.abs(dev)<0.02?'#34d399':Math.abs(dev)<0.06?'#fbbf24':'#f87171';\n"
+        "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg)\">'\n"
+        "    +(b*5)+'\\u2013'+((b+1)*5)+'% bucket</span></div>'\n"
+        "    +'<div style=\"border-top:1px solid var(--bdr);margin:4px 0 2px;'\n"
+        "    +'padding-top:4px\"></div>'\n"
+        "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">bits</span>'\n"
+        "    +'<span>'+c[2]+'</span></div>'\n"
+        "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">predicted</span>'\n"
+        "    +'<span>'+c[0].toFixed(3)+'</span></div>'\n"
+        "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">observed</span>'\n"
+        "    +'<span>'+c[1].toFixed(3)+'</span></div>'\n"
+        "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">deviation</span>'\n"
+        "    +'<span style=\"color:'+dClr+';font-weight:600\">'\n"
+        "    +(dev>=0?'+':'')+dev.toFixed(3)+'</span></div>';\n"
+        "  var pr=svg.parentNode.getBoundingClientRect();\n"
+        "  var tx=(e.clientX-pr.left)+14, ty=(e.clientY-pr.top)-60;\n"
+        "  if(tx+180>pr.width) tx=(e.clientX-pr.left)-180;\n"
+        "  if(ty<0) ty=(e.clientY-pr.top)+18;\n"
+        "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+        "  tip.style.display='block';\n"
+        "});\n"
+        "svg.addEventListener('mouseleave',hide);\n"
+        "})();</script>\n");
+
+      fprintf(f, "</div>\n\n");
+    }
   }
 
   /* ── Byte Position Analysis ── */
