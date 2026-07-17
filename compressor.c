@@ -138,6 +138,7 @@ typedef struct {
   int header_bytes;
   int total_bytes;
   float estimated_bytes;
+  double search_ms; /* model search wall time */
 
   int num_models;
   unsigned char model_masks[MAX_SEARCH];
@@ -189,6 +190,28 @@ typedef struct {
 } CompStats;
 
 static const char *html_output = NULL;
+static char g_cmdline[1024]; /* original argv, for report provenance */
+
+static void fputs_html(const char *str, FILE *f) {
+  for (; *str; str++) {
+    switch (*str) {
+    case '&':
+      fputs("&amp;", f);
+      break;
+    case '<':
+      fputs("&lt;", f);
+      break;
+    case '>':
+      fputs("&gt;", f);
+      break;
+    case '"':
+      fputs("&quot;", f);
+      break;
+    default:
+      fputc(*str, f);
+    }
+  }
+}
 
 static inline v4f v4f_splat(float x) { return (v4f){x, x, x, x}; }
 static inline v4u v4u_splat(uint32_t x) { return (v4u){x, x, x, x}; }
@@ -1357,6 +1380,47 @@ static void write_html_report(const char *path, const CompStats *s) {
       s->estimated_bytes > 0 ? 100.0f * est_delta / s->estimated_bytes : 0;
   float context_gain = (float)s->entropy - actual_bpb;
 
+  /* Order-1 conditional entropy H1 = H(next byte | previous byte), from
+     bigram counts. Shows how much of the win order-1 modeling explains. */
+  double h1 = -1;
+  if (s->input_data && s->input_size > 1) {
+    unsigned int *bg = (unsigned int *)calloc(65536, sizeof(unsigned int));
+    unsigned int row_tot[256] = {0};
+    for (int i = 0; i + 1 < s->input_size; i++) {
+      bg[s->input_data[i] * 256 + s->input_data[i + 1]]++;
+      row_tot[s->input_data[i]]++;
+    }
+    double pairs = (double)(s->input_size - 1);
+    h1 = 0;
+    for (int r = 0; r < 256; r++) {
+      if (!row_tot[r])
+        continue;
+      for (int c = 0; c < 256; c++) {
+        unsigned int v = bg[r * 256 + c];
+        if (v)
+          h1 -= (v / pairs) * fast_log2f((float)v / row_tot[r]);
+      }
+    }
+    free(bg);
+  }
+
+  /* input fingerprint (CRC32-C) for run-to-run provenance */
+  unsigned int input_crc = 0;
+  if (s->input_data) {
+    unsigned int c = 0xFFFFFFFFu;
+    for (int i = 0; i < s->input_size; i++)
+      c = _mm_crc32_u8(c, s->input_data[i]);
+    input_crc = c ^ 0xFFFFFFFFu;
+  }
+
+  char timebuf[64] = "";
+  {
+    time_t now = time(NULL);
+    struct tm *tmv = localtime(&now);
+    if (tmv)
+      strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tmv);
+  }
+
   /* ── HTML head + CSS ── */
   fprintf(f,
     "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">\n"
@@ -1558,6 +1622,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
     "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
     "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
+    "<a href=\"#sec-costhist\">Cost Histogram</a>\n"
     "<a href=\"#sec-attr\">Model Attribution</a>\n"
     "<a href=\"#sec-dominance\">Model Dominance</a>\n"
     "<a href=\"#sec-hurt\">Model Hurt</a>\n"
@@ -1746,6 +1811,10 @@ static void write_html_report(const char *path, const CompStats *s) {
   fprintf(f,
     "<tr><td>Shannon H\xe2\x82\x80</td>"
     "<td>%.3f bits/byte</td></tr>\n", s->entropy);
+  if (h1 >= 0)
+    fprintf(f,
+      "<tr><td>Order-1 H\xe2\x82\x81</td>"
+      "<td>%.3f bits/byte</td></tr>\n", h1);
   fprintf(f,
     "<tr><td>Actual (incl. header)</td>"
     "<td class=\"%s\">%.3f bits/byte</td></tr>\n",
@@ -1760,6 +1829,15 @@ static void write_html_report(const char *path, const CompStats *s) {
   fprintf(f,
     "<tr><td>Arith coder min range</td>"
     "<td>0x%08X</td></tr>\n", s->min_range);
+  fprintf(f, "<tr><td>Search time</td><td>%.1f ms</td></tr>\n", s->search_ms);
+  if (g_encode_ms > 0)
+    fprintf(f,
+      "<tr><td>Encode time</td>"
+      "<td>%.3f ms/pass (%.1f MB/s, %d rep%s)</td></tr>\n",
+      g_encode_ms, s->input_size / g_encode_ms / 1000.0, timing_reps,
+      timing_reps == 1 ? "" : "s");
+  if (s->input_data)
+    fprintf(f, "<tr><td>Input CRC32-C</td><td>0x%08X</td></tr>\n", input_crc);
   fprintf(f, "</table></div>\n\n");
 
   /* ── Output Breakdown card ── */
@@ -2659,6 +2737,113 @@ static void write_html_report(const char *path, const CompStats *s) {
       "csvg.addEventListener('mouseleave',hideCtip);\n");
 
     fprintf(f, "</script>\n");
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Byte Cost Histogram ── */
+  if (s->byte_costs && s->num_data_bytes > 0) {
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-costhist\" style=\"position:relative\">\n"
+      "<h2>Byte Cost Distribution</h2>\n"
+      "<p class=\"desc\">Histogram of per-byte encoding cost. "
+      "Dashed lines: <span style=\"color:#34d399\">mean</span> and "
+      "<span style=\"color:#f87171\">H\xe2\x82\x80</span>.</p>\n"
+      "<div id=\"ch-chart\"></div>\n"
+      "<div id=\"ch-tip\" class=\"hover-tip\"></div>\n");
+
+    /* built from the BD array the Compressibility Map already embedded */
+    fprintf(f, "<script>(function(){\n");
+    fprintf(f, "var H0=%.4f;\n", s->entropy);
+    fprintf(f, "%s",
+      "if(typeof BD==='undefined'||!BD.length) return;\n"
+      "var maxc=0,sum=0;\n"
+      "for(var i=0;i<BD.length;i++){var c=BD[i].c;sum+=c;if(c>maxc)maxc=c;}\n"
+      "var mean=sum/BD.length;\n"
+      "var binW=0.25;\n"
+      "while(maxc/binW>32) binW*=2;\n"
+      "var nbins=Math.max(1,Math.ceil(maxc/binW));\n"
+      "var bins=new Array(nbins);\n"
+      "for(var i=0;i<nbins;i++) bins[i]=0;\n"
+      "for(var i=0;i<BD.length;i++){\n"
+      "  var b=Math.floor(BD[i].c/binW);\n"
+      "  if(b<0)b=0; if(b>=nbins)b=nbins-1;\n"
+      "  bins[b]++;\n"
+      "}\n"
+      "var maxN=1;\n"
+      "for(var i=0;i<nbins;i++) if(bins[i]>maxN) maxN=bins[i];\n"
+      "var W=460,H=190,PL=38,PR=8,PT=10,PB=26;\n"
+      "var pw=W-PL-PR,ph=H-PT-PB;\n"
+      "function xOf(b){return PL+b*pw/nbins;}\n"
+      "function yOf(n){return PT+ph*(1-n/maxN);}\n"
+      "function xVal(v){return PL+(v/(nbins*binW))*pw;}\n"
+      "var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H+'\" style=\"display:block\">';\n"
+      "s+='<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+      "  +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
+      "for(var i=0;i<=3;i++){\n"
+      "  var n=Math.round(maxN*(3-i)/3), y=(PT+ph*i/3)|0;\n"
+      "  s+='<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+      "    +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+      "    +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+n+'</text>';\n"
+      "}\n"
+      "for(var b=0;b<nbins;b++){\n"
+      "  if(!bins[b]) continue;\n"
+      "  var x=xOf(b), bw=pw/nbins, y=yOf(bins[b]);\n"
+      "  var mid=(b+0.5)*binW;\n"
+      "  var clr=mid<3?'#34d399':mid<6?'#fbbf24':'#f87171';\n"
+      "  s+='<rect x=\"'+(x+0.5).toFixed(1)+'\" y=\"'+y.toFixed(1)\n"
+      "    +'\" width=\"'+(bw-1).toFixed(1)+'\" height=\"'+(PT+ph-y).toFixed(1)\n"
+      "    +'\" fill=\"'+clr+'\" fill-opacity=\".65\" data-b=\"'+b+'\"/>';\n"
+      "}\n"
+      "/* mean + H0 markers */\n"
+      "if(mean<=nbins*binW){\n"
+      "  var xm=xVal(mean).toFixed(1);\n"
+      "  s+='<line x1=\"'+xm+'\" y1=\"'+PT+'\" x2=\"'+xm+'\" y2=\"'+(PT+ph)\n"
+      "    +'\" stroke=\"#34d399\" stroke-width=\"1\" stroke-dasharray=\"4,3\" opacity=\".8\"/>'\n"
+      "    +'<text x=\"'+xm+'\" y=\"'+(PT+8)+'\" font-size=\"8\" fill=\"#34d399\" dx=\"3\">'\n"
+      "    +mean.toFixed(2)+'</text>';\n"
+      "}\n"
+      "if(H0<=nbins*binW){\n"
+      "  var xh=xVal(H0).toFixed(1);\n"
+      "  s+='<line x1=\"'+xh+'\" y1=\"'+PT+'\" x2=\"'+xh+'\" y2=\"'+(PT+ph)\n"
+      "    +'\" stroke=\"#f87171\" stroke-width=\"1\" stroke-dasharray=\"4,3\" opacity=\".8\"/>'\n"
+      "    +'<text x=\"'+xh+'\" y=\"'+(PT+16)+'\" font-size=\"8\" fill=\"#f87171\" dx=\"3\">'\n"
+      "    +'H\\u2080</text>';\n"
+      "}\n"
+      "var step=Math.max(1,Math.round(nbins/8));\n"
+      "for(var b=0;b<=nbins;b+=step){\n"
+      "  s+='<text x=\"'+xOf(b).toFixed(1)+'\" y=\"'+(H-6)+'\" text-anchor=\"middle\" '\n"
+      "    +'font-size=\"9\" fill=\"var(--fg3)\">'+(b*binW).toFixed(binW<1?1:0)+'</text>';\n"
+      "}\n"
+      "s+='</svg>';\n"
+      "var chart=document.getElementById('ch-chart');\n"
+      "chart.innerHTML=s;\n"
+      "var tip=document.getElementById('ch-tip');\n"
+      "var card=document.getElementById('sec-costhist');\n"
+      "chart.addEventListener('mousemove',function(e){\n"
+      "  var t=e.target;\n"
+      "  if(t.tagName!=='rect'||t.getAttribute('data-b')===null){\n"
+      "    tip.style.display='none'; return;\n"
+      "  }\n"
+      "  var b=parseInt(t.getAttribute('data-b'));\n"
+      "  var pct=100*bins[b]/BD.length;\n"
+      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">cost</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">'+(b*binW).toFixed(2)+'\\u2013'\n"
+      "    +((b+1)*binW).toFixed(2)+' bits</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">bytes</span>'\n"
+      "    +'<span style=\"color:var(--acc);font-weight:600\">'+bins[b]+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">share</span>'\n"
+      "    +'<span>'+pct.toFixed(1)+'%</span></div>';\n"
+      "  var cr=card.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-cr.left)+14, ty=(e.clientY-cr.top)-40;\n"
+      "  if(tx+170>cr.width) tx=(e.clientX-cr.left)-170;\n"
+      "  if(ty<0) ty=(e.clientY-cr.top)+16;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "chart.addEventListener('mouseleave',function(){tip.style.display='none';});\n"
+      "})();</script>\n");
+
     fprintf(f, "</div>\n\n");
   }
 
@@ -4850,8 +5035,15 @@ static void write_html_report(const char *path, const CompStats *s) {
   fprintf(f,
     "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid var(--bdr);"
     "font-size:11px;color:var(--fg3);text-align:center\">"
-    "Generated by context-mixing arithmetic compressor"
-    "</div>\n");
+    "Generated by context-mixing arithmetic compressor");
+  if (timebuf[0])
+    fprintf(f, " &middot; %s", timebuf);
+  if (g_cmdline[0]) {
+    fprintf(f, " &middot; <span style=\"font-family:var(--mono)\">");
+    fputs_html(g_cmdline, f);
+    fprintf(f, "</span>");
+  }
+  fprintf(f, "</div>\n");
 
   fprintf(f, "</div><!-- wrap -->\n"
     "<script>\n"
@@ -5056,6 +5248,19 @@ int main(int argc, char *argv[]) {
   ModelSet explicit_models = {0};
   int have_explicit_models = 0;
   int optimize_explicit_weights = 0;
+
+  /* capture the original command line before getopt/permutation mangle it */
+  {
+    int pos = 0;
+    g_cmdline[0] = '\0';
+    for (int i = 0; i < argc; i++) {
+      int n = snprintf(g_cmdline + pos, sizeof(g_cmdline) - pos, "%s%s",
+                       i ? " " : "", argv[i]);
+      if (n < 0 || pos + n >= (int)sizeof(g_cmdline))
+        break;
+      pos += n;
+    }
+  }
 
   int opt;
 #ifdef _WIN32
@@ -5367,6 +5572,7 @@ int main(int argc, char *argv[]) {
     cstats.header_bytes = header_bytes;
     cstats.total_bytes = total_bytes;
     cstats.estimated_bytes = est_size / (float)(BIT_PREC * 8);
+    cstats.search_ms = search_ms;
     model_set_sprint(&ml, cstats.model_string, sizeof(cstats.model_string));
 
     /* compute Shannon H0 entropy */
