@@ -673,6 +673,7 @@ G(
       G(82, const i32 piece = piece_on(H(55, 4, pos), H(55, 4, move->from));
         assert(piece != None);)
       G(82, const u64 mask = G(83, from) | G(83, to);)
+      G(82, const u64 south_to = south(to);)
 
       G(
           84, // Castling
@@ -697,15 +698,15 @@ G(
 
       // En passant
       if (G(87, piece == Pawn) && G(87, to == pos->ep)) {
-        G(88, pos->colour[1] ^= south(to);)
-        G(88, pos->pieces[Pawn] ^= south(to);)
+        G(88, pos->colour[1] ^= south_to;)
+        G(88, pos->pieces[Pawn] ^= south_to;)
       }
       pos->ep = 0;
 
       G(
           89, // Pawn double move
           if (G(90, move->to - move->from == 16) && G(90, piece == Pawn)) {
-            pos->ep = south(to);
+            pos->ep = south_to;
           })
 
       G(
@@ -1402,6 +1403,7 @@ i32 search(
   assert(ply >= 0);
 
   SearchStack *const stack = data->stack;
+  SearchStack *const ss = stack + ply;
   i32(*const move_history)[6][64][64] = data->move_history;
 
   // IN-CHECK EXTENSION
@@ -1420,10 +1422,10 @@ i32 search(
   // TT PROBING
   G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
-  G(192, stack[ply].best_move = (Move){0};)
+  G(192, ss->best_move = (Move){0};)
   const bool tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);
   if (tt_hit) {
-    stack[ply].best_move = tt_entry->move;
+    ss->best_move = tt_entry->move;
 
     // TT PRUNING
     if (G(194, tt_entry->depth >= depth) &&
@@ -1440,13 +1442,13 @@ i32 search(
   // STATIC EVAL WITH CORRECTION HISTORY
   u64 corr_hashes[6] = {0};
   G(197, get_piece_hashes(pos, corr_hashes);)
-  G(197, corr_hashes[5] = G(271, (G(272, stack[ply].prev_move.from) |
-                                  G(272, stack[ply].prev_move.to << 8))) +
+  G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) |
+                                  G(272, ss->prev_move.to << 8))) +
                           G(271, 16384);)
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, i32 * corr_entries[6];)
-  G(197, corr_hashes[4] = G(270, stack[ply + 1].prev_move.from) |
-                          G(270, stack[ply + 1].prev_move.to << 8);)
+  G(197, corr_hashes[4] = G(270, ss[1].prev_move.from) |
+                          G(270, ss[1].prev_move.to << 8);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
@@ -1457,8 +1459,8 @@ i32 search(
     assert(static_eval > -mate);
   }
 
-  stack[ply].static_eval = static_eval;
-  const bool improving = ply > 1 && static_eval > stack[ply - 2].static_eval;
+  ss->static_eval = static_eval;
+  const bool improving = ply > 1 && static_eval > ss[-2].static_eval;
   if (G(199, tt_hit) &&
       G(199, G(201, tt_entry->flag) != G(201, static_eval) > tt_entry->score)) {
     static_eval = tt_entry->score;
@@ -1505,30 +1507,30 @@ i32 search(
     }
   }
 
-  G(213, stack[G(214, ply) + G(214, 2)].position_hash = tt_hash;)
+  G(213, G(214, ss)[G(214, 2)].position_hash = tt_hash;)
   G(213, Move moves[max_moves];
-    stack[ply].num_moves =
+    ss->num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(213, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(213, u8 tt_flag = Upper;)
   G(213, i32 moves_evaluated = 0;)
   G(213, i32 quiets_evaluated = 0;)
 
-  for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
+  for (i32 move_index = 0; move_index < ss->num_moves; move_index++) {
     // MOVE ORDERING
     G(215, i32 move_score = ~0x1010101LL;)
     G(215, i32 best_index = 0;)
-    for (i32 order_index = move_index; order_index < stack[ply].num_moves;
+    for (i32 order_index = move_index; order_index < ss->num_moves;
          order_index++) {
       assert(moves[order_index].takes_piece ==
              piece_on(H(55, 7, pos), H(55, 7, moves[order_index].to)));
       const i32 order_move_score =
           G(187, // KILLER MOVE
             G(216, move_equal(G(217, &moves[order_index]),
-                              G(217, &stack[ply].killer))) *
+                              G(217, &ss->killer))) *
                 G(216, 730)) +
           G(187, // PREVIOUS BEST MOVE FIRST
-            (move_equal(G(218, &stack[ply].best_move),
+            (move_equal(G(218, &ss->best_move),
                         G(218, &moves[order_index]))
              << 30)) +
           G(187, // HISTORY HEURISTIC
@@ -1570,7 +1572,7 @@ i32 search(
       continue;
     }
 
-    G(274, stack[G(275, ply) + G(275, 2)].prev_move = moves[move_index];)
+    G(274, G(275, ss)[G(275, 2)].prev_move = moves[move_index];)
 
     // PRINCIPAL VARIATION SEARCH
     i32 low = moves_evaluated == 0 ? -beta : -alpha - 1;
@@ -1618,24 +1620,24 @@ i32 search(
 
       if (score > alpha) {
         G(232, tt_flag = Exact;)
-        G(232, stack[ply].best_move = moves[move_index];)
+        G(232, ss->best_move = moves[move_index];)
         G(232, alpha = score;)
         if (score >= beta) {
-          assert(stack[ply].best_move.takes_piece ==
-                 piece_on(H(55, 8, pos), H(55, 8, stack[ply].best_move.to)));
+          assert(ss->best_move.takes_piece ==
+                 piece_on(H(55, 8, pos), H(55, 8, ss->best_move.to)));
           G(233, tt_flag = Lower;)
           G(
-              233, if (stack[ply].best_move.takes_piece == None) {
-                stack[ply].killer = stack[ply].best_move;
+              233, if (ss->best_move.takes_piece == None) {
+                ss->killer = ss->best_move;
               })
           G(
               233, if (!in_qsearch) {
                 const i32 bonus = 2 * depth * depth;
                 G(234, i32 *const this_hist =
                            &move_history[pos->flipped]
-                                        [stack[ply].best_move.takes_piece]
-                                        [stack[ply].best_move.from]
-                                        [stack[ply].best_move.to];
+                                        [ss->best_move.takes_piece]
+                                        [ss->best_move.from]
+                                        [ss->best_move.to];
 
                   *this_hist +=
                   bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
@@ -1675,11 +1677,11 @@ i32 search(
 
   G(
       242, // UPDATE CORRECTION HISTORY
-      if (G(243, G(245, stack[ply].best_move.takes_piece) == G(245, None)) &&
+      if (G(243, G(245, ss->best_move.takes_piece) == G(245, None)) &&
           G(243,
-            G(244, tt_flag) != G(244, (best_score < stack[ply].static_eval)))) {
+            G(244, tt_flag) != G(244, (best_score < ss->static_eval)))) {
         G(246, i32 dd = depth * depth; if (dd > 78) { dd = 78; })
-        G(246, i32 target = best_score - stack[ply].static_eval; G(
+        G(246, i32 target = best_score - ss->static_eval; G(
               247, if (target < -176) { target = -176; })
               G(247, if (target > 176) { target = 176; }))
 
@@ -1693,7 +1695,7 @@ i32 search(
 
   G(242, // UPDATE TRANSPOSITION TABLE
         *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                              .move = stack[ply].best_move,
+                              .move = ss->best_move,
                               .score = best_score,
                               .static_eval = raw_eval,
                               .depth = depth,

@@ -11293,3 +11293,12 @@ Games | N: 3826 W: 1060 L: 956 D: 1810
 Penta | [50, 431, 873, 483, 76]
 https://gedas.pythonanywhere.com/test/1998/
 ```
+
+### 9.38
+Refactor stack
+
+4  thread: 4096 bytes (-7)
+9ff25d6ccc9f2ac529028e48c757e9de
+
+1 thread: 4041 bytes (-16)
+MD5: c413f4f965828594edda0aa5d43df968
