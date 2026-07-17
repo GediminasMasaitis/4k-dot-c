@@ -945,13 +945,13 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(118, 1, i8 pst_rank[48];) H(118, 1, i8 bishop_pair;))
   H(116, 1,
     H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 bishop_pawns[2];)
-        H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 king_shield[2];))
+        H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 king_shield[2];)
+            H(117, 1, i8 piece_threats[2];))
   H(116, 1,
     H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
         H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 mobilities[5];)
             H(119, 1, i8 passed_blocked_pawns[6];)
                 H(119, 1, i8 open_files[12];))
-  i8 piece_threats[2];
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -962,13 +962,13 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
             H(118, 2, i32 pst_rank[48];) H(118, 2, i32 bishop_pair;))
   H(116, 2,
     H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 bishop_pawns[2];)
-        H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 king_shield[2];))
+        H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 king_shield[2];)
+            H(117, 2, i32 piece_threats[2];))
   H(116, 2,
     H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
         H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 mobilities[5];)
             H(119, 2, i32 passed_blocked_pawns[6];)
                 H(119, 2, i32 open_files[12];))
-  i32 piece_threats[2];
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1184,7 +1184,8 @@ S(0) i32 eval(Position *const restrict pos) {
                                         G(290, pos->colour[1] &
                                                ~(G(291, pos->pieces[Pawn]) |
                                                  G(291, attacked_by_pawns))))) *
-                                G(289, eval_params.piece_threats[p == Rook]);
+                                G(289, eval_params.piece_threats[G(292, p) ==
+                                                                 G(292, Rook)]);
                           }))
             })
 
