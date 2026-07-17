@@ -1094,7 +1094,6 @@ S(0) i32 eval(Position *const restrict pos) {
         if (count(G(126, pos->pieces[Bishop]) & G(126, pos->colour[0])) > 1) {
           score += eval_params.bishop_pair;
         })
-    u64 threats[2] = {0, 0};
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
@@ -1175,12 +1174,18 @@ S(0) i32 eval(Position *const restrict pos) {
                       score +=
                       G(171, count(G(172, ~pos->colour[0]) & G(172, mobility) &
                                    G(172, ~attacked_by_pawns))) *
-                      G(171, eval_params.mobilities[p - 2]);))
+                      G(171, eval_params.mobilities[p - 2]);)
 
-              // PIECE THREATS
-              if (p < Queen) {
-                threats[p == Rook] |= mobility;
-              }
+                        G(170, // PIECE THREATS
+                          if (p < Queen) {
+                            score +=
+                                G(289,
+                                  count(G(290, mobility) &
+                                        G(290, pos->colour[1] &
+                                               ~(G(291, pos->pieces[Pawn]) |
+                                                 G(291, attacked_by_pawns))))) *
+                                G(289, eval_params.piece_threats[p == Rook]);
+                          }))
             })
 
         G(
@@ -1215,12 +1220,6 @@ S(0) i32 eval(Position *const restrict pos) {
           eval_params
               .pst_file[G(153, G(154, (p - 1)) * G(154, 8)) + G(153, file)];)
       }
-    }
-
-    // PIECE THREATS
-    for (i32 i = 0; i < 2; i++) {
-      score += eval_params.piece_threats[i] *
-               count(threats[i] & pos->colour[1] & ~pos->pieces[Pawn]);
     }
 
     G(75, score = -score;)
