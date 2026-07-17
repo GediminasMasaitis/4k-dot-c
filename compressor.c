@@ -4315,7 +4315,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     int svg_h = lbl + gridsz + 2;
 
     fprintf(f,
-      "<div class=\"card\" id=\"sec-corr\" style=\"position:relative\">\n"
+      "<div class=\"card full\" id=\"sec-corr\" style=\"position:relative\">\n"
       "<h2>Model Correlation</h2>\n"
       "<p class=\"desc\">Pearson correlation of per-byte contributions. "
       "<span style=\"color:#22d3ee\">Cyan</span> = models help on the same "
@@ -4325,8 +4325,9 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "<div id=\"corr-tip\" class=\"hover-tip\"></div>\n");
     fprintf(f,
       "<svg id=\"corr-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
-      "style=\"font-family:var(--mono);display:block;max-width:%dpx\">\n",
-      svg_w, svg_h, svg_w + svg_w / 4);
+      "style=\"font-family:var(--mono);display:block;margin:0 auto;"
+      "max-width:%dpx\">\n",
+      svg_w, svg_h, svg_w * 2);
 
     /* column labels, rotated */
     for (int b = 0; b < nm; b++) {
