@@ -1227,7 +1227,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1487,6 +1487,9 @@ i32 search(
   G(213, u8 tt_flag = Upper;)
   G(213, i32 moves_evaluated = 0;)
   G(213, i32 quiets_evaluated = 0;)
+  const u64 pawn_attacked =
+      G(276, southwest(G(280, pos->colour[1]) & G(280, pos->pieces[Pawn]))) |
+      G(276, southeast(G(281, pos->colour[1]) & G(281, pos->pieces[Pawn])));
 
   for (i32 move_index = 0; move_index < stack[ply].num_moves; move_index++) {
     // MOVE ORDERING
@@ -1535,6 +1538,16 @@ i32 search(
         222, // MOVE SCORE PRUNING
         if (G(223, moves_evaluated) &&
             G(223, move_score < G(224, -175) * G(224, depth))) { break; })
+
+    G(
+        222, // PAWN PROTECTED PRUNING
+        if (G(277, moves_evaluated) &&
+            G(277, G(278, 1ULL << moves[move_index].to) &
+                       G(278, pawn_attacked)) &&
+            G(277,
+              piece_on(H(55, 10, pos), H(55, 10, moves[move_index].from)) >
+                  G(279, moves[move_index].takes_piece) +
+                      G(279, depth / 2))) { continue; })
 
     Position npos = *pos;
 #ifdef FULL
