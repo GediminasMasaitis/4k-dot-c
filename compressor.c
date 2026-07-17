@@ -186,6 +186,11 @@ typedef struct {
   } *search_events;
   int search_nevents, search_events_cap;
 
+  /* per-mask search outcome: 0=not tried, 1=rejected, 2=accepted then
+     removed, 3=in final set; delta = est. size change (bytes) at trial */
+  unsigned char mask_outcome[256];
+  float mask_delta[256];
+
   int valid;
 } CompStats;
 
@@ -226,6 +231,21 @@ static inline float fast_log2f(float x) {
   float m = bits.f - 1.0f;
   return exp + m * (1.42286530448213f +
                     m * (-0.58208536795165f + m * 0.15922006346951f));
+}
+
+/* sqrt without libm: exponent-halving first guess + Newton refinement */
+static double sqrt_pos(double x) {
+  if (x <= 0)
+    return 0;
+  union {
+    double d;
+    uint64_t u;
+  } b = {x};
+  b.u = (b.u >> 1) + 0x1FF8000000000000ULL;
+  double g = b.d;
+  for (int i = 0; i < 6; i++)
+    g = 0.5 * (g + x / g);
+  return g;
 }
 
 static inline void *alloc_aligned(size_t size) {
@@ -1209,6 +1229,8 @@ static ModelSet search_best_models(const unsigned char *data, int size,
     stats->search_events = NULL;
     stats->search_nevents = 0;
     stats->search_events_cap = 0;
+    memset(stats->mask_outcome, 0, sizeof(stats->mask_outcome));
+    memset(stats->mask_delta, 0, sizeof(stats->mask_delta));
   }
 
   for (int mi = 0; mi <= 255; mi++) {
@@ -1241,6 +1263,18 @@ static ModelSet search_best_models(const unsigned char *data, int size,
         if (verbose >= 2)
           printf("    -- try adding %02X:\n", mask);
         int new_sz = try_weights(cs, next, simple, data, size, base_prob);
+
+        /* per-mask outcome for the mask grid (slot-0 lineage only) */
+        if (log_search && s == 0 && new_sz < INT_MAX) {
+          float d = (new_sz - old_sz) / (float)(BIT_PREC * 8);
+          if (new_sz < old_sz) {
+            stats->mask_outcome[mask] = 2;
+            stats->mask_delta[mask] = d;
+          } else if (stats->mask_outcome[mask] == 0) {
+            stats->mask_outcome[mask] = 1;
+            stats->mask_delta[mask] = d;
+          }
+        }
 
         if (new_sz < old_sz || beam > 1) {
           int best_sz = new_sz;
@@ -1347,6 +1381,9 @@ static ModelSet search_best_models(const unsigned char *data, int size,
     printf("  Final weight optimization:\n");
   }
   int final_sz = optimize_weights(cs, &best, data, size, base_prob);
+  if (log_search)
+    for (int m = 0; m < best.num_models; m++)
+      stats->mask_outcome[best.models[m].mask] = 3;
   if (out_size)
     *out_size = final_sz;
   if (verbose) {
@@ -1584,6 +1621,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".cd-panel .cd-bar-val{font-family:var(--mono);width:70px;"
     "text-align:right;flex-shrink:0}\n"
     ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
+    ".hex-sel{outline:2px solid var(--fg);outline-offset:-1px}\n"
     ".scrub-wrap{position:relative}\n"
     ".scrub-line{stroke:#fff;stroke-width:0.6;opacity:0;"
     "pointer-events:none;transition:opacity .1s}\n"
@@ -1623,13 +1661,16 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
     "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
     "<a href=\"#sec-costhist\">Cost Histogram</a>\n"
+    "<a href=\"#sec-hex\">Hex View</a>\n"
     "<a href=\"#sec-attr\">Model Attribution</a>\n"
     "<a href=\"#sec-dominance\">Model Dominance</a>\n"
     "<a href=\"#sec-hurt\">Model Hurt</a>\n"
     "<a href=\"#sec-net\">Model Net</a>\n"
+    "<a href=\"#sec-corr\">Model Correlation</a>\n"
     "<a href=\"#sec-surprises\">Top Surprises</a>\n"
     "<a href=\"#sec-cost\">Cost Over Position</a>\n"
     "<a href=\"#sec-search\">Search Trajectory</a>\n"
+    "<a href=\"#sec-maskgrid\">Mask Outcomes</a>\n"
     "<a href=\"#sec-models\">Model Statistics</a>\n"
     "<a href=\"#sec-conf\">Pred. Confidence</a>\n"
     "<a href=\"#sec-bytepos\">Byte Position</a>\n"
@@ -2697,6 +2738,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  }\n"
       "  panel.innerHTML=h;\n"
       "  panel.style.display='block';\n"
+      "  if(window.hexHighlight) window.hexHighlight(idx);\n"
       "});\n");
 
     /* cmap hover tooltip */
@@ -2842,6 +2884,198 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  tip.style.display='block';\n"
       "});\n"
       "chart.addEventListener('mouseleave',function(){tip.style.display='none';});\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Hex View ── */
+  if (s->byte_costs && s->num_data_bytes > 0 && s->input_data) {
+    fprintf(f, "%s",
+      "<div class=\"card full\" id=\"sec-hex\" style=\"position:relative\">\n"
+      "<h2>Hex View</h2>\n"
+      "<p class=\"desc\">Hex dump colored by per-byte encoding cost or by "
+      "dominant model. "
+      "<span style=\"color:var(--fg3)\">Click a byte to inspect it in the "
+      "Attribution Map; selections elsewhere highlight here too.</span></p>\n"
+      "<div class=\"slider-row\">"
+      "<span>Color:</span>"
+      "<button id=\"hex-mode-cost\" type=\"button\">cost</button>"
+      "<button id=\"hex-mode-model\" type=\"button\">model</button>"
+      "<span style=\"margin-left:14px\">Offset:</span>"
+      "<input id=\"hex-jump\" type=\"text\" placeholder=\"0x0000\" "
+      "style=\"width:80px;font-family:var(--mono);font-size:11px;"
+      "background:var(--bg3);color:var(--fg);border:1px solid var(--bdr2);"
+      "border-radius:4px;padding:3px 6px\">"
+      "<button id=\"hex-go\" type=\"button\">Go</button>"
+      "</div>\n"
+      "<div id=\"hex-dump\" style=\"max-height:420px;overflow-y:auto;"
+      "font-family:var(--mono);font-size:11px;line-height:1.6\"></div>\n"
+      "<div id=\"hex-tip\" class=\"hover-tip\"></div>\n");
+
+    /* built entirely from the BD array embedded by the Compressibility Map */
+    fprintf(f, "%s",
+      "<script>(function(){\n"
+      "if(typeof BD==='undefined'||!BD.length) return;\n"
+      "var N=Math.min(BD.length,65536);\n"
+      "var dump=document.getElementById('hex-dump');\n"
+      "var tip=document.getElementById('hex-tip');\n"
+      "var card=document.getElementById('sec-hex');\n"
+      "var mode='cost';\n"
+      "var cmax=0;\n"
+      "for(var i=0;i<N;i++) if(BD[i].c>cmax) cmax=BD[i].c;\n"
+      "if(cmax<=0) cmax=1;\n"
+      "var hasM=!!BD[0].m;\n"
+      "var gmax=0.01;\n"
+      "if(hasM){\n"
+      "  for(var i=0;i<N;i++){var mm=BD[i].m;\n"
+      "    for(var k=0;k<mm.length;k++) if(mm[k]>gmax) gmax=mm[k];}\n"
+      "}\n"
+      "function esc(c){return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':c;}\n"
+      "function hex6(v){var h=v.toString(16).toUpperCase();"
+      "while(h.length<6)h='0'+h;return h;}\n"
+      "function costBg(c){\n"
+      "  var t=c/cmax; if(t<0)t=0; if(t>1)t=1;\n"
+      "  var r,g,b;\n"
+      "  if(t<0.5){var u=t*2;r=16+(180-16)*u;g=185+(140-185)*u;b=129+(40-129)*u;}\n"
+      "  else{var u=(t-0.5)*2;r=180+(248-180)*u;g=140+(113-140)*u;b=40+(113-40)*u;}\n"
+      "  return {bg:'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')',\n"
+      "          fg:t<0.6?'#0c0e14':'rgba(255,255,255,.85)'};\n"
+      "}\n"
+      "function bestModel(i){\n"
+      "  if(!hasM) return -1;\n"
+      "  var mm=BD[i].m,bi=-1,bv=0.001;\n"
+      "  for(var k=0;k<mm.length;k++) if(mm[k]>bv){bv=mm[k];bi=k;}\n"
+      "  return bi;\n"
+      "}\n"
+      "function modelBg(i){\n"
+      "  var bi=bestModel(i);\n"
+      "  if(bi<0||typeof ATTR_PAL==='undefined'||!ATTR_PAL[bi])\n"
+      "    return {bg:'rgba(128,128,128,.10)',fg:'var(--fg2)'};\n"
+      "  var pc=ATTR_PAL[bi];\n"
+      "  var v=BD[i].m[bi], t=v/gmax; if(t>1)t=1;\n"
+      "  t=1-(1-t)*(1-t);\n"
+      "  var op=.15+.85*t;\n"
+      "  var lum=(pc[0]*299+pc[1]*587+pc[2]*114)/1000*op;\n"
+      "  return {bg:'rgba('+pc[0]+','+pc[1]+','+pc[2]+','+op.toFixed(2)+')',\n"
+      "          fg:lum>120?'#0c0e14':'var(--fg)'};\n"
+      "}\n"
+      "var selIdx=-1;\n"
+      "function render(){\n"
+      "  var st=dump.scrollTop;\n"
+      "  var out=[];\n"
+      "  for(var r=0;r<N;r+=16){\n"
+      "    var hx='',asc='';\n"
+      "    for(var i=r;i<r+16;i++){\n"
+      "      var pad=(i===r+8)?'margin-left:8px;':'';\n"
+      "      if(i>=N){\n"
+      "        hx+='<span style=\"width:20px;'+pad+'\"></span>';\n"
+      "        asc+='<span style=\"width:9px\"></span>';\n"
+      "        continue;\n"
+      "      }\n"
+      "      var c=mode==='cost'?costBg(BD[i].c):modelBg(i);\n"
+      "      hx+='<span class=\"hx\" data-i=\"'+i+'\" style=\"width:20px;'\n"
+      "        +'text-align:center;border-radius:2px;cursor:pointer;'+pad\n"
+      "        +'background:'+c.bg+';color:'+c.fg+'\">'+BD[i].h+'</span>';\n"
+      "      var ch=BD[i].ch?esc(BD[i].ch):'\\u00b7';\n"
+      "      asc+='<span data-i=\"'+i+'\" style=\"width:9px;text-align:center;'\n"
+      "        +'cursor:pointer;color:'+(BD[i].ch?'var(--fg2)':'var(--fg3)')\n"
+      "        +'\">'+ch+'</span>';\n"
+      "    }\n"
+      "    out.push('<div style=\"display:flex;gap:14px;align-items:center\">'\n"
+      "      +'<span style=\"color:var(--fg3);width:52px;flex-shrink:0;'\n"
+      "      +'text-align:right\">'+hex6(r)+'</span>'\n"
+      "      +'<span style=\"display:flex;gap:2px\">'+hx+'</span>'\n"
+      "      +'<span style=\"display:flex\">'+asc+'</span></div>');\n"
+      "  }\n"
+      "  if(BD.length>N)\n"
+      "    out.push('<div style=\"color:var(--fg3);padding:6px 0\">showing '\n"
+      "      +'first '+N+' of '+BD.length+' bytes</div>');\n"
+      "  dump.innerHTML=out.join('');\n"
+      "  dump.scrollTop=st;\n"
+      "  styleBtns();\n"
+      "  if(selIdx>=0) markSel(selIdx,false);\n"
+      "}\n"
+      "var btnC=document.getElementById('hex-mode-cost');\n"
+      "var btnM=document.getElementById('hex-mode-model');\n"
+      "function styleBtns(){\n"
+      "  btnC.style.color=mode==='cost'?'var(--acc)':'';\n"
+      "  btnM.style.color=mode==='model'?'var(--acc)':'';\n"
+      "}\n"
+      "btnC.addEventListener('click',function(){mode='cost';render();});\n"
+      "btnM.addEventListener('click',function(){mode='model';render();});\n"
+      "if(!hasM) btnM.style.display='none';\n"
+      "function markSel(idx,scroll){\n"
+      "  var prev=dump.querySelectorAll('.hex-sel');\n"
+      "  for(var i=0;i<prev.length;i++) prev[i].classList.remove('hex-sel');\n"
+      "  selIdx=idx;\n"
+      "  var els=dump.querySelectorAll('[data-i=\"'+idx+'\"]');\n"
+      "  for(var i=0;i<els.length;i++) els[i].classList.add('hex-sel');\n"
+      "  if(scroll&&els.length){\n"
+      "    var row=els[0].parentNode.parentNode;\n"
+      "    dump.scrollTop=row.offsetTop-dump.offsetTop-dump.clientHeight/2;\n"
+      "  }\n"
+      "}\n"
+      "var suppressScroll=false;\n"
+      "window.hexHighlight=function(idx,scroll){\n"
+      "  idx=parseInt(idx);\n"
+      "  if(isNaN(idx)||idx<0||idx>=N) return;\n"
+      "  var sc=(scroll!==false)&&!suppressScroll;\n"
+      "  suppressScroll=false;\n"
+      "  markSel(idx,sc);\n"
+      "};\n"
+      "dump.addEventListener('click',function(e){\n"
+      "  var el=e.target.closest('[data-i]'); if(!el) return;\n"
+      "  var idx=parseInt(el.getAttribute('data-i'));\n"
+      "  suppressScroll=true;\n"
+      "  markSel(idx,false);\n"
+      "  if(window.attrSelectByte) window.attrSelectByte(idx);\n"
+      "  suppressScroll=false;\n"
+      "});\n"
+      "dump.addEventListener('mousemove',function(e){\n"
+      "  var el=e.target.closest('[data-i]');\n"
+      "  if(!el){tip.style.display='none';return;}\n"
+      "  var idx=parseInt(el.getAttribute('data-i'));\n"
+      "  var d=BD[idx]; if(!d){tip.style.display='none';return;}\n"
+      "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
+      "  var ch=d.ch?\" '\"+esc(d.ch)+\"'\":'';\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+      "    +'<span style=\"color:var(--fg)\">0x'+d.h+ch+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">offset</span>'\n"
+      "    +'<span>'+d.o+' (0x'+d.o.toString(16).toUpperCase()+')</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">cost</span>'\n"
+      "    +'<span style=\"color:'+costClr+';font-weight:600\">'+d.c.toFixed(2)\n"
+      "    +' bits</span></div>';\n"
+      "  var bi=bestModel(idx);\n"
+      "  if(bi>=0&&typeof MI!=='undefined'&&MI[bi]){\n"
+      "    var pc=(typeof ATTR_PAL!=='undefined'&&ATTR_PAL[bi])||[100,100,100];\n"
+      "    h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">best</span>'\n"
+      "      +'<span><span class=\"tip-sw\" style=\"background:rgb('+pc[0]+','\n"
+      "      +pc[1]+','+pc[2]+')\"></span>'+MI[bi].mask+':'+MI[bi].w\n"
+      "      +' (+'+d.m[bi].toFixed(2)+')</span></div>';\n"
+      "  }\n"
+      "  tip.innerHTML=h;\n"
+      "  var cr=card.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-cr.left)+14, ty=(e.clientY-cr.top)-50;\n"
+      "  if(tx+200>cr.width) tx=(e.clientX-cr.left)-200;\n"
+      "  if(ty<0) ty=(e.clientY-cr.top)+18;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "dump.addEventListener('mouseleave',function(){tip.style.display='none';});\n"
+      "function jump(){\n"
+      "  var v=document.getElementById('hex-jump').value.trim();\n"
+      "  if(!v) return;\n"
+      "  var idx=v.slice(0,2).toLowerCase()==='0x'?parseInt(v,16):parseInt(v,10);\n"
+      "  if(isNaN(idx)) return;\n"
+      "  if(idx<0) idx=0; if(idx>=N) idx=N-1;\n"
+      "  markSel(idx,true);\n"
+      "  if(window.attrSelectByte) window.attrSelectByte(idx);\n"
+      "}\n"
+      "document.getElementById('hex-go').addEventListener('click',jump);\n"
+      "document.getElementById('hex-jump').addEventListener('keydown',\n"
+      "  function(e){if(e.key==='Enter') jump();});\n"
+      "render();\n"
       "})();</script>\n");
 
     fprintf(f, "</div>\n\n");
@@ -3084,6 +3318,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  if(selRect) selRect.classList.remove('cmap-sel');\n"
       "  r.classList.add('cmap-sel'); selRect=r;\n"
       "  setHilite(r.getAttribute('data-bm'));\n"
+      "  if(window.hexHighlight) window.hexHighlight(idx);\n"
       "  var ch=d.ch?\" '\"+ d.ch +\"'\":'';\n"
       "  var costClr=d.c<3?'#34d399':d.c<6?'#fbbf24':'#f87171';\n"
       "  var h='<div class=\"cd-head\">';\n"
@@ -4031,6 +4266,156 @@ static void write_html_report(const char *path, const CompStats *s) {
     free(mdata);
   }
 
+  /* ── Model Correlation Matrix ── */
+  if (s->byte_model_contrib && s->num_data_bytes > 1 && s->num_models >= 2) {
+    int nb = s->num_data_bytes;
+    int nm = s->num_models;
+
+    /* Pearson correlation between per-byte contributions of model pairs */
+    double mean[MAX_SEARCH] = {0};
+    for (int m = 0; m < nm; m++) {
+      for (int i = 0; i < nb; i++)
+        mean[m] += s->byte_model_contrib[i * nm + m];
+      mean[m] /= nb;
+    }
+    double *cov = (double *)calloc((size_t)nm * nm, sizeof(double));
+    int *both_help = (int *)calloc((size_t)nm * nm, sizeof(int));
+    int *both_hurt = (int *)calloc((size_t)nm * nm, sizeof(int));
+    for (int i = 0; i < nb; i++) {
+      const float *row = &s->byte_model_contrib[i * nm];
+      for (int a = 0; a < nm; a++) {
+        double da = row[a] - mean[a];
+        for (int b = a; b < nm; b++) {
+          cov[a * nm + b] += da * (row[b] - mean[b]);
+          if (row[a] > 0.01f && row[b] > 0.01f)
+            both_help[a * nm + b]++;
+          if (row[a] < -0.01f && row[b] < -0.01f)
+            both_hurt[a * nm + b]++;
+        }
+      }
+    }
+    float *corr = (float *)calloc((size_t)nm * nm, sizeof(float));
+    for (int a = 0; a < nm; a++) {
+      for (int b = a; b < nm; b++) {
+        double denom = sqrt_pos(cov[a * nm + a]) * sqrt_pos(cov[b * nm + b]);
+        float r = denom > 1e-12 ? (float)(cov[a * nm + b] / denom) : 0;
+        if (r > 1) r = 1;
+        if (r < -1) r = -1;
+        corr[a * nm + b] = r;
+        corr[b * nm + a] = r;
+        both_help[b * nm + a] = both_help[a * nm + b];
+        both_hurt[b * nm + a] = both_hurt[a * nm + b];
+      }
+    }
+
+    int cell = 30, cgap = 1;
+    int lbl = 44;
+    int gridsz = nm * (cell + cgap) - cgap;
+    int svg_w = lbl + gridsz + 2;
+    int svg_h = lbl + gridsz + 2;
+
+    fprintf(f,
+      "<div class=\"card\" id=\"sec-corr\" style=\"position:relative\">\n"
+      "<h2>Model Correlation</h2>\n"
+      "<p class=\"desc\">Pearson correlation of per-byte contributions. "
+      "<span style=\"color:#22d3ee\">Cyan</span> = models help on the same "
+      "bytes (redundant), <span style=\"color:#f87171\">red</span> = "
+      "anti-correlated (complementary).</p>\n");
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
+    fprintf(f, "<div id=\"corr-tip\" class=\"hover-tip\"></div>\n");
+    fprintf(f,
+      "<svg id=\"corr-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"font-family:var(--mono);display:block;max-width:%dpx\">\n",
+      svg_w, svg_h, svg_w + svg_w / 4);
+
+    /* column labels, rotated */
+    for (int b = 0; b < nm; b++) {
+      int x = lbl + b * (cell + cgap) + cell / 2;
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"start\" font-size=\"9\" "
+        "fill=\"var(--fg3)\" transform=\"rotate(-60 %d %d)\">%02X:%d</text>\n",
+        x, lbl - 6, x, lbl - 6, s->model_masks[b], s->model_weights[b]);
+    }
+    for (int a = 0; a < nm; a++) {
+      int y = lbl + a * (cell + cgap);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" font-size=\"9\" "
+        "fill=\"var(--fg3)\">%02X:%d</text>\n",
+        lbl - 5, y + cell / 2 + 3, s->model_masks[a], s->model_weights[a]);
+      for (int b = 0; b < nm; b++) {
+        int x = lbl + b * (cell + cgap);
+        float r = corr[a * nm + b];
+        float ar = r < 0 ? -r : r;
+        const char *fill = r >= 0 ? "#22d3ee" : "#f87171";
+        float op = a == b ? 0.9f : 0.05f + 0.85f * ar;
+        fprintf(f,
+          "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" rx=\"2\" "
+          "fill=\"%s\" fill-opacity=\"%.2f\" data-a=\"%d\" data-b=\"%d\" "
+          "style=\"cursor:pointer\"/>\n",
+          x, y, cell, cell, fill, op, a, b);
+        if (a != b)
+          fprintf(f,
+            "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" font-size=\"8\" "
+            "fill=\"%s\" pointer-events=\"none\">%.2f</text>\n",
+            x + cell / 2, y + cell / 2 + 3,
+            ar > 0.55f ? "#0c0e14" : "var(--fg2)", r);
+      }
+    }
+    fprintf(f, "</svg>\n</div>\n");
+
+    /* pair data + hover tooltip */
+    fprintf(f, "<script>\n(function(){\n");
+    fprintf(f, "var CN=%d;\n", nm);
+    fprintf(f, "var CR=[");
+    for (int i = 0; i < nm * nm; i++)
+      fprintf(f, "%s%.3f", i ? "," : "", corr[i]);
+    fprintf(f, "];\nvar CBH=[");
+    for (int i = 0; i < nm * nm; i++)
+      fprintf(f, "%s%d", i ? "," : "", both_help[i]);
+    fprintf(f, "];\nvar CBT=[");
+    for (int i = 0; i < nm * nm; i++)
+      fprintf(f, "%s%d", i ? "," : "", both_hurt[i]);
+    fprintf(f, "];\n");
+    fprintf(f, "%s",
+      "var svg=document.getElementById('corr-svg');\n"
+      "var tip=document.getElementById('corr-tip');\n"
+      "function hide(){tip.style.display='none';}\n"
+      "svg.addEventListener('mousemove',function(e){\n"
+      "  var t=e.target;\n"
+      "  if(t.tagName!=='rect'||t.getAttribute('data-a')===null){hide();return;}\n"
+      "  var a=+t.getAttribute('data-a'), b=+t.getAttribute('data-b');\n"
+      "  var r=CR[a*CN+b];\n"
+      "  var la=(typeof MI!=='undefined'&&MI[a])?MI[a].mask+':'+MI[a].w:a;\n"
+      "  var lb=(typeof MI!=='undefined'&&MI[b])?MI[b].mask+':'+MI[b].w:b;\n"
+      "  var rClr=r>0.5?'#22d3ee':r<-0.5?'#f87171':'var(--fg)';\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg)\">'+la\n"
+      "    +' \\u00d7 '+lb+'</span></div>'\n"
+      "    +'<div style=\"border-top:1px solid var(--bdr);margin:4px 0 2px;'\n"
+      "    +'padding-top:4px\"></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">r</span>'\n"
+      "    +'<span style=\"color:'+rClr+';font-weight:600\">'+r.toFixed(3)+'</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">both help</span>'\n"
+      "    +'<span>'+CBH[a*CN+b]+' bytes</span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">both hurt</span>'\n"
+      "    +'<span>'+CBT[a*CN+b]+' bytes</span></div>';\n"
+      "  tip.innerHTML=h;\n"
+      "  var pr=svg.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-pr.left)+14, ty=(e.clientY-pr.top)-50;\n"
+      "  if(tx+180>pr.width) tx=(e.clientX-pr.left)-180;\n"
+      "  if(ty<0) ty=(e.clientY-pr.top)+18;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "svg.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
+
+    fprintf(f, "</div>\n\n");
+    free(cov);
+    free(both_help);
+    free(both_hurt);
+    free(corr);
+  }
+
   /* ── Top Surprises ── */
   if (s->byte_costs && s->num_data_bytes > 0 && s->num_models > 0) {
     int nb = s->num_data_bytes;
@@ -4677,6 +5062,158 @@ static void write_html_report(const char *path, const CompStats *s) {
       "ssvg.addEventListener('mouseleave',hideStip);\n"
       "})();\n"
       "</script>\n");
+
+    fprintf(f, "</div>\n\n");
+  }
+
+  /* ── Mask Outcome Grid ── */
+  if (s->search_best && s->search_len > 0) {
+    int counts[4] = {0, 0, 0, 0};
+    float dmax_rej = 0;
+    for (int m = 0; m < 256; m++) {
+      counts[s->mask_outcome[m] & 3]++;
+      if (s->mask_outcome[m] == 1 && s->mask_delta[m] > dmax_rej)
+        dmax_rej = s->mask_delta[m];
+    }
+    if (dmax_rej <= 0)
+      dmax_rej = 1;
+
+    int cell = 28, gap = 1;
+    int grid = cell * 16 + gap * 15;
+    int hdr = 18, row_lbl = 24;
+    int svg_w = row_lbl + grid + 4;
+    int svg_h = hdr + grid + 4;
+
+    fprintf(f,
+      "<div class=\"card full\" id=\"sec-maskgrid\">\n"
+      "<h2>Mask Search Outcomes</h2>\n"
+      "<p class=\"desc\">All 256 context masks by first-pass search outcome: "
+      "%d in final set, %d accepted then removed, %d rejected, %d not tried. "
+      "Rejected cells brighten the closer the mask came to helping; "
+      "final-set cells show the model weight.</p>\n",
+      counts[3], counts[2], counts[1], counts[0]);
+
+    /* legend */
+    {
+      struct { const char *clr; const char *lbl; } lg[] = {
+        {"#22d3ee", "final set"},
+        {"#fbbf24", "accepted, later removed"},
+        {"#f87171", "rejected"},
+        {"var(--bg4)", "not tried"},
+      };
+      fprintf(f, "<div style=\"display:flex;flex-wrap:wrap;gap:8px 16px;"
+        "margin-bottom:10px;font-size:11px;color:var(--fg2)\">\n");
+      for (int i = 0; i < 4; i++)
+        fprintf(f,
+          "<span style=\"display:inline-flex;align-items:center;gap:5px\">"
+          "<span style=\"display:inline-block;width:10px;height:10px;"
+          "border-radius:2px;background:%s\"></span>%s</span>\n",
+          lg[i].clr, lg[i].lbl);
+      fprintf(f, "</div>\n");
+    }
+
+    fprintf(f, "<div class=\"scrub-wrap\">\n");
+    fprintf(f, "<div id=\"mg-tip\" class=\"hover-tip\"></div>\n");
+    fprintf(f,
+      "<svg id=\"mg-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
+      "style=\"font-family:var(--mono);display:block\">\n", svg_w, svg_h);
+
+    for (int c = 0; c < 16; c++) {
+      int x = row_lbl + c * (cell + gap) + cell / 2;
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" font-size=\"8\" "
+        "fill=\"var(--fg3)\">%X</text>\n", x, hdr - 5, c);
+    }
+    for (int r = 0; r < 16; r++) {
+      int y = hdr + r * (cell + gap);
+      fprintf(f,
+        "<text x=\"%d\" y=\"%d\" text-anchor=\"end\" font-size=\"8\" "
+        "fill=\"var(--fg3)\">%X_</text>\n", row_lbl - 4, y + cell / 2 + 3, r);
+      for (int c = 0; c < 16; c++) {
+        int m = r * 16 + c;
+        int x = row_lbl + c * (cell + gap);
+        int oc = s->mask_outcome[m];
+        char fill[40];
+        if (oc == 3)
+          snprintf(fill, sizeof(fill), "#22d3ee");
+        else if (oc == 2)
+          snprintf(fill, sizeof(fill), "#fbbf24");
+        else if (oc == 1) {
+          float t = 1.0f - s->mask_delta[m] / dmax_rej;
+          if (t < 0) t = 0;
+          if (t > 1) t = 1;
+          snprintf(fill, sizeof(fill), "rgba(248,113,113,%.2f)",
+                   0.08f + 0.55f * t);
+        } else
+          snprintf(fill, sizeof(fill), "var(--bg4)");
+        fprintf(f,
+          "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" rx=\"2\" "
+          "fill=\"%s\" data-m=\"%d\" style=\"cursor:pointer\"/>\n",
+          x, y, cell, cell, fill, m);
+        if (oc == 3) {
+          int w = 0;
+          for (int k = 0; k < s->num_models; k++)
+            if (s->model_masks[k] == m) { w = s->model_weights[k]; break; }
+          fprintf(f,
+            "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" font-size=\"10\" "
+            "font-weight=\"600\" fill=\"#0c0e14\" "
+            "pointer-events=\"none\">%d</text>\n",
+            x + cell / 2, y + cell / 2 + 3, w);
+        }
+      }
+    }
+    fprintf(f, "</svg>\n</div>\n");
+
+    /* outcome data + hover tooltip */
+    fprintf(f, "<script>\n(function(){\nvar MO=[");
+    for (int m = 0; m < 256; m++)
+      fprintf(f, "%s%d", m ? "," : "", s->mask_outcome[m]);
+    fprintf(f, "];\nvar MDL=[");
+    for (int m = 0; m < 256; m++)
+      fprintf(f, "%s%.3g", m ? "," : "", s->mask_delta[m]);
+    fprintf(f, "];\n");
+    fprintf(f, "%s",
+      "var svg=document.getElementById('mg-svg');\n"
+      "var tip=document.getElementById('mg-tip');\n"
+      "var NAMES=['not tried','rejected','accepted, later removed',"
+      "'in final set'];\n"
+      "var CLRS=['var(--fg3)','#f87171','#fbbf24','#22d3ee'];\n"
+      "function hide(){tip.style.display='none';}\n"
+      "svg.addEventListener('mousemove',function(e){\n"
+      "  var t=e.target;\n"
+      "  if(t.tagName!=='rect'||t.getAttribute('data-m')===null){hide();return;}\n"
+      "  var m=+t.getAttribute('data-m');\n"
+      "  var hex='0x'+(m<16?'0':'')+m.toString(16).toUpperCase();\n"
+      "  var bits='';\n"
+      "  for(var b=7;b>=0;b--){\n"
+      "    var on=(m>>b)&1;\n"
+      "    bits+='<rect x=\"'+((7-b)*9)+'\" y=\"0\" width=\"8\" height=\"10\" '\n"
+      "      +'rx=\"1\" fill=\"'+(on?'#22d3ee':'var(--bg3)')\n"
+      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>';\n"
+      "  }\n"
+      "  var oc=MO[m];\n"
+      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg)\">'+hex+'</span>'\n"
+      "    +'<span><svg width=\"72\" height=\"10\">'+bits+'</svg></span></div>'\n"
+      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">outcome</span>'\n"
+      "    +'<span style=\"color:'+CLRS[oc]+';font-weight:600\">'+NAMES[oc]\n"
+      "    +'</span></div>';\n"
+      "  if(oc>0){\n"
+      "    var d=MDL[m];\n"
+      "    h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">'\n"
+      "      +'\\u0394 when tried</span>'\n"
+      "      +'<span style=\"color:'+(d<0?'#34d399':'#f87171')+'\">'\n"
+      "      +(d>=0?'+':'')+d.toFixed(2)+' B</span></div>';\n"
+      "  }\n"
+      "  tip.innerHTML=h;\n"
+      "  var pr=svg.parentNode.getBoundingClientRect();\n"
+      "  var tx=(e.clientX-pr.left)+14, ty=(e.clientY-pr.top)-50;\n"
+      "  if(tx+190>pr.width) tx=(e.clientX-pr.left)-190;\n"
+      "  if(ty<0) ty=(e.clientY-pr.top)+18;\n"
+      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+      "  tip.style.display='block';\n"
+      "});\n"
+      "svg.addEventListener('mouseleave',hide);\n"
+      "})();</script>\n");
 
     fprintf(f, "</div>\n\n");
   }
