@@ -70,25 +70,6 @@ G(
     })
 
 G(
-    1,
-    S(0) void putl(const char *const restrict string) {
-      i32 length = 0;
-      while (string[length]) {
-        ssize_t ret;
-        asm volatile("syscall"
-                     : "=a"(ret)
-                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
-                     : "rcx", "r11", "memory");
-        length++;
-      }
-    }
-
-    S(1) void puts(const char *const restrict string) {
-      putl(string);
-      putl("\n");
-    })
-
-G(
     1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
                                         const char *restrict rhs) {
       while (*lhs || *rhs) {
@@ -144,6 +125,25 @@ G(
                    : "rcx", "r11", "memory");
       return G(2, ts.tv_nsec) +
              G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
+    })
+
+G(
+    1,
+    S(0) void putl(const char *const restrict string) {
+      i32 length = 0;
+      while (string[length]) {
+        ssize_t ret;
+        asm volatile("syscall"
+                     : "=a"(ret)
+                     : "0"(1), "D"(stdout), "S"(&string[length]), "d"(1)
+                     : "rcx", "r11", "memory");
+        length++;
+      }
+    }
+
+    S(1) void puts(const char *const restrict string) {
+      putl(string);
+      putl("\n");
     })
 
 #ifdef FULL
@@ -317,8 +317,8 @@ typedef struct [[nodiscard]] {
         bool castling[4];
         u32 castling32;
       };)
-  G(6, bool flipped;)
   G(6, u8 padding[11];)
+  G(6, bool flipped;)
 } Position;
 
 #ifdef ASSERTS
@@ -438,7 +438,7 @@ G(
       G(37, const u64 horizontal1 = G(38, west_bb) | G(38, east_bb);)
       G(37,
         const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
-      return G(40, horizontal2 >> 8) | G(40, horizontal2 << 8) |
+      return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) |
              G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
     })
 
@@ -493,9 +493,9 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[5] = '\0';)
-
       G(51, str[4] = "\0\0nbrq"[move->promo];)
+
+      G(51, str[5] = '\0';)
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
@@ -940,12 +940,12 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(118, 1, i8 phalanx_pawn;) H(118, 1, i8 passed_pawns[6];)
-        H(118, 1, i8 king_attacks[5];) H(118, 1, i8 protected_pawn;)
-            H(118, 1, i8 pst_rank[48];) H(118, 1, i8 bishop_pair;))
+    H(118, 1, i8 protected_pawn;) H(118, 1, i8 phalanx_pawn;)
+        H(118, 1, i8 bishop_pair;) H(118, 1, i8 passed_pawns[6];)
+            H(118, 1, i8 pst_rank[48];) H(118, 1, i8 king_attacks[5];))
   H(116, 1,
-    H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 bishop_pawns[2];)
-        H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 king_shield[2];)
+    H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];)
+        H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 bishop_pawns[2];)
             H(117, 1, i8 piece_threats[2];))
   H(116, 1,
     H(119, 1, i8 tempo;) H(119, 1, i8 pst_file[48];)
@@ -957,12 +957,12 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(118, 2, i32 phalanx_pawn;) H(118, 2, i32 passed_pawns[6];)
-        H(118, 2, i32 king_attacks[5];) H(118, 2, i32 protected_pawn;)
-            H(118, 2, i32 pst_rank[48];) H(118, 2, i32 bishop_pair;))
+    H(118, 2, i32 protected_pawn;) H(118, 2, i32 phalanx_pawn;)
+        H(118, 2, i32 bishop_pair;) H(118, 2, i32 passed_pawns[6];)
+            H(118, 2, i32 pst_rank[48];) H(118, 2, i32 king_attacks[5];))
   H(116, 2,
-    H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 bishop_pawns[2];)
-        H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 king_shield[2];)
+    H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];)
+        H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 bishop_pawns[2];)
             H(117, 2, i32 piece_threats[2];))
   H(116, 2,
     H(119, 2, i32 tempo;) H(119, 2, i32 pst_file[48];)
@@ -1073,6 +1073,12 @@ S(0) i32 eval(Position *const restrict pos) {
   for (i32 c = 0; c < 2; c++) {
 
     G(
+        125, // BISHOP PAIR
+        if (count(G(126, pos->pieces[Bishop]) & G(126, pos->colour[0])) > 1) {
+          score += eval_params.bishop_pair;
+        })
+
+    G(
         125, u64 pawns[2]; for (i32 i = 0; i < 2; i++) {
           pawns[i] = G(128, pos->colour[i]) & G(128, pos->pieces[Pawn]);
         } const u64 attacked_by_pawns = G(129, southwest(pawns[1])) |
@@ -1086,26 +1092,53 @@ S(0) i32 eval(Position *const restrict pos) {
               G(134, count(G(135, pawns[1]) & G(135, attacked_by_pawns)));)
                 G(130, const u64 no_passers =
                            G(131, pawns[1]) | G(131, attacked_by_pawns);))
-
     G(125, const u64 opp_king_zone =
                king(G(127, pos->colour[1]) & G(127, pos->pieces[King]));)
-    G(
-        125, // BISHOP PAIR
-        if (count(G(126, pos->pieces[Bishop]) & G(126, pos->colour[0])) > 1) {
-          score += eval_params.bishop_pair;
-        })
     for (i32 p = Pawn; p <= King; p++) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, const i32 rank = sq >> 3;)
         G(137, phase += initial_params.phases[p];)
         G(137, copy &= copy - 1;)
         G(137, const u64 piece_bb = 1ULL << sq;)
-        G(137, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(137, const i32 rank = sq >> 3;)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
-        G(93, // MATERIAL
-          score += eval_params.material[p];)
+        G(137, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(93, // SPLIT PIECE-SQUARE TABLES FOR FILE
+          score +=
+          eval_params
+              .pst_file[G(153, G(154, (p - 1)) * G(154, 8)) + G(153, file)];)
+
+        G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
+          score +=
+          eval_params
+              .pst_rank[G(152, G(147, (p - 1)) * G(147, 8)) + G(152, rank)];)
+        G(
+            93, // PASSED PAWNS
+            if (G(143, p == Pawn) &&
+                G(143, !(G(144, in_front) & G(144, no_passers)))) {
+              G(
+                  145, if (G(146, north(piece_bb)) & G(146, pos->colour[1])) {
+                    score += eval_params.passed_blocked_pawns[rank - 1];
+                  })
+
+              G(145, score += eval_params.passed_pawns[rank - 1];)
+
+              // PASSED PAWN KING DISTANCE
+              for (i32 i = 0; i < 2; i++) {
+                const i32 king_sq =
+                    lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
+                G(149, const i32 rank_distance = __builtin_abs(
+                           king_sq / 8 - G(150, rank) - G(150, 1));)
+                G(149,
+                  const i32 file_distance = __builtin_abs(king_sq % 8 - file);)
+                score +=
+                    G(151, (rank_distance > file_distance ? rank_distance
+                                                          : file_distance)) *
+                    G(151, (rank - 1)) *
+                    G(151, eval_params.passed_king_distance[i]);
+              }
+            })
 
         G(
             93, // OPEN FILES / DOUBLED PAWNS
@@ -1116,26 +1149,9 @@ S(0) i32 eval(Position *const restrict pos) {
                                                     G(141, 6)) +
                                          G(140, -1) + G(140, p)];
             })
-        G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
-          score +=
-          eval_params
-              .pst_rank[G(152, G(147, (p - 1)) * G(147, 8)) + G(152, rank)];)
 
         G(
             93, if (p > Pawn) {
-              G(
-                  155, // PAWN PUSH THREATS
-                  if (G(169, in_front) & G(169, ~piece_bb) &
-                      G(169, attacked_by_pawns)) {
-                    score += eval_params.pawn_threat[p - 2];
-                  })
-
-              G(
-                  155, // PIECES ATTACKED BY PAWNS
-                  if (G(164, piece_bb) & G(164, no_passers)) {
-                    score += eval_params.pawn_attacked_penalty[c];
-                  })
-
               G(
                   155, // BISHOP COLOUR PAWNS
                   if (G(165, p) == G(165, Bishop)) {
@@ -1160,6 +1176,19 @@ S(0) i32 eval(Position *const restrict pos) {
                     G(159, score += G(162, count(G(163, north(shield)) &
                                                  G(163, pawns[0]))) *
                                     G(162, eval_params.king_shield[1]);)
+                  })
+
+              G(
+                  155, // PIECES ATTACKED BY PAWNS
+                  if (G(164, piece_bb) & G(164, no_passers)) {
+                    score += eval_params.pawn_attacked_penalty[c];
+                  })
+
+              G(
+                  155, // PAWN PUSH THREATS
+                  if (G(169, in_front) & G(169, ~piece_bb) &
+                      G(169, attacked_by_pawns)) {
+                    score += eval_params.pawn_threat[p - 2];
                   })
 
               G(155, const u64 mobility =
@@ -1193,37 +1222,8 @@ S(0) i32 eval(Position *const restrict pos) {
                             }))
             })
 
-        G(
-            93, // PASSED PAWNS
-            if (G(143, p == Pawn) &&
-                G(143, !(G(144, in_front) & G(144, no_passers)))) {
-              G(145, score += eval_params.passed_pawns[rank - 1];)
-
-              G(
-                  145, if (G(146, north(piece_bb)) & G(146, pos->colour[1])) {
-                    score += eval_params.passed_blocked_pawns[rank - 1];
-                  })
-
-              // PASSED PAWN KING DISTANCE
-              for (i32 i = 0; i < 2; i++) {
-                const i32 king_sq =
-                    lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
-                G(149, const i32 rank_distance = __builtin_abs(
-                           king_sq / 8 - G(150, rank) - G(150, 1));)
-                G(149,
-                  const i32 file_distance = __builtin_abs(king_sq % 8 - file);)
-                score +=
-                    G(151, (rank_distance > file_distance ? rank_distance
-                                                          : file_distance)) *
-                    G(151, (rank - 1)) *
-                    G(151, eval_params.passed_king_distance[i]);
-              }
-            })
-
-        G(93, // SPLIT PIECE-SQUARE TABLES FOR FILE
-          score +=
-          eval_params
-              .pst_file[G(153, G(154, (p - 1)) * G(154, 8)) + G(153, file)];)
+        G(93, // MATERIAL
+          score += eval_params.material[p];)
       }
     }
 
@@ -1262,11 +1262,11 @@ enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
   G(119, u64 position_hash;)
-  G(119, Move prev_move;)
+  G(119, i32 static_eval;)
   G(119, Move best_move;)
   G(119, i32 num_moves;)
   G(119, Move killer;)
-  G(119, i32 static_eval;)
+  G(119, Move prev_move;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1550,9 +1550,9 @@ i32 search(
             G(225,
               G(226,
                 initial_params.eg.material[moves[move_index].takes_piece]) +
-                      G(226, G(227, 176) * G(227, depth)) +
                       G(226,
                         initial_params.eg.material[moves[move_index].promo]) +
+                      G(226, G(227, 176) * G(227, depth)) +
                       G(226, static_eval) <
                   alpha) &&
             G(225, !in_check) && G(225, moves_evaluated)) { break; })
@@ -1960,8 +1960,8 @@ void run_smp() {
   for (i32 i = 1; i < thread_count; i++) {
     ThreadHead *helper_head =
         (ThreadHead *)&thread_stacks[i][thread_stack_size - sizeof(ThreadHead)];
-    G(260, helper_head->data.pos = main_data->pos;)
     G(260, helper_head->data.max_time = -1LL;)
+    G(260, helper_head->data.pos = main_data->pos;)
 #ifdef FULL
     helper_head->data.thread_id = i;
 #endif
