@@ -1518,6 +1518,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n"
     "<link href=\"https://fonts.googleapis.com/css2?"
     "family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400"
+    "&family=Press+Start+2P"
     "&family=JetBrains+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">\n"
     "<style>\n"
     ":root{\n"
@@ -1531,6 +1532,8 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  --orn:#fb923c;--blu:#60a5fa;\n"
     "  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code','Consolas',monospace;\n"
     "  --sans:'DM Sans',system-ui,-apple-system,sans-serif;\n"
+    "  --pix:'Press Start 2P',monospace;\n"
+    "  --pnk:#ff3fd8;--yel:#ffe33f;\n"
     "  --shadow:0 1px 2px rgba(0,0,0,.25),0 14px 34px -18px rgba(0,0,0,.55);\n"
     "}\n"
     "body.light{\n"
@@ -1733,7 +1736,110 @@ static void write_html_report(const char *path, const CompStats *s) {
     ".mc-more:hover{color:var(--fg2)}\n"
     ".mc-more .mc-caret{transition:transform .15s}\n"
     "details[open]>.mc-more .mc-caret{transform:rotate(90deg)}\n"
+    "\n"
+    "/* ════ PARTY MODE (hidden; Konami code or 7 taps on the ring) ════ */\n"
+    "#stars,.scrolltext{display:none}\n"
+    "@keyframes copper{to{background-position:300%% 0}}\n"
+    "@keyframes scrolltx{to{transform:translateX(-100%%)}}\n"
+    "@keyframes wave{0%%,100%%{transform:translateY(-3px)}"
+    "50%%{transform:translateY(3px)}}\n"
+    "@keyframes stars{to{background-position:-520px 260px,-1120px 560px}}\n"
+    "@keyframes blink{50%%{opacity:0}}\n"
+    "@keyframes crackclr{0%%,100%%{color:var(--pnk)}33%%{color:var(--acc)}"
+    "66%%{color:var(--yel)}}\n"
+    "@keyframes ringpulse{0%%,100%%{filter:drop-shadow(0 0 6px "
+    "rgba(34,211,238,.7))}50%%{filter:drop-shadow(0 0 16px "
+    "rgba(255,63,216,.8))}}\n"
+    "@keyframes rgbjitter{0%%,100%%{text-shadow:2px 2px 0 rgba(255,63,216,.55)}"
+    "25%%{text-shadow:-2px 2px 0 rgba(34,211,238,.6)}"
+    "50%%{text-shadow:2px -2px 0 rgba(255,227,63,.6)}"
+    "75%%{text-shadow:-2px -2px 0 rgba(255,63,216,.6)}}\n"
+    "body.party{\n"
+    "  --bg:#000004;--bg2:#0b0b10;--bg3:#14141b;--bg4:#1f1f29;\n"
+    "  --bdr:#26262f;--bdr2:#3a3a48;\n"
+    "  --fg:#e8e8f0;--fg2:#9a9aad;--fg3:#63636f;\n"
+    "  --shadow:5px 5px 0 rgba(0,0,0,.45);\n"
+    "  --sans:'JetBrains Mono',ui-monospace,monospace;\n"
+    "  background:var(--bg);line-height:1.65}\n"
+    "body.party::before{content:'';position:fixed;top:0;left:0;right:0;"
+    "height:4px;z-index:10000;background:linear-gradient(90deg,var(--pnk),"
+    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 6s linear infinite}\n"
+    "body.party::after{content:'';position:fixed;inset:0;"
+    "pointer-events:none;z-index:9999;"
+    "background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0,"
+    "rgba(0,0,0,.16) 1px,transparent 1px,transparent 3px)}\n"
+    "body.party #stars{display:block;position:fixed;inset:0;z-index:-1;"
+    "pointer-events:none;background-image:"
+    "radial-gradient(rgba(255,255,255,.35) 1px,transparent 1.6px),"
+    "radial-gradient(rgba(255,255,255,.18) 1px,transparent 1.6px);"
+    "background-size:260px 260px,140px 140px;"
+    "animation:stars 90s linear infinite}\n"
+    "body.party .scrolltext{display:block;overflow:hidden;"
+    "white-space:nowrap;margin-top:30px;border-top:1px solid var(--bdr);"
+    "border-bottom:1px solid var(--bdr);padding:9px 0;"
+    "font-family:var(--pix);font-size:9px;color:var(--acc)}\n"
+    "body.party .scrolltext span{display:inline-block;padding-left:100%%;"
+    "animation:scrolltx 32s linear infinite;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.5)}\n"
+    "body.party .scrolltext i{display:inline-block;font-style:normal;"
+    "animation:wave 1.4s ease-in-out infinite}\n"
+    "body.party ::selection{background:rgba(255,63,216,.35)}\n"
+    "body.party ::-webkit-scrollbar-thumb{border-radius:0}\n"
+    "body.party .card{background:var(--bg2);border-radius:0;"
+    "position:relative;padding-top:24px}\n"
+    "body.party .card::before{content:'';position:absolute;top:0;left:0;"
+    "right:0;height:3px;background:linear-gradient(90deg,var(--pnk),"
+    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 8s linear infinite;opacity:.85}\n"
+    "body.party .card:hover{border-color:var(--pnk)}\n"
+    "body.party .card h2{font-family:var(--pix);font-size:10px;"
+    "font-weight:400;text-transform:uppercase;letter-spacing:1px;"
+    "line-height:1.6;margin-bottom:6px;gap:10px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
+    "body.party .card:hover h2{animation:rgbjitter .35s steps(1) infinite}\n"
+    "body.party .card h2::before{width:8px;height:8px;border-radius:0;"
+    "background:var(--acc);box-shadow:2px 2px 0 var(--pnk)}\n"
+    "body.party .hero-info h1{font-family:var(--pix);font-size:14px;"
+    "font-weight:400;text-transform:uppercase;letter-spacing:1px;"
+    "line-height:1.5;margin-bottom:8px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
+    "body.party .hero-info h1::after{content:'\\2588';margin-left:8px;"
+    "color:var(--acc);animation:blink 1.1s steps(2) infinite}\n"
+    "body.party .hero-info::after{content:'*** CRACKED BY THE PAQ CREW ***';"
+    "display:block;margin-top:12px;font-family:var(--pix);font-size:7px;"
+    "letter-spacing:1px;animation:crackclr 4s linear infinite}\n"
+    "body.party .hero-ring svg{animation:ringpulse 2.6s ease-in-out infinite}\n"
+    "body.party .hero-pct .lbl,body.party .hero-stat .lbl{"
+    "font-family:var(--pix);font-size:7px;letter-spacing:1px}\n"
+    "body.party .sb-brand .dot{border-radius:0;background:var(--acc);"
+    "box-shadow:3px 3px 0 var(--pnk)}\n"
+    "body.party .sb-brand span{font-family:var(--pix);font-size:8px;"
+    "font-weight:400;letter-spacing:1px;text-transform:uppercase;"
+    "text-shadow:1px 1px 0 rgba(255,63,216,.6)}\n"
+    "body.party .sidebar .sb-title{font-family:var(--pix);font-size:7px;"
+    "font-weight:400;letter-spacing:1px}\n"
+    "body.party .sidebar a:hover{text-shadow:1px 0 var(--pnk),"
+    "-1px 0 var(--acc);background:rgba(255,63,216,.07)}\n"
+    "body.party .sidebar a.active{border-left-color:var(--pnk)}\n"
+    "body.party .slider-row button{border-radius:0;text-transform:uppercase;"
+    "letter-spacing:.5px;box-shadow:2px 2px 0 rgba(0,0,0,.5)}\n"
+    "body.party .slider-row button:hover{border-color:var(--pnk)}\n"
+    "body.party .slider-row button:active{transform:translate(2px,2px);"
+    "box-shadow:none}\n"
+    "body.party .theme-toggle{border-radius:0;text-transform:uppercase;"
+    "letter-spacing:1px}\n"
+    "body.party .hover-tip{border-radius:0;"
+    "box-shadow:4px 4px 0 rgba(0,0,0,.55)}\n"
+    "body.party .cd-panel{border-radius:0}\n"
+    "#party-toast{position:fixed;top:40%%;left:50%%;"
+    "transform:translate(-50%%,-50%%);z-index:10001;pointer-events:none;"
+    "font-family:var(--pix);font-size:14px;color:var(--acc);"
+    "background:rgba(0,0,4,.92);border:2px solid var(--pnk);"
+    "padding:18px 26px;letter-spacing:2px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.6)}\n"
     "</style></head><body>\n"
+    "<div id=\"stars\"></div>\n"
     "<nav class=\"sidebar\" id=\"sidebar\">\n"
     "<div class=\"sb-brand\"><span class=\"dot\"></span>"
     "<span>Compression Report</span></div>\n"
@@ -1821,13 +1927,13 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    +'fill=\"var(--bg3)\" rx=\"3\"/>';\n"
     "  if(hasNeg){\n"
     "    s += '<line x1=\"0\" y1=\"'+midY+'\" x2=\"'+W+'\" y2=\"'+midY\n"
-    "      +'\" stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
+    "      +'\" stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
     "  }\n"
     "  s += '<path d=\"'+area+'\" fill=\"'+color+'\" fill-opacity=\".25\"/>';\n"
     "  s += '<path d=\"'+line+'\" fill=\"none\" stroke=\"'+color+'\" stroke-width=\"1\"/>';\n"
     "  if(hi>=0&&hi<n){\n"
     "    s += '<circle cx=\"'+xOf(hi).toFixed(1)+'\" '\n"
-    "      +'cy=\"'+yOf(values[hi]).toFixed(1)+'\" r=\"2.5\" fill=\"#fff\"/>';\n"
+    "      +'cy=\"'+yOf(values[hi]).toFixed(1)+'\" r=\"2.5\" fill=\"var(--fg)\"/>';\n"
     "  }\n"
     "  if(opts.labelTop) s += '<text x=\"4\" y=\"9\" font-size=\"8\" '\n"
     "    +'fill=\"var(--fg3)\">'+opts.labelTop+'</text>';\n"
@@ -2443,14 +2549,15 @@ static void write_html_report(const char *path, const CompStats *s) {
           if (intensity < 0.08f) intensity = 0.08f;
           if (intensity > 1.0f) intensity = 1.0f;
         }
-        int cr, cg, cb;
+        char fill[32];
         if (freq == 0) {
-          cr = 26; cg = 30; cb = 43; /* var(--bg3) */
+          snprintf(fill, sizeof(fill), "var(--bg3)");
         } else {
           /* dark teal to bright cyan */
-          cr = (int)(13 + (34 - 13) * intensity);
-          cg = (int)(40 + (211 - 40) * intensity);
-          cb = (int)(60 + (238 - 60) * intensity);
+          int cr = (int)(13 + (34 - 13) * intensity);
+          int cg = (int)(40 + (211 - 40) * intensity);
+          int cb = (int)(60 + (238 - 60) * intensity);
+          snprintf(fill, sizeof(fill), "rgb(%d,%d,%d)", cr, cg, cb);
         }
         char label[8] = "";
         if (byte_val >= 0x20 && byte_val <= 0x7E && byte_val != '<' &&
@@ -2459,9 +2566,9 @@ static void write_html_report(const char *path, const CompStats *s) {
 
         fprintf(f,
           "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" "
-          "rx=\"2\" fill=\"rgb(%d,%d,%d)\" data-b=\"%d\" "
+          "rx=\"2\" fill=\"%s\" data-b=\"%d\" "
           "style=\"cursor:pointer\"/>\n",
-          x, y, cell, cell, cr, cg, cb, byte_val);
+          x, y, cell, cell, fill, byte_val);
 
         if (label[0]) {
           int text_bright = intensity > 0.35f;
@@ -2628,9 +2735,9 @@ static void write_html_report(const char *path, const CompStats *s) {
       "background:var(--bg3);border:1px solid var(--bdr)\"></canvas>\n"
       /* crosshair lines + hover tooltip, positioned over canvas */
       "<div id=\"bigram-v\" style=\"position:absolute;width:1px;"
-      "background:rgba(255,255,255,.5);pointer-events:none;display:none\"></div>\n"
+      "background:var(--fg3);pointer-events:none;display:none\"></div>\n"
       "<div id=\"bigram-h\" style=\"position:absolute;height:1px;"
-      "background:rgba(255,255,255,.5);pointer-events:none;display:none\"></div>\n"
+      "background:var(--fg3);pointer-events:none;display:none\"></div>\n"
       "<div id=\"bigram-tip\" class=\"hover-tip\"></div>\n"
       "</div>\n"
       "</div>\n");
@@ -4150,7 +4257,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
       "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
       "      +'border-radius:3px;'\n"
-      "      +(isBase?'background:rgba(255,255,255,.08);color:var(--fg)':'')+'\">'\n"
+      "      +(isBase?'background:rgba(127,140,170,.18);color:var(--fg)':'')+'\">'\n"
       "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
       "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
       "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
@@ -4194,7 +4301,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  for(var i=0;i<npts;i++)\n"
       "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
       "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
-      "    +'stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
+      "    +'stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
       "  /* scrubber line, hidden initially */\n"
       "  s += '<line id=\"dom-scrub\" class=\"scrub-line\" '\n"
       "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
@@ -4426,7 +4533,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
       "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
       "      +'border-radius:3px;'\n"
-      "      +(isBase?'background:rgba(255,255,255,.08);color:var(--fg)':'')+'\">'\n"
+      "      +(isBase?'background:rgba(127,140,170,.18);color:var(--fg)':'')+'\">'\n"
       "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
       "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
       "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
@@ -4465,7 +4572,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  for(var i=0;i<npts;i++)\n"
       "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
       "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
-      "    +'stroke=\"rgba(255,255,255,.2)\" stroke-width=\"0.5\"/>';\n"
+      "    +'stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
       "  s += '<line id=\"hurt-scrub\" class=\"scrub-line\" '\n"
       "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
       "  s += '</svg>';\n"
@@ -4696,7 +4803,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
       "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
       "      +'border-radius:3px;'\n"
-      "      +(isBase?'background:rgba(255,255,255,.08);color:var(--fg)':'')+'\">'\n"
+      "      +(isBase?'background:rgba(127,140,170,.18);color:var(--fg)':'')+'\">'\n"
       "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
       "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
       "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
@@ -4731,7 +4838,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  }\n"
       "  /* zero line */\n"
       "  s += '<line x1=\"'+PL+'\" y1=\"'+midY+'\" x2=\"'+(PL+pw)+'\" y2=\"'+midY\n"
-      "    +'\" stroke=\"rgba(255,255,255,.25)\" stroke-width=\"1\"/>';\n"
+      "    +'\" stroke=\"var(--fg2)\" stroke-width=\"1\"/>';\n"
       "  s += '<text x=\"'+(PL-5)+'\" y=\"'+(midY+3)+'\" text-anchor=\"end\" '\n"
       "    +'font-size=\"9\" fill=\"var(--fg3)\">0</text>';\n"
       "  /* x labels */\n"
@@ -6039,7 +6146,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "<span style=\"color:var(--fg3)\">Click any dot for details.</span></p>\n");
     fprintf(f,
       "<style>#search-svg circle{transition:stroke-width .12s}"
-      "#search-svg circle:hover{stroke:#fff;stroke-width:1.5}</style>\n");
+      "#search-svg circle:hover{stroke:var(--fg);stroke-width:1.5}</style>\n");
     fprintf(f, "<div class=\"scrub-wrap\">\n");
     fprintf(f,
       "<svg id=\"search-svg\" width=\"100%%\" viewBox=\"0 0 %d %d\" "
@@ -7057,6 +7164,25 @@ static void write_html_report(const char *path, const CompStats *s) {
   fprintf(f, "</div><!-- grid -->\n");
 
   /* footer */
+  {
+    /* party-mode sine-wave scroller: one <i> per char, phase-shifted so the
+       marquee undulates. Hidden unless body.party is set. */
+    static const char scrolltxt[] =
+      "*** PAQ REPORT *** A CONTEXT-MIXING CRUNCHER *** SIZE IS EVERYTHING "
+      "*** GREETINGS TO CRINKLER . FARBRAUSCH . CONSPIRACY . MERCURY . "
+      "LOGICOMA . TBC *** KEEP IT UNDER 4K *** ";
+    fprintf(f, "<div class=\"scrolltext\"><span>");
+    for (int i = 0; scrolltxt[i]; i++) {
+      if (scrolltxt[i] == ' ')
+        fprintf(f, "<i style=\"animation-delay:-%.2fs\">&nbsp;</i>",
+                i * 0.07);
+      else
+        fprintf(f, "<i style=\"animation-delay:-%.2fs\">%c</i>",
+                i * 0.07, scrolltxt[i]);
+    }
+    fprintf(f, "</span></div>\n");
+  }
+
   fprintf(f,
     "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid var(--bdr);"
     "font-size:11px;color:var(--fg3);text-align:center\">"
@@ -7178,6 +7304,55 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      }\n"
     "    }\n"
     "  });\n"
+    "})();\n"
+    "/* party mode: Konami code (keyboard) or 7 quick taps on the ring */\n"
+    "(function(){\n"
+    "  var brand=document.querySelector('.sb-brand span');\n"
+    "  var brandOrig=brand?brand.textContent:'';\n"
+    "  var toast=null;\n"
+    "  function showToast(msg){\n"
+    "    if(toast) toast.remove();\n"
+    "    toast=document.createElement('div');\n"
+    "    toast.id='party-toast';\n"
+    "    toast.textContent=msg;\n"
+    "    document.body.appendChild(toast);\n"
+    "    setTimeout(function(){if(toast){toast.remove();toast=null;}},1600);\n"
+    "  }\n"
+    "  function setParty(on,silent){\n"
+    "    document.body.classList.toggle('party',on);\n"
+    "    if(brand) brand.textContent=on?'paq report':brandOrig;\n"
+    "    try{localStorage.setItem('report-party',on?'1':'0');}catch(e){}\n"
+    "    if(!silent) showToast(on?'*** PARTY MODE ***':'PARTY OVER');\n"
+    "  }\n"
+    "  var saved='0';\n"
+    "  try{saved=localStorage.getItem('report-party')||'0';}catch(e){}\n"
+    "  if(saved==='1') setParty(true,true);\n"
+    "  var seq=['ArrowUp','ArrowUp','ArrowDown','ArrowDown',"
+    "'ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];\n"
+    "  var pos=0;\n"
+    "  document.addEventListener('keydown',function(e){\n"
+    "    var t=e.target;\n"
+    "    if(t.tagName==='INPUT'||t.tagName==='TEXTAREA') return;\n"
+    "    var k=e.key.length===1?e.key.toLowerCase():e.key;\n"
+    "    pos=(k===seq[pos])?pos+1:(k===seq[0]?1:0);\n"
+    "    if(pos===seq.length){\n"
+    "      pos=0;\n"
+    "      setParty(!document.body.classList.contains('party'));\n"
+    "    }\n"
+    "  });\n"
+    "  var ring=document.querySelector('.hero-ring');\n"
+    "  if(ring){\n"
+    "    var taps=0,last=0;\n"
+    "    ring.addEventListener('click',function(){\n"
+    "      var now=Date.now();\n"
+    "      if(now-last>900) taps=0;\n"
+    "      last=now; taps++;\n"
+    "      if(taps>=7){\n"
+    "        taps=0;\n"
+    "        setParty(!document.body.classList.contains('party'));\n"
+    "      }\n"
+    "    });\n"
+    "  }\n"
     "})();\n"
     "</script>\n"
     "</body></html>\n");
