@@ -7895,7 +7895,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var fd=document.createElementNS(NS,'feDisplacementMap');\n"
     "    fd.setAttribute('in','SourceGraphic');\n"
     "    fd.setAttribute('in2','m');\n"
-    "    fd.setAttribute('scale',55);\n"
+    "    fd.setAttribute('scale',90);\n"
     "    fd.setAttribute('xChannelSelector','R');\n"
     "    fd.setAttribute('yChannelSelector','G');\n"
     "    f.appendChild(fi);f.appendChild(fd);\n"
