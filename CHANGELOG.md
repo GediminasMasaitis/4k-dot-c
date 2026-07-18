@@ -11297,8 +11297,21 @@ https://gedas.pythonanywhere.com/test/1998/
 ### 9.38
 Refactor stack
 
-4  thread: 4096 bytes (-7)
+4  thread: 4089 bytes (-7)
 9ff25d6ccc9f2ac529028e48c757e9de
 
-1 thread: 4041 bytes (-16)
+1 thread: 4025 bytes (-16)
 MD5: c413f4f965828594edda0aa5d43df968
+
+### 9.39
+Rerun blackbox with new stack
+
+4  thread: 4050 bytes (-39)
+93a470194e94d2f39a3321b402d7fa72
+
+1 thread: 4004 bytes (-37)
+MD5: c413f4f965828594edda0aa5d43df968
+
+```py
+
+```
