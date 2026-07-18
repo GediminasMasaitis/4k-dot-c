@@ -182,6 +182,10 @@ typedef struct {
 
   double entropy; /* Shannon H0 in bits/byte */
   unsigned int byte_freq[256];
+  /* the emitted arithmetic-coded payload, for the in-report true
+     decruncher (party mode re-runs the real decoder in JS) */
+  const unsigned char *comp_stream;
+  int comp_stream_bytes;
   float *byte_costs; /* cost per data byte during encoding */
   float *byte_model_contrib; /* [num_data_bytes * num_models] per-byte per-model */
   float *bit_costs; /* [num_data_bytes * 8] per-bit cost, MSB-first */
@@ -230,6 +234,22 @@ static void fputs_html(const char *str, FILE *f) {
     default:
       fputc(*str, f);
     }
+  }
+}
+
+static void fprint_b64(FILE *f, const unsigned char *d, int n) {
+  static const char t[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  for (int i = 0; i < n; i += 3) {
+    unsigned int v = (unsigned int)d[i] << 16;
+    if (i + 1 < n)
+      v |= (unsigned int)d[i + 1] << 8;
+    if (i + 2 < n)
+      v |= d[i + 2];
+    fputc(t[(v >> 18) & 63], f);
+    fputc(t[(v >> 12) & 63], f);
+    fputc(i + 1 < n ? t[(v >> 6) & 63] : '=', f);
+    fputc(i + 2 < n ? t[v & 63] : '=', f);
   }
 }
 
@@ -2255,6 +2275,26 @@ static void write_html_report(const char *path, const CompStats *s) {
     "<script>var REPORT_ID={crc:'0x%08X',ratio:%.3f,inb:%d,outb:%d};"
     "</script>\n",
     input_crc, ratio, s->input_size, s->total_bytes);
+
+  /* the emitted .paq itself (header + masks + payload), base64. the
+     party-mode true decruncher re-runs the actual decoder on this and
+     checks the CRC - the report can prove the file round-trips */
+  if (s->comp_stream && s->num_models > 0) {
+    int lb = hdr_bitlen_bytes();
+    int hb = hdr_base_bytes();
+    int total = hb + s->num_models + s->comp_stream_bytes;
+    unsigned char *pf = (unsigned char *)malloc(total);
+    unsigned int bl = (unsigned int)s->hdr_bitlen;
+    memcpy(pf, &bl, lb);
+    memcpy(pf + lb, &s->hdr_wmask, 4);
+    memcpy(pf + hb, s->hdr_masks, s->num_models);
+    memcpy(pf + hb + s->num_models, s->comp_stream, s->comp_stream_bytes);
+    fprintf(f, "<script>var PAQ={db:%d,bp:%d,lf:%d,b64:'",
+            direct_bits, s->base_prob, s->large_field);
+    fprint_b64(f, pf, total);
+    fprintf(f, "'};</script>\n");
+    free(pf);
+  }
 
   /* ── Hero section with ring gauge ── */
   {
@@ -7972,7 +8012,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    }\n"
     "    else{\n"
     "      stopMusic();stopTitle();scrambleRestore();flyStop();\n"
-    "      crtStop();bcLeave();voidStop();\n"
+    "      crtStop();bcLeave();voidStop();dcStop();\n"
     "      if(partyT0) partyAccum+=Date.now()-partyT0;\n"
     "      partyT0=0;\n"
     "      if(endT){clearTimeout(endT);endT=null;}\n"
@@ -8029,9 +8069,15 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    if(e.key==='Escape'){\n"
     "      var cb=document.getElementById('cheatbox');\n"
     "      if(cb){cb.remove();e.preventDefault();return;}\n"
+    "      if(dcOn){dcStop();e.preventDefault();return;}\n"
     "      if(dfOn){dfStop();e.preventDefault();return;}\n"
     "      if(document.body.classList.contains('void')){\n"
     "        voidToggle();e.preventDefault();return;}\n"
+    "    }\n"
+    "    if(dcOn&&e.key===' '){\n"
+    "      dcTurbo=!dcTurbo;\n"
+    "      showToast(dcTurbo?'TURBO DECRUNCH':'SAVOR IT');\n"
+    "      e.preventDefault();return;\n"
     "    }\n"
     "    if(e.key.length===1){\n"
     "      /* keywords get first claim on 'm': the mute shortcut runs\n"
@@ -8075,6 +8121,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "        if(buf.slice(-9)==='landscape'){buf='';voxToggle();return;}\n"
     "        if(buf.slice(-5)==='voxel'){buf='';blkToggle();return;}\n"
     "        if(buf.slice(-6)==='defrag'){buf='';dfStart();return;}\n"
+    "        if(buf.slice(-8)==='decrunch'){buf='';dcStart();return;}\n"
     "        if(buf.slice(-6)==='tunnel'){buf='';tnToggle();return;}\n"
     "        if(buf.slice(-4)==='guru'){buf='';egg('guru');\n"
     "          showGuru();return;}\n"
@@ -8095,7 +8142,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  });\n"
     "  window.partyToast=showToast;\n"
     "  /* the session keeps score; after ten minutes it confesses */\n"
-    "  var eggSet={},eggN=0,EGG_TOTAL=34;\n"
+    "  var eggSet={},eggN=0,EGG_TOTAL=35;\n"
     "  function egg(id){if(!eggSet[id]){eggSet[id]=1;eggN++;}}\n"
     "  window.partyEgg=egg;\n"
     "  var killedN=0,partyT0=0,partyAccum=0,endT=null,endDone=false;\n"
@@ -8325,6 +8372,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      ['landscape','FLY THE COST TERRAIN'],\n"
     "      ['voxel','THE MAP, CUBED'],\n"
     "      ['defrag','COMPACT THE FILE'],\n"
+    "      ['decrunch','THE REAL DECODER, LIVE'],\n"
     "      ['tunnel','DOWN THE THROAT OF THE FILE'],\n"
     "      ['zodiac','FREEZE THE SKY'],\n"
     "      ['void','JUST THE SHOW, NO REPORT'],\n"
@@ -8658,6 +8706,258 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    if(dfPh===2){dfProg.style.width='100%%';\n"
     "      if(dfPc) dfPc.textContent='100%% Complete';}\n"
     "    dfRaf=requestAnimationFrame(dfFrame);\n"
+    "  }\n"
+    "  /* true decrunch: no simulation anywhere. PAQ.b64 is the emitted\n"
+    "     .paq file (header, masks, payload); this is the actual decoder\n"
+    "     from the C side ported statement for statement - CRC32-C in\n"
+    "     place of the hardware instruction, BigInt for the one 64-bit\n"
+    "     multiply the encoder performed exactly. it decodes the real\n"
+    "     stream live and settles the question of whether the report\n"
+    "     has been telling the truth */\n"
+    "  var dcOn=false,dcOv=null,dcCv=null,dcCtx=null,dcRaf=null;\n"
+    "  var dcTurbo=false,dcRegs=null,dcStat=null,dc=null;\n"
+    "  var dcDrawn=0,dcCell=6,dcCols=64,dcDone=false,dcFr=0,dcCT=null;\n"
+    "  function dcCrc(h,b){\n"
+    "    if(!dcCT){\n"
+    "      dcCT=new Uint32Array(256);\n"
+    "      for(var i=0;i<256;i++){\n"
+    "        var c=i;\n"
+    "        for(var k=0;k<8;k++) c=(c&1)?((c>>>1)^0x82F63B78):(c>>>1);\n"
+    "        dcCT[i]=c>>>0;\n"
+    "      }\n"
+    "    }\n"
+    "    return (dcCT[(h^b)&255]^(h>>>8))>>>0;\n"
+    "  }\n"
+    "  function dcHex8(v){\n"
+    "    var s=(v>>>0).toString(16).toUpperCase();\n"
+    "    while(s.length<8)s='0'+s;\n"
+    "    return s;\n"
+    "  }\n"
+    "  function dcCBit(p){\n"
+    "    /* bits past the written payload are the encoder's zero padding */\n"
+    "    var i=dc.co+(p>>3);\n"
+    "    return ((i<dc.cd.length?dc.cd[i]:0)>>(p&7))&1;\n"
+    "  }\n"
+    "  function dcHash0(mask){\n"
+    "    var h=dcCrc(mask>>>0,0),cm=mask&255;\n"
+    "    while(cm){if(cm&128)h=dcCrc(h,0);cm=(cm<<1)&255;}\n"
+    "    return h;\n"
+    "  }\n"
+    "  function dcHash(bp2,mask){\n"
+    "    var cm=mask&255,p=8+(bp2>>3),h=mask>>>0,b=dc.buf;\n"
+    "    h=dcCrc(h,(0x100|b[p])>>((~bp2&7)+1));\n"
+    "    while(cm){p--;if(cm&128)h=dcCrc(h,b[p]);cm=(cm<<1)&255;}\n"
+    "    return h;\n"
+    "  }\n"
+    "  function dcInit(){\n"
+    "    var raw=atob(PAQ.b64);\n"
+    "    var cd=new Uint8Array(raw.length);\n"
+    "    for(var i=0;i<raw.length;i++) cd[i]=raw.charCodeAt(i);\n"
+    "    var lb=PAQ.lf?4:2,hb=PAQ.lf?8:6;\n"
+    "    var bitlen=0;\n"
+    "    for(var i=0;i<lb;i++) bitlen|=cd[i]<<(8*i);\n"
+    "    var wm=(cd[lb]|(cd[lb+1]<<8)|(cd[lb+2]<<16)|(cd[lb+3]<<24))>>>0;\n"
+    "    /* replay the loader's wmask walk for the model count, then\n"
+    "       decode weights + extended masks exactly like the C side */\n"
+    "    var num=0,w=wm;\n"
+    "    for(;;){var bt=w&0x80000000;w=(w<<1)>>>0;if(!w)break;if(!bt)num++;}\n"
+    "    var weights=[],ext=[],wv=0;\n"
+    "    w=wm;\n"
+    "    for(var n=0;n<num;n++){\n"
+    "      while(w&0x80000000){w=(w<<1)>>>0;wv++;}\n"
+    "      w=(w<<1)>>>0;\n"
+    "      weights.push(wv);\n"
+    "      ext.push((cd[hb+n]|(w&0xFFFFFF00))>>>0);\n"
+    "    }\n"
+    "    var nb=((bitlen-1)/8)|0;\n"
+    "    dc={cd:cd,co:hb+num,bitlen:bitlen,nb:nb,num:num,\n"
+    "      weights:weights,ext:ext,cmax:8,\n"
+    "      buf:new Uint8Array(nb+16),\n"
+    "      dt:new Uint8Array(2*(1<<PAQ.db)),\n"
+    "      costs:new Float32Array(nb),\n"
+    "      sl:new Int32Array(num||1),\n"
+    "      range:0x80000000,low:0,value:0,cpos:0,bp:0,occ:0};\n"
+    "    for(var i=0;i<31;i++) dc.value=((dc.value<<1)|dcCBit(dc.cpos++))>>>0;\n"
+    "  }\n"
+    "  function dcStep(){\n"
+    "    var d=dc,p0=PAQ.bp,p1=PAQ.bp;\n"
+    "    for(var m=0;m<d.num;m++){\n"
+    "      var h=(d.bp===0)?dcHash0(d.ext[m]):dcHash(d.bp-1,d.ext[m]);\n"
+    "      var si=(h>>>(32-PAQ.db))*2;\n"
+    "      var e0=d.dt[si],e1=d.dt[si+1];\n"
+    "      var sh=(1-(((e0+255)&(e1+255))>>8))*2+d.weights[m];\n"
+    "      p0+=e0<<sh;p1+=e1<<sh;\n"
+    "      d.sl[m]=si;\n"
+    "    }\n"
+    "    var total=p0+p1;\n"
+    "    /* range*p1 can pass 2^53 and the encoder did this multiply\n"
+    "       exactly, so doubles are not enough here */\n"
+    "    var th=Number(BigInt(d.range)*BigInt(p1)/BigInt(total));\n"
+    "    var bit;\n"
+    "    if(((d.value-d.low)>>>0)<th){d.range=th;bit=1;}\n"
+    "    else{d.low=(d.low+th)>>>0;d.range=(d.range-th)>>>0;bit=0;}\n"
+    "    while(!(d.range&0x80000000)){\n"
+    "      d.low=(d.low<<1)>>>0;\n"
+    "      d.range=(d.range<<1)>>>0;\n"
+    "      d.value=((d.value<<1)|dcCBit(d.cpos++))>>>0;\n"
+    "    }\n"
+    "    for(var m=0;m<d.num;m++){\n"
+    "      var si=d.sl[m];\n"
+    "      if(!(d.dt[si]|d.dt[si+1])) d.occ++;\n"
+    "      d.dt[si+bit]=d.dt[si+bit]+1;\n"
+    "      if(d.dt[si+1-bit]>1) d.dt[si+1-bit]>>=1;\n"
+    "    }\n"
+    "    if(d.bp>0){\n"
+    "      d.costs[(d.bp-1)>>3]+=-Math.log2((bit?p1:p0)/total);\n"
+    "      if(bit){var b2=d.bp-1;d.buf[8+(b2>>3)]|=1<<(7-(b2&7));}\n"
+    "    }\n"
+    "    d.bp++;\n"
+    "  }\n"
+    "  function dcRamp(c){\n"
+    "    var t=c/dc.cmax;if(t<0)t=0;if(t>1)t=1;\n"
+    "    var r,g,b;\n"
+    "    if(t<0.5){var u=t*2;r=16+164*u;g=185-45*u;b=129-89*u;}\n"
+    "    else{var u=(t-0.5)*2;r=180+68*u;g=140-27*u;b=40+73*u;}\n"
+    "    return 'rgb('+(r|0)+','+(g|0)+','+(b|0)+')';\n"
+    "  }\n"
+    "  function dcVerify(){\n"
+    "    var c=0xFFFFFFFF;\n"
+    "    for(var i=0;i<dc.nb;i++) c=dcCrc(c,dc.buf[8+i]);\n"
+    "    var hex='0x'+dcHex8((c^0xFFFFFFFF)>>>0);\n"
+    "    var want=(typeof REPORT_ID!=='undefined')?REPORT_ID.crc:hex;\n"
+    "    var mm=0;\n"
+    "    if(typeof BD!=='undefined'){\n"
+    "      var n2=Math.min(BD.length,dc.nb);\n"
+    "      for(var i=0;i<n2;i++)\n"
+    "        if(parseInt(BD[i].h,16)!==dc.buf[8+i]) mm++;\n"
+    "    }\n"
+    "    if(hex===want&&!mm){\n"
+    "      egg('decrunch');\n"
+    "      dcStat.style.color='#34d399';\n"
+    "      dcStat.textContent='CRC '+hex+' = INPUT. THE FILE IS REAL.';\n"
+    "      showToast('IT WAS ALL TRUE');\n"
+    "      blip(523,.05,.12);\n"
+    "      setTimeout(function(){blip(659,.05,.12);},130);\n"
+    "      setTimeout(function(){blip(784,.05,.12);},260);\n"
+    "      setTimeout(function(){blip(1046,.07,.3);},390);\n"
+    "    } else {\n"
+    "      /* this should be unreachable. if you are reading it on\n"
+    "         screen, the guru is the only honest response */\n"
+    "      dcStat.style.color='#f87171';\n"
+    "      dcStat.textContent='CRC '+hex+' \\u2260 '+want\n"
+    "        +(mm?' ('+mm+' BYTES DISAGREE)':'');\n"
+    "      showToast('THE REPORT HAS BEEN LYING TO YOU');\n"
+    "      showGuru();\n"
+    "    }\n"
+    "    /* verdict delivered; the giant counter table can go while the\n"
+    "       finished picture stays up */\n"
+    "    dc.dt=null;dc.sl=null;dc.cd=null;\n"
+    "  }\n"
+    "  function dcStop(){\n"
+    "    dcOn=false;dcDone=false;\n"
+    "    if(dcRaf){cancelAnimationFrame(dcRaf);dcRaf=null;}\n"
+    "    if(dcOv){dcOv.remove();dcOv=null;}\n"
+    "    dc=null; /* drop the table: 2^25 bytes is a lot of party */\n"
+    "  }\n"
+    "  function dcStart(){\n"
+    "    if(dcOn) return;\n"
+    "    if(typeof PAQ==='undefined'||!PAQ.b64){\n"
+    "      showToast('NO PAYLOAD ABOARD');return;}\n"
+    "    ensureAudio();\n"
+    "    /* the table is 2^(db+1) bytes and its size is part of the\n"
+    "       codec (slot = h >> (32-db)), so whatever the loader uses,\n"
+    "       the browser is asked for. it may decline; that is its right */\n"
+    "    try{dcInit();}catch(e){\n"
+    "      showToast('THE BROWSER REFUSED A '\n"
+    "        +(PAQ.db>19?(1<<(PAQ.db-19))+'MB':'TINY')+' TABLE');\n"
+    "      dc=null;return;}\n"
+    "    if(typeof BD!=='undefined')\n"
+    "      for(var i=0;i<BD.length;i++) if(BD[i].c>dc.cmax) dc.cmax=BD[i].c;\n"
+    "    dcDone=false;dcTurbo=false;dcDrawn=0;dcFr=0;\n"
+    "    var cw=Math.min(window.innerWidth-72,600);\n"
+    "    var szs=[8,7,6,5,4,3,2];\n"
+    "    dcCell=2;\n"
+    "    for(var k=0;k<szs.length;k++){\n"
+    "      var c2=(cw/szs[k])|0;\n"
+    "      if(Math.ceil(dc.nb/c2)*szs[k]<=300){dcCell=szs[k];break;}\n"
+    "    }\n"
+    "    dcCols=Math.max(1,(cw/dcCell)|0);\n"
+    "    var rows=Math.max(1,Math.ceil(dc.nb/dcCols));\n"
+    "    dcOv=document.createElement('div');\n"
+    "    dcOv.id='dcov';\n"
+    "    dcOv.style.cssText='position:fixed;inset:0;z-index:10002;'\n"
+    "      +'background:rgba(0,0,4,.9);display:flex;align-items:center;'\n"
+    "      +'justify-content:center';\n"
+    "    dcOv.innerHTML='<div style=\"background:#0b0b10;'\n"
+    "      +'border:2px solid var(--pnk);padding:14px 18px;'\n"
+    "      +'box-shadow:8px 8px 0 rgba(0,0,0,.6);'\n"
+    "      +'font-family:var(--pix);font-size:8px;letter-spacing:1px;'\n"
+    "      +'color:var(--fg)\">'\n"
+    "      +'<div style=\"display:flex;justify-content:space-between;'\n"
+    "      +'gap:30px;color:var(--acc);font-size:10px;margin-bottom:10px;'\n"
+    "      +'text-shadow:2px 2px 0 rgba(255,63,216,.5)\">*** TRUE DECRUNCH ***'\n"
+    "      +'<span id=\"dc-x\" style=\"cursor:pointer\">[X]</span></div>'\n"
+    "      +'<canvas id=\"dc-cv\" width=\"'+(dcCols*dcCell)+'\" height=\"'\n"
+    "      +(rows*dcCell)+'\" style=\"display:block;background:#05050a;'\n"
+    "      +'border:1px solid var(--bdr2)\"></canvas>'\n"
+    "      +'<div id=\"dc-regs\" style=\"margin-top:10px;line-height:2.1;'\n"
+    "      +'color:var(--fg2)\"></div>'\n"
+    "      +'<div id=\"dc-st\" style=\"margin-top:4px;color:var(--yel);'\n"
+    "      +'min-height:14px\"></div>'\n"
+    "      +'<div style=\"margin-top:8px;color:var(--fg3);font-size:7px\">'\n"
+    "      +'SPACE = TURBO &middot; ESC = LOOK AWAY</div></div>';\n"
+    "    document.body.appendChild(dcOv);\n"
+    "    dcCv=document.getElementById('dc-cv');\n"
+    "    dcCtx=dcCv.getContext('2d');\n"
+    "    dcRegs=document.getElementById('dc-regs');\n"
+    "    dcStat=document.getElementById('dc-st');\n"
+    "    dcStat.textContent='DECODING '+(dc.cd.length-dc.co)\n"
+    "      +' PAYLOAD BYTES. NO SIMULATION.';\n"
+    "    document.getElementById('dc-x').addEventListener('click',dcStop);\n"
+    "    dcOn=true;\n"
+    "    showToast('ROLL THE TAPE');\n"
+    "    if(!dcRaf) dcRaf=requestAnimationFrame(dcFrame);\n"
+    "  }\n"
+    "  function dcFrame(){\n"
+    "    if(!dcOn||!document.body.classList.contains('party')){\n"
+    "      dcStop();return;\n"
+    "    }\n"
+    "    dcFr++;\n"
+    "    if(!dcDone){\n"
+    "      /* ~18s for the whole file in real time, x16 under turbo */\n"
+    "      var n=Math.max(1,Math.ceil(dc.nb/1100))*(dcTurbo?16:1)*8;\n"
+    "      while(dc.bp<dc.bitlen&&n--) dcStep();\n"
+    "      if(dc.bp>=dc.bitlen){dcDone=true;dcVerify();}\n"
+    "    }\n"
+    "    var done=dc.bp>0?Math.min(dc.nb,(dc.bp-1)>>3):0;\n"
+    "    var pad=dcCell>2?1:0;\n"
+    "    for(;dcDrawn<done;dcDrawn++){\n"
+    "      var x=(dcDrawn%%dcCols)*dcCell,y=((dcDrawn/dcCols)|0)*dcCell;\n"
+    "      dcCtx.fillStyle=dcRamp(dc.costs[dcDrawn]);\n"
+    "      dcCtx.fillRect(x,y,dcCell-pad,dcCell-pad);\n"
+    "    }\n"
+    "    if(!dcDone&&done<dc.nb){\n"
+    "      var x=(done%%dcCols)*dcCell,y=((done/dcCols)|0)*dcCell;\n"
+    "      dcCtx.fillStyle=(dcFr&8)?'#ffe33f':'#fff';\n"
+    "      dcCtx.fillRect(x,y,dcCell-pad,dcCell-pad);\n"
+    "      /* the coder hums its progress: pitch is the last byte's pain */\n"
+    "      if(!(dcFr&3)&&done>0)\n"
+    "        blip(160+Math.min(900,dc.costs[done-1]*90),.02,.04);\n"
+    "    }\n"
+    "    dcRegs.innerHTML='RANGE <span style=\"color:var(--acc)\">'\n"
+    "      +dcHex8(dc.range)+'</span> LOW <span style=\"color:var(--acc)\">'\n"
+    "      +dcHex8(dc.low)+'</span> VAL <span style=\"color:var(--acc)\">'\n"
+    "      +dcHex8(dc.value)+'</span><br>BITS '+dc.cpos\n"
+    "      +' &middot; SLOTS <span style=\"color:var(--pnk)\">'+dc.occ\n"
+    "      +'</span> &middot; BYTE <span style=\"color:var(--yel)\">'+done\n"
+    "      +'</span>/'+dc.nb+(dcTurbo?' &middot; TURBO':'');\n"
+    "    if(dcDone&&dcDrawn>=dc.nb){\n"
+    "      /* hold the finished picture; the registers stay as they\n"
+    "         ended. esc or [X] releases the table */\n"
+    "      dcRaf=null;\n"
+    "      return;\n"
+    "    }\n"
+    "    dcRaf=requestAnimationFrame(dcFrame);\n"
     "  }\n"
     "  /* CRT degauss on theme flip: wobble + hum, like the real thing */\n"
     "  window.partyDegauss=function(){\n"
@@ -10485,6 +10785,8 @@ int main(int argc, char *argv[]) {
     memcpy(cstats.byte_freq, freq, sizeof(freq));
 
     cstats.input_data = data;
+    cstats.comp_stream = out_buf;
+    cstats.comp_stream_bytes = comp_bytes;
     write_html_report(html_output, &cstats);
     printf("HTML report: %s\n", html_output);
     free(cstats.byte_costs);
