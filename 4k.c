@@ -1252,7 +1252,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1851,8 +1851,8 @@ void iteratively_deepen(
     i32 maxdepth,
 #endif
     ThreadData *data) {
-  i32 score = 0;
-  Move best_move = {0};
+  G(308, i32 score = 0;)
+  G(308, Move best_move = {0};)
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1877,17 +1877,19 @@ void iteratively_deepen(
                    data->stack[0].best_move, data->max_time);
       }
 #endif
-      // Remember the last known real root move
-      if (*(u32a *)&data->stack[0].best_move) {
-        best_move = data->stack[0].best_move;
-      }
-      elapsed = get_time() - start_time;
       G(
-          257, if (G(307, stop) ||
-                   G(307, *(u32a *)&best_move &&
-                              (G(258, elapsed > data->max_time) ||
-                               G(258, (G(259, score > alpha) &&
-                                       G(259, score < beta)))))) { break; })
+          309, // Remember the last known real root move
+          if (*(u32a *)&data->stack[0].best_move) {
+            best_move = data->stack[0].best_move;
+          })
+      G(309, elapsed = get_time() - start_time;)
+      G(
+          257,
+          if (G(307, stop) ||
+              G(307, G(310, *(u32a *)&best_move) &&
+                         G(310, (G(258, elapsed > data->max_time) ||
+                                 G(258, (G(259, score > alpha) &&
+                                         G(259, score < beta))))))) { break; })
       G(257, window *= 2;)
     }
 
