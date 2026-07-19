@@ -1852,6 +1852,7 @@ void iteratively_deepen(
 #endif
     ThreadData *data) {
   i32 score = 0;
+  Move best_move = {0};
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1876,14 +1877,22 @@ void iteratively_deepen(
                    data->stack[0].best_move, data->max_time);
       }
 #endif
+      // Remember the last known real root move
+      if (*(u32a *)&data->stack[0].best_move) {
+        best_move = data->stack[0].best_move;
+      }
       elapsed = get_time() - start_time;
       G(
-          257, if (G(258, elapsed > data->max_time) ||
-                   G(258, (G(259, score > alpha) && G(259, score < beta)))) {
-            break;
-          })
+          257, if (G(307, stop) ||
+                   G(307, *(u32a *)&best_move &&
+                              (G(258, elapsed > data->max_time) ||
+                               G(258, (G(259, score > alpha) &&
+                                       G(259, score < beta)))))) { break; })
       G(257, window *= 2;)
     }
+
+    // Only ever report a move that was actually searched
+    data->stack[0].best_move = best_move;
 
     if (G(303, stop) || G(303, elapsed > data->max_time / 10)) {
       break;
