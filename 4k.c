@@ -70,37 +70,6 @@ G(
     })
 
 G(
-    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                        const char *restrict rhs) {
-      while (*lhs || *rhs) {
-        if (*lhs != *rhs) {
-          return true;
-        }
-        lhs++;
-        rhs++;
-      }
-      return false;
-    })
-
-G(
-    1,
-    typedef struct [[nodiscard]] {
-      ssize_t tv_sec;  // seconds
-      ssize_t tv_nsec; // nanoseconds
-    } timespec;
-
-    [[nodiscard]] S(0) u64 get_time() {
-      timespec ts;
-      ssize_t ret; // Unused
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(228), "D"(1), "S"(&ts)
-                   : "rcx", "r11", "memory");
-      return G(2, ts.tv_nsec) +
-             G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
-    })
-
-G(
     1,
     S(0) void putl(const char *const restrict string) {
       i32 length = 0;
@@ -144,6 +113,37 @@ G(
 
         string++;
       }
+    })
+
+G(
+    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                        const char *restrict rhs) {
+      while (*lhs || *rhs) {
+        if (*lhs != *rhs) {
+          return true;
+        }
+        lhs++;
+        rhs++;
+      }
+      return false;
+    })
+
+G(
+    1,
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
+
+    [[nodiscard]] S(0) u64 get_time() {
+      timespec ts;
+      ssize_t ret; // Unused
+      asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(2, ts.tv_nsec) +
+             G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
     })
 
 #ifdef FULL
@@ -372,9 +372,9 @@ G(
 
 G(
     16, [[nodiscard]] S(1) u64 southeast(const u64 bb) {
-      return G(17, G(18, east)(G(18, south)(bb)));
       return G(17, shift(H(10, 2, -7), H(10, 2, ~0x101010101010101ull),
                          H(10, 2, bb)));
+      return G(17, G(18, east)(G(18, south)(bb)));
     })
 
 G(
@@ -438,7 +438,7 @@ G(
       G(37, const u64 horizontal1 = G(38, west_bb) | G(38, east_bb);)
       G(37,
         const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
-      return G(40, horizontal2 >> 8) | G(40, horizontal2 << 8) |
+      return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) |
              G(40, horizontal1 << 16) | G(40, horizontal1 >> 16);
     })
 
@@ -683,8 +683,8 @@ G(
             const u64 bb = move->to - move->from == 2   ? 0xa0
                            : move->from - move->to == 2 ? 0x9
                                                         : 0;
-            G(85, pos->colour[0] ^= bb;)
             G(85, pos->pieces[Rook] ^= bb;)
+            G(85, pos->colour[0] ^= bb;)
           })
 
       // Move the piece
@@ -1738,8 +1738,6 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     return;
   }
 
-  printf("info depth %i score ", depth);
-
   // Only use bound on failed search
   i32 print_score;
   if (score <= alpha) {
@@ -1749,6 +1747,13 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
   } else {
     print_score = score;
   }
+
+  // A bound outside the legal score range carries no information
+  if (print_score > mate || print_score < -mate) {
+    return;
+  }
+
+  printf("info depth %i score ", depth);
 
   // Handle mate scores
   const i32 abs_score = print_score > 0 ? print_score : -print_score;
@@ -1851,7 +1856,7 @@ void iteratively_deepen(
     i32 maxdepth,
 #endif
     ThreadData *data) {
-  i32 score = 0;
+  i32 score = -inf;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
