@@ -1738,8 +1738,6 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
     return;
   }
 
-  printf("info depth %i score ", depth);
-
   // Only use bound on failed search
   i32 print_score;
   if (score <= alpha) {
@@ -1749,6 +1747,13 @@ static void print_info(const Position *pos, const i32 depth, const i32 alpha,
   } else {
     print_score = score;
   }
+
+  // A bound outside the legal score range carries no information
+  if (print_score > mate || print_score < -mate) {
+    return;
+  }
+
+  printf("info depth %i score ", depth);
 
   // Handle mate scores
   const i32 abs_score = print_score > 0 ? print_score : -print_score;
