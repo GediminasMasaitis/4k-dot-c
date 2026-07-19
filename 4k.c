@@ -1851,7 +1851,7 @@ void iteratively_deepen(
     i32 maxdepth,
 #endif
     ThreadData *data) {
-  i32 score = 0;
+  i32 score = -inf;
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
