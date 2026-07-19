@@ -984,13 +984,13 @@ G(121, // EVAL PARAMETERS
           {.phases = {0, 0, 1, 1, 2, 4},
            .mg =
                {
-                   .material = {0, 68, 291, 330, 382, 843},
+                   .material = {0, 68, 291, 330, 382, 842},
                    .pst_rank =
                        {
                            0,   -16, -18, -5,  8,  30, 127, 0,   // Pawn
-                           -19, -5,  9,   23,  30, 34, 12,  -83, // Knight
+                           -19, -5,  8,   23,  30, 34, 12,  -83, // Knight
                            -8,  10,  16,  18,  16, 15, -9,  -59, // Bishop
-                           7,   -2,  -8,  -11, 4,  11, -2,  1,   // Rook
+                           7,   -2,  -8,  -11, 3,  11, -2,  2,   // Rook
                            13,  15,  8,   1,   -3, -2, -20, -12, // Queen
                            -7,  1,   -9,  -24, -6, 38, 45,  43,  // King
                        },
@@ -1016,7 +1016,7 @@ G(121, // EVAL PARAMETERS
                    .bishop_pair = 26,
                    .bishop_pawns = {-5, -5},
                    .king_shield = {29, 20},
-                   .pawn_attacked_penalty = {-57, -114},
+                   .pawn_attacked_penalty = {-57, -113},
                    .piece_threats = {25, 17},
                    .tempo = 30,
                },
@@ -1026,10 +1026,10 @@ G(121, // EVAL PARAMETERS
                    .pst_rank =
                        {
                            0,   -4,  -8,  -8, 0,  19, 95, 0,   // Pawn
-                           -29, -16, -6,  16, 21, 6,  2,  6,   // Knight
+                           -29, -16, -6,  16, 21, 7,  2,  7,   // Knight
                            -11, -10, 0,   3,  6,  2,  3,  7,   // Bishop
                            -17, -17, -11, 4,  9,  9,  17, 5,   // Rook
-                           -56, -40, -12, 13, 29, 24, 30, 12,  // Queen
+                           -56, -40, -12, 13, 29, 24, 30, 13,  // Queen
                            -36, -4,  4,   19, 31, 29, 17, -38, // King
                        },
                    .pst_file =
@@ -1037,8 +1037,8 @@ G(121, // EVAL PARAMETERS
                            2,   7,  -1, -6, -1, 2,  1,  -3,  // Pawn
                            -17, -5, 8,  17, 16, 4,  -3, -20, // Knight
                            -9,  -1, 4,  10, 10, 4,  -4, -15, // Bishop
-                           1,   6,  5,  -3, -6, 0,  0,  -3,  // Rook
-                           -22, -7, 3,  8,  15, 14, -1, -10, // Queen
+                           1,   5,  5,  -3, -6, 0,  0,  -3,  // Rook
+                           -23, -7, 3,  8,  15, 14, -1, -10, // Queen
                            -29, -2, 10, 16, 19, 13, 4,  -29, // King
                        },
                    .mobilities = {5, 3, 4, 1, -3},
@@ -1054,7 +1054,7 @@ G(121, // EVAL PARAMETERS
                    .bishop_pawns = {-11, -1},
                    .king_shield = {-11, -7},
                    .pawn_attacked_penalty = {-27, -128},
-                   .piece_threats = {35, 24},
+                   .piece_threats = {34, 23},
                    .tempo = 17,
                }};)
 
@@ -1211,10 +1211,10 @@ S(0) i32 eval(Position *const restrict pos) {
                                   G(289,
                                     count(
                                         G(290, mobility) &
-                                        G(290,
-                                          pos->colour[1] &
-                                              ~(G(291, pos->pieces[Pawn]) |
-                                                G(291, attacked_by_pawns))))) *
+                                        G(290, pos->colour[1] &
+                                                   ~(G(291, pos->pieces[Pawn]) |
+                                                     G(291, attacked_by_pawns) |
+                                                     pos->pieces[King])))) *
                                   G(289,
                                     eval_params.piece_threats[G(292, p) ==
                                                               G(292, Rook)]);
