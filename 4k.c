@@ -1581,6 +1581,7 @@ i32 search(
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
                         ? G(229, (move_score / -334)) +
                               G(229, moves_evaluated / 11) +
+                              G(229, depth / 12) +
                               G(229, (G(230, alpha) == G(230, beta - 1))) +
                               G(229, !improving)
                         : 0;
