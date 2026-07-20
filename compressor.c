@@ -2051,6 +2051,9 @@ static void write_html_report(const char *path, const CompStats *s) {
     "border:1px solid var(--bdr2);padding:0 0 6px;"
     "font-family:var(--pix);letter-spacing:.5px;"
     "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
+    "/* band mode: the pattern grows sideways to seat the lineup */\n"
+    "body.party #paqtrk.on.wide{width:max-content;"
+    "max-width:calc(100vw - 216px)}\n"
     "body.party #paqtrk.on::before{content:'';display:block;height:3px;"
     "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
     "var(--pnk));background-size:300%% 100%%;"
@@ -2362,7 +2365,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     free(pf);
   }
 
-  /* the band: top-4 models by bits saved, one channel each, with the
+  /* the band: top-8 models by bits saved, one channel each, with the
      per-byte contribution packed to one hex nibble (0-15, saturating
      at 4 bits) - party mode's multi-channel tracker plays from this */
   if (s->byte_model_contrib && s->num_data_bytes > 0 && s->num_models > 0) {
@@ -2377,7 +2380,7 @@ static void write_html_report(const char *path, const CompStats *s) {
           ord[i] = ord[j];
           ord[j] = t;
         }
-    int nch = nm < 4 ? nm : 4;
+    int nch = nm < 8 ? nm : 8;
     fprintf(f, "<script>var BAND={ch:[");
     for (int c = 0; c < nch; c++)
       fprintf(f, "%s\"%02X:%d\"", c ? "," : "", s->model_masks[ord[c]],
@@ -7917,6 +7920,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    trkBuild();\n"
     "    if(!trkEl) return;\n"
     "    trkEl.classList.toggle('on',on);\n"
+    "    trkEl.classList.toggle('wide',on&&bandOn);\n"
     "    if(!on){trkHist=[];if(trkRows)trkRows.innerHTML='';}\n"
     "  }\n"
     "  /* oscilloscope: an analyser tapped off the master gain, drawn as\n"
@@ -8219,12 +8223,14 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    vsRing.addEventListener('pointerup',vsUp);\n"
     "    vsRing.addEventListener('pointercancel',vsUp);\n"
     "  }\n"
-    "  /* the band: the top four models by bits saved, one channel\n"
+    "  /* the band: the top eight models by bits saved, one channel\n"
     "     each. a channel sounds only when its model earned something\n"
     "     on that byte, as loud as the take was good - the attribution\n"
     "     table, playing itself as a rhythm section */\n"
     "  var bandOn=false;\n"
-    "  var BANDC=['#22d3ee','#ff3fd8','#ffe33f','#34d399'];\n"
+    "  var BANDC=['#22d3ee','#ff3fd8','#ffe33f','#34d399',\n"
+    "    '#fb923c','#a78bfa','#60a5fa','#a3e635'];\n"
+    "  /* four timbres, cycling; the upper four sit an octave up */\n"
     "  var BANDW=['square','sawtooth','triangle','sine'];\n"
     "  function bandQ(i,ci){\n"
     "    var p=i*BAND.ch.length+ci;\n"
@@ -8232,10 +8238,13 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  }\n"
     "  function bandNote(ci,step){\n"
     "    /* stacked voicing: root, third, fifth, seventh of whatever\n"
-    "       harmony is current - keyed or roaming */\n"
-    "    if(sonKey) return sonKey.r+KEYSC[sonKey.mi][[0,2,4,6][ci]]+24;\n"
+    "       harmony is current - keyed or roaming - and channels\n"
+    "       five through eight take the same seats an octave up */\n"
+    "    var oct=12*(ci>>2);\n"
+    "    if(sonKey)\n"
+    "      return sonKey.r+KEYSC[sonKey.mi][[0,2,4,6][ci%%4]]+24+oct;\n"
     "    var ch=CHORDS[(step>>4)&3];\n"
-    "    return (ci<3?ch[ci]:ch[0]+10)+24;\n"
+    "    return [ch[0],ch[1],ch[2],ch[0]+10][ci%%4]+24+oct;\n"
     "  }\n"
     "  function bandToggle(){\n"
     "    if(typeof BAND==='undefined'||!BAND.ch.length){\n"
@@ -8243,9 +8252,12 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    if(bandOn){\n"
     "      bandOn=false;trkHist=[];\n"
     "      if(trkRows) trkRows.innerHTML='';\n"
+    "      if(trkEl) trkEl.classList.remove('wide');\n"
     "      showToast('THE BAND GOES HOME');return;\n"
     "    }\n"
     "    bandOn=true;trkHist=[];\n"
+    "    trkBuild();\n"
+    "    if(trkEl) trkEl.classList.add('wide');\n"
     "    egg('band');\n"
     "    if(!sonify){\n"
     "      sonify=true;sonPos=0;sonClear();trkShow(true);\n"
@@ -8314,7 +8326,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "          var q=bandQ(si,ci);\n"
     "          if(!q) continue;\n"
     "          var o2=actx.createOscillator(),g2=actx.createGain();\n"
-    "          o2.type=BANDW[ci];\n"
+    "          o2.type=BANDW[ci%%4];\n"
     "          o2.frequency.value=mf(bandNote(ci,step));\n"
     "          g2.gain.setValueAtTime(.014+.038*(q/15),t);\n"
     "          g2.gain.exponentialRampToValueAtTime(.001,t+.12);\n"
