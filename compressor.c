@@ -1539,7 +1539,7 @@ static void write_html_report(const char *path, const CompStats *s) {
   if (s->input_data) {
     unsigned int c = 0xFFFFFFFFu;
     for (int i = 0; i < s->input_size; i++)
-      c = _mm_crc32_u8(c, s->input_data[i]);
+      c = crc32c_u8(c, s->input_data[i]);
     input_crc = c ^ 0xFFFFFFFFu;
   }
 
