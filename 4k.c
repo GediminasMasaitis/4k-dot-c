@@ -89,6 +89,37 @@ G(
     })
 
 G(
+    1,
+    typedef struct [[nodiscard]] {
+      ssize_t tv_sec;  // seconds
+      ssize_t tv_nsec; // nanoseconds
+    } timespec;
+
+    [[nodiscard]] S(0) u64 get_time() {
+      timespec ts;
+      ssize_t ret; // Unused
+      asm volatile("syscall"
+                   : "=a"(ret)
+                   : "0"(228), "D"(1), "S"(&ts)
+                   : "rcx", "r11", "memory");
+      return G(2, ts.tv_nsec) +
+             G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
+    })
+
+G(
+    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
+                                        const char *restrict rhs) {
+      while (*lhs || *rhs) {
+        if (*lhs != *rhs) {
+          return true;
+        }
+        lhs++;
+        rhs++;
+      }
+      return false;
+    })
+
+G(
     1, // Non-standard, gets but a word instead of a line
     S(0) bool getl(char *restrict string) {
       while (true) {
@@ -113,37 +144,6 @@ G(
 
         string++;
       }
-    })
-
-G(
-    1, [[nodiscard]] static bool strcmp(const char *restrict lhs,
-                                        const char *restrict rhs) {
-      while (*lhs || *rhs) {
-        if (*lhs != *rhs) {
-          return true;
-        }
-        lhs++;
-        rhs++;
-      }
-      return false;
-    })
-
-G(
-    1,
-    typedef struct [[nodiscard]] {
-      ssize_t tv_sec;  // seconds
-      ssize_t tv_nsec; // nanoseconds
-    } timespec;
-
-    [[nodiscard]] S(0) u64 get_time() {
-      timespec ts;
-      ssize_t ret; // Unused
-      asm volatile("syscall"
-                   : "=a"(ret)
-                   : "0"(228), "D"(1), "S"(&ts)
-                   : "rcx", "r11", "memory");
-      return G(2, ts.tv_nsec) +
-             G(2, G(3, ts.tv_sec) * G(3, 1000 * 1000 * 1000ULL));
     })
 
 #ifdef FULL
@@ -493,15 +493,15 @@ G(
              move->promo == Bishop || move->promo == Rook ||
              move->promo == Queen);
 
-      G(51, str[4] = "\0\0nbrq"[move->promo];)
-
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
           for (i32 i = 0; i < 2; i++) {
             G(52, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
             G(52, str[i * 2] = 'a' + (&move->from)[i] % 8;)
           })
+
       G(51, str[5] = '\0';)
+      G(51, str[4] = "\0\0nbrq"[move->promo];)
     })
 
 G(
@@ -570,16 +570,16 @@ G(
 
 G(
     57, S(0) void flip_pos(Position *const restrict pos) {
-      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
-        pos->colour[0] ^= pos->colour[1];)
-      G(67, pos->castling32 = G(68, (pos->castling32 >> 16)) |
-                              G(68, (pos->castling32 << 16));)
-
       G(
           67, // Hack to flip the first 10 bitboards in Position.
           u64a *pos_ptr = (u64a *)pos;
           for (i32 i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(67, pos->flipped ^= 1;)
+
+      G(67, pos->castling32 = G(68, (pos->castling32 >> 16)) |
+                              G(68, (pos->castling32 << 16));)
+      G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0];
+        pos->colour[0] ^= pos->colour[1];)
     })
 
 S(0) i32 find_in_check(const Position *restrict pos) {
@@ -1097,12 +1097,12 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
+        G(137, copy &= copy - 1;)
+        G(137, phase += initial_params.phases[p];)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(137, const i32 rank = sq >> 3;)
-        G(137, phase += initial_params.phases[p];)
         G(137, const u64 piece_bb = 1ULL << sq;)
-        G(137, copy &= copy - 1;)
         G(93, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score +=
           eval_params
@@ -1178,16 +1178,16 @@ S(0) i32 eval(Position *const restrict pos) {
                   })
 
               G(
-                  155, // PIECES ATTACKED BY PAWNS
-                  if (G(164, piece_bb) & G(164, no_passers)) {
-                    score += eval_params.pawn_attacked_penalty[c];
-                  })
-
-              G(
                   155, // PAWN PUSH THREATS
                   if (G(169, in_front) & G(169, ~piece_bb) &
                       G(169, attacked_by_pawns)) {
                     score += eval_params.pawn_threat[p - 2];
+                  })
+
+              G(
+                  155, // PIECES ATTACKED BY PAWNS
+                  if (G(164, piece_bb) & G(164, no_passers)) {
+                    score += eval_params.pawn_attacked_penalty[c];
                   })
 
               G(155, const u64 mobility =
@@ -1252,7 +1252,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1260,20 +1260,20 @@ enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
-  G(119, u64 position_hash;)
   G(119, i32 static_eval;)
-  G(119, Move best_move;)
-  G(119, i32 num_moves;)
   G(119, Move killer;)
+  G(119, i32 num_moves;)
+  G(119, Move best_move;)
+  G(119, u64 position_hash;)
   G(119, Move prev_move;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(178, i16 score;)
   G(178, u16 partial_hash;)
-  G(178, Move move;)
-  G(178, u8 flag;)
+  G(178, i16 score;)
   G(178, i8 depth;)
+  G(178, u8 flag;)
+  G(178, Move move;)
   G(178, i16 static_eval;)
 } TTEntry;
 _Static_assert(sizeof(TTEntry) == 12);
@@ -1420,8 +1420,8 @@ i32 search(
   }
 
   // TT PROBING
-  G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
+  G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(192, ss->best_move = (Move){0};)
   const bool tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);
   if (tt_hit) {
@@ -1442,13 +1442,13 @@ i32 search(
   // STATIC EVAL WITH CORRECTION HISTORY
   u64 corr_hashes[6] = {0};
   G(197, get_piece_hashes(H(300, 2, pos), H(300, 2, corr_hashes));)
-  G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) |
-                                  G(272, ss->prev_move.to << 8))) +
-                          G(271, 16384);)
-  G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, i32 * corr_entries[6];)
   G(197, corr_hashes[4] =
              G(270, ss[1].prev_move.from) | G(270, ss[1].prev_move.to << 8);)
+  G(197, corr_hashes[3] = get_material_hash(pos);)
+  G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) |
+                                  G(272, ss->prev_move.to << 8))) +
+                          G(271, 16384);)
   G(197, const i32 raw_eval = tt_hit ? tt_entry->static_eval : eval(pos);
     i32 static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
@@ -1513,9 +1513,9 @@ i32 search(
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(213, i32 best_score = in_qsearch ? static_eval : -inf;)
   G(213, G(214, ss)[G(214, 2)].position_hash = tt_hash;)
+  G(213, i32 quiets_evaluated = 0;)
   G(213, u8 tt_flag = Upper;)
   G(213, i32 moves_evaluated = 0;)
-  G(213, i32 quiets_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < ss->num_moves; move_index++) {
     // MOVE ORDERING
@@ -1579,11 +1579,9 @@ i32 search(
 
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
-                        ? G(229, (move_score / -334)) +
-                              G(229, moves_evaluated / 11) +
-                              G(229, depth / 12) +
-                              G(229, (G(230, alpha) == G(230, beta - 1))) +
-                              G(229, !improving)
+                        ? G(229, moves_evaluated / 11) + G(229, depth / 12) +
+                              G(229, (move_score / -334)) + G(229, !improving) +
+                              G(229, (G(230, alpha) == G(230, beta - 1)))
                         : 0;
 
     i32 score;
@@ -1867,8 +1865,8 @@ void iteratively_deepen(
     G(254, i32 window = 12;)
     G(254, size_t elapsed;)
     while (true) {
-      G(255, const i32 alpha = score - window;)
       G(255, const i32 beta = G(256, score) + G(256, window);)
+      G(255, const i32 alpha = score - window;)
       score = search(
 #ifdef FULL
           &data->nodes,
