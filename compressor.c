@@ -5,12 +5,33 @@
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
-#include <nmmintrin.h> /* _mm_crc32_u8 (SSE4.2) */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+/* CRC-32C (Castagnoli): _mm_crc32_u8 and __crc32cb use the same polynomial,
+   so hashes and compressed output are identical across architectures. */
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
+#include <nmmintrin.h> /* _mm_crc32_u8 (SSE4.2) */
+static inline unsigned int crc32c_u8(unsigned int h, unsigned char byte) {
+  return _mm_crc32_u8(h, byte);
+}
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#include <arm_acle.h> /* __crc32cb (ARMv8 CRC32) */
+#ifdef __clang__
+__attribute__((target("+crc")))
+#else
+__attribute__((target("arch=armv8-a+crc")))
+#endif
+static inline unsigned int
+crc32c_u8(unsigned int h, unsigned char byte) {
+  return __crc32cb(h, byte);
+}
+#else
+#error "Unsupported architecture: CRC32-C only for x86-64 and aarch64"
+#endif
 
 typedef float v4f __attribute__((vector_size(16)));
 typedef uint32_t v4u __attribute__((vector_size(16)));
@@ -199,16 +220,16 @@ static unsigned char *alloc_padded(const unsigned char *ctx,
   } while (0)
 
 static inline unsigned int hash_mix(unsigned int h, unsigned char byte) {
-  return _mm_crc32_u8(h, byte);
+  return crc32c_u8(h, byte);
 }
 
 static unsigned int ctx_hash_initial(unsigned int mask) {
   unsigned char cmask = (unsigned char)mask;
   unsigned int h = mask;
-  h = _mm_crc32_u8(h, 0);
+  h = crc32c_u8(h, 0);
   while (cmask) {
     if (cmask & 0x80)
-      h = _mm_crc32_u8(h, 0);
+      h = crc32c_u8(h, 0);
     cmask += cmask;
   }
   return h;
