@@ -2362,6 +2362,36 @@ static void write_html_report(const char *path, const CompStats *s) {
     free(pf);
   }
 
+  /* the band: top-4 models by bits saved, one channel each, with the
+     per-byte contribution packed to one hex nibble (0-15, saturating
+     at 4 bits) - party mode's multi-channel tracker plays from this */
+  if (s->byte_model_contrib && s->num_data_bytes > 0 && s->num_models > 0) {
+    int nm = s->num_models, nb = s->num_data_bytes;
+    int ord[MAX_SEARCH];
+    for (int m = 0; m < nm; m++)
+      ord[m] = m;
+    for (int i = 0; i < nm - 1; i++)
+      for (int j = i + 1; j < nm; j++)
+        if (s->model_bits_saved[ord[i]] < s->model_bits_saved[ord[j]]) {
+          int t = ord[i];
+          ord[i] = ord[j];
+          ord[j] = t;
+        }
+    int nch = nm < 4 ? nm : 4;
+    fprintf(f, "<script>var BAND={ch:[");
+    for (int c = 0; c < nch; c++)
+      fprintf(f, "%s\"%02X:%d\"", c ? "," : "", s->model_masks[ord[c]],
+              s->model_weights[ord[c]]);
+    fprintf(f, "],q:\"");
+    for (int i = 0; i < nb; i++)
+      for (int c = 0; c < nch; c++) {
+        float v = s->byte_model_contrib[i * nm + ord[c]];
+        int q = (int)(v * (15.0f / 4.0f) + 0.5f);
+        fputc("0123456789ABCDEF"[q < 0 ? 0 : q > 15 ? 15 : q], f);
+      }
+    fprintf(f, "\"};</script>\n");
+  }
+
   /* ── Hero section with ring gauge ── */
   {
     /* ring gauge: SVG donut */
@@ -7830,6 +7860,21 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var clr=c<3?'#34d399':c<6?'#fbbf24':'#f87171';\n"
     "    var off=i.toString(16).toUpperCase();\n"
     "    while(off.length<4) off='0'+off;\n"
+    "    if(bandOn&&typeof BAND!=='undefined'){\n"
+    "      /* band layout: one column per model channel; dots mean\n"
+    "         the model sat this byte out */\n"
+    "      var h2='<div class=\"pt-row'+(cur?' cur':'')\n"
+    "        +'\" data-i=\"'+i+'\">'\n"
+    "        +'<span class=\"o\">'+off+'</span>';\n"
+    "      for(var ci=0;ci<BAND.ch.length;ci++){\n"
+    "        var q=bandQ(i,ci);\n"
+    "        h2+='<span style=\"width:38px;color:'+BANDC[ci]\n"
+    "          +(q?'\">'+trkName(bandNote(ci,s)):'\";opacity:.35\">...')\n"
+    "          +'</span>';\n"
+    "      }\n"
+    "      return h2+'<span class=\"co\" style=\"color:'+clr+'\">'\n"
+    "        +c.toFixed(1)+'</span></div>';\n"
+    "    }\n"
     "    return '<div class=\"pt-row'+(cur?' cur':'')+'\" data-i=\"'+i+'\">'\n"
     "      +'<span class=\"o\">'+off+'</span>'\n"
     "      +'<span class=\"nt\">'+trkName(noteFor(s,c))+'</span>'\n"
@@ -7843,6 +7888,15 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    trkHist.push(e);\n"
     "    if(trkHist.length>TRK_N+1) trkHist.shift();\n"
     "    var out='';\n"
+    "    if(bandOn&&typeof BAND!=='undefined'){\n"
+    "      /* the lineup, over the pattern */\n"
+    "      out+='<div class=\"pt-row\"><span class=\"o\" '\n"
+    "        +'style=\"color:var(--fg3)\">CH</span>';\n"
+    "      for(var ci=0;ci<BAND.ch.length;ci++)\n"
+    "        out+='<span style=\"width:38px;color:'+BANDC[ci]+'\">'\n"
+    "          +BAND.ch[ci]+'</span>';\n"
+    "      out+='</div>';\n"
+    "    }\n"
     "    for(var k=trkHist.length;k<TRK_N+1;k++)\n"
     "      out+='<div class=\"pt-row\"><span class=\"o\">....</span></div>';\n"
     "    for(var k=0;k<trkHist.length;k++){\n"
@@ -8165,6 +8219,41 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    vsRing.addEventListener('pointerup',vsUp);\n"
     "    vsRing.addEventListener('pointercancel',vsUp);\n"
     "  }\n"
+    "  /* the band: the top four models by bits saved, one channel\n"
+    "     each. a channel sounds only when its model earned something\n"
+    "     on that byte, as loud as the take was good - the attribution\n"
+    "     table, playing itself as a rhythm section */\n"
+    "  var bandOn=false;\n"
+    "  var BANDC=['#22d3ee','#ff3fd8','#ffe33f','#34d399'];\n"
+    "  var BANDW=['square','sawtooth','triangle','sine'];\n"
+    "  function bandQ(i,ci){\n"
+    "    var p=i*BAND.ch.length+ci;\n"
+    "    return p<BAND.q.length?(parseInt(BAND.q[p],16)||0):0;\n"
+    "  }\n"
+    "  function bandNote(ci,step){\n"
+    "    /* stacked voicing: root, third, fifth, seventh of whatever\n"
+    "       harmony is current - keyed or roaming */\n"
+    "    if(sonKey) return sonKey.r+KEYSC[sonKey.mi][[0,2,4,6][ci]]+24;\n"
+    "    var ch=CHORDS[(step>>4)&3];\n"
+    "    return (ci<3?ch[ci]:ch[0]+10)+24;\n"
+    "  }\n"
+    "  function bandToggle(){\n"
+    "    if(typeof BAND==='undefined'||!BAND.ch.length){\n"
+    "      showToast('NO BAND ABOARD');return;}\n"
+    "    if(bandOn){\n"
+    "      bandOn=false;trkHist=[];\n"
+    "      if(trkRows) trkRows.innerHTML='';\n"
+    "      showToast('THE BAND GOES HOME');return;\n"
+    "    }\n"
+    "    bandOn=true;trkHist=[];\n"
+    "    egg('band');\n"
+    "    if(!sonify){\n"
+    "      sonify=true;sonPos=0;sonClear();trkShow(true);\n"
+    "      var hr=document.querySelector('.hero-ring');\n"
+    "      if(hr) hr.classList.add('vinyl');\n"
+    "    }\n"
+    "    showToast('THE MODELS TAKE THE STAGE');\n"
+    "  }\n"
     "  /* keyed listen: same instrument, same cost bands, but the\n"
     "     palette is pinned to one scale - triad tones when calm,\n"
     "     color degrees when tense, the seventh when it hurts. it\n"
@@ -8206,6 +8295,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  function schedNote(step,t){\n"
     "    var ch=CHORDS[(step>>4)&3];\n"
     "    var n=ch[step%%3]+24;\n"
+    "    var bandLive=false;\n"
     "    if(sonify&&typeof BD!=='undefined'&&BD.length){\n"
     "      var si=sonPos;\n"
     "      var c=BD[si].c;\n"
@@ -8215,12 +8305,31 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      if(c>=8) snare(t); /* pain: percussion */\n"
     "      sonQ.push({t:t,i:si,s:step,c:c});\n"
     "      if(!sonRaf) sonRaf=requestAnimationFrame(sonTick);\n"
+    "      if(bandOn&&typeof BAND!=='undefined'){\n"
+    "        /* the band replaces the lead: each model that earned\n"
+    "           its keep on this byte gets a voice, as loud as its\n"
+    "           take was good */\n"
+    "        bandLive=true;\n"
+    "        for(var ci=0;ci<BAND.ch.length;ci++){\n"
+    "          var q=bandQ(si,ci);\n"
+    "          if(!q) continue;\n"
+    "          var o2=actx.createOscillator(),g2=actx.createGain();\n"
+    "          o2.type=BANDW[ci];\n"
+    "          o2.frequency.value=mf(bandNote(ci,step));\n"
+    "          g2.gain.setValueAtTime(.014+.038*(q/15),t);\n"
+    "          g2.gain.exponentialRampToValueAtTime(.001,t+.12);\n"
+    "          o2.connect(g2);g2.connect(gainM);\n"
+    "          o2.start(t);o2.stop(t+.13);\n"
+    "        }\n"
+    "      }\n"
     "    }\n"
-    "    var o=actx.createOscillator(),g=actx.createGain();\n"
-    "    o.type='square';o.frequency.value=mf(n);\n"
-    "    g.gain.setValueAtTime(.04,t);\n"
-    "    g.gain.exponentialRampToValueAtTime(.001,t+.12);\n"
-    "    o.connect(g);g.connect(gainM);o.start(t);o.stop(t+.13);\n"
+    "    if(!bandLive){\n"
+    "      var o=actx.createOscillator(),g=actx.createGain();\n"
+    "      o.type='square';o.frequency.value=mf(n);\n"
+    "      g.gain.setValueAtTime(.04,t);\n"
+    "      g.gain.exponentialRampToValueAtTime(.001,t+.12);\n"
+    "      o.connect(g);g.connect(gainM);o.start(t);o.stop(t+.13);\n"
+    "    }\n"
     "    if(step%%4===0){\n"
     "      var b=actx.createOscillator(),bg=actx.createGain();\n"
     "      b.type='square';\n"
@@ -8487,7 +8596,8 @@ static void write_html_report(const char *path, const CompStats *s) {
     "        if(buf.slice(-5)==='atari'){buf='';\n"
     "          showToast('WE DON\\'T DO THAT HERE');return;}\n"
     "        if(buf.slice(-6)==='listen'){buf='';\n"
-    "          sonify=!sonify;sonKey=null;sonPos=0;sonClear();egg('listen');\n"
+    "          sonify=!sonify;sonKey=null;bandOn=false;sonPos=0;\n"
+    "          sonClear();egg('listen');\n"
     "          trkShow(sonify);\n"
     "          var hr=document.querySelector('.hero-ring');\n"
     "          if(hr) hr.classList.toggle('vinyl',sonify);\n"
@@ -8502,6 +8612,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "        if(buf.slice(-5)==='scope'){buf='';scopeToggle();return;}\n"
     "        if(buf.slice(-8)==='spectrum'){buf='';specToggle();return;}\n"
     "        if(buf.slice(-9)==='waterfall'){buf='';sgToggle();return;}\n"
+    "        if(buf.slice(-4)==='band'){buf='';bandToggle();return;}\n"
     "        if(buf.slice(-8)==='rotozoom'){buf='';rotoToggle();return;}\n"
     "        if(buf.slice(-4)==='void'){buf='';voidToggle();return;}\n"
     "        if(buf.slice(-9)==='landscape'){buf='';voxToggle();return;}\n"
@@ -8535,7 +8646,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  });\n"
     "  window.partyToast=showToast;\n"
     "  /* the session keeps score; after ten minutes it confesses */\n"
-    "  var eggSet={},eggN=0,EGG_TOTAL=47;\n"
+    "  var eggSet={},eggN=0,EGG_TOTAL=48;\n"
     "  var finaleDone=false,finaleCyc=null,finaleEnd=null;\n"
     "  function egg(id){\n"
     "    if(!eggSet[id]){eggSet[id]=1;eggN++;}\n"
@@ -8835,6 +8946,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      ['scope','OSCILLOSCOPE'],\n"
     "      ['spectrum','THE BARS. THE FALLING CAPS'],\n"
     "      ['waterfall','LIVE SPECTROGRAM'],\n"
+    "      ['band','TOP MODELS, ONE CHANNEL EACH'],\n"
     "      ['rotozoom','SPIN THE BIGRAMS'],\n"
     "      ['landscape','FLY THE COST TERRAIN'],\n"
     "      ['voxel','THE MAP, CUBED'],\n"
