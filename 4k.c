@@ -1519,7 +1519,7 @@ i32 search(
 
   for (i32 move_index = 0; move_index < ss->num_moves; move_index++) {
     // MOVE ORDERING
-    G(215, i32 best_index = 0;)
+    G(215, i32 best_index = move_index;)
     G(215, i32 move_score = ~0x1010101LL;)
     for (i32 order_index = move_index; order_index < ss->num_moves;
          order_index++) {
@@ -1529,7 +1529,7 @@ i32 search(
           G(187, // KILLER MOVE
             G(216,
               move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) *
-                G(216, 730)) +
+                G(216, 1314)) +
           G(187, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(218, &ss->best_move), G(218, &moves[order_index]))
              << 30)) +
@@ -1537,7 +1537,7 @@ i32 search(
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
           G(187, // MOST VALUABLE VICTIM
-            G(219, moves[order_index].takes_piece) * G(219, 545));
+            G(219, moves[order_index].takes_piece) * G(219, 981));
       if (order_move_score > move_score) {
         G(220, best_index = order_index;)
         G(220, move_score = order_move_score;)
@@ -1561,7 +1561,7 @@ i32 search(
     G(
         222, // MOVE SCORE PRUNING
         if (G(223, moves_evaluated) &&
-            G(223, move_score < G(224, -175) * G(224, depth))) { break; })
+            G(223, move_score < G(224, -315) * G(224, depth))) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1580,7 +1580,7 @@ i32 search(
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
                         ? G(229, moves_evaluated / 11) + G(229, depth / 12) +
-                              G(229, (move_score / -334)) + G(229, !improving) +
+                              G(229, (move_score / -601)) + G(229, !improving) +
                               G(229, (G(230, alpha) == G(230, beta - 1)))
                         : 0;
 
@@ -1631,14 +1631,14 @@ i32 search(
               })
           G(
               233, if (!in_qsearch) {
-                const i32 bonus = 2 * depth * depth;
+                const i32 bonus = depth * depth;
                 G(234,
                   i32 *const this_hist =
                       &move_history[pos->flipped][ss->best_move.takes_piece]
                                    [ss->best_move.from][ss->best_move.to];
 
                   *this_hist +=
-                  bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                  bonus - G(235, bonus) * G(235, *this_hist) / 2048;)
                 G(
                     234, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1647,7 +1647,7 @@ i32 search(
                           &move_history[pos->flipped][prev.takes_piece]
                                        [prev.from][prev.to];
                       *prev_hist -=
-                          bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                          bonus + G(236, bonus) * G(236, *prev_hist) / 2048;
                     })
               })
           break;
