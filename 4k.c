@@ -1252,7 +1252,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1529,7 +1529,7 @@ i32 search(
           G(187, // KILLER MOVE
             G(216,
               move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) *
-                G(216, 1314)) +
+                G(216, 1460)) +
           G(187, // PREVIOUS BEST MOVE FIRST
             (move_equal(G(218, &ss->best_move), G(218, &moves[order_index]))
              << 30)) +
@@ -1537,7 +1537,7 @@ i32 search(
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
           G(187, // MOST VALUABLE VICTIM
-            G(219, moves[order_index].takes_piece) * G(219, 981));
+            G(219, moves[order_index].takes_piece) * G(219, 1090));
       if (order_move_score > move_score) {
         G(220, best_index = order_index;)
         G(220, move_score = order_move_score;)
@@ -1561,7 +1561,7 @@ i32 search(
     G(
         222, // MOVE SCORE PRUNING
         if (G(223, moves_evaluated) &&
-            G(223, move_score < G(224, -315) * G(224, depth))) { break; })
+            G(223, move_score < G(224, -350) * G(224, depth))) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1580,7 +1580,7 @@ i32 search(
     // LATE MOVE REDUCTION
     i32 reduction = G(228, depth > 3) && G(228, move_score <= 0)
                         ? G(229, moves_evaluated / 11) + G(229, depth / 12) +
-                              G(229, (move_score / -601)) + G(229, !improving) +
+                              G(229, (move_score / -668)) + G(229, !improving) +
                               G(229, (G(230, alpha) == G(230, beta - 1)))
                         : 0;
 
