@@ -1519,7 +1519,7 @@ i32 search(
 
   for (i32 move_index = 0; move_index < ss->num_moves; move_index++) {
     // MOVE ORDERING
-    G(215, i32 best_index = 0;)
+    G(215, i32 best_index = move_index;)
     G(215, i32 move_score = ~0x1010101LL;)
     for (i32 order_index = move_index; order_index < ss->num_moves;
          order_index++) {
@@ -1631,7 +1631,10 @@ i32 search(
               })
           G(
               233, if (!in_qsearch) {
-                const i32 bonus = 2 * depth * depth;
+                i32 bonus = 2 * depth * depth;
+                if (bonus > 1024) {
+                  bonus = 1024;
+                }
                 G(234,
                   i32 *const this_hist =
                       &move_history[pos->flipped][ss->best_move.takes_piece]
