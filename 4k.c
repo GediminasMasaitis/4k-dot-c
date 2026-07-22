@@ -943,7 +943,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(116, 1,
     H(117, 1, i8 king_shield[2];) H(117, 1, i8 piece_threats[2];)
         H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 bishop_pawns[2];)
-            H(117, 1, i8 passed_king_distance[2];))
+            H(117, 1, i8 passed_king_distance[2];)
+                H(117, 1, i8 king_line_danger;))
   H(116, 1,
     H(119, 1, i8 mobilities[5];) H(119, 1, i8 passed_blocked_pawns[6];)
         H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 tempo;)
@@ -952,7 +953,6 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 pst_rank[48];)
         H(118, 1, i8 king_attacks[5];) H(118, 1, i8 phalanx_pawn;)
             H(118, 1, i8 protected_pawn;) H(118, 1, i8 bishop_pair;))
-  i8 king_line_danger;
 } EvalParams;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -960,7 +960,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(116, 2,
     H(117, 2, i32 king_shield[2];) H(117, 2, i32 piece_threats[2];)
         H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 bishop_pawns[2];)
-            H(117, 2, i32 passed_king_distance[2];))
+            H(117, 2, i32 passed_king_distance[2];)
+                H(117, 2, i32 king_line_danger;))
   H(116, 2,
     H(119, 2, i32 mobilities[5];) H(119, 2, i32 passed_blocked_pawns[6];)
         H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 tempo;)
@@ -969,7 +970,6 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 pst_rank[48];)
         H(118, 2, i32 king_attacks[5];) H(118, 2, i32 phalanx_pawn;)
             H(118, 2, i32 protected_pawn;) H(118, 2, i32 bishop_pair;))
-  i32 king_line_danger;
 } EvalParamsMerged;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1181,13 +1181,20 @@ S(0) i32 eval(Position *const restrict pos) {
                                     G(162, eval_params.king_shield[1]);)
                   })
 
-              // KING LINE DANGER
-              if (p == King) {
-                const u64 line_blockers = pos->colour[0] | pos->pieces[Pawn];
-                score += count(~0xFFULL & (rook(line_blockers, piece_bb) |
-                                           bishop(line_blockers, piece_bb))) *
-                         eval_params.king_line_danger;
-              }
+              G(
+                  155, // KING LINE DANGER
+                  if (G(293, p) == G(293, King)) {
+                    const u64 line_blockers =
+                        G(294, pos->colour[0]) | G(294, pos->pieces[Pawn]);
+                    score +=
+                        G(295,
+                          count(G(296, ~0xFFULL) &
+                                G(296, (G(297, rook(H(41, 4, line_blockers),
+                                                    H(41, 4, piece_bb))) |
+                                        G(297, bishop(H(43, 4, line_blockers),
+                                                      H(43, 4, piece_bb))))))) *
+                        G(295, eval_params.king_line_danger);
+                  })
 
               G(
                   155, // PAWN PUSH THREATS
