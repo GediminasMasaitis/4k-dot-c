@@ -95,7 +95,7 @@ G(
       ssize_t tv_nsec; // nanoseconds
     } timespec;
 
-    [[nodiscard]] S(0) u64 get_time() {
+    [[nodiscard]] S(1) u64 get_time() {
       timespec ts;
       ssize_t ret; // Unused
       asm volatile("syscall"
@@ -317,8 +317,8 @@ typedef struct [[nodiscard]] {
         bool castling[4];
         u32 castling32;
       };)
-  G(6, u8 padding[11];)
   G(6, bool flipped;)
+  G(6, u8 padding[11];)
 } Position;
 
 #ifdef ASSERTS
@@ -439,7 +439,7 @@ G(
       G(37,
         const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
       return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) |
-             G(40, horizontal1 << 16) | G(40, horizontal1 >> 16);
+             G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
     })
 
 G(
@@ -1097,11 +1097,11 @@ S(0) i32 eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const i32 sq = lsb(copy);
-        G(137, copy &= copy - 1;)
         G(137, phase += initial_params.phases[p];)
         G(137, const i32 file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(137, const i32 rank = sq >> 3;)
+        G(137, copy &= copy - 1;)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(93, // SPLIT PIECE-SQUARE TABLES FOR FILE
           score +=
@@ -1128,7 +1128,7 @@ S(0) i32 eval(Position *const restrict pos) {
                 const i32 king_sq =
                     lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
                 G(149, const i32 rank_distance = __builtin_abs(
-                           king_sq / 8 - G(150, rank) - G(150, 1));)
+                           king_sq / 8 - G(150, 1) - G(150, rank));)
                 G(149,
                   const i32 file_distance = __builtin_abs(king_sq % 8 - file);)
                 score +=
@@ -1252,7 +1252,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1260,12 +1260,12 @@ enum { thread_stack_size = 1024 * 1024 };
 enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
-  G(119, i32 static_eval;)
-  G(119, Move killer;)
-  G(119, i32 num_moves;)
-  G(119, Move best_move;)
-  G(119, u64 position_hash;)
   G(119, Move prev_move;)
+  G(119, i32 static_eval;)
+  G(119, Move best_move;)
+  G(119, Move killer;)
+  G(119, u64 position_hash;)
+  G(119, i32 num_moves;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1286,8 +1286,8 @@ typedef struct [[nodiscard]] {
   G(179, u64 max_time;)
   G(179, Position pos;)
   G(179, SearchStack stack[1024];)
-  G(179, i32 move_history[2][6][64][64];)
   G(179, i32 corrhist[corrhist_size];)
+  G(179, i32 move_history[2][6][64][64];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1395,8 +1395,8 @@ i32 search(
 #ifdef FULL
     u64 *nodes,
 #endif
-    H(186, 1, H(187, 1, Position *const pos), H(187, 1, ThreadData *data),
-      H(187, 1, const i32 beta), H(187, 1, i32 depth)),
+    H(186, 1, H(187, 1, ThreadData *data), H(187, 1, const i32 beta),
+      H(187, 1, Position *const pos), H(187, 1, i32 depth)),
     H(186, 1, H(188, 1, i32 alpha), H(188, 1, const i32 ply),
       H(188, 1, const bool do_null))) {
   assert(alpha < beta);
@@ -1499,7 +1499,7 @@ i32 search(
 #ifdef FULL
           nodes,
 #endif
-          H(186, 2, H(187, 2, &npos), H(187, 2, data), H(187, 2, -alpha),
+          H(186, 2, H(187, 2, data), H(187, 2, -alpha), H(187, 2, &npos),
             H(187, 2, depth - G(212, depth / 4) - G(212, 4))),
           H(186, 2, H(188, 2, -beta), H(188, 2, ply + 1), H(188, 2, false)));
       if (score >= beta) {
@@ -1512,9 +1512,9 @@ i32 search(
     ss->num_moves =
         movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(213, i32 best_score = in_qsearch ? static_eval : -inf;)
+  G(213, u8 tt_flag = Upper;)
   G(213, G(214, ss)[G(214, 2)].position_hash = tt_hash;)
   G(213, i32 quiets_evaluated = 0;)
-  G(213, u8 tt_flag = Upper;)
   G(213, i32 moves_evaluated = 0;)
 
   for (i32 move_index = 0; move_index < ss->num_moves; move_index++) {
@@ -1590,7 +1590,7 @@ i32 search(
 #ifdef FULL
           nodes,
 #endif
-          H(186, 3, H(187, 3, &npos), H(187, 3, data), H(187, 3, -alpha),
+          H(186, 3, H(187, 3, data), H(187, 3, -alpha), H(187, 3, &npos),
             H(187, 3, depth - G(231, reduction) - G(231, 1))),
           H(186, 3, H(188, 3, low), H(188, 3, ply + 1), H(188, 3, true)));
 
@@ -1871,7 +1871,7 @@ void iteratively_deepen(
 #ifdef FULL
           &data->nodes,
 #endif
-          H(186, 4, H(187, 4, &data->pos), H(187, 4, data), H(187, 4, beta),
+          H(186, 4, H(187, 4, data), H(187, 4, beta), H(187, 4, &data->pos),
             H(187, 4, depth)),
           H(186, 4, H(188, 4, alpha), H(188, 4, 0), H(188, 4, false)));
 #ifdef FULL
@@ -1881,12 +1881,12 @@ void iteratively_deepen(
       }
 #endif
       elapsed = get_time() - start_time;
+      G(257, window *= 2;)
       G(
           257, if (G(258, elapsed > data->max_time) ||
                    G(258, (G(259, score > alpha) && G(259, score < beta)))) {
             break;
           })
-      G(257, window *= 2;)
     }
 
     if (G(303, stop) || G(303, elapsed > data->max_time / 10)) {
