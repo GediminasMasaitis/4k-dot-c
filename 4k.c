@@ -1096,26 +1096,31 @@ S(0) i32 eval(Position *const restrict pos) {
         G(137, const i32 rank = sq >> 3;)
         G(137, copy &= copy - 1;)
         G(137, const u64 piece_bb = 1ULL << sq;)
-        G(93, // SPLIT PIECE-SQUARE TABLES FOR FILE
-          score +=
-          eval_params
-              .pst_file[G(153, G(154, (p - 1)) * G(154, 8)) + G(153, file)];)
+        G(93,
+          G(999, // SPLIT PIECE-SQUARE TABLES FOR FILE
+            score += eval_params.pst_file[G(153, G(154, (p - 1)) * G(154, 8)) +
+                                          G(153, file)];)
 
-        G(93, // SPLIT PIECE-SQUARE TABLES FOR RANK
-          score +=
-          eval_params
-              .pst_rank[G(152, G(147, (p - 1)) * G(147, 8)) + G(152, rank)];)
+              G(999, // SPLIT PIECE-SQUARE TABLES FOR RANK
+                score +=
+                eval_params.pst_rank[G(152, G(147, (p - 1)) * G(147, 8)) +
+                                     G(152, rank)];))
 
-        // PROTECTED PAWNS
-        if (p == Pawn &&
-            piece_bb & (northwest(pawns[0]) | northeast(pawns[0]))) {
-          score += eval_params.protected_pawn[rank - 1];
-        }
+        G(93, G(
+                  998, // PROTECTED PAWNS
+                  if (G(300, p == Pawn) &&
+                      G(300, G(307, piece_bb) &
+                                 G(307, (G(308, northwest(pawns[0])) |
+                                         G(308, northeast(pawns[0])))))) {
+                    score += eval_params.protected_pawn[rank - 1];
+                  })
 
-        // PHALANX PAWNS
-        if (p == Pawn && piece_bb & west(pawns[0])) {
-          score += eval_params.phalanx_pawn[rank - 1];
-        }
+                  G(
+                      998, // PHALANX PAWNS
+                      if (G(309, p == Pawn) &&
+                          G(309, G(310, piece_bb) & G(310, west(pawns[0])))) {
+                        score += eval_params.phalanx_pawn[rank - 1];
+                      }))
 
         G(
             93, // PASSED PAWNS
@@ -1257,7 +1262,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
