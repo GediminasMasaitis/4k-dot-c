@@ -20,6 +20,15 @@ max_parallelism = 12
 enable_random_shuffle = False
 random_seed = None
 num_runs = 999
+# Operations performed each pass, in order. 'permute' = G/H group permutations,
+# 'static' = S(0)/S(1) toggles, 'const' = C(0)/C(1) toggles.
+# Reorder or remove entries to change behavior.
+pass_operations = ['permute', 'static', 'const']
+# How many toggle sites to flip per variant in each toggle stage.
+# 1 = classic one-at-a-time hill climb. 2 tries every pair of sites
+# (~n^2/2 variants per round), 3 every triple (~n^3/6), etc.
+static_combo_size = 1
+const_combo_size = 1
 use_compression = True
 compress_bprob = 10
 compress_direct_bits = 30
@@ -29,6 +38,11 @@ enable_asm_cache = True
 persist_asm_cache = True
 enable_binary_cache = True
 persist_binary_cache = True
+# Directory to copy the cache .pkl files to at the end of each pass (useful
+# when running from a ramdisk). Must already exist — it will not be created;
+# a missing directory prints a warning and the backup is skipped. Set to
+# None/'' (or delete the variable) to disable backups silently.
+cache_backup_dir = '/mnt/c/shared/chess6/picklejar'
 errors_dir = 'errors'
 
 class CountdownEvent:
@@ -178,6 +192,41 @@ def _save_cache(cache, lock, path, persist):
 source_cache = _load_cache(SOURCE_CACHE_PATH, 'source', persist_source_cache)
 asm_cache = _load_cache(ASM_CACHE_PATH, 'asm', persist_asm_cache)
 binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary', persist_binary_cache)
+
+def backup_caches():
+    """Copy the persisted cache files to cache_backup_dir, if configured.
+
+    Silently does nothing when cache_backup_dir is unset/empty. Warns and
+    skips when the directory does not exist (it is never created here).
+    """
+    dest = globals().get('cache_backup_dir') or None
+    if not dest:
+        return
+    if not os.path.isdir(dest):
+        tqdm.write(f'Warning: cache backup dir {dest!r} does not exist; '
+                   f'skipping cache backup')
+        return
+    _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH,
+                persist_source_cache)
+    _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
+    _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH,
+                persist_binary_cache)
+    copied = []
+    for path in (SOURCE_CACHE_PATH, ASM_CACHE_PATH, BINARY_CACHE_PATH):
+        if not os.path.exists(path):
+            continue
+        # Copy via a temp name so an interrupted copy never leaves a torn
+        # file at the destination.
+        target = os.path.join(dest, os.path.basename(path))
+        tmp = target + '.tmp'
+        try:
+            shutil.copy2(path, tmp)
+            os.replace(tmp, target)
+            copied.append(os.path.basename(path))
+        except OSError as e:
+            tqdm.write(f'Warning: failed to back up {path} to {dest!r}: {e}')
+    if copied:
+        tqdm.write(f'Backed up {", ".join(copied)} to {dest}')
 
 # =============================================
 # Node classes and parsing (unchanged)
@@ -803,36 +852,59 @@ class SpeculativeEngine:
 
 # Toggle macros: single-letter macro wrapping a 0/1 flag in the source,
 # e.g. S(0)/S(1) for static, C(0)/C(1) for const.
-toggle_stages = [
-    ('S', 'Static', '__static__'),
-    ('C', 'Const', '__const__'),
-]
+# Keyed by the operation name used in pass_operations.
+toggle_stages = {
+    'static': ('S', 'Static', '__static__'),
+    'const': ('C', 'Const', '__const__'),
+}
+toggle_combo_sizes = {
+    'static': static_combo_size,
+    'const': const_combo_size,
+}
 
-def build_toggle_option(macro, baseline, span, new_val, src_path, worker_id):
-    start, end = span
-    variant = baseline[:start] + f'{macro}({new_val})' + baseline[end:]
-    workdir = f'worker_{worker_id}'
-    dest = os.path.join(workdir, src_path)
-    with open(dest, 'w') as f:
-        f.write(variant)
+def build_toggle_option(macro, baseline, flips, src_path,
+                        worker_slot_queue):
+    # Acquire the worker dir inside the task (not at submission time) so the
+    # submitting loop never blocks — the executor caps concurrency at
+    # max_parallelism, which equals the slot count, so get() cannot deadlock.
+    worker_id = worker_slot_queue.get()
     try:
-        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=variant)
-    except Exception as e:
-        save_error_source(variant, e)
-        raise
-    return size, cache_tag, variant, span, new_val
+        # Apply flips back-to-front so earlier spans stay valid even if the
+        # replacement length differs (e.g. 'S( 0 )' -> 'S(1)').
+        variant = baseline
+        for (start, end), new_val in sorted(flips, reverse=True):
+            variant = variant[:start] + f'{macro}({new_val})' + variant[end:]
+        workdir = f'worker_{worker_id}'
+        dest = os.path.join(workdir, src_path)
+        with open(dest, 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag = run_make_and_get_size(cwd=workdir,
+                                                    source_content=variant)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+        return size, cache_tag, variant, flips
+    finally:
+        worker_slot_queue.put(worker_id)
 
-def stage_toggle(macro, label, src_path, pass_best, stats_prefix, worker_slot_queue):
+def stage_toggle(macro, label, combo_size, src_path, pass_best, stats_prefix,
+                 worker_slot_queue):
     global global_best_size, global_best_src
     baseline = pass_best['best_content']
     matches = list(re.finditer(re.escape(macro) + r'\(\s*([01])\s*\)', baseline))
-    if not matches:
+    if len(matches) < combo_size:
         return False
+
+    # Each variant flips combo_size distinct sites at once.
+    single_flips = [(m.span(), '1' if m.group(1) == '0' else '0')
+                    for m in matches]
+    combos = list(itertools.combinations(single_flips, combo_size))
 
     any_improved = False
     stats_bar = tqdm(
-        total=len(matches),
-        desc=f'{stats_prefix}   {label} toggles',
+        total=len(combos),
+        desc=f'{stats_prefix}   {label} toggles (x{combo_size})',
         unit='it',
         position=0,
         leave=True
@@ -841,22 +913,15 @@ def stage_toggle(macro, label, src_path, pass_best, stats_prefix, worker_slot_qu
     all_futures = []
 
     with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-        for idx, m in enumerate(matches):
-            cur = m.group(1)
-            span = m.span()
-            new_val = '1' if cur == '0' else '0'
-
-            wid = worker_slot_queue.get()
-            fut = execr.submit(
+        for flips in combos:
+            all_futures.append(execr.submit(
                 build_toggle_option,
-                macro, baseline, span, new_val, src_path, wid
-            )
-            fut.add_done_callback(lambda f, w=wid: worker_slot_queue.put(w))
-            all_futures.append(fut)
+                macro, baseline, flips, src_path, worker_slot_queue
+            ))
 
         for future in all_futures:
             try:
-                size, cache_tag, variant, span, new_val = future.result()
+                size, cache_tag, variant, flips = future.result()
             except Exception as e:
                 stats_bar.write(f'  {label} toggle task failed: {e}')
                 stats_bar.update(1)
@@ -878,7 +943,9 @@ def stage_toggle(macro, label, src_path, pass_best, stats_prefix, worker_slot_qu
                     global_improved = True
 
             tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> {macro}({new_val}) size {fmt_size(size)} {cache_tag} {tag}')
+            desc = ', '.join(f'{span} -> {macro}({new_val})'
+                             for span, new_val in flips)
+            stats_bar.write(f'[{stats_prefix}] toggle at {desc} size {fmt_size(size)} {cache_tag} {tag}')
             stats_bar.update(1)
 
     stats_bar.close()
@@ -947,6 +1014,19 @@ def main():
 
     signal.signal(signal.SIGINT, _on_sigint)
 
+    for operation in pass_operations:
+        if operation != 'permute' and operation not in toggle_stages:
+            raise ValueError(
+                f'Unknown pass operation {operation!r}; '
+                f"valid: 'permute', {', '.join(map(repr, toggle_stages))}")
+    for stage_name, combo_size in toggle_combo_sizes.items():
+        if not isinstance(combo_size, int) or combo_size < 1:
+            raise ValueError(
+                f'{stage_name} combo size must be an integer >= 1, '
+                f'got {combo_size!r}')
+    print(f'Pass operations: {pass_operations} '
+          f'(combo sizes: {toggle_combo_sizes})')
+
     if random_seed is not None:
         random.seed(random_seed)
         print(f'Random seed: {random_seed}')
@@ -1008,17 +1088,23 @@ def main():
 
         iteration = 1
         while True:
-            improved_perm = engine.run_pass(iteration, pass_best, stats_prefix=f'Run {run}')
+            any_improved = False
+            for operation in pass_operations:
+                if operation == 'permute':
+                    if engine.run_pass(iteration, pass_best,
+                                       stats_prefix=f'Run {run}'):
+                        any_improved = True
+                    continue
 
-            toggles_improved = False
-            for macro, label, version_key in toggle_stages:
+                macro, label, version_key = toggle_stages[operation]
                 while True:
                     improved = stage_toggle(
-                        macro, label, src_filename, pass_best,
+                        macro, label, toggle_combo_sizes[operation],
+                        src_filename, pass_best,
                         stats_prefix=f'Run {run}',
                         worker_slot_queue=static_worker_slots)
                     if improved:
-                        toggles_improved = True
+                        any_improved = True
                         engine.best_size = pass_best['best']
                         engine.best_content = pass_best['best_content']
                         # Toggles are cross-cutting; bump a special group to
@@ -1028,7 +1114,8 @@ def main():
                     else:
                         break
 
-            if not (improved_perm or toggles_improved):
+            backup_caches()
+            if not any_improved:
                 break
             iteration += 1
 
@@ -1051,6 +1138,7 @@ def main():
     _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
     print(f'Caches saved to {SOURCE_CACHE_PATH}, {ASM_CACHE_PATH} and {BINARY_CACHE_PATH}')
+    backup_caches()
 
 if __name__ == '__main__':
     main()
