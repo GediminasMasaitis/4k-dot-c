@@ -1612,8 +1612,11 @@ i32 search(
       }
 
       if (score > alpha) {
-        if (reduction != 0) {
-          reduction = 0;
+        if (reduction > 0) {
+          // LMR DEEPER
+          reduction = -(G(318, low != -beta) &&
+                        G(318, score > G(317, best_score) + G(317, 1) +
+                                           G(317, 3 * reduction)));
           continue;
         }
 
