@@ -946,7 +946,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   H(116, 1,
     H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat[5];)
         H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 bishop_pawns[2];)
-            H(117, 1, i8 piece_threats[2];) H(117, 1, i8 piece_behind_pawn[5];))
+            H(117, 1, i8 piece_threats[2];) H(117, 1, i8 piece_behind_pawn[6];))
   H(116, 1,
     H(119, 1, i8 mobilities[5];) H(119, 1, i8 passed_blocked_pawns[6];)
         H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 pst_file[48];)
@@ -963,7 +963,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat[5];)
         H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 bishop_pawns[2];)
             H(117, 2, i32 piece_threats[2];)
-                H(117, 2, i32 piece_behind_pawn[5];))
+                H(117, 2, i32 piece_behind_pawn[6];))
   H(116, 2,
     H(119, 2, i32 mobilities[5];) H(119, 2, i32 passed_blocked_pawns[6];)
         H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 pst_file[48];)
@@ -989,54 +989,54 @@ G(121, // EVAL PARAMETERS
               {.phases = {0, 0, 1, 1, 2, 4},
                .mg =
                    {
-                       .material = {0, 68, 289, 326, 386, 848},
+                       .material = {0, 71, 289, 326, 386, 848},
                        .pst_rank =
                            {
-                               0,   -14, -18, -4,  7,  30, 126, 0,   // Pawn
-                               -20, -4,  9,   23,  29, 34, 12,  -83, // Knight
-                               -7,  11,  16,  19,  15, 14, -9,  -59, // Bishop
-                               6,   -3,  -8,  -11, 5,  13, -3,  1,   // Rook
+                               0,   -14, -18, -4,  6,  29, 126, 0,   // Pawn
+                               -20, -4,  8,   23,  29, 34, 12,  -83, // Knight
+                               -8,  11,  16,  19,  15, 14, -9,  -59, // Bishop
+                               6,   -3,  -8,  -11, 5,  13, -2,  1,   // Rook
                                11,  15,  7,   1,   -3, 0,  -20, -11, // Queen
                                -7,  1,   -10, -23, -5, 37, 43,  44,  // King
                            },
                        .pst_file =
                            {
-                               -7,  -11, -7,  1,   6,   13,  12, -6,  // Pawn
+                               -7,  -11, -7,  1,   7,   13,  12, -6,  // Pawn
                                -30, -11, -1,  12,  13,  14,  7,  -5,  // Knight
                                -15, 0,   3,   1,   4,   -1,  11, -4,  // Bishop
                                -12, -7,  -2,  6,   12,  9,   6,  -11, // Rook
-                               -14, -8,  -4,  0,   3,   4,   13, 6,   // Queen
+                               -15, -8,  -4,  0,   3,   4,   13, 6,   // Queen
                                -9,  15,  -11, -28, -27, -11, 11, 2,   // King
                            },
                        .mobilities = {6, 5, 2, 3, -2},
                        .king_attacks = {0, 13, 20, 14, 0},
                        .pawn_threat = {-16, -8, -8, -8, -1},
                        .open_files = {8,
-                                      -9, -9, 16, -4, -21, 8, -7, -9, 33, -14, -55},
-                       .passed_pawns = {-9, -2, 10, 41, 77, 126},
-                       .passed_blocked_pawns = {-2, -5, -2, 4, 3, -54},
+                                      -9, -9, 16, -4, -21, 4, -7, -9, 33, -14, -55},
+                       .passed_pawns = {-9, -2, 9, 41, 77, 126},
+                       .passed_blocked_pawns = {-3, -5, -2, 4, 3, -54},
                        .passed_king_distance = {-1, -2},
-                       .protected_pawn = {0, 20, 13, 20, 33, 127},
-                       .phalanx_pawn = {6, 11, 21, 37, 127, 127},
+                       .protected_pawn = {0, 20, 12, 20, 34, 127},
+                       .phalanx_pawn = {6, 11, 21, 38, 127, 127},
                        .bishop_pair = 27,
                        .bishop_pawns = {-5, -5},
                        .king_shield = {29, 18},
-                       .pawn_attacked_penalty = {-57, -113},
+                       .pawn_attacked_penalty = {-56, -113},
                        .piece_threats = {25, 17},
-                       .piece_behind_pawn = {3, 3, -4, -4, 3},
+                       .piece_behind_pawn = {-7, 3, 3, -4, -5, 3},
                        .tempo = 30,
                    },
                .eg =
                    {
-                       .material = {0, 86, 394, 428, 741, 1372},
+                       .material = {0, 94, 394, 428, 741, 1372},
                        .pst_rank =
                            {
-                               0,   -1,  -7,  -6, -1, 15, 92, 0,   // Pawn
-                               -26, -14, -4,  14, 19, 6,  1,  4,   // Knight
-                               -8,  -9,  1,   2,  3,  0,  4,  8,   // Bishop
-                               -17, -18, -10, 4,  10, 9,  18, 5,   // Rook
+                               0,   -1,  -6,  -6, -1, 14, 93, 0,   // Pawn
+                               -26, -14, -4,  14, 19, 6,  1,  5,   // Knight
+                               -8,  -9,  0,   2,  3,  0,  4,  8,   // Bishop
+                               -17, -18, -10, 4,  9,  9,  18, 5,   // Rook
                                -54, -40, -12, 13, 28, 23, 29, 12,  // Queen
-                               -36, -4,  4,   18, 31, 30, 19, -38, // King
+                               -37, -4,  4,   18, 31, 31, 20, -38, // King
                            },
                        .pst_file =
                            {
@@ -1045,23 +1045,24 @@ G(121, // EVAL PARAMETERS
                                -9,  -1, 5,  11, 11, 5,  -6, -15, // Bishop
                                1,   5,  6,  -2, -5, -1, 0,  -4,  // Rook
                                -22, -7, 3,  8,  15, 14, -1, -10, // Queen
-                               -29, -1, 11, 17, 19, 14, 4,  -29, // King
+                               -28, -1, 11, 17, 19, 14, 4,  -29, // King
                            },
                        .mobilities = {4, 3, 4, 2, -4},
                        .king_attacks = {0, -2, -7, 8, 0},
                        .pawn_threat = {-2, -5, -17, -13, -6},
-                       .open_files = {8, 8, 22, 9, 27, 8, 23, 8, 16, 11, 45, 6},
-                       .passed_pawns = {13, 2, 19, 45, 99, 92},
+                       .open_files = {8, 8, 23, 10, 27, 8, 16, 9, 16, 11, 45,
+                                      6},
+                       .passed_pawns = {13, 1, 18, 44, 99, 93},
                        .passed_blocked_pawns = {-8, 2, -7, -23, -62, -63},
                        .passed_king_distance = {-5, 9},
-                       .protected_pawn = {0, 16, 15, 19, 45, 22},
-                       .phalanx_pawn = {6, 14, 25, 81, 127, 127},
+                       .protected_pawn = {0, 15, 14, 18, 46, 23},
+                       .phalanx_pawn = {6, 13, 24, 81, 127, 127},
                        .bishop_pair = 58,
                        .bishop_pawns = {-11, -1},
-                       .king_shield = {-10, -8},
+                       .king_shield = {-10, -7},
                        .pawn_attacked_penalty = {-25, -128},
                        .piece_threats = {35, 24},
-                       .piece_behind_pawn = {23, 21, -2, 5, 0},
+                       .piece_behind_pawn = {-17, 23, 21, -2, 5, -1},
                        .tempo = 17,
                    }};)
 
@@ -1113,20 +1114,27 @@ S(0) i32 eval(Position *const restrict pos) {
                 eval_params.pst_file[G(153, G(154, (p - 1)) * G(154, 8)) +
                                      G(153, file)];))
 
-        G(93, G(
-                  998, // PROTECTED PAWNS
-                  if (G(300, p == Pawn) &&
-                      G(300, G(307, piece_bb) &
-                                 G(307, (G(308, northwest(pawns[0])) |
-                                         G(308, northeast(pawns[0])))))) {
-                    score += eval_params.protected_pawn[rank - 1];
+        G(93,
+          G(
+              998, // PROTECTED PAWNS
+              if (G(300, p == Pawn) &&
+                  G(300,
+                    G(307, piece_bb) & G(307, (G(308, northwest(pawns[0])) |
+                                               G(308, northeast(pawns[0])))))) {
+                score += eval_params.protected_pawn[rank - 1];
+              })
+
+              G(
+                  998, // PHALANX PAWNS
+                  if (G(309, p == Pawn) &&
+                      G(309, G(310, piece_bb) & G(310, west(pawns[0])))) {
+                    score += eval_params.phalanx_pawn[rank - 1];
                   })
 
                   G(
-                      998, // PHALANX PAWNS
-                      if (G(309, p == Pawn) &&
-                          G(309, G(310, piece_bb) & G(310, west(pawns[0])))) {
-                        score += eval_params.phalanx_pawn[rank - 1];
+                      998, // PIECE BEHIND PAWN
+                      if (G(320, north(piece_bb)) & G(320, pos->pieces[Pawn])) {
+                        score += eval_params.piece_behind_pawn[p - 1];
                       }))
 
         G(
@@ -1168,12 +1176,6 @@ S(0) i32 eval(Position *const restrict pos) {
 
         G(
             93, if (p > Pawn) {
-              G(
-                  155, // PIECE BEHIND PAWN
-                  if (G(320, north(piece_bb)) & G(320, pos->pieces[Pawn])) {
-                    score += eval_params.piece_behind_pawn[p - 2];
-                  })
-
               G(
                   155, // PAWN PUSH THREATS
                   if (G(169, in_front) & G(169, ~piece_bb) &
