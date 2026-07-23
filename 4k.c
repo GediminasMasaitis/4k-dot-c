@@ -2221,6 +2221,7 @@ S(1) void run() {
       bg_stop();
 #endif
       G(265, main_data->pos = start_pos;)
+      u64 prev_hashes[2] = {0};
 #ifdef FULL
         pv_hist_len = 0;
 #endif
@@ -2257,6 +2258,8 @@ S(1) void run() {
                 pv_hist[pv_hist_len++] = get_hash(&main_data->pos);
               }
 #endif
+              prev_hashes[0] = prev_hashes[1];
+              prev_hashes[1] = get_hash(&main_data->pos);
               makemove(H(80, 4, &main_data->pos), H(80, 4, &moves[i]));
               break;
             }
@@ -2266,6 +2269,9 @@ S(1) void run() {
           break;
         }
       }
+      // SEED PRE-ROOT REPETITION HASHES
+      G(319, main_data->stack[0].position_hash = prev_hashes[0];)
+      G(319, main_data->stack[1].position_hash = prev_hashes[1];)
     }) else G(262, if (G(263, line[0]) == G(263, 'g')) {
 #if defined(FULL) && !defined(NOSTDLIB)
       bg_stop();
