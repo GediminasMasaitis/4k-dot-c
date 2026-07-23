@@ -801,9 +801,16 @@ class SpeculativeEngine:
 
         return improved
 
-def build_static_option(baseline, span, new_val, src_path, worker_id):
+# Toggle macros: single-letter macro wrapping a 0/1 flag in the source,
+# e.g. S(0)/S(1) for static, C(0)/C(1) for const.
+toggle_stages = [
+    ('S', 'Static', '__static__'),
+    ('C', 'Const', '__const__'),
+]
+
+def build_toggle_option(macro, baseline, span, new_val, src_path, worker_id):
     start, end = span
-    variant = baseline[:start] + f'S({new_val})' + baseline[end:]
+    variant = baseline[:start] + f'{macro}({new_val})' + baseline[end:]
     workdir = f'worker_{worker_id}'
     dest = os.path.join(workdir, src_path)
     with open(dest, 'w') as f:
@@ -815,17 +822,17 @@ def build_static_option(baseline, span, new_val, src_path, worker_id):
         raise
     return size, cache_tag, variant, span, new_val
 
-def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
+def stage_toggle(macro, label, src_path, pass_best, stats_prefix, worker_slot_queue):
     global global_best_size, global_best_src
     baseline = pass_best['best_content']
-    matches = list(re.finditer(r'S\(\s*([01])\s*\)', baseline))
-    if len(matches) <= 1:
+    matches = list(re.finditer(re.escape(macro) + r'\(\s*([01])\s*\)', baseline))
+    if not matches:
         return False
 
     any_improved = False
     stats_bar = tqdm(
         total=len(matches),
-        desc=f'{stats_prefix}   Static toggles',
+        desc=f'{stats_prefix}   {label} toggles',
         unit='it',
         position=0,
         leave=True
@@ -841,8 +848,8 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
 
             wid = worker_slot_queue.get()
             fut = execr.submit(
-                build_static_option,
-                baseline, span, new_val, src_path, wid
+                build_toggle_option,
+                macro, baseline, span, new_val, src_path, wid
             )
             fut.add_done_callback(lambda f, w=wid: worker_slot_queue.put(w))
             all_futures.append(fut)
@@ -851,7 +858,7 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
             try:
                 size, cache_tag, variant, span, new_val = future.result()
             except Exception as e:
-                stats_bar.write(f'  Static toggle task failed: {e}')
+                stats_bar.write(f'  {label} toggle task failed: {e}')
                 stats_bar.update(1)
                 continue
             with global_best_lock:
@@ -867,11 +874,11 @@ def stage_static(src_path, pass_best, stats_prefix, worker_slot_queue):
                     global_best_src = variant
                     with open('global_best.c', 'w') as gf:
                         gf.write(global_best_src)
-                    print(f'*** New GLOBAL best via static toggle: {fmt_size(size)} ***')
+                    print(f'*** New GLOBAL best via {label.lower()} toggle: {fmt_size(size)} ***')
                     global_improved = True
 
             tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> S({new_val}) size {fmt_size(size)} {cache_tag} {tag}')
+            stats_bar.write(f'[{stats_prefix}] toggle at {span} -> {macro}({new_val}) size {fmt_size(size)} {cache_tag} {tag}')
             stats_bar.update(1)
 
     stats_bar.close()
@@ -1003,23 +1010,25 @@ def main():
         while True:
             improved_perm = engine.run_pass(iteration, pass_best, stats_prefix=f'Run {run}')
 
-            static_improved = False
-            while True:
-                improved = stage_static(
-                    src_filename, pass_best, stats_prefix=f'Run {run}',
-                    worker_slot_queue=static_worker_slots)
-                if improved:
-                    static_improved = True
-                    engine.best_size = pass_best['best']
-                    engine.best_content = pass_best['best_content']
-                    # Static toggles are cross-cutting; bump a special group to
-                    # invalidate all in-flight permutation tasks
-                    engine.group_versions['__static__'] = \
-                        engine.group_versions.get('__static__', 0) + 1
-                else:
-                    break
+            toggles_improved = False
+            for macro, label, version_key in toggle_stages:
+                while True:
+                    improved = stage_toggle(
+                        macro, label, src_filename, pass_best,
+                        stats_prefix=f'Run {run}',
+                        worker_slot_queue=static_worker_slots)
+                    if improved:
+                        toggles_improved = True
+                        engine.best_size = pass_best['best']
+                        engine.best_content = pass_best['best_content']
+                        # Toggles are cross-cutting; bump a special group to
+                        # invalidate all in-flight permutation tasks
+                        engine.group_versions[version_key] = \
+                            engine.group_versions.get(version_key, 0) + 1
+                    else:
+                        break
 
-            if not (improved_perm or static_improved):
+            if not (improved_perm or toggles_improved):
                 break
             iteration += 1
 

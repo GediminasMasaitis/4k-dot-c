@@ -71,10 +71,13 @@ def main():
     with open(src_path, encoding='utf-8') as file:
         source = file.read()
 
-    source = re.sub(r'^#define (G|H|S|STATIC_[01])\b.*\n', '', source, flags=re.MULTILINE)
+    source = re.sub(r'^#define (G|H|S|C|STATIC_[01]|CONST_[01])\b.*\n', '', source,
+                    flags=re.MULTILINE)
     source = strip_macros(source)
     source = re.sub(r'\bS\(1\)', 'static', source)
     source = re.sub(r'\bS\(0\)', '', source)
+    source = re.sub(r'\bC\(1\)', 'const', source)
+    source = re.sub(r'\bC\(0\)', '', source)
 
     with open(dst_path, 'w', encoding='utf-8') as file:
         file.write(source)
