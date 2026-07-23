@@ -1701,10 +1701,8 @@ i32 search(
       })
 
   G(242, // UPDATE TRANSPOSITION TABLE
-        // Keep same-position entries searched to more than twice the depth,
-        // unless the new score is exact.
         if (G(324, tt_entry->partial_hash != tt_hash_partial) ||
-            G(324, depth * 2 >= tt_entry->depth) || G(324, tt_flag == Exact)) {
+            G(324, depth >= tt_entry->depth) || G(324, tt_flag == Exact)) {
           *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
                                 .move = ss->best_move,
                                 .score = best_score,
