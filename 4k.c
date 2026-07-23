@@ -1701,12 +1701,17 @@ i32 search(
       })
 
   G(242, // UPDATE TRANSPOSITION TABLE
-        *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
-                              .move = ss->best_move,
-                              .score = best_score,
-                              .static_eval = raw_eval,
-                              .depth = depth,
-                              .flag = tt_flag};)
+        // Keep same-position entries searched to more than twice the depth,
+        // unless the new score is exact.
+        if (G(324, tt_entry->partial_hash != tt_hash_partial) ||
+            G(324, depth * 2 >= tt_entry->depth) || G(324, tt_flag == Exact)) {
+          *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
+                                .move = ss->best_move,
+                                .score = best_score,
+                                .static_eval = raw_eval,
+                                .depth = depth,
+                                .flag = tt_flag};
+        })
 
   return best_score;
 }
