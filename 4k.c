@@ -1867,6 +1867,8 @@ void iteratively_deepen(
 #endif
     ThreadData *data) {
   i32 score = -inf;
+  G(314, Move prev_best = {0};)
+  G(314, i32 stability = 0;)
 #ifdef FULL
   for (i32 depth = 1; depth < maxdepth; depth++) {
 #else
@@ -1900,7 +1902,17 @@ void iteratively_deepen(
           })
     }
 
-    if (G(303, stop) || G(303, elapsed > data->max_time / 10)) {
+    // BEST MOVE STABILITY
+    stability = move_equal(G(315, &data->stack[0].best_move),
+                           G(315, &prev_best))
+                    ? stability + 1
+                    : 0;
+    prev_best = data->stack[0].best_move;
+
+    if (G(303, stop) ||
+        G(303, elapsed > data->max_time /
+                             (G(316, 8) +
+                              G(316, 2 * (stability > 8 ? 8 : stability))))) {
       break;
     }
   }
