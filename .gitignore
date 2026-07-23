@@ -21,3 +21,5 @@ best.c
 worker_*
 compressor
 out.txt
+
+__pycache__
