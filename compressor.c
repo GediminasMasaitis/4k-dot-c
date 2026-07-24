@@ -836,6 +836,18 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
   int num = hb->num_weights;
   int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
 
+  /* Header order (ascending weight): the order the hash stream and every
+     per-model counter below actually use. ml order is the search order,
+     and the two disagree whenever weights differ - labels must come from
+     the header order or the report misattributes every per-model stat. */
+  unsigned char hord_masks[MAX_SEARCH];
+  int hord_weights[MAX_SEARCH];
+  if (num > 0) {
+    unsigned int hord_ext[MAX_SEARCH];
+    unsigned int hwm = encode_weight_mask(ml, hord_masks, 1);
+    decode_weight_mask(hwm, num, hord_masks, hord_weights, hord_ext);
+  }
+
   unsigned int model_hits[MAX_SEARCH] = {};
   unsigned int model_misses[MAX_SEARCH] = {};
   unsigned int min_range = 0xFFFFFFFFu;
@@ -976,7 +988,7 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
       unsigned int total = model_hits[m] + model_misses[m];
       printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
              "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
-             m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
+             m, hord_masks[m], hord_weights[m], model_hits[m],
              total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
              -model_bits_saved[m], -model_bits_saved[m] / 8.0);
       total_saved += model_bits_saved[m];
@@ -1000,7 +1012,7 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
       unsigned int total = model_hits[m] + model_misses[m];
       printf("    Model %2d (mask %02X, w%d): %5u hits (%5.1f%%), "
              "%5u unique ctx, %8.1f bits (%6.1f bytes)\n",
-             m, ml->models[m].mask, ml->models[m].weight, model_hits[m],
+             m, hord_masks[m], hord_weights[m], model_hits[m],
              total ? 100.0 * model_hits[m] / total : 0.0, model_misses[m],
              -model_bits_saved[m], -model_bits_saved[m] / 8.0);
     }
@@ -1019,8 +1031,8 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
     memcpy(stats->bytepos_count, bytepos_count, sizeof(bytepos_count));
     memcpy(stats->bytepos_cost, bytepos_cost, sizeof(bytepos_cost));
     for (int m = 0; m < snum; m++) {
-      stats->model_masks[m] = ml->models[m].mask;
-      stats->model_weights[m] = ml->models[m].weight;
+      stats->model_masks[m] = hord_masks[m];
+      stats->model_weights[m] = hord_weights[m];
       stats->model_hits[m] = model_hits[m];
       stats->model_misses[m] = model_misses[m];
       stats->model_bits_saved[m] = model_bits_saved[m];
@@ -4237,6 +4249,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       "  suppressScroll=false;\n"
       "  markSel(idx,sc);\n"
       "};\n"
+      "window.hexRerender=render; /* the tuner repaints through this */\n"
       "dump.addEventListener('click',function(e){\n"
       "  var el=e.target.closest('[data-i]'); if(!el) return;\n"
       "  var idx=parseInt(el.getAttribute('data-i'));\n"
@@ -12182,6 +12195,38 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    tuHead.innerHTML=tuHeadFmt();\n"
     "    tuInfo.innerHTML=tuInfoFmt();\n"
     "  }\n"
+    "  /* persistence: the tuner commits to BD, so every card that\n"
+    "     reads it live - cmap panels, hex view, tooltips, the song -\n"
+    "     shows the tuned file, in and out of the tuner. load-time\n"
+    "     charts (histograms, timelines) keep the original encode */\n"
+    "  var tuSyncT=null;\n"
+    "  function tuSync(){\n"
+    "    if(typeof BD==='undefined') return;\n"
+    "    for(var i=0;i<BD.length;i++){\n"
+    "      var b=tuBytes[i],d=BD[i];\n"
+    "      d.c=tuCN[i];\n"
+    "      var h3=hx2(b);\n"
+    "      if(d.h!==h3){\n"
+    "        d.h=h3;\n"
+    "        d.ch=(b>=32&&b<=126)?String.fromCharCode(b):null;\n"
+    "      }\n"
+    "      if(d.m&&tuM)\n"
+    "        for(var m3=0;m3<d.m.length&&m3<tuNM;m3++)\n"
+    "          d.m[m3]=tuM[i*tuNM+m3];\n"
+    "    }\n"
+    "    if(tuSyncT) clearTimeout(tuSyncT);\n"
+    "    tuSyncT=setTimeout(tuRepaint,350);\n"
+    "  }\n"
+    "  function tuRepaint(){\n"
+    "    tuSyncT=null;\n"
+    "    /* the cmap recolors through its own slider pipeline */\n"
+    "    var rects=document.querySelectorAll('#cmap-svg rect[data-c]');\n"
+    "    for(var i=0;i<rects.length&&i<tuCN.length;i++)\n"
+    "      rects[i].setAttribute('data-c',tuCN[i].toFixed(2));\n"
+    "    var sl2=document.getElementById('cmap-slider');\n"
+    "    if(sl2) sl2.dispatchEvent(new Event('input'));\n"
+    "    if(window.hexRerender) window.hexRerender();\n"
+    "  }\n"
     "  function tuScore(){\n"
     "    var t0=performance.now();\n"
     "    var r=fpScore(tuBytes,true);\n"
@@ -12194,6 +12239,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      tuLit=true;egg('lighter');\n"
     "      showToast('LIGHTER. ALSO NO LONGER THE FILE');\n"
     "    }\n"
+    "    tuSync();\n"
     "    tuDraw();\n"
     "  }\n"
     "  function tuSet(v){\n"
@@ -12292,15 +12338,19 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      }\n"
     "    }\n"
     "    var n=tuVis(),rows=Math.ceil(n/TUCOLS);\n"
+    "    /* no veil: the tuner docks right and lets the mouse through\n"
+    "       everywhere else, so the rack, tracker and backdrops keep\n"
+    "       playing in plain sight while you work */\n"
     "    tuOv=document.createElement('div');\n"
-    "    tuOv.style.cssText='position:fixed;inset:0;z-index:10004;'\n"
-    "      +'background:rgba(0,0,4,.92);display:flex;'\n"
-    "      +'align-items:center;justify-content:center;';\n"
+    "    tuOv.style.cssText='position:fixed;inset:0;z-index:10003;'\n"
+    "      +'display:flex;align-items:center;justify-content:flex-end;'\n"
+    "      +'padding-right:24px;pointer-events:none;';\n"
     "    var bx=document.createElement('div');\n"
     "    bx.style.cssText='background:#0b0b10;border:2px solid var(--pnk);'\n"
     "      +'padding:14px 18px;font-family:var(--pix);font-size:8px;'\n"
     "      +'color:var(--fg2);letter-spacing:1px;max-height:92vh;'\n"
-    "      +'overflow-y:auto;box-shadow:8px 8px 0 rgba(0,0,0,.6);';\n"
+    "      +'overflow-y:auto;box-shadow:8px 8px 0 rgba(0,0,0,.6);'\n"
+    "      +'pointer-events:auto;';\n"
     "    var tt=document.createElement('div');\n"
     "    tt.style.cssText='color:var(--acc);font-size:10px;'\n"
     "      +'margin-bottom:8px;text-shadow:2px 2px 0 rgba(255,63,216,.5);';\n"
