@@ -1903,10 +1903,10 @@ void iteratively_deepen(
     }
 
     // BEST MOVE STABILITY
-    stability = move_equal(G(315, &data->stack[0].best_move),
-                           G(315, &prev_best))
-                    ? stability + 1
-                    : 0;
+    stability =
+        move_equal(G(315, &data->stack[0].best_move), G(315, &prev_best))
+            ? stability + 1
+            : 0;
     prev_best = data->stack[0].best_move;
 
     if (G(303, stop) ||
@@ -2105,13 +2105,13 @@ S(1) void display_pos(Position *const pos) {
 
 S(0)
 C(0)
-Position start_pos = (Position){
-    .ep = 0,
-    .colour = {0xFFFFull, 0xFFFF000000000000ull},
-    .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
-               0x2400000000000024ull, 0x8100000000000081ull,
-               0x800000000000008ull, 0x1000000000000010ull},
-    .castling = {true, true, true, true}};
+Position start_pos =
+    (Position){.ep = 0,
+               .colour = {0xFFFFull, 0xFFFF000000000000ull},
+               .pieces = {0, 0xFF00000000FF00ull, 0x4200000000000042ull,
+                          0x2400000000000024ull, 0x8100000000000081ull,
+                          0x800000000000008ull, 0x1000000000000010ull},
+               .castling = {true, true, true, true}};
 
 #ifdef FULL
 S(1) void bench() {
