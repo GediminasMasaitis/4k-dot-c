@@ -3563,7 +3563,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     for (int i = 0; i < nb; i++) {
       unsigned char bval = s->input_data ? s->input_data[i] : 0;
       float cost = s->byte_costs[i];
-      fprintf(f, "{o:%d,h:'%02X',c:%.2f", i, bval, cost);
+      /* %.9g: enough digits that Math.fround() of the parsed value
+         recovers this exact float - the forward pass compares against
+         it bit for bit */
+      fprintf(f, "{o:%d,h:'%02X',c:%.9g", i, bval, cost);
       /* printable ASCII character */
       if (bval >= 0x20 && bval <= 0x7E && bval != '\'' && bval != '\\')
         fprintf(f, ",ch:'%c'", bval);
@@ -12018,16 +12021,18 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var r=fpScore(bytes);\n"
     "    var ms=performance.now()-t0;\n"
     "    if(!r){showToast('THE PASS DID NOT SURVIVE');return;}\n"
-    "    /* same cubic log2, same float rounding as the C side: the\n"
-    "       only slack left is BD's two-decimal print, so anything\n"
-    "       past half a hundredth of a bit is a real disagreement */\n"
+    "    /* same cubic log2, same float rounding as the C side, and\n"
+    "       BD.c carries nine significant digits - fround of the\n"
+    "       parsed value is the encoder's float, bit for bit. so the\n"
+    "       bar is exact equality. no tolerance, no excuses */\n"
     "    var mine=0,rep=0,mx=0,mxi=0;\n"
     "    for(var i=0;i<BD.length;i++){\n"
-    "      mine+=r.perByte[i];rep+=BD[i].c;\n"
-    "      var d2=Math.abs(r.perByte[i]-BD[i].c);\n"
+    "      var rc=Math.fround(BD[i].c);\n"
+    "      mine+=r.perByte[i];rep+=rc;\n"
+    "      var d2=Math.abs(r.perByte[i]-rc);\n"
     "      if(d2>mx){mx=d2;mxi=i;}\n"
     "    }\n"
-    "    var ok=mx<0.0055;\n"
+    "    var ok=mx===0;\n"
     "    egg('forward');\n"
     "    var ex=document.getElementById('fpbox');\n"
     "    if(ex) ex.remove();\n"
@@ -12039,11 +12044,11 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      +row('MODELS',fpH.num)\n"
     "      +row('MY BILL',(mine/8).toFixed(2)+' BYTES')\n"
     "      +row('REPORT SAID',(rep/8).toFixed(2)+' BYTES')\n"
-    "      +row('ROUNDING RESIDUE',(mine-rep).toFixed(2)+' BITS')\n"
+    "      +row('DISAGREEMENT',(mine-rep).toFixed(4)+' BITS')\n"
     "      +row('WORST BYTE','0x'+mxi.toString(16).toUpperCase()\n"
-    "        +' ('+mx.toFixed(3)+' BITS OFF)')\n"
+    "        +' ('+mx.toFixed(4)+' BITS OFF)')\n"
     "      +row('TIME',ms.toFixed(1)+' MS')\n"
-    "      +row('VERDICT',ok?'THE MODEL AGREES WITH ITSELF'\n"
+    "      +row('VERDICT',ok?'BIT-EXACT. THE MODEL AGREES WITH ITSELF'\n"
     "        :'THE FORWARD PASS DISSENTS')\n"
     "      +'<div class=\"cf\">SAME TABLE, SAME MIXER, NO CODER'\n"
     "      +'<br>COMPOSE MODE WILL SEND ITS EDITS HERE</div></div>';\n"
