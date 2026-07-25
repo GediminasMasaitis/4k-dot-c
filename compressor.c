@@ -1512,1118 +1512,66 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   return best;
 }
 
-static void write_html_report(const char *path, const CompStats *s) {
-  FILE *f = fopen(path, "w");
-  if (!f) {
-    fprintf(stderr, "Failed to open HTML output '%s'\n", path);
-    return;
+/* ═════════════════════ HTML report emitters ═════════════════════
+   Split out of write_html_report: one function per card, called in
+   order. Each reads only (f, s) plus file-scope globals; the report's
+   markup and behavior are unchanged. */
+
+/* Shared per-model palette: every card that colors by model draws from
+   this one table, so a model keeps its color across the whole report. */
+static const int model_pal[][3] = {
+    {34, 211, 238},  /* cyan     */
+    {251, 146, 60},  /* orange   */
+    {167, 139, 250}, /* purple   */
+    {52, 211, 153},  /* emerald  */
+    {251, 191, 36},  /* amber    */
+    {248, 113, 113}, /* red      */
+    {96, 165, 250},  /* blue     */
+    {232, 121, 249}, /* fuchsia  */
+    {163, 230, 53},  /* lime     */
+    {244, 114, 182}, /* pink     */
+    {45, 212, 191},  /* teal     */
+    {253, 186, 116}, /* peach    */
+    {134, 239, 172}, /* mint     */
+    {196, 181, 253}, /* lavender */
+    {252, 211, 77},  /* gold     */
+    {125, 211, 252}, /* sky      */
+    {249, 168, 212}, /* rose     */
+    {190, 242, 100}, /* chartreuse */
+    {253, 164, 175}, /* salmon   */
+    {110, 231, 183}, /* seafoam  */
+    {217, 70, 239},  /* magenta  */
+};
+#define MODEL_NPAL ((int)(sizeof(model_pal) / sizeof(model_pal[0])))
+
+/* The "var pal/labels/mdata=[...]" arrays the timeline scripts share. */
+static void emit_pal_js(FILE *f, int nm) {
+  fprintf(f, "var pal=[");
+  for (int m = 0; m < nm; m++) {
+    const int *p = model_pal[m % MODEL_NPAL];
+    fprintf(f, "%s[%d,%d,%d]", m ? "," : "", p[0], p[1], p[2]);
   }
+  fprintf(f, "];\n");
+}
 
-  double ratio = 100.0 * s->total_bytes / (double)s->input_size;
-  double savings = 100.0 - ratio;
-  float actual_bpb =
-      s->input_size > 0 ? (float)s->total_bytes * 8.0f / s->input_size : 0;
-  float est_delta = (float)s->total_bytes - s->estimated_bytes;
-  float est_delta_pct =
-      s->estimated_bytes > 0 ? 100.0f * est_delta / s->estimated_bytes : 0;
-  float context_gain = (float)s->entropy - actual_bpb;
+static void emit_labels_js(FILE *f, const CompStats *s) {
+  fprintf(f, "var labels=[");
+  for (int m = 0; m < s->num_models; m++)
+    fprintf(f, "%s\"%02X:%d\"", m ? "," : "", s->model_masks[m],
+            s->model_weights[m]);
+  fprintf(f, "];\n");
+}
 
-  /* Order-1 conditional entropy H1 = H(next byte | previous byte), from
-     bigram counts. Shows how much of the win order-1 modeling explains. */
-  double h1 = -1;
-  if (s->input_data && s->input_size > 1) {
-    unsigned int *bg = (unsigned int *)calloc(65536, sizeof(unsigned int));
-    unsigned int row_tot[256] = {0};
-    for (int i = 0; i + 1 < s->input_size; i++) {
-      bg[s->input_data[i] * 256 + s->input_data[i + 1]]++;
-      row_tot[s->input_data[i]]++;
-    }
-    double pairs = (double)(s->input_size - 1);
-    h1 = 0;
-    for (int r = 0; r < 256; r++) {
-      if (!row_tot[r])
-        continue;
-      for (int c = 0; c < 256; c++) {
-        unsigned int v = bg[r * 256 + c];
-        if (v)
-          h1 -= (v / pairs) * fast_log2f((float)v / row_tot[r]);
-      }
-    }
-    free(bg);
-  }
-
-  /* input fingerprint (CRC32-C) for run-to-run provenance */
-  unsigned int input_crc = 0;
-  if (s->input_data) {
-    unsigned int c = 0xFFFFFFFFu;
-    for (int i = 0; i < s->input_size; i++)
-      c = crc32c_u8(c, s->input_data[i]);
-    input_crc = c ^ 0xFFFFFFFFu;
-  }
-
-  char timebuf[64] = "";
-  {
-    time_t now = time(NULL);
-    struct tm *tmv = localtime(&now);
-    if (tmv)
-      strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tmv);
-  }
-
-  /* ── HTML head + CSS ── */
-  fprintf(f,
-    "<!DOCTYPE html>\n"
-    "<!--\n"
-    "    #####    ###    #####\n"
-    "    ##  ##  ## ##  ##  ##\n"
-    "    #####  ####### ##  ##\n"
-    "    ##     ##   ## ##  ##\n"
-    "    ##     ##   ##  #####\n"
-    "                        ##\n"
-    "    you found the source. we like you.\n"
-    "    69 64 64 71 64\n"
-    "-->\n"
-    "<html lang=\"en\"><head><meta charset=\"UTF-8\">\n"
-    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-    "<title>Compression Report &ndash; %s</title>\n"
-    "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n"
-    "<link href=\"https://fonts.googleapis.com/css2?"
-    "family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400"
-    "&family=Press+Start+2P"
-    "&family=JetBrains+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">\n"
-    "<style>\n"
-    ":root{\n"
-    "  --bg:#0c0e14;--bg2:#13161f;--bg3:#1a1e2b;--bg4:#242938;\n"
-    "  --bdr:#2a2f3f;--bdr2:#353b4f;\n"
-    "  --fg:#e8eaf0;--fg2:#a0a6b8;--fg3:#6b7186;\n"
-    "  --acc:#22d3ee;--acc2:#06b6d4;--acc3:#0891b2;\n"
-    "  --grn:#34d399;--grn2:#10b981;\n"
-    "  --red:#f87171;--red2:#ef4444;\n"
-    "  --ylw:#fbbf24;--ylw2:#f59e0b;\n"
-    "  --orn:#fb923c;--blu:#60a5fa;\n"
-    "  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code','Consolas',monospace;\n"
-    "  --sans:'DM Sans',system-ui,-apple-system,sans-serif;\n"
-    "  --pix:'Press Start 2P',monospace;\n"
-    "  --pnk:#ff3fd8;--yel:#ffe33f;\n"
-    "  --shadow:0 1px 2px rgba(0,0,0,.25),0 14px 34px -18px rgba(0,0,0,.55);\n"
-    "}\n"
-    "body.light{\n"
-    "  --bg:#f6f7fa;--bg2:#ffffff;--bg3:#eef1f5;--bg4:#e0e4ec;\n"
-    "  --bdr:#d6dae3;--bdr2:#b8bdca;\n"
-    "  --fg:#11141c;--fg2:#3b4156;--fg3:#7a8094;\n"
-    "  --acc:#0891b2;--acc2:#06b6d4;--acc3:#0e7490;\n"
-    "  --grn:#059669;--grn2:#10b981;\n"
-    "  --red:#dc2626;--red2:#ef4444;\n"
-    "  --ylw:#d97706;--ylw2:#f59e0b;\n"
-    "  --orn:#ea580c;--blu:#2563eb;\n"
-    "  --shadow:0 1px 2px rgba(15,23,42,.05),0 14px 34px -18px rgba(15,23,42,.16);\n"
-    "}\n"
-    "*{margin:0;padding:0;box-sizing:border-box}\n"
-    "html{scroll-behavior:smooth}\n"
-    ".card[id]{scroll-margin-top:20px}\n"
-    "body{font-family:var(--sans);color:var(--fg);line-height:1.6;"
-    "-webkit-font-smoothing:antialiased;background:"
-    "radial-gradient(1100px 700px at 85%% -5%%,rgba(34,211,238,.06),transparent 60%%),"
-    "radial-gradient(900px 700px at -5%% 25%%,rgba(96,165,250,.05),transparent 60%%),"
-    "var(--bg);background-attachment:fixed}\n"
-    "::selection{background:rgba(34,211,238,.28)}\n"
-    "::-webkit-scrollbar{width:11px;height:11px}\n"
-    "::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:6px;"
-    "border:3px solid var(--bg)}\n"
-    "::-webkit-scrollbar-thumb:hover{background:var(--bdr2)}\n"
-    "::-webkit-scrollbar-track{background:transparent}\n"
-    ".wrap{padding:24px 28px 64px 28px;margin-left:200px;"
-    "max-width:calc(100vw - 200px)}\n"
-    "\n"
-    "/* ── Sidebar ── */\n"
-    ".sidebar{position:fixed;top:0;left:0;width:184px;height:100vh;"
-    "background:var(--bg2);border-right:1px solid var(--bdr);"
-    "padding:18px 0 12px;overflow-y:auto;z-index:100;"
-    "display:flex;flex-direction:column;scrollbar-width:thin}\n"
-    ".sb-brand{display:flex;align-items:center;gap:8px;padding:2px 16px 14px;"
-    "border-bottom:1px solid var(--bdr);margin-bottom:8px}\n"
-    ".sb-brand .dot{width:9px;height:9px;border-radius:50%%;flex-shrink:0;"
-    "background:linear-gradient(135deg,var(--acc),var(--blu));"
-    "box-shadow:0 0 10px rgba(34,211,238,.6)}\n"
-    ".sb-brand span{font-size:12px;font-weight:700;color:var(--fg);"
-    "letter-spacing:.4px}\n"
-    ".sidebar .sb-title{font-size:9.5px;font-weight:700;color:var(--fg3);"
-    "text-transform:uppercase;letter-spacing:1.4px;padding:0 16px;"
-    "margin:12px 0 4px}\n"
-    ".sidebar a{display:block;padding:5px 16px 5px 14px;font-size:12px;"
-    "color:var(--fg3);text-decoration:none;border-left:2px solid transparent;"
-    "border-radius:0 6px 6px 0;"
-    "transition:color .15s,border-color .15s,background .15s,padding .15s;"
-    "line-height:1.4}\n"
-    ".sidebar a:hover{color:var(--fg);background:rgba(127,140,170,.08);"
-    "padding-left:18px}\n"
-    ".sidebar a.active{color:var(--acc);border-left-color:var(--acc);"
-    "background:linear-gradient(90deg,rgba(34,211,238,.10),transparent)}\n"
-    "@media(max-width:900px){.sidebar{display:none}.wrap{margin-left:0}}\n"
-    "\n"
-    "/* ── Hero ── */\n"
-    ".hero{display:flex;align-items:center;gap:40px;padding:40px 0 36px;"
-    "border-bottom:1px solid var(--bdr)}\n"
-    ".hero-ring{position:relative;flex-shrink:0}\n"
-    ".hero-ring svg{display:block}\n"
-    ".hero-pct{position:absolute;inset:0;display:flex;flex-direction:column;"
-    "align-items:center;justify-content:center}\n"
-    ".hero-pct .big{font-size:32px;font-weight:700;letter-spacing:-1px;"
-    "color:var(--acc);line-height:1;text-shadow:0 0 26px}\n"
-    ".hero-pct .lbl{font-size:11px;color:var(--fg3);text-transform:uppercase;"
-    "letter-spacing:1.5px;margin-top:4px}\n"
-    ".hero-info h1{font-size:20px;font-weight:600;color:var(--fg);"
-    "margin-bottom:4px}\n"
-    ".hero-info .sub{font-size:13px;color:var(--fg3)}\n"
-    ".hero-stats{display:flex;gap:0;margin-top:18px}\n"
-    ".hero-stat{padding:0 26px;border-left:1px solid var(--bdr)}\n"
-    ".hero-stat:first-child{padding-left:0;border-left:none}\n"
-    ".hero-stat .val{font-family:var(--mono);font-size:20px;font-weight:600;"
-    "line-height:1}\n"
-    ".hero-stat .lbl{font-size:11px;color:var(--fg3);margin-top:3px;"
-    "text-transform:uppercase;letter-spacing:.5px}\n"
-    "\n"
-    "/* ── Cards ── */\n"
-    ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));"
-    "gap:20px;margin-top:28px}\n"
-    ".grid .full{grid-column:1/-1}\n"
-    ".card{background:linear-gradient(180deg,rgba(255,255,255,.014),"
-    "transparent 46%%),var(--bg2);border:1px solid var(--bdr);"
-    "border-radius:14px;padding:22px 24px;overflow:hidden;"
-    "box-shadow:var(--shadow);transition:border-color .25s}\n"
-    ".card:hover{border-color:var(--bdr2)}\n"
-    ".card h2{font-size:14px;font-weight:600;color:var(--fg);"
-    "margin-bottom:2px;display:flex;align-items:center;gap:9px;"
-    "letter-spacing:.2px}\n"
-    ".card h2::before{content:'';width:3px;height:15px;border-radius:2px;"
-    "flex-shrink:0;background:linear-gradient(180deg,var(--acc),var(--blu))}\n"
-    ".card .desc{font-size:11.5px;color:var(--fg3);margin-bottom:16px;"
-    "line-height:1.55}\n"
-    "\n"
-    "/* ── Tables ── */\n"
-    "table{border-collapse:collapse;width:100%%;font-size:12.5px;"
-    "font-variant-numeric:tabular-nums}\n"
-    "th{color:var(--fg3);font-weight:600;text-transform:uppercase;"
-    "font-size:10px;letter-spacing:.6px;padding:7px 10px;text-align:left;"
-    "border-bottom:1px solid var(--bdr2)}\n"
-    "th.r{text-align:right}\n"
-    "td{padding:6px 10px;border-bottom:1px solid var(--bdr);color:var(--fg2)}\n"
-    "td.r{text-align:right;font-family:var(--mono);font-size:11.5px}\n"
-    "td.n{font-weight:500;color:var(--fg)}\n"
-    "tr:hover td{background:rgba(127,140,170,.07)}\n"
-    ".kv td:first-child{color:var(--fg3);font-size:11.5px;white-space:nowrap}\n"
-    ".kv td:last-child{font-family:var(--mono);font-size:11.5px;"
-    "text-align:right;color:var(--fg)}\n"
-    "\n"
-    "/* ── Colors ── */\n"
-    ".c-acc{color:var(--acc)}.c-grn{color:var(--grn)}.c-red{color:var(--red)}\n"
-    ".c-ylw{color:var(--ylw)}.c-orn{color:var(--orn)}.c-blu{color:var(--blu)}\n"
-    ".c-fg2{color:var(--fg2)}\n"
-    "\n"
-    "/* ── Bar cells ── */\n"
-    ".bar-cell{position:relative}\n"
-    ".bar{position:absolute;left:0;top:0;bottom:0;border-radius:2px}\n"
-    ".bar-acc{background:var(--acc)}.bar-grn{background:var(--grn)}\n"
-    ".bar-blu{background:var(--blu)}.bar-ylw{background:var(--ylw)}\n"
-    ".bar-orn{background:var(--orn)}.bar-red{background:var(--red)}\n"
-    ".bar-label{position:relative;z-index:1}\n"
-    "\n"
-    "/* ── Anim ── */\n"
-    "@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}"
-    "to{opacity:1;transform:none}}\n"
-    ".card{animation:fadeUp .4s ease both}\n"
-    ".card:nth-child(1){animation-delay:.05s}\n"
-    ".card:nth-child(2){animation-delay:.1s}\n"
-    ".card:nth-child(3){animation-delay:.15s}\n"
-    ".card:nth-child(4){animation-delay:.2s}\n"
-    ".card:nth-child(5){animation-delay:.25s}\n"
-    ".card:nth-child(6){animation-delay:.3s}\n"
-    ".card:nth-child(7){animation-delay:.35s}\n"
-    ".card:nth-child(8){animation-delay:.4s}\n"
-    ".card:nth-child(9){animation-delay:.45s}\n"
-    ".card:nth-child(10){animation-delay:.5s}\n"
-    "\n"
-    "/* ── Misc ── */\n"
-    "svg text{font-family:var(--sans)}\n"
-    ".slider-row{display:flex;align-items:center;gap:10px;margin:6px 0 10px;"
-    "font-size:12px;color:var(--fg3)}\n"
-    ".slider-row input[type=range]{width:180px;accent-color:var(--acc)}\n"
-    ".slider-row button{font-size:10px;padding:3px 10px;border:1px solid var(--bdr2);"
-    "border-radius:6px;background:var(--bg3);color:var(--fg2);cursor:pointer;"
-    "font-family:var(--sans);transition:background .12s,color .12s,"
-    "border-color .12s}\n"
-    ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3);"
-    "color:var(--fg)}\n"
-    "\n"
-    "/* ── Inspect panel ── */\n"
-    ".cd-panel{display:none;margin-top:14px;padding:14px 18px;"
-    "background:var(--bg3);border:1px solid var(--bdr2);border-radius:10px;"
-    "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
-    ".cd-panel .cd-head{display:flex;align-items:baseline;gap:14px;"
-    "margin-bottom:10px}\n"
-    ".cd-panel .cd-byte{font-family:var(--mono);font-size:18px;"
-    "font-weight:600;color:var(--fg)}\n"
-    ".cd-panel .cd-sub{font-size:11px;color:var(--fg3)}\n"
-    ".cd-panel .cd-cost{font-family:var(--mono);font-size:14px;"
-    "font-weight:600}\n"
-    ".cd-panel .cd-bar{display:flex;align-items:center;gap:8px;"
-    "margin:3px 0;font-size:11px}\n"
-    ".cd-panel .cd-bar-lbl{font-family:var(--mono);width:50px;"
-    "color:var(--fg3);flex-shrink:0}\n"
-    ".cd-panel .cd-bar-track{flex:1;height:14px;background:var(--bg);"
-    "border-radius:3px;position:relative;overflow:hidden}\n"
-    ".cd-panel .cd-bar-fill{height:100%%;border-radius:3px;"
-    "position:absolute;left:0;top:0;transition:width .2s}\n"
-    ".cd-panel .cd-bar-val{font-family:var(--mono);width:70px;"
-    "text-align:right;flex-shrink:0}\n"
-    ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
-    ".son-now{stroke:var(--yel);stroke-width:2.5;"
-    "filter:drop-shadow(0 0 3px var(--yel))}\n"
-    ".hex-sel{outline:2px solid var(--fg);outline-offset:-1px}\n"
-    ".scrub-wrap{position:relative}\n"
-    ".scrub-line{stroke:var(--fg);stroke-width:0.6;opacity:0;"
-    "pointer-events:none;transition:opacity .1s}\n"
-    ".hover-tip{position:absolute;display:none;background:var(--bg);"
-    "border:1px solid var(--bdr2);border-radius:8px;padding:7px 11px;"
-    "font-size:11px;font-family:var(--mono);pointer-events:none;z-index:10;"
-    "white-space:nowrap;box-shadow:0 10px 28px rgba(0,0,0,.45);"
-    "color:var(--fg2);line-height:1.5}\n"
-    ".hover-tip .tip-row{display:flex;gap:8px;justify-content:space-between;"
-    "min-width:120px}\n"
-    ".hover-tip .tip-sw{display:inline-block;width:8px;height:8px;"
-    "border-radius:2px;margin-right:4px;vertical-align:middle}\n"
-    ".pm-th{cursor:pointer;user-select:none;transition:color .12s}\n"
-    ".pm-th:hover{color:var(--fg)}\n"
-    ".pm-th .sort-arrow{font-size:9px;color:var(--fg3);margin-left:4px}\n"
-    ".pm-th.active{color:var(--fg)}\n"
-    ".pm-th.active .sort-arrow{color:var(--acc)}\n"
-    ".tuned-chip{font-family:var(--mono);font-size:8px;font-weight:600;"
-    "color:#ff3fd8;border:1px solid #ff3fd8;border-radius:4px;"
-    "padding:1px 5px;margin-left:8px;letter-spacing:1px;flex-shrink:0}\n"
-    ".theme-toggle{margin:auto 12px 12px;padding:6px 10px;font-size:11px;"
-    "background:var(--bg3);color:var(--fg2);border:1px solid var(--bdr);"
-    "border-radius:6px;cursor:pointer;font-family:var(--sans);"
-    "display:flex;align-items:center;justify-content:center;gap:6px;"
-    "transition:background .12s,color .12s,border-color .12s}\n"
-    ".theme-toggle:hover{background:var(--bg4);color:var(--fg);"
-    "border-color:var(--bdr2)}\n"
-    ".mc-more{list-style:none;cursor:pointer;transition:color .12s}\n"
-    ".mc-more::-webkit-details-marker{display:none}\n"
-    ".mc-more:hover{color:var(--fg2)}\n"
-    ".mc-more .mc-caret{transition:transform .15s}\n"
-    "details[open]>.mc-more .mc-caret{transform:rotate(90deg)}\n"
-    "\n"
-    "/* ════ PARTY MODE (hidden; Konami code or 7 taps on the ring) ════ */\n"
-    "#stars,#raster,#copper2,#glenz,.scrolltext{display:none}\n"
-    "@keyframes copper{to{background-position:300%% 0}}\n"
-    "@keyframes scrolltx{to{transform:translateX(-100%%)}}\n"
-    "@keyframes wave{0%%,100%%{transform:translateY(-3px)}"
-    "50%%{transform:translateY(3px)}}\n"
-    "@keyframes stars{to{background-position:-520px 260px,-1120px 560px}}\n"
-    "@keyframes blink{50%%{opacity:0}}\n"
-    "@keyframes crackclr{0%%,100%%{color:var(--pnk)}33%%{color:var(--acc)}"
-    "66%%{color:var(--yel)}}\n"
-    "@keyframes ringpulse{0%%,100%%{filter:drop-shadow(0 0 6px "
-    "rgba(34,211,238,.7))}50%%{filter:drop-shadow(0 0 16px "
-    "rgba(255,63,216,.8))}}\n"
-    "@keyframes rgbjitter{0%%,100%%{text-shadow:2px 2px 0 rgba(255,63,216,.55)}"
-    "25%%{text-shadow:-2px 2px 0 rgba(34,211,238,.6)}"
-    "50%%{text-shadow:2px -2px 0 rgba(255,227,63,.6)}"
-    "75%%{text-shadow:-2px -2px 0 rgba(255,63,216,.6)}}\n"
-    "body.party{\n"
-    "  --bg:#000004;--bg2:#0b0b10;--bg3:#14141b;--bg4:#1f1f29;\n"
-    "  --bdr:#26262f;--bdr2:#3a3a48;\n"
-    "  --fg:#e8e8f0;--fg2:#9a9aad;--fg3:#63636f;\n"
-    "  --shadow:5px 5px 0 rgba(0,0,0,.45);\n"
-    "  --sans:'JetBrains Mono',ui-monospace,monospace;\n"
-    "  background:var(--bg);line-height:1.65}\n"
-    "body.party::before{content:'';position:fixed;top:0;left:0;right:0;"
-    "height:4px;z-index:10000;background:linear-gradient(90deg,var(--pnk),"
-    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 6s linear infinite}\n"
-    "body.party::after{content:'';position:fixed;inset:0;"
-    "pointer-events:none;z-index:9999;"
-    "background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0,"
-    "rgba(0,0,0,.16) 1px,transparent 1px,transparent 3px)}\n"
-    "body.party #stars{display:block;position:fixed;inset:0;z-index:-1;"
-    "pointer-events:none;background-image:"
-    "radial-gradient(rgba(255,255,255,.35) 1px,transparent 1.6px),"
-    "radial-gradient(rgba(255,255,255,.18) 1px,transparent 1.6px);"
-    "background-size:260px 260px,140px 140px;"
-    "animation:stars 90s linear infinite}\n"
-    "#flyby{display:none}\n"
-    "body.party.fly #flyby{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "image-rendering:pixelated;opacity:.8}\n"
-    "body.party.fly #stars{display:none}\n"
-    "#roto{display:none}\n"
-    "body.party.roto #roto{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "image-rendering:pixelated;opacity:.55}\n"
-    "body.party.roto #stars,body.party.roto #flyby{display:none}\n"
-    "#voxel{display:none}\n"
-    "/* no pixelated upscale here: nearest at a non-integer ratio makes\n"
-    "   terrain columns beat against the pixel grid while moving */\n"
-    "body.party.voxel #voxel{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "opacity:.65}\n"
-    "body.party.voxel #stars,body.party.voxel #flyby{display:none}\n"
-    "#tunnel{display:none}\n"
-    "body.party.tunl #tunnel{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "opacity:.6}\n"
-    "body.party.tunl #stars,body.party.tunl #flyby{display:none}\n"
-    "#blox{display:none}\n"
-    "body.party.blox #blox{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "opacity:.75}\n"
-    "body.party.blox #flyby{display:none}\n"
-    "/* tower picking: only in the void, where the mouse is free */\n"
-    "body.party.blox.void #blox{pointer-events:auto;cursor:crosshair}\n"
-    "#fire{display:none}\n"
-    "body.party.burn #fire{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "image-rendering:pixelated;opacity:.8}\n"
-    "body.party.burn #stars,body.party.burn #flyby{display:none}\n"
-    "body.party.burn.void #fire{pointer-events:auto;cursor:crosshair}\n"
-    "#twist{display:none}\n"
-    "body.party.twst #twist{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "opacity:.85}\n"
-    "body.party.twst #stars,body.party.twst #flyby{display:none}\n"
-    "body.party.twst.void #twist{pointer-events:auto;cursor:crosshair}\n"
-    "#kefrens{display:none}\n"
-    "body.party.kefr #kefrens{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "image-rendering:pixelated;opacity:.8}\n"
-    "body.party.kefr #stars,body.party.kefr #flyby{display:none}\n"
-    "body.party.kefr.void #kefrens{pointer-events:auto;cursor:crosshair}\n"
-    "/* echoes keeps #stars: bridges under a real sky */\n"
-    "#echoes{display:none}\n"
-    "body.party.echo #echoes{display:block;position:fixed;inset:0;"
-    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
-    "opacity:.85}\n"
-    "body.party.echo.void #echoes{pointer-events:auto;cursor:crosshair}\n"
-    "#moon{display:none}\n"
-    "body.party #moon.lit{display:block;position:fixed;top:72px;right:96px;"
-    "width:26px;height:26px;z-index:-1;pointer-events:none;"
-    "border-radius:50%%;background:"
-    "radial-gradient(circle at 62%% 40%%,rgba(0,0,0,.12) 0 12%%,"
-    "transparent 14%%),"
-    "radial-gradient(circle at 40%% 65%%,rgba(0,0,0,.10) 0 9%%,"
-    "transparent 11%%),"
-    "radial-gradient(circle at 35%% 35%%,#fff7d6,#ffe9a8 60%%,#e8c97a);"
-    "box-shadow:0 0 18px rgba(255,233,168,.45)}\n"
-    "body.party .scrolltext{display:block;overflow:hidden;"
-    "white-space:nowrap;margin-top:30px;border-top:1px solid var(--bdr);"
-    "border-bottom:1px solid var(--bdr);padding:9px 0;cursor:pointer;"
-    "font-family:var(--pix);font-size:9px;color:var(--acc)}\n"
-    "body.party .scrolltext span{display:inline-block;padding-left:100%%;"
-    "animation:scrolltx 32s linear infinite;"
-    "text-shadow:2px 2px 0 rgba(255,63,216,.5)}\n"
-    "body.party .scrolltext i{display:inline-block;font-style:normal;"
-    "animation:wave 1.4s ease-in-out infinite}\n"
-    "body.party ::selection{background:rgba(255,63,216,.35)}\n"
-    "body.party ::-webkit-scrollbar-thumb{border-radius:0}\n"
-    "body.party .card{background:var(--bg2);border-radius:0;"
-    "position:relative;padding-top:24px}\n"
-    "body.party .card::before{content:'';position:absolute;top:0;left:0;"
-    "right:0;height:3px;background:linear-gradient(90deg,var(--pnk),"
-    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 8s linear infinite;opacity:.85}\n"
-    "body.party .card:hover{border-color:var(--pnk)}\n"
-    "body.party .card h2{font-family:var(--pix);font-size:10px;"
-    "font-weight:400;text-transform:uppercase;letter-spacing:1px;"
-    "line-height:1.6;margin-bottom:6px;gap:10px;"
-    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
-    "body.party .card:hover h2{animation:rgbjitter .35s steps(1) infinite}\n"
-    "body.party .card h2::before{width:8px;height:8px;border-radius:0;"
-    "background:var(--acc);box-shadow:2px 2px 0 var(--pnk)}\n"
-    "body.party .hero-info h1{font-family:var(--pix);font-size:14px;"
-    "font-weight:400;text-transform:uppercase;letter-spacing:1px;"
-    "line-height:1.5;margin-bottom:8px;"
-    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
-    "body.party .hero-info h1::after{content:'\\2588';margin-left:8px;"
-    "color:var(--acc);animation:blink 1.1s steps(2) infinite}\n"
-    "body.party .hero-info::after{content:"
-    "var(--stamp,'*** FUCK YOU SHANNON PAQ BEGS TO DIFFER ***');"
-    "display:block;margin-top:12px;font-family:var(--pix);font-size:7px;"
-    "letter-spacing:1px;animation:crackclr 4s linear infinite}\n"
-    "body.party .hero-ring svg{animation:ringpulse 2.6s ease-in-out infinite}\n"
-    "body.party .hero-pct .lbl,body.party .hero-stat .lbl{"
-    "font-family:var(--pix);font-size:7px;letter-spacing:1px}\n"
-    "body.party .hero-stats .hero-stat:last-child{cursor:help}\n"
-    "body.party .hero-stats::after{content:'[ M = MUTE ]';display:flex;"
-    "align-items:center;margin-left:28px;font-family:var(--pix);"
-    "font-size:7px;letter-spacing:1px;color:var(--fg3);"
-    "animation:blink 2.4s steps(2) infinite}\n"
-    "body.party .sb-brand .dot{border-radius:0;background:var(--acc);"
-    "box-shadow:3px 3px 0 var(--pnk)}\n"
-    "body.party .sb-brand span:not(.dot){font-family:var(--pix);"
-    "font-size:8px;font-weight:400;letter-spacing:1px;"
-    "text-transform:uppercase;"
-    "text-shadow:1px 1px 0 rgba(255,63,216,.6)}\n"
-    "body.party .sidebar .sb-title{font-family:var(--pix);font-size:7px;"
-    "font-weight:400;letter-spacing:1px}\n"
-    "body.party .sidebar a:hover{text-shadow:1px 0 var(--pnk),"
-    "-1px 0 var(--acc);background:rgba(255,63,216,.07)}\n"
-    "body.party .sidebar a.active{border-left-color:var(--pnk)}\n"
-    "body.party .slider-row button{border-radius:0;text-transform:uppercase;"
-    "letter-spacing:.5px;box-shadow:2px 2px 0 rgba(0,0,0,.5)}\n"
-    "body.party .slider-row button:hover{border-color:var(--pnk)}\n"
-    "body.party .slider-row button:active{transform:translate(2px,2px);"
-    "box-shadow:none}\n"
-    "body.party .theme-toggle{border-radius:0;text-transform:uppercase;"
-    "letter-spacing:1px}\n"
-    "body.party .hover-tip{border-radius:0;"
-    "box-shadow:4px 4px 0 rgba(0,0,0,.55)}\n"
-    "body.party .cd-panel{border-radius:0}\n"
-    "body.party #raster{display:block;position:fixed;inset:0;z-index:-1;"
-    "pointer-events:none;background-image:"
-    "linear-gradient(180deg,transparent 0,rgba(255,63,216,.16) 50%%,"
-    "transparent 100%%),"
-    "linear-gradient(180deg,transparent 0,rgba(34,211,238,.13) 50%%,"
-    "transparent 100%%),"
-    "linear-gradient(180deg,transparent 0,rgba(255,227,63,.09) 50%%,"
-    "transparent 100%%);"
-    "background-size:100%% 180px,100%% 260px,100%% 340px;"
-    "animation:raster 5s linear infinite}\n"
-    "@keyframes raster{to{background-position:0 180px,0 -260px,0 340px}}\n"
-    "body.party #copper2{display:block;position:fixed;bottom:0;left:0;right:0;"
-    "height:4px;z-index:10000;background:linear-gradient(90deg,var(--pnk),"
-    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 6s linear infinite reverse}\n"
-    "body.party #glenz{display:block;position:fixed;right:36px;bottom:46px;"
-    /* the cube outranks every overlay. the cube always outranks
-       every overlay. do not ask why. */
-    "width:70px;height:70px;z-index:10006;cursor:pointer;touch-action:none;"
-    "transform-style:preserve-3d;animation:glenz 7s linear infinite}\n"
-    "body.party #glenz.kick{animation-duration:1.1s}\n"
-    "body.party #glenz.dead{animation:glenzfall 1.6s ease-in forwards}\n"
-    "@keyframes glenzfall{to{transform:translateY(130vh) rotateX(720deg)}}\n"
-    "body.party .hero-ring.docked{animation:ringdock .9s ease}\n"
-    "@keyframes ringdock{50%%{transform:scale(1.12)}}\n"
-    "body.party.mourning .scrolltext{color:#6a6a72}\n"
-    "body.party.mourning .scrolltext span{text-shadow:none}\n"
-    "body.party #moon.lit~#glenz i{border-color:#cfd8e3}\n"
-    "@keyframes glenz{to{transform:rotateX(360deg) rotateY(720deg)}}\n"
-    "body.party #glenz i{position:absolute;inset:0;"
-    "background:rgba(255,63,216,.10);border:1px solid var(--acc)}\n"
-    "body.party #glenz i:nth-child(even){background:rgba(34,211,238,.10);"
-    "border-color:var(--pnk)}\n"
-    "body.party #glenz i:nth-child(1){transform:translateZ(35px)}\n"
-    "body.party #glenz i:nth-child(2){transform:rotateY(180deg) "
-    "translateZ(35px)}\n"
-    "body.party #glenz i:nth-child(3){transform:rotateY(90deg) "
-    "translateZ(35px)}\n"
-    "body.party #glenz i:nth-child(4){transform:rotateY(-90deg) "
-    "translateZ(35px)}\n"
-    "body.party #glenz i:nth-child(5){transform:rotateX(90deg) "
-    "translateZ(35px)}\n"
-    "body.party #glenz i:nth-child(6){transform:rotateX(-90deg) "
-    "translateZ(35px)}\n"
-    "/* vinyl: while the file plays, the ring is a record */\n"
-    "body.party .hero-ring.vinyl{cursor:grab;touch-action:none}\n"
-    "body.party .hero-ring.vinyl:active{cursor:grabbing}\n"
-    "body.party .hero-ring.vinyl::before{content:'';position:absolute;"
-    "right:-8px;top:-12px;width:4px;height:58%%;z-index:3;"
-    "transform-origin:top center;transform:rotate(-26deg);"
-    "border-radius:2px;"
-    "background:linear-gradient(180deg,#8a8f9c,#565b66);"
-    "box-shadow:2px 2px 4px rgba(0,0,0,.5)}\n"
-    "body.party .hero-ring.vinyl::after{content:'';position:absolute;"
-    "left:calc(50%% - 3.5px);top:8px;width:7px;height:7px;"
-    "border-radius:50%%;background:var(--yel);z-index:2;"
-    "box-shadow:0 0 6px var(--yel);transform-origin:3.5px 62px;"
-    "animation:vinylspin 1.8s linear infinite}\n"
-    "body.party.mourning .hero-ring.vinyl::after{"
-    "animation-duration:3.6s}\n"
-    ".vinyl-arm{display:none}\n"
-    "body.party .hero-ring.vinyl .vinyl-arm{display:block;"
-    "position:absolute;right:-24px;top:20px;width:59px;height:5px;"
-    "z-index:3;transform-origin:right center;transform:rotate(6.5deg);"
-    "border-radius:3px;"
-    "background:linear-gradient(90deg,#6a6f7a,#9aa0ac);"
-    "box-shadow:2px 2px 4px rgba(0,0,0,.45)}\n"
-    "body.party .hero-ring.vinyl .vinyl-arm::after{content:'';"
-    "position:absolute;right:-4px;top:-3px;width:11px;height:11px;"
-    "border-radius:50%%;background:#9aa0ac;"
-    "box-shadow:1px 1px 3px rgba(0,0,0,.5)}\n"
-    "body.party .hero-ring.vinyl .vinyl-arm::before{content:'';"
-    "position:absolute;left:-3px;top:-3px;width:8px;height:11px;"
-    "border-radius:2px;background:#b9bfca;"
-    "box-shadow:1px 1px 3px rgba(0,0,0,.5)}\n"
-    "body.party .hero-ring.vinyl .hero-pct{"
-    "animation:vinylspin 1.8s linear infinite}\n"
-    "body.party.mourning .hero-ring.vinyl .hero-pct{"
-    "animation-duration:3.6s}\n"
-    "@keyframes vinylspin{to{transform:rotate(360deg)}}\n"
-    "/* bottom-left dock past the sidebar: oscilloscope + paqtracker */\n"
-    "#pt-dock{position:fixed;left:200px;bottom:16px;z-index:9997;"
-    "display:flex;flex-direction:column;gap:10px;pointer-events:none}\n"
-    "@media(max-width:900px){#pt-dock{left:16px}}\n"
-    "#pt-dock>div{pointer-events:auto}\n"
-    "/* zoom: the rack at 2x, growing up and to the right from its\n"
-    "   corner. chunky pixels are the point */\n"
-    "body.party #pt-dock.zoom{transform:scale(2);"
-    "transform-origin:0 100%%}\n"
-    "body.party #pt-dock.zoom canvas{image-rendering:pixelated}\n"
-    "/* halve the wide cap under 2x so the visual width still fits */\n"
-    "body.party #pt-dock.zoom #paqtrk.on.wide{"
-    "max-width:calc(50vw - 108px)}\n"
-    "#paqscope{display:none}\n"
-    "body.party #paqscope.on{display:block;width:max-content;"
-    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
-    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
-    "body.party #paqscope.on::before{content:'';display:block;height:3px;"
-    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
-    "var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 8s linear infinite}\n"
-    "#paqscope canvas{display:block;width:248px;height:56px}\n"
-    "#paqspec{display:none}\n"
-    "body.party #paqspec.on{display:block;width:max-content;"
-    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
-    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
-    "body.party #paqspec.on::before{content:'';display:block;height:3px;"
-    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
-    "var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 8s linear infinite}\n"
-    "#paqspec canvas{display:block;width:248px;height:56px}\n"
-    "#paqsg{display:none}\n"
-    "body.party #paqsg.on{display:block;width:max-content;"
-    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
-    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
-    "body.party #paqsg.on::before{content:'';display:block;height:3px;"
-    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
-    "var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 8s linear infinite}\n"
-    "#paqsg canvas{display:block;width:248px;height:72px}\n"
-    "#paqvec{display:none}\n"
-    "body.party #paqvec.on{display:block;width:max-content;"
-    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
-    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
-    "body.party #paqvec.on::before{content:'';display:block;height:3px;"
-    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
-    "var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 8s linear infinite}\n"
-    "#paqvec canvas{display:block;width:248px;height:120px}\n"
-    "#paqtrk{display:none}\n"
-    "body.party #paqtrk.on{display:block;width:248px;"
-    "background:rgba(4,4,8,.93);"
-    "border:1px solid var(--bdr2);padding:0 0 6px;"
-    "font-family:var(--pix);letter-spacing:.5px;"
-    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
-    "/* band mode: the pattern grows sideways to seat the lineup */\n"
-    "body.party #paqtrk.on.wide{width:max-content;"
-    "max-width:calc(100vw - 216px)}\n"
-    "body.party #paqtrk.on::before{content:'';display:block;height:3px;"
-    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
-    "var(--pnk));background-size:300%% 100%%;"
-    "animation:copper 8s linear infinite}\n"
-    "#paqtrk .pt-head{display:flex;justify-content:space-between;"
-    "align-items:center;gap:8px;padding:6px 8px;font-size:7px;"
-    "color:var(--acc);cursor:pointer;border-bottom:1px solid var(--bdr);"
-    "text-shadow:1px 1px 0 rgba(255,63,216,.55)}\n"
-    "#paqtrk .pt-head span{color:var(--yel);text-shadow:none;"
-    "white-space:nowrap}\n"
-    "#paqtrk .pt-row{display:flex;gap:7px;padding:2px 8px;font-size:7px;"
-    "line-height:1.5;color:var(--fg3);cursor:pointer;white-space:nowrap}\n"
-    "#paqtrk .pt-row.cur{background:rgba(255,63,216,.16);color:var(--fg);"
-    "outline:1px solid rgba(255,63,216,.5)}\n"
-    "#paqtrk .pt-row .o{width:32px;color:var(--fg3)}\n"
-    "#paqtrk .pt-row .nt{width:26px;color:var(--acc)}\n"
-    "#paqtrk .pt-row .by{width:18px;color:var(--fg2)}\n"
-    "#paqtrk .pt-row .co{width:30px;text-align:right}\n"
-    "#paqtrk .pt-row .fx{width:26px;text-align:right;color:var(--pnk)}\n"
-    "#paqtrk .pt-row.cur .nt{color:var(--yel)}\n"
-    "/* crt mode: the picture warps, the glass sits on top */\n"
-    "#crt-glass{display:none}\n"
-    "#crt-screen{position:fixed;inset:0;overflow-y:auto;"
-    "scrollbar-width:none}\n"
-    "#crt-screen::-webkit-scrollbar{display:none}\n"
-    "body.crt #crt-screen{filter:url(#crtwarp);"
-    "animation:crtflick .09s linear infinite alternate}\n"
-    "@keyframes crtflick{from{opacity:1}to{opacity:.962}}\n"
-    "body.crt #crt-glass{display:block;position:fixed;inset:0;"
-    "z-index:10001;pointer-events:none;border-radius:52px;"
-    "box-shadow:0 0 0 160px #030304,"
-    "inset 0 0 190px 55px rgba(0,0,0,.68),"
-    "inset 0 0 60px 10px rgba(120,200,255,.07)}\n"
-    "body.crt #crt-glass::before{content:'';position:absolute;"
-    "inset:0;border-radius:52px;"
-    "background:repeating-linear-gradient(90deg,"
-    "rgba(255,60,60,.09) 0 1px,rgba(60,255,90,.09) 1px 2px,"
-    "rgba(80,120,255,.09) 2px 3px)}\n"
-    "body.crt #crt-glass::after{content:'';position:absolute;"
-    "inset:0;border-radius:52px;"
-    "background:linear-gradient(180deg,transparent 0,"
-    "rgba(255,255,255,.05) 46%%,rgba(255,255,255,.09) 50%%,"
-    "rgba(255,255,255,.05) 54%%,transparent 100%%);"
-    "background-size:100%% 260px;background-repeat:no-repeat;"
-    "animation:crtband 6s linear infinite}\n"
-    "@keyframes crtband{from{background-position:0 -260px}"
-    "to{background-position:0 calc(100vh + 260px)}}\n"
-    "body.party.degauss{animation:degauss .5s ease-out}\n"
-    "@keyframes degauss{0%%{transform:scale(1.014,.986) skewX(1.4deg);"
-    "filter:hue-rotate(70deg) saturate(2.6)}"
-    "30%%{transform:scale(.992,1.008) skewX(-.9deg);"
-    "filter:hue-rotate(-45deg) saturate(1.9)}"
-    "60%%{transform:scale(1.005,.996) skewX(.35deg);"
-    "filter:hue-rotate(18deg)}"
-    "100%%{transform:none;filter:none}}\n"
-    "body.party-boot{animation:crtboot .55s ease-out}\n"
-    "@keyframes crtboot{0%%{transform:scaleY(.004);filter:brightness(6)}"
-    "55%%{transform:scaleY(1.03);filter:brightness(1.6)}"
-    "100%%{transform:none;filter:none}}\n"
-    "#decrunch{position:fixed;inset:0;z-index:10002;background:#000;"
-    "display:flex;flex-direction:column;align-items:center;"
-    "justify-content:center;gap:16px;font-family:var(--pix);"
-    "color:var(--acc);font-size:10px;letter-spacing:2px}\n"
-    "#decrunch .bar{color:var(--pnk);font-size:13px;letter-spacing:1px;"
-    "min-height:16px}\n"
-    ".pspark{position:fixed;width:4px;height:4px;z-index:10001;"
-    "pointer-events:none;animation:spark .5s ease-out forwards}\n"
-    "@keyframes spark{to{transform:translateY(12px) scale(0);opacity:0}}\n"
-    ".pburst{position:fixed;width:5px;height:5px;z-index:10001;"
-    "pointer-events:none;animation:pburst .45s ease-out forwards}\n"
-    "@keyframes pburst{to{transform:translate(var(--dx),var(--dy)) "
-    "scale(0);opacity:0}}\n"
-    "#endpart{position:fixed;inset:0;z-index:10002;background:rgba(0,0,4,.88);"
-    "display:flex;align-items:center;justify-content:center;cursor:pointer;"
-    "animation:endfade 9s ease both}\n"
-    "@keyframes endfade{0%%{opacity:0}8%%{opacity:1}88%%{opacity:1}"
-    "100%%{opacity:0}}\n"
-    "#endpart .ebox{font-family:var(--pix);font-size:11px;color:var(--acc);"
-    "letter-spacing:1px;text-align:center;line-height:2;"
-    "text-shadow:2px 2px 0 rgba(255,63,216,.5)}\n"
-    "#endpart .ers{margin:22px 0;width:320px}\n"
-    "#endpart .er{display:flex;justify-content:space-between;gap:30px;"
-    "font-size:8px;color:var(--fg);text-shadow:none;margin:6px 0}\n"
-    "#endpart .er span:last-child{color:var(--yel)}\n"
-    "#finale{position:fixed;inset:0;z-index:10005;overflow:hidden;"
-    "background:rgba(0,0,4,.6);cursor:pointer}\n"
-    "#finale .roll{position:absolute;left:0;right:0;text-align:center;"
-    "font-family:var(--pix);color:var(--fg);font-size:10px;"
-    "letter-spacing:2px;line-height:2.7;"
-    "animation:finroll 46s linear forwards}\n"
-    "@keyframes finroll{from{transform:translateY(100vh)}"
-    "to{transform:translateY(-100%%)}}\n"
-    "#finale .fh{color:var(--acc);font-size:13px;"
-    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
-    "#finale .fs{color:var(--fg3);font-size:8px;letter-spacing:3px;"
-    "margin-top:26px}\n"
-    "#finale .fy{color:var(--yel)}\n"
-    "#finale .fp{color:var(--pnk)}\n"
-    "#guru{position:fixed;inset:0;z-index:10003;background:#000;"
-    "cursor:pointer;display:flex;justify-content:center;"
-    "padding-top:26px}\n"
-    "#guru .box{border:5px solid #f00;padding:14px 44px;text-align:center;"
-    "font-family:var(--mono);color:#f00;font-size:15px;line-height:1.9;"
-    "height:fit-content;animation:gurublink 1.1s steps(2) infinite}\n"
-    "@keyframes gurublink{50%%{border-color:transparent}}\n"
-    "#party-toast{position:fixed;top:40%%;left:50%%;"
-    "transform:translate(-50%%,-50%%);z-index:10001;pointer-events:none;"
-    "font-family:var(--pix);font-size:14px;color:var(--acc);"
-    "background:rgba(0,0,4,.92);border:2px solid var(--pnk);"
-    "padding:18px 26px;letter-spacing:2px;"
-    "text-shadow:2px 2px 0 rgba(255,63,216,.6)}\n"
-    "/* void: just the show, no report */\n"
-    "body.void .wrap,body.void .sidebar,body.void #pt-dock{display:none}\n"
-    "/* devcheats box (works outside party too) */\n"
-    "#cheatbox,#fpbox{position:fixed;inset:0;z-index:10004;"
-    "background:rgba(0,0,4,.88);display:flex;align-items:center;"
-    "justify-content:center;cursor:pointer}\n"
-    "#cheatbox .cbx,#fpbox .cbx{background:#0b0b10;"
-    "border:2px solid var(--pnk);"
-    "padding:20px 28px;font-family:var(--pix);font-size:8px;"
-    "color:var(--fg2);letter-spacing:1px;line-height:2.1;"
-    "max-height:82vh;overflow-y:auto;"
-    "box-shadow:8px 8px 0 rgba(0,0,0,.6)}\n"
-    "#cheatbox .ct,#fpbox .ct{color:var(--acc);font-size:10px;"
-    "margin-bottom:10px;"
-    "text-shadow:2px 2px 0 rgba(255,63,216,.5)}\n"
-    "#cheatbox .cr,#fpbox .cr{display:flex;"
-    "justify-content:space-between;gap:28px}\n"
-    "#cheatbox .cr span:first-child,#fpbox .cr span:first-child{"
-    "color:var(--yel)}\n"
-    "#cheatbox .cf,#fpbox .cf{margin-top:10px;color:var(--fg3);"
-    "font-size:7px;line-height:1.8}\n"
-    "</style></head><body>\n"
-    "<div id=\"stars\"></div>\n"
-    "<canvas id=\"flyby\"></canvas>\n"
-    "<div id=\"moon\"></div>\n"
-    "<div id=\"raster\"></div>\n"
-    "<div id=\"copper2\"></div>\n"
-    "<div id=\"crt-glass\"></div>\n"
-    "<div id=\"glenz\"><i></i><i></i><i></i><i></i><i></i><i></i></div>\n"
-    "<canvas id=\"roto\"></canvas>\n"
-    "<canvas id=\"voxel\"></canvas>\n"
-    "<canvas id=\"tunnel\"></canvas>\n"
-    "<canvas id=\"blox\"></canvas>\n"
-    "<canvas id=\"fire\"></canvas>\n"
-    "<canvas id=\"twist\"></canvas>\n"
-    "<canvas id=\"kefrens\"></canvas>\n"
-    "<canvas id=\"echoes\"></canvas>\n"
-    "<div id=\"pt-dock\">\n"
-    "<div id=\"paqscope\"><canvas id=\"scope-cv\" width=\"248\" "
-    "height=\"56\"></canvas></div>\n"
-    "<div id=\"paqspec\"><canvas id=\"spec-cv\" width=\"248\" "
-    "height=\"56\"></canvas></div>\n"
-    "<div id=\"paqsg\"><canvas id=\"sg-cv\" width=\"248\" "
-    "height=\"72\"></canvas></div>\n"
-    "<div id=\"paqvec\"><canvas id=\"vec-cv\" width=\"248\" "
-    "height=\"120\"></canvas></div>\n"
-    "<div id=\"paqtrk\"></div>\n"
-    "</div>\n"
-    "<nav class=\"sidebar\" id=\"sidebar\">\n"
-    "<div class=\"sb-brand\"><span class=\"dot\"></span>"
-    "<span>Compression Report</span></div>\n"
-    "<div class=\"sb-title\">Overview</div>\n"
-    "<a href=\"#sec-params\">Parameters</a>\n"
-    "<a href=\"#sec-output\">Output Breakdown</a>\n"
-    "<a href=\"#sec-header\">Header Anatomy</a>\n"
-    "<a href=\"#sec-mctrib\">Model Contribution</a>\n"
-    "<div class=\"sb-title\">Input Data</div>\n"
-    "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
-    "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
-    "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
-    "<a href=\"#sec-costhist\">Cost Histogram</a>\n"
-    "<a href=\"#sec-infoscatter\">Cost vs Entropy</a>\n"
-    "<a href=\"#sec-learn\">Learning Curve</a>\n"
-    "<a href=\"#sec-strings\">Strings</a>\n"
-    "<a href=\"#sec-hex\">Hex View</a>\n"
-    "<div class=\"sb-title\">Models</div>\n"
-    "<a href=\"#sec-attr\">Model Attribution</a>\n"
-    "<a href=\"#sec-dominance\">Model Dominance</a>\n"
-    "<a href=\"#sec-hurt\">Model Hurt</a>\n"
-    "<a href=\"#sec-net\">Model Net</a>\n"
-    "<a href=\"#sec-depth\">Context Depth</a>\n"
-    "<a href=\"#sec-corr\">Model Correlation</a>\n"
-    "<a href=\"#sec-surprises\">Top Surprises</a>\n"
-    "<div class=\"sb-title\">Position</div>\n"
-    "<a href=\"#sec-cost\">Cost Over Position</a>\n"
-    "<a href=\"#sec-cumcost\">Cumulative Cost</a>\n"
-    "<a href=\"#sec-bitmap\">Bit Heatmap</a>\n"
-    "<a href=\"#sec-repeat\">Repetition</a>\n"
-    "<div class=\"sb-title\">Search</div>\n"
-    "<a href=\"#sec-search\">Search Trajectory</a>\n"
-    "<a href=\"#sec-maskgrid\">Mask Outcomes</a>\n"
-    "<a href=\"#sec-models\">Model Statistics</a>\n"
-    "<div class=\"sb-title\">Coder</div>\n"
-    "<a href=\"#sec-conf\">Pred. Confidence</a>\n"
-    "<a href=\"#sec-calib\">Calibration</a>\n"
-    "<a href=\"#sec-bytepos\">Byte Position</a>\n"
-    "<a href=\"#sec-hash\">Direct-Mapped Table</a>\n"
-    "<a href=\"#sec-occ\">Table Growth</a>\n"
-    "<a href=\"#sec-sat\">Counter Saturation</a>\n"
-    "<button id=\"theme-toggle\" class=\"theme-toggle\" type=\"button\" "
-    "title=\"Toggle theme\">"
-    "<span id=\"theme-toggle-icon\">\xe2\x98\xbd</span>"
-    "<span id=\"theme-toggle-label\">Light</span></button>\n"
-    "</nav>\n"
-    "<div class=\"wrap\">\n",
-    s->input_file);
-
-  /* shared sparkline helper used by hover tooltips across the report */
-  fprintf(f, "%s",
-    "<script>\n"
-    "window.makeSparkline=function(values,opts){\n"
-    "  opts=opts||{};\n"
-    "  var W=opts.width||200,H=opts.height||40,P=2;\n"
-    "  var color=opts.color||'#22d3ee';\n"
-    "  var hi=(opts.highlightIdx!==undefined)?opts.highlightIdx:-1;\n"
-    "  var n=values.length; if(n<2) return '';\n"
-    "  var vmin=Infinity,vmax=-Infinity;\n"
-    "  for(var i=0;i<n;i++){\n"
-    "    if(values[i]<vmin) vmin=values[i];\n"
-    "    if(values[i]>vmax) vmax=values[i];\n"
-    "  }\n"
-    "  var hasNeg=vmin<0&&vmax>0;\n"
-    "  var midY=H/2, topY=2, botY=H-2;\n"
-    "  function yOf(v){\n"
-    "    if(hasNeg){\n"
-    "      var amp=Math.max(Math.abs(vmin),Math.abs(vmax));\n"
-    "      if(amp<0.001) return midY;\n"
-    "      return midY-(v/amp)*(midY-2);\n"
-    "    }\n"
-    "    if(vmax<=vmin) return botY;\n"
-    "    return botY-((v-vmin)/(vmax-vmin))*(botY-topY);\n"
-    "  }\n"
-    "  function xOf(i){return P+(i*(W-2*P)/(n>1?n-1:1));}\n"
-    "  var base=hasNeg?midY:botY;\n"
-    "  var area='M'+P+','+base;\n"
-    "  for(var i=0;i<n;i++) area+=' L'+xOf(i).toFixed(1)+','+yOf(values[i]).toFixed(1);\n"
-    "  area+=' L'+(W-P)+','+base+' Z';\n"
-    "  var line='';\n"
-    "  for(var i=0;i<n;i++) line+=(i?'L':'M')+xOf(i).toFixed(1)+','+yOf(values[i]).toFixed(1)+' ';\n"
-    "  var s='<svg width=\"'+W+'\" height=\"'+H+'\" '\n"
-    "    +'style=\"display:block;margin-top:6px\">'\n"
-    "    +'<rect x=\"0\" y=\"0\" width=\"'+W+'\" height=\"'+H+'\" '\n"
-    "    +'fill=\"var(--bg3)\" rx=\"3\"/>';\n"
-    "  if(hasNeg){\n"
-    "    s += '<line x1=\"0\" y1=\"'+midY+'\" x2=\"'+W+'\" y2=\"'+midY\n"
-    "      +'\" stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
-    "  }\n"
-    "  s += '<path d=\"'+area+'\" fill=\"'+color+'\" fill-opacity=\".25\"/>';\n"
-    "  s += '<path d=\"'+line+'\" fill=\"none\" stroke=\"'+color+'\" stroke-width=\"1\"/>';\n"
-    "  if(hi>=0&&hi<n){\n"
-    "    s += '<circle cx=\"'+xOf(hi).toFixed(1)+'\" '\n"
-    "      +'cy=\"'+yOf(values[hi]).toFixed(1)+'\" r=\"2.5\" fill=\"var(--fg)\"/>';\n"
-    "  }\n"
-    "  if(opts.labelTop) s += '<text x=\"4\" y=\"9\" font-size=\"8\" '\n"
-    "    +'fill=\"var(--fg3)\">'+opts.labelTop+'</text>';\n"
-    "  if(opts.labelBot) s += '<text x=\"4\" y=\"'+(H-3)+'\" font-size=\"8\" '\n"
-    "    +'fill=\"var(--fg3)\">'+opts.labelBot+'</text>';\n"
-    "  if(opts.labelRight) s += '<text x=\"'+(W-4)+'\" y=\"'+(H-3)\n"
-    "    +'\" text-anchor=\"end\" font-size=\"8\" fill=\"var(--fg3)\">'\n"
-    "    +opts.labelRight+'</text>';\n"
-    "  return s+'</svg>';\n"
-    "};\n"
-    "/* URL state: serialize active model/mode/sort to #hash so a particular\n"
-    "   finding can be bookmarked or shared as a deep link */\n"
-    "window.reportState={m:null,mode:null,sortCol:6,sortDir:-1};\n"
-    "window.reportStateSuppress=false;\n"
-    "window.serializeReportState=function(){\n"
-    "  if(window.reportStateSuppress) return;\n"
-    "  var s=window.reportState, parts=[];\n"
-    "  if(s.m!==null&&s.m!==undefined){\n"
-    "    parts.push('m='+s.m);\n"
-    "    if(s.mode) parts.push('mode='+s.mode);\n"
-    "  }\n"
-    "  if(s.sortCol!==6||s.sortDir!==-1)\n"
-    "    parts.push('sort='+s.sortCol+','+s.sortDir);\n"
-    "  var h=parts.length?'#'+parts.join('&'):location.pathname+location.search;\n"
-    "  try { history.replaceState(null,'',h); } catch(e) {}\n"
-    "};\n"
-    "window.parseReportState=function(){\n"
-    "  var h=location.hash.replace(/^#/,'');\n"
-    "  if(!h) return {};\n"
-    "  var out={};\n"
-    "  h.split('&').forEach(function(p){\n"
-    "    var i=p.indexOf('='); if(i<0) return;\n"
-    "    out[p.substring(0,i)]=p.substring(i+1);\n"
-    "  });\n"
-    "  return out;\n"
-    "};\n"
-    "/* retune registry: cards that can rebuild themselves from BD\n"
-    "   register here; the party-mode tuner calls retune() after\n"
-    "   committing edits, and each refreshed card wears a TUNED chip */\n"
-    "window.retuneHooks=[];\n"
-    "/* cooperative rebuild: one card per macrotask, so the audio\n"
-    "   scheduler keeps breathing between rebuilds instead of one\n"
-    "   long stall. a retune during a running pass restarts it */\n"
-    "window.retuneQ=null;\n"
-    "window.retune=function(){\n"
-    "  var t=window.TUNED,any=false;\n"
-    "  if(t) for(var i=0;i<t.length;i++) if(t[i]){any=true;break;}\n"
-    "  var fresh=(window.retuneQ===null);\n"
-    "  window.retuneQ={k:0,any:any};\n"
-    "  if(!fresh) return; /* the running chain picks up the new queue */\n"
-    "  function step(){\n"
-    "    var q=window.retuneQ;\n"
-    "    if(!q) return;\n"
-    "    if(q.k>=window.retuneHooks.length){window.retuneQ=null;return;}\n"
-    "    var hk=window.retuneHooks[q.k++];\n"
-    "    try{hk.fn();}catch(e){}\n"
-    "    var card=document.getElementById(hk.id);\n"
-    "    var h2=card?card.querySelector('h2'):null;\n"
-    "    if(h2){\n"
-    "      var chip=h2.querySelector('.tuned-chip');\n"
-    "      if(q.any&&!chip){\n"
-    "        chip=document.createElement('span');\n"
-    "        chip.className='tuned-chip';\n"
-    "        chip.textContent='TUNED';\n"
-    "        h2.appendChild(chip);\n"
-    "      }\n"
-    "      if(chip) chip.style.display=q.any?'':'none';\n"
-    "    }\n"
-    "    setTimeout(step,0);\n"
-    "  }\n"
-    "  setTimeout(step,0);\n"
-    "};\n"
-    "</script>\n");
-
-  /* identity beacon for cross-report party chatter */
-  fprintf(f,
-    "<script>var REPORT_ID={crc:'0x%08X',ratio:%.3f,inb:%d,outb:%d};"
-    "</script>\n",
-    input_crc, ratio, s->input_size, s->total_bytes);
-
-  /* the emitted .paq itself (header + masks + payload), base64. the
-     party-mode true decruncher re-runs the actual decoder on this and
-     checks the CRC - the report can prove the file round-trips */
-  if (s->comp_stream && s->num_models > 0) {
-    int lb = hdr_bitlen_bytes();
-    int hb = hdr_base_bytes();
-    int total = hb + s->num_models + s->comp_stream_bytes;
-    unsigned char *pf = (unsigned char *)malloc(total);
-    unsigned int bl = (unsigned int)s->hdr_bitlen;
-    memcpy(pf, &bl, lb);
-    memcpy(pf + lb, &s->hdr_wmask, 4);
-    memcpy(pf + hb, s->hdr_masks, s->num_models);
-    memcpy(pf + hb + s->num_models, s->comp_stream, s->comp_stream_bytes);
-    fprintf(f, "<script>var PAQ={db:%d,bp:%d,lf:%d,b64:'",
-            direct_bits, s->base_prob, s->large_field);
-    fprint_b64(f, pf, total);
-    fprintf(f, "'};</script>\n");
-    free(pf);
-  }
-
-  /* the band: top-8 models by bits saved, one channel each, with the
-     per-byte contribution packed to one hex nibble (0-15, saturating
-     at 4 bits) - party mode's multi-channel tracker plays from this */
-  if (s->byte_model_contrib && s->num_data_bytes > 0 && s->num_models > 0) {
-    int nm = s->num_models, nb = s->num_data_bytes;
-    int ord[MAX_SEARCH];
+static void emit_mdata_js(FILE *f, const float *mdata, int npts, int nm) {
+  fprintf(f, "var mdata=[");
+  for (int i = 0; i < npts; i++)
     for (int m = 0; m < nm; m++)
-      ord[m] = m;
-    for (int i = 0; i < nm - 1; i++)
-      for (int j = i + 1; j < nm; j++)
-        if (s->model_bits_saved[ord[i]] < s->model_bits_saved[ord[j]]) {
-          int t = ord[i];
-          ord[i] = ord[j];
-          ord[j] = t;
-        }
-    int nch = nm < 8 ? nm : 8;
-    fprintf(f, "<script>var BAND={ch:[");
-    for (int c = 0; c < nch; c++)
-      fprintf(f, "%s\"%02X:%d\"", c ? "," : "", s->model_masks[ord[c]],
-              s->model_weights[ord[c]]);
-    fprintf(f, "],q:\"");
-    for (int i = 0; i < nb; i++)
-      for (int c = 0; c < nch; c++) {
-        float v = s->byte_model_contrib[i * nm + ord[c]];
-        int q = (int)(v * (15.0f / 4.0f) + 0.5f);
-        fputc("0123456789ABCDEF"[q < 0 ? 0 : q > 15 ? 15 : q], f);
-      }
-    fprintf(f, "\"};</script>\n");
-  }
+      fprintf(f, "%s%.4g", (i || m) ? "," : "", mdata[i * nm + m]);
+  fprintf(f, "];\n");
+}
 
-  /* ── Hero section with ring gauge ── */
-  {
-    /* ring gauge: SVG donut */
-    int ring_r = 60, ring_stroke = 10;
-    double circumf = 2.0 * 3.14159265 * ring_r;
-    double fill_len = circumf * savings / 100.0;
-    double gap_len = circumf - fill_len;
-    const char *ring_color = savings > 60 ? "#22d3ee"
-                           : savings > 40 ? "#34d399"
-                           : savings > 20 ? "#fbbf24"
-                                          : "#f87171";
-
-    fprintf(f, "<div class=\"hero\">\n");
-    fprintf(f,
-      "<div class=\"hero-ring\">\n"
-      "<svg width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\">\n"
-      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
-      "stroke=\"var(--bg3)\" stroke-width=\"%d\"/>\n"
-      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
-      "stroke=\"%s\" stroke-width=\"%d\" "
-      "stroke-dasharray=\"%.1f %.1f\" stroke-dashoffset=\"%.1f\" "
-      "stroke-linecap=\"round\" "
-      "style=\"transform:rotate(-90deg);transform-origin:center;"
-      "filter:drop-shadow(0 0 8px %s40)\"/>\n"
-      "</svg>\n"
-      "<div class=\"hero-pct\">"
-      "<span class=\"big\" style=\"color:%s\">%.0f%%</span>"
-      "<span class=\"lbl\">saved</span></div>\n"
-      "<div class=\"vinyl-arm\"></div>\n"
-      "</div>\n",
-      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
-      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
-      ring_r + ring_stroke, ring_r + ring_stroke, ring_r, ring_stroke,
-      ring_r + ring_stroke, ring_r + ring_stroke, ring_r,
-      ring_color, ring_stroke, fill_len, gap_len, circumf * 0.25,
-      ring_color, ring_color, savings);
-
-    fprintf(f,
-      "<div class=\"hero-info\">\n"
-      "<h1>Compression Report</h1>\n"
-      "<p class=\"sub\">%s &middot; context-mixing arithmetic coder</p>\n"
-      "<div class=\"hero-stats\">\n"
-      "<div class=\"hero-stat\"><div class=\"val\">%d</div>"
-      "<div class=\"lbl\">Input bytes</div></div>\n"
-      "<div class=\"hero-stat\"><div class=\"val c-acc\">%d</div>"
-      "<div class=\"lbl\">Output bytes</div></div>\n"
-      "<div class=\"hero-stat\"><div class=\"val c-grn\">%.2f%%</div>"
-      "<div class=\"lbl\">Ratio</div></div>\n"
-      "<div class=\"hero-stat\"><div class=\"val\" style=\"color:%s\">%+.3f</div>"
-      "<div class=\"lbl\">H\xe2\x82\x80 gain</div></div>\n"
-      "</div></div></div>\n\n",
-      s->input_file, s->input_size, s->total_bytes, ratio,
-      context_gain > 0 ? "#34d399" : "#f87171", context_gain);
-  }
-
-  fprintf(f, "<div class=\"grid\">\n");
-
-  /* ── Summary card ── */
-  fprintf(f,
-    "<div class=\"card\" id=\"sec-params\">\n"
-    "<h2>Parameters</h2>\n"
-    "<p class=\"desc\">Compression settings and entropy metrics.</p>\n"
-    "<table class=\"kv\">\n");
-  fprintf(f, "<tr><td>Search</td><td>beam %d%s%s</td></tr>\n",
-    s->beam, s->simple ? " simple" : "", s->extreme ? " extreme" : "");
-  fprintf(f, "<tr><td>Base probability</td><td>%d</td></tr>\n", s->base_prob);
-  fprintf(f, "<tr><td>Models</td><td style=\"font-size:10.5px\">%s</td></tr>\n",
-    s->model_string);
-  fprintf(f, "<tr><td>Compressed bits</td><td>%d</td></tr>\n",
-    s->compressed_bits);
-  fprintf(f, "<tr><td>Header</td><td>%d bytes</td></tr>\n", s->header_bytes);
-  fprintf(f, "<tr><td>Large mode (-L)</td><td class=\"%s\">%s</td></tr>\n",
-    s->large_field ? "c-blu" : "c-grn",
-    s->large_field ? "on (32-bit length field)"
-                   : "off (16-bit length field)");
-  fprintf(f, "<tr><td>Estimated (pre-encode)</td><td>%.3f bytes</td></tr>\n",
-    s->estimated_bytes);
-  fprintf(f,
-    "<tr><td>Estimator delta</td>"
-    "<td class=\"%s\">%+.1f bytes (%+.1f%%)</td></tr>\n",
-    (est_delta < 2 && est_delta > -2) ? "c-grn"
-    : (est_delta < 5 && est_delta > -5) ? "c-ylw" : "c-orn",
-    est_delta, est_delta_pct);
-  fprintf(f,
-    "<tr><td>Shannon H\xe2\x82\x80</td>"
-    "<td>%.3f bits/byte</td></tr>\n", s->entropy);
-  if (h1 >= 0)
-    fprintf(f,
-      "<tr><td>Order-1 H\xe2\x82\x81</td>"
-      "<td>%.3f bits/byte</td></tr>\n", h1);
-  fprintf(f,
-    "<tr><td>Actual (incl. header)</td>"
-    "<td class=\"%s\">%.3f bits/byte</td></tr>\n",
-    actual_bpb < s->entropy ? "c-grn"
-    : actual_bpb < s->entropy * 1.1 ? "c-blu"
-    : actual_bpb < s->entropy * 1.3 ? "c-ylw" : "c-orn",
-    actual_bpb);
-  fprintf(f,
-    "<tr><td>Prediction cost</td>"
-    "<td>%.1f bits (%.1f B)</td></tr>\n",
-    s->total_cost, s->total_cost / 8.0);
-  {
-    /* actual emitted bits minus ideal (sum of -log2 p): arithmetic coder
-       loss + termination. Should be a byte or two. */
-    double ovh = s->compressed_bits - s->total_cost;
-    fprintf(f,
-      "<tr><td>Coder overhead</td>"
-      "<td class=\"%s\">%+.1f bits (%.2f B)</td></tr>\n",
-      ovh < 16 ? "c-grn" : ovh < 64 ? "c-ylw" : "c-orn",
-      ovh, ovh / 8.0);
-  }
-  fprintf(f,
-    "<tr><td>Arith coder min range</td>"
-    "<td>0x%08X</td></tr>\n", s->min_range);
-  fprintf(f, "<tr><td>Search time</td><td>%.1f ms</td></tr>\n", s->search_ms);
-  if (g_encode_ms > 0)
-    fprintf(f,
-      "<tr><td>Encode time</td>"
-      "<td>%.3f ms/pass (%.1f MB/s, %d rep%s)</td></tr>\n",
-      g_encode_ms, s->input_size / g_encode_ms / 1000.0, timing_reps,
-      timing_reps == 1 ? "" : "s");
-  if (s->input_data)
-    fprintf(f, "<tr><td>Input CRC32-C</td><td>0x%08X</td></tr>\n", input_crc);
-  fprintf(f, "</table></div>\n\n");
-
-  /* ── Output Breakdown card ── */
+/* ── Output Breakdown ── */
+static void emit_output_breakdown(FILE *f, const CompStats *s) {
   {
     int payload_bytes = s->total_bytes - s->header_bytes;
     int padding_bits = payload_bytes * 8 - s->compressed_bits;
@@ -2704,8 +1652,10 @@ static void write_html_report(const char *path, const CompStats *s) {
       "</div>\n"
       "</div>\n\n");
   }
+}
 
-  /* ── Header Anatomy ── */
+/* ── Header Anatomy ── */
+static void emit_header_anatomy(FILE *f, const CompStats *s) {
   if (s->num_models > 0) {
     int len_bytes = s->large_field ? 4 : 2;
 
@@ -2870,20 +1820,11 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Model Contribution donut ── */
+/* ── Model Contribution donut ── */
+static void emit_model_contrib(FILE *f, const CompStats *s) {
   if (s->num_models > 0) {
-    /* same palette as Attribution map for visual continuity */
-    static const int mc_pal[][3] = {
-      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
-      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
-      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
-      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
-      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
-      {217,70,239},
-    };
-    int mc_npal = (int)(sizeof(mc_pal) / sizeof(mc_pal[0]));
-
     /* sort by bits_saved desc */
     int mc_order[MAX_SEARCH];
     for (int m = 0; m < s->num_models; m++) mc_order[m] = m;
@@ -2925,12 +1866,12 @@ static void write_html_report(const char *path, const CompStats *s) {
       double arc = circumf * pct / 100.0;
       double gap = circumf - arc;
       double offset = -circumf * cum_pct / 100.0;
-      int pi = m % mc_npal; /* key by model, matching the attribution map */
+      int pi = m % MODEL_NPAL; /* key by model, matching the attribution map */
       fprintf(f,
         "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
         "stroke=\"rgb(%d,%d,%d)\" stroke-width=\"%d\" "
         "stroke-dasharray=\"%.2f %.2f\" stroke-dashoffset=\"%.2f\"/>\n",
-        cx, cy, r, mc_pal[pi][0], mc_pal[pi][1], mc_pal[pi][2], sw,
+        cx, cy, r, model_pal[pi][0], model_pal[pi][1], model_pal[pi][2], sw,
         arc, gap, offset);
       cum_pct += pct;
     }
@@ -2956,7 +1897,7 @@ static void write_html_report(const char *path, const CompStats *s) {
       int m = mc_order[i];
       double bits = s->model_bits_saved[m];
       double pct = 100.0 * bits / mc_total;
-      int pi = m % mc_npal; /* key by model, matching the attribution map */
+      int pi = m % MODEL_NPAL; /* key by model, matching the attribution map */
       const char *clr = bits <= 0 ? "var(--fg3)" : "var(--fg)";
       fprintf(f,
         "<div style=\"display:flex;align-items:center;gap:10px\">\n"
@@ -2969,7 +1910,7 @@ static void write_html_report(const char *path, const CompStats *s) {
         "<span style=\"font-family:var(--mono);color:var(--fg3);"
         "min-width:42px;text-align:right;font-size:11px\">%.1f%%</span>\n"
         "</div>\n",
-        mc_pal[pi][0], mc_pal[pi][1], mc_pal[pi][2],
+        model_pal[pi][0], model_pal[pi][1], model_pal[pi][2],
         s->model_masks[m], s->model_weights[m],
         clr, bits / 8.0, pct);
     }
@@ -3000,7 +1941,7 @@ static void write_html_report(const char *path, const CompStats *s) {
         int m = mc_order[i];
         double bits = s->model_bits_saved[m];
         double pct = 100.0 * bits / mc_total;
-        int pi = m % mc_npal; /* key by model, matching the attribution map */
+        int pi = m % MODEL_NPAL; /* key by model, matching the attribution map */
         const char *clr = bits <= 0 ? "var(--fg3)" : "var(--fg)";
         fprintf(f,
           "<div style=\"display:flex;align-items:center;gap:10px\">\n"
@@ -3013,7 +1954,7 @@ static void write_html_report(const char *path, const CompStats *s) {
           "<span style=\"font-family:var(--mono);color:var(--fg3);"
           "min-width:42px;text-align:right;font-size:11px\">%.1f%%</span>\n"
           "</div>\n",
-          mc_pal[pi][0], mc_pal[pi][1], mc_pal[pi][2],
+          model_pal[pi][0], model_pal[pi][1], model_pal[pi][2],
           s->model_masks[m], s->model_weights[m],
           clr, bits / 8.0, pct);
       }
@@ -3023,8 +1964,10 @@ static void write_html_report(const char *path, const CompStats *s) {
       "</div>\n"
       "</div>\n\n");
   }
+}
 
-  /* ── Byte Frequency Heatmap ── */
+/* ── Byte Frequency Heatmap ── */
+static void emit_byte_freq(FILE *f, const CompStats *s) {
   {
     unsigned int fmax = 0;
     int nunique = 0;
@@ -3216,8 +2159,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</script>\n");
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Byte Bigram Matrix ── */
+/* ── Byte Bigram Matrix ── */
+static void emit_bigram(FILE *f, const CompStats *s) {
   if (s->input_data && s->input_size > 1) {
     fprintf(f,
       "<div class=\"card full\" id=\"sec-bigram\">\n"
@@ -3538,8 +2483,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</script>\n");
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Compressibility Map ── */
+/* ── Compressibility Map ── */
+static void emit_cmap(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 0) {
     int nb = s->num_data_bytes;
     float cmin = 1e9f, cmax = -1e9f;
@@ -3776,8 +2723,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</script>\n");
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Byte Cost Histogram ── */
+/* ── Byte Cost Histogram ── */
+static void emit_cost_hist(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 0) {
     fprintf(f,
       "<div class=\"card\" id=\"sec-costhist\" style=\"position:relative\">\n"
@@ -3899,8 +2848,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Cost vs Self-Information scatter ── */
+/* ── Cost vs Self-Information scatter ── */
+static void emit_info_scatter(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 0) {
     fprintf(f, "%s",
       "<div class=\"card\" id=\"sec-infoscatter\" style=\"position:relative\">\n"
@@ -4017,8 +2968,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Learning Curve ── */
+/* ── Learning Curve ── */
+static void emit_learning_curve(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 0) {
     fprintf(f, "%s",
       "<div class=\"card\" id=\"sec-learn\" style=\"position:relative\">\n"
@@ -4131,8 +3084,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Strings ── */
+/* ── Strings ── */
+static void emit_strings(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 0) {
     fprintf(f, "%s",
       "<div class=\"card\" id=\"sec-strings\">\n"
@@ -4213,8 +3168,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Hex View ── */
+/* ── Hex View ── */
+static void emit_hex_view(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 0 && s->input_data) {
     fprintf(f, "%s",
       "<div class=\"card full\" id=\"sec-hex\" style=\"position:relative\">\n"
@@ -4417,8 +3374,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Model Attribution Map ── */
+/* ── Model Attribution Map ── */
+static void emit_attr_map(FILE *f, const CompStats *s) {
   if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 0
       && s->num_models > 0) {
     int nb = s->num_data_bytes;
@@ -4438,32 +3397,6 @@ static void write_html_report(const char *path, const CompStats *s) {
     int svg_w = cols * stride - cg + 2;
     int svg_h = rows * stride - cg + 2;
 
-    /* distinct color palette for up to MAX_SEARCH models */
-    static const int palette[][3] = {
-      {34,211,238},   /* cyan     */
-      {251,146,60},   /* orange   */
-      {167,139,250},  /* purple   */
-      {52,211,153},   /* emerald  */
-      {251,191,36},   /* amber    */
-      {248,113,113},  /* red      */
-      {96,165,250},   /* blue     */
-      {232,121,249},  /* fuchsia  */
-      {163,230,53},   /* lime     */
-      {244,114,182},  /* pink     */
-      {45,212,191},   /* teal     */
-      {253,186,116},  /* peach    */
-      {134,239,172},  /* mint     */
-      {196,181,253},  /* lavender */
-      {252,211,77},   /* gold     */
-      {125,211,252},  /* sky      */
-      {249,168,212},  /* rose     */
-      {190,242,100},  /* chartreuse */
-      {253,164,175},  /* salmon   */
-      {110,231,183},  /* seafoam  */
-      {217,70,239},   /* magenta  */
-    };
-    int npal = (int)(sizeof(palette) / sizeof(palette[0]));
-
     fprintf(f,
       "<div class=\"card full\" id=\"sec-attr\">\n"
       "<h2>Model Attribution Map</h2>\n"
@@ -4479,7 +3412,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "<div id=\"attr-legend\" style=\"display:flex;flex-wrap:wrap;"
       "gap:6px 14px;margin-bottom:12px;font-size:11px;"
       "font-family:var(--mono)\">\n");
-    for (int m = 0; m < nm && m < npal; m++) {
+    for (int m = 0; m < nm && m < MODEL_NPAL; m++) {
       fprintf(f, "<span class=\"attr-lg\" data-bm=\"%d\" "
         "style=\"display:inline-flex;align-items:center;gap:4px;"
         "cursor:pointer;padding:2px 6px;border-radius:3px\">"
@@ -4487,7 +3420,7 @@ static void write_html_report(const char *path, const CompStats *s) {
         "border-radius:2px;background:rgb(%d,%d,%d)\"></span>"
         "%02X:%d<span class=\"attr-lg-arr\"></span></span>\n",
         m,
-        palette[m % npal][0], palette[m % npal][1], palette[m % npal][2],
+        model_pal[m % MODEL_NPAL][0], model_pal[m % MODEL_NPAL][1], model_pal[m % MODEL_NPAL][2],
         s->model_masks[m], s->model_weights[m]);
     }
     fprintf(f, "<span class=\"attr-lg\" data-bm=\"-1\" "
@@ -4531,16 +3464,16 @@ static void write_html_report(const char *path, const CompStats *s) {
       int cr, cg, cb;
       float opa;
       if (best_m >= 0 && best_v > 0.001f) {
-        /* use full palette color + opacity so the card background
+        /* use full model_pal color + opacity so the card background
            (light or dark) shows through and the theme stays coherent */
         float t = best_v / global_max;
         if (t > 1.0f) t = 1.0f;
         /* concave curve so weak contributions stay visible */
         t = 1.0f - (1.0f - t) * (1.0f - t);
-        int pi = best_m % npal;
-        cr = palette[pi][0];
-        cg = palette[pi][1];
-        cb = palette[pi][2];
+        int pi = best_m % MODEL_NPAL;
+        cr = model_pal[pi][0];
+        cg = model_pal[pi][1];
+        cb = model_pal[pi][2];
         opa = 0.15f + 0.85f * t;
       } else {
         /* no model helped — faint neutral */
@@ -4575,12 +3508,12 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "<style id=\"attr-hilite\"></style>\n");
     fprintf(f, "<div id=\"attr-detail\" class=\"cd-panel\"></div>\n");
 
-    /* ── Emit palette as JS + click handler ── */
+    /* ── Emit model_pal as JS + click handler ── */
     fprintf(f, "<script>\n");
     fprintf(f, "var ATTR_PAL=[");
-    for (int m = 0; m < nm && m < npal; m++)
+    for (int m = 0; m < nm && m < MODEL_NPAL; m++)
       fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
-              palette[m % npal][0], palette[m % npal][1], palette[m % npal][2]);
+              model_pal[m % MODEL_NPAL][0], model_pal[m % MODEL_NPAL][1], model_pal[m % MODEL_NPAL][2]);
     fprintf(f, "];\n");
 
     fprintf(f,
@@ -4741,605 +3674,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</script>\n");
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Model Dominance Timeline ── */
-  if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1
-      && s->num_models > 0) {
-    int nb = s->num_data_bytes;
-    int nm = s->num_models;
-    int win = nb / 64;
-    if (win < 4) win = 4;
-    if (win > 64) win = 64;
-    int npts = nb - win + 1;
-    if (npts < 2) npts = 2;
-
-    /* compute rolling window contribution per model (positive only = bits saved) */
-    float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
-    float smax = 0;
-
-    for (int i = 0; i < npts; i++) {
-      int end = i + win;
-      if (end > nb) end = nb;
-      int cnt = end - i;
-      float row_total = 0;
-      for (int m = 0; m < nm; m++) {
-        float sum = 0;
-        for (int j = i; j < end; j++) {
-          float v = s->byte_model_contrib[j * nm + m];
-          if (v > 0) sum += v;
-        }
-        mdata[i * nm + m] = sum / cnt; /* avg bits saved per byte in window */
-        row_total += mdata[i * nm + m];
-      }
-      if (row_total > smax) smax = row_total;
-    }
-    if (smax < 0.01f) smax = 1.0f;
-
-    /* palette - same as attribution map */
-    static const int dom_pal[][3] = {
-      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
-      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
-      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
-      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
-      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
-      {217,70,239},
-    };
-    int dom_npal = (int)(sizeof(dom_pal) / sizeof(dom_pal[0]));
-
-    int svg_w = 960, svg_h = 200;
-    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
-
-    fprintf(f,
-      "<div class=\"card full\" id=\"sec-dominance\">\n"
-      "<h2>Model Dominance Timeline</h2>\n"
-      "<p class=\"desc\">Stacked area: each model's contribution (bits saved/byte) "
-      "over file position. Window = %d bytes. "
-      "<span style=\"color:var(--fg3)\">Click a model in the legend or chart "
-      "to rebase it to the bottom.</span></p>\n", win);
-
-    fprintf(f, "<div id=\"dom-legend\" style=\"display:flex;flex-wrap:wrap;"
-      "gap:6px 14px;margin-bottom:10px;font-size:11px;"
-      "font-family:var(--mono)\"></div>\n");
-    fprintf(f, "<div class=\"scrub-wrap\">\n");
-    fprintf(f, "<div id=\"dom-chart\"></div>\n");
-    fprintf(f, "<div id=\"dom-tip\" class=\"hover-tip\"></div>\n");
-    fprintf(f, "</div>\n");
-
-    /* Embed raw per-window data + render code. Embedding mdata rather than
-       pre-stacked values lets JS re-stack on click. */
-    fprintf(f, "<script>(function(){\n");
-    fprintf(f, "var nm=%d,npts=%d,nb=%d,smax=%g;\n", nm, npts, nb, smax);
-    fprintf(f, "var W=%d,H=%d,PL=%d,PR=%d,PT=%d,PB=%d;\n",
-      svg_w, svg_h, pad_l, pad_r, pad_t, pad_b);
-    fprintf(f, "var pw=W-PL-PR,ph=H-PT-PB;\n");
-
-    fprintf(f, "var pal=[");
-    for (int m = 0; m < nm; m++) {
-      int pi = m % dom_npal;
-      fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
-        dom_pal[pi][0], dom_pal[pi][1], dom_pal[pi][2]);
-    }
-    fprintf(f, "];\n");
-
-    fprintf(f, "var labels=[");
-    for (int m = 0; m < nm; m++) {
-      fprintf(f, "%s\"%02X:%d\"", m ? "," : "",
-        s->model_masks[m], s->model_weights[m]);
-    }
-    fprintf(f, "];\n");
-
-    fprintf(f, "var mdata=[");
-    for (int i = 0; i < npts; i++) {
-      for (int m = 0; m < nm; m++) {
-        fprintf(f, "%s%.4g", (i || m) ? "," : "", mdata[i * nm + m]);
-      }
-    }
-    fprintf(f, "];\n");
-
-    fprintf(f, "%s",
-      "var order=[];for(var i=0;i<nm;i++)order.push(i);\n"
-      "var legend=document.getElementById('dom-legend');\n"
-      "var chart=document.getElementById('dom-chart');\n"
-      "function path(d,fill,m){\n"
-      "  return '<path d=\"'+d+'\" fill=\"'+fill+'\" fill-opacity=\".75\" '\n"
-      "    +'data-m=\"'+m+'\" style=\"cursor:pointer\"/>';\n"
-      "}\n"
-      "function xCoord(i){return (PL+(i*pw/(npts>1?npts-1:1)))|0;}\n"
-      "function yCoord(v){\n"
-      "  var y=(PT+(ph*(1-v/smax)))|0;\n"
-      "  if(y<PT)y=PT;if(y>PT+ph)y=PT+ph;return y;\n"
-      "}\n"
-      "function render(){\n"
-      "  /* legend - always in palette order so colors stay put */\n"
-      "  var lh='';\n"
-      "  for(var m=0;m<nm;m++){\n"
-      "    var isBase=order[0]===m;\n"
-      "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
-      "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
-      "      +'border-radius:3px;'\n"
-      "      +(isBase?'background:rgba(127,140,170,.18);color:var(--fg)':'')+'\">'\n"
-      "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
-      "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
-      "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
-      "  }\n"
-      "  legend.innerHTML=lh;\n"
-      "  /* stack along x using current order */\n"
-      "  var stk=new Float32Array(npts*nm);\n"
-      "  for(var i=0;i<npts;i++){\n"
-      "    var c=0;\n"
-      "    for(var k=0;k<nm;k++){c+=mdata[i*nm+order[k]];stk[i*nm+k]=c;}\n"
-      "  }\n"
-      "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
-      "    +'\" style=\"display:block\">';\n"
-      "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
-      "    +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
-      "  /* y gridlines */\n"
-      "  for(var i=0;i<=4;i++){\n"
-      "    var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
-      "    s += '<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
-      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
-      "      +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
-      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+val.toFixed(1)+'</text>';\n"
-      "  }\n"
-      "  /* x labels */\n"
-      "  for(var i=0;i<=5;i++){\n"
-      "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
-      "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
-      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
-      "  }\n"
-      "  /* paths - top of stack first so lower bands aren't obscured */\n"
-      "  for(var k=nm-1;k>=0;k--){\n"
-      "    var d='';\n"
-      "    for(var i=0;i<npts;i++)\n"
-      "      d += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+k])+' ';\n"
-      "    for(var i=npts-1;i>=0;i--)\n"
-      "      d += 'L'+xCoord(i)+','+yCoord(k>0?stk[i*nm+k-1]:0)+' ';\n"
-      "    s += path(d+'Z','rgb('+pal[order[k]].join(',')+')',order[k]);\n"
-      "  }\n"
-      "  /* top line */\n"
-      "  var dt='';\n"
-      "  for(var i=0;i<npts;i++)\n"
-      "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
-      "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
-      "    +'stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
-      "  /* scrubber line, hidden initially */\n"
-      "  if(window.TUNED){\n"
-      "    for(var i=0;i<nb;i++) if(window.TUNED[i]){\n"
-      "      var tx2=xCoord(i<npts?i:npts-1);\n"
-      "      s += '<line x1=\"'+tx2+'\" y1=\"'+(PT+ph-5)+'\" x2=\"'+tx2\n"
-      "        +'\" y2=\"'+(PT+ph)+'\" stroke=\"#ff3fd8\" stroke-width=\"1\"/>';\n"
-      "    }\n"
-      "  }\n"
-      "  s += '<line id=\"dom-scrub\" class=\"scrub-line\" '\n"
-      "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
-      "  s += '</svg>';\n"
-      "  chart.innerHTML=s;\n"
-      "}\n"
-      "function rebase(m){\n"
-      "  order=order.filter(function(x){return x!==m;});\n"
-      "  order.unshift(m);\n"
-      "  render();\n"
-      "}\n"
-      "if(window.retuneHooks)window.retuneHooks.push({id:'sec-dominance',\n"
-      "  fn:function(){\n"
-      "    if(typeof BD==='undefined'||!BD.length||!BD[0].m) return;\n"
-      "    var win=Math.max(4,Math.min(64,(nb/64)|0));\n"
-      "    var sm=0;\n"
-      "    for(var i=0;i<npts;i++){\n"
-      "      var end=Math.min(i+win,nb),cnt=end-i,rt=0;\n"
-      "      for(var m=0;m<nm;m++){\n"
-      "        var sum=0;\n"
-      "        for(var j=i;j<end;j++){\n"
-      "          var v=BD[j].m[m];\n"
-      "          if(v>0) sum+=v;\n"
-      "        }\n"
-      "        mdata[i*nm+m]=sum/cnt;rt+=sum/cnt;\n"
-      "      }\n"
-      "      if(rt>sm) sm=rt;\n"
-      "    }\n"
-      "    smax=sm<0.01?1:sm;\n"
-      "    render();\n"
-      "  }});\n"
-      "/* observer hook: Attribution Map drives this on cross-section selection */\n"
-      "window.domSetActive=function(m){\n"
-      "  if(m===null||m===undefined||m==='-1'){\n"
-      "    order=[]; for(var i=0;i<nm;i++) order.push(i);\n"
-      "  } else {\n"
-      "    var n=+m;\n"
-      "    if(n>=0&&n<nm){\n"
-      "      order=order.filter(function(x){return x!==n;});\n"
-      "      order.unshift(n);\n"
-      "    }\n"
-      "  }\n"
-      "  render();\n"
-      "};\n"
-      "function onClick(e){\n"
-      "  var el=e.target.closest('[data-m]');\n"
-      "  if(!el) return;\n"
-      "  var m=el.getAttribute('data-m');\n"
-      "  /* route through Attribution Map so the tri-state cycle stays consistent */\n"
-      "  if(window.attrSetHilite) window.attrSetHilite(m);\n"
-      "  else rebase(+m);\n"
-      "}\n"
-      "legend.addEventListener('click',onClick);\n"
-      "chart.addEventListener('click',onClick);\n"
-      "/* hover scrubber: vertical line + tooltip with per-model breakdown */\n"
-      "var tip=document.getElementById('dom-tip');\n"
-      "function hideTip(){\n"
-      "  var l=document.getElementById('dom-scrub');\n"
-      "  if(l) l.setAttribute('opacity','0');\n"
-      "  tip.style.display='none';\n"
-      "}\n"
-      "/* hover legend swatch -> per-model sparkline */\n"
-      "legend.addEventListener('mousemove',function(e){\n"
-      "  var el=e.target.closest('[data-m]');\n"
-      "  if(!el){hideTip();return;}\n"
-      "  var m=parseInt(el.getAttribute('data-m'));\n"
-      "  var vals=[];\n"
-      "  for(var i=0;i<npts;i++) vals.push(mdata[i*nm+m]);\n"
-      "  var mx=0; for(var i=0;i<npts;i++) if(vals[i]>mx) mx=vals[i];\n"
-      "  var sp=window.makeSparkline?window.makeSparkline(vals,{\n"
-      "    color:'rgb('+pal[m].join(',')+')',\n"
-      "    labelTop:'+'+mx.toFixed(2), labelRight:nb+' B'}):'';\n"
-      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">model</span>'\n"
-      "    +'<span style=\"color:var(--fg)\">'+labels[m]+'</span></div>'\n"
-      "    +'<div style=\"color:var(--fg3);font-size:10px;margin-top:4px\">'\n"
-      "    +'gain per window</div>'+sp;\n"
-      "  var wr=chart.parentNode.getBoundingClientRect();\n"
-      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)+14;\n"
-      "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
-      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
-      "  tip.style.display='block';\n"
-      "});\n"
-      "legend.addEventListener('mouseleave',hideTip);\n"
-      "chart.addEventListener('mousemove',function(e){\n"
-      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
-      "  var r=svg.getBoundingClientRect();\n"
-      "  var px=(e.clientX-r.left)/r.width*W;\n"
-      "  if(px<PL||px>PL+pw){hideTip();return;}\n"
-      "  var i=Math.round((px-PL)/pw*(npts-1));\n"
-      "  if(i<0)i=0; if(i>=npts)i=npts-1;\n"
-      "  var bytePos=Math.round(i*(nb-1)/(npts-1));\n"
-      "  /* gather per-model values at this window, sorted desc */\n"
-      "  var rows=[];\n"
-      "  var total=0;\n"
-      "  for(var m=0;m<nm;m++){\n"
-      "    var v=mdata[i*nm+m];\n"
-      "    if(v>0.001){rows.push({m:m,v:v}); total+=v;}\n"
-      "  }\n"
-      "  rows.sort(function(a,b){return b.v-a.v;});\n"
-      "  var l=document.getElementById('dom-scrub');\n"
-      "  if(l){\n"
-      "    var x=PL+i*pw/(npts-1);\n"
-      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
-      "    l.setAttribute('opacity','0.5');\n"
-      "  }\n"
-      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
-      "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
-      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">total</span>'\n"
-      "    +'<span style=\"color:#34d399;font-weight:600\">'+total.toFixed(2)+' b/B</span></div>';\n"
-      "  if(rows.length){h += '<div style=\"border-top:1px solid var(--bdr);'\n"
-      "    +'margin:4px 0 2px;padding-top:4px\"></div>';}\n"
-      "  var show=Math.min(rows.length,5);\n"
-      "  for(var k=0;k<show;k++){\n"
-      "    var rr=rows[k];\n"
-      "    h+='<div class=\"tip-row\">'\n"
-      "      +'<span><span class=\"tip-sw\" style=\"background:rgb('+pal[rr.m].join(',')+')\"></span>'\n"
-      "      +labels[rr.m]+'</span>'\n"
-      "      +'<span style=\"color:var(--fg)\">'+rr.v.toFixed(2)+'</span></div>';\n"
-      "  }\n"
-      "  if(rows.length>show) h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">+'\n"
-      "    +(rows.length-show)+' more</span></div>';\n"
-      "  tip.innerHTML=h;\n"
-      "  var wrap=chart.parentNode;\n"
-      "  var wr=wrap.getBoundingClientRect();\n"
-      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
-      "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
-      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
-      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
-      "  tip.style.display='block';\n"
-      "});\n"
-      "chart.addEventListener('mouseleave',hideTip);\n"
-      "render();\n"
-      "})();</script>\n");
-
-    fprintf(f, "</div>\n\n");
-
-    free(mdata);
-  }
-
-  /* ── Model Hurt Timeline ── */
-  if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1
-      && s->num_models > 0) {
-    int nb = s->num_data_bytes;
-    int nm = s->num_models;
-    int win = nb / 64;
-    if (win < 4) win = 4;
-    if (win > 64) win = 64;
-    int npts = nb - win + 1;
-    if (npts < 2) npts = 2;
-
-    /* compute rolling window penalty per model (negative only = bits lost) */
-    float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
-    float smax = 0;
-
-    for (int i = 0; i < npts; i++) {
-      int end = i + win;
-      if (end > nb) end = nb;
-      int cnt = end - i;
-      float row_total = 0;
-      for (int m = 0; m < nm; m++) {
-        float sum = 0;
-        for (int j = i; j < end; j++) {
-          float v = s->byte_model_contrib[j * nm + m];
-          if (v < 0) sum += -v;
-        }
-        mdata[i * nm + m] = sum / cnt;
-        row_total += mdata[i * nm + m];
-      }
-      if (row_total > smax) smax = row_total;
-    }
-    if (smax < 0.01f) smax = 1.0f;
-
-    /* same palette as dominance to keep model identity consistent across charts */
-    static const int hurt_pal[][3] = {
-      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
-      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
-      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
-      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
-      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
-      {217,70,239},
-    };
-    int hurt_npal = (int)(sizeof(hurt_pal) / sizeof(hurt_pal[0]));
-
-    int svg_w = 960, svg_h = 200;
-    int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
-
-    fprintf(f,
-      "<div class=\"card full\" id=\"sec-hurt\">\n"
-      "<h2>Model Hurt Timeline</h2>\n"
-      "<p class=\"desc\">Stacked area: each model's penalty (bits lost/byte) "
-      "over file position. Window = %d bytes. "
-      "<span style=\"color:var(--fg3)\">Click a model in the legend or chart "
-      "to rebase it to the bottom.</span></p>\n", win);
-
-    fprintf(f, "<div id=\"hurt-legend\" style=\"display:flex;flex-wrap:wrap;"
-      "gap:6px 14px;margin-bottom:10px;font-size:11px;"
-      "font-family:var(--mono)\"></div>\n");
-    fprintf(f, "<div class=\"scrub-wrap\">\n");
-    fprintf(f, "<div id=\"hurt-chart\"></div>\n");
-    fprintf(f, "<div id=\"hurt-tip\" class=\"hover-tip\"></div>\n");
-    fprintf(f, "</div>\n");
-
-    fprintf(f, "<script>(function(){\n");
-    fprintf(f, "var nm=%d,npts=%d,nb=%d,smax=%g;\n", nm, npts, nb, smax);
-    fprintf(f, "var W=%d,H=%d,PL=%d,PR=%d,PT=%d,PB=%d;\n",
-      svg_w, svg_h, pad_l, pad_r, pad_t, pad_b);
-    fprintf(f, "var pw=W-PL-PR,ph=H-PT-PB;\n");
-
-    fprintf(f, "var pal=[");
-    for (int m = 0; m < nm; m++) {
-      int pi = m % hurt_npal;
-      fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
-        hurt_pal[pi][0], hurt_pal[pi][1], hurt_pal[pi][2]);
-    }
-    fprintf(f, "];\n");
-
-    fprintf(f, "var labels=[");
-    for (int m = 0; m < nm; m++) {
-      fprintf(f, "%s\"%02X:%d\"", m ? "," : "",
-        s->model_masks[m], s->model_weights[m]);
-    }
-    fprintf(f, "];\n");
-
-    fprintf(f, "var mdata=[");
-    for (int i = 0; i < npts; i++) {
-      for (int m = 0; m < nm; m++) {
-        fprintf(f, "%s%.4g", (i || m) ? "," : "", mdata[i * nm + m]);
-      }
-    }
-    fprintf(f, "];\n");
-
-    fprintf(f, "%s",
-      "var order=[];for(var i=0;i<nm;i++)order.push(i);\n"
-      "var legend=document.getElementById('hurt-legend');\n"
-      "var chart=document.getElementById('hurt-chart');\n"
-      "function path(d,fill,m){\n"
-      "  return '<path d=\"'+d+'\" fill=\"'+fill+'\" fill-opacity=\".75\" '\n"
-      "    +'data-m=\"'+m+'\" style=\"cursor:pointer\"/>';\n"
-      "}\n"
-      "function xCoord(i){return (PL+(i*pw/(npts>1?npts-1:1)))|0;}\n"
-      "function yCoord(v){\n"
-      "  var y=(PT+(ph*(1-v/smax)))|0;\n"
-      "  if(y<PT)y=PT;if(y>PT+ph)y=PT+ph;return y;\n"
-      "}\n"
-      "function render(){\n"
-      "  var lh='';\n"
-      "  for(var m=0;m<nm;m++){\n"
-      "    var isBase=order[0]===m;\n"
-      "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
-      "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
-      "      +'border-radius:3px;'\n"
-      "      +(isBase?'background:rgba(127,140,170,.18);color:var(--fg)':'')+'\">'\n"
-      "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
-      "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
-      "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
-      "  }\n"
-      "  legend.innerHTML=lh;\n"
-      "  var stk=new Float32Array(npts*nm);\n"
-      "  for(var i=0;i<npts;i++){\n"
-      "    var c=0;\n"
-      "    for(var k=0;k<nm;k++){c+=mdata[i*nm+order[k]];stk[i*nm+k]=c;}\n"
-      "  }\n"
-      "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
-      "    +'\" style=\"display:block\">';\n"
-      "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
-      "    +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
-      "  for(var i=0;i<=4;i++){\n"
-      "    var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
-      "    s += '<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
-      "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
-      "      +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
-      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+val.toFixed(2)+'</text>';\n"
-      "  }\n"
-      "  for(var i=0;i<=5;i++){\n"
-      "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
-      "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
-      "      +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
-      "  }\n"
-      "  for(var k=nm-1;k>=0;k--){\n"
-      "    var d='';\n"
-      "    for(var i=0;i<npts;i++)\n"
-      "      d += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+k])+' ';\n"
-      "    for(var i=npts-1;i>=0;i--)\n"
-      "      d += 'L'+xCoord(i)+','+yCoord(k>0?stk[i*nm+k-1]:0)+' ';\n"
-      "    s += path(d+'Z','rgb('+pal[order[k]].join(',')+')',order[k]);\n"
-      "  }\n"
-      "  var dt='';\n"
-      "  for(var i=0;i<npts;i++)\n"
-      "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
-      "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
-      "    +'stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
-      "  if(window.TUNED){\n"
-      "    for(var i=0;i<nb;i++) if(window.TUNED[i]){\n"
-      "      var tx2=xCoord(i<npts?i:npts-1);\n"
-      "      s += '<line x1=\"'+tx2+'\" y1=\"'+(PT+ph-5)+'\" x2=\"'+tx2\n"
-      "        +'\" y2=\"'+(PT+ph)+'\" stroke=\"#ff3fd8\" stroke-width=\"1\"/>';\n"
-      "    }\n"
-      "  }\n"
-      "  s += '<line id=\"hurt-scrub\" class=\"scrub-line\" '\n"
-      "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
-      "  s += '</svg>';\n"
-      "  chart.innerHTML=s;\n"
-      "}\n"
-      "function rebase(m){\n"
-      "  order=order.filter(function(x){return x!==m;});\n"
-      "  order.unshift(m);\n"
-      "  render();\n"
-      "}\n"
-      "if(window.retuneHooks)window.retuneHooks.push({id:'sec-hurt',\n"
-      "  fn:function(){\n"
-      "    if(typeof BD==='undefined'||!BD.length||!BD[0].m) return;\n"
-      "    var win=Math.max(4,Math.min(64,(nb/64)|0));\n"
-      "    var sm=0;\n"
-      "    for(var i=0;i<npts;i++){\n"
-      "      var end=Math.min(i+win,nb),cnt=end-i,rt=0;\n"
-      "      for(var m=0;m<nm;m++){\n"
-      "        var sum=0;\n"
-      "        for(var j=i;j<end;j++){\n"
-      "          var v=BD[j].m[m];\n"
-      "          if(v<0) sum+=-v;\n"
-      "        }\n"
-      "        mdata[i*nm+m]=sum/cnt;rt+=sum/cnt;\n"
-      "      }\n"
-      "      if(rt>sm) sm=rt;\n"
-      "    }\n"
-      "    smax=sm<0.01?1:sm;\n"
-      "    render();\n"
-      "  }});\n"
-      "window.hurtSetActive=function(m){\n"
-      "  if(m===null||m===undefined||m==='-1'){\n"
-      "    order=[]; for(var i=0;i<nm;i++) order.push(i);\n"
-      "  } else {\n"
-      "    var n=+m;\n"
-      "    if(n>=0&&n<nm){\n"
-      "      order=order.filter(function(x){return x!==n;});\n"
-      "      order.unshift(n);\n"
-      "    }\n"
-      "  }\n"
-      "  render();\n"
-      "};\n"
-      "function onClick(e){\n"
-      "  var el=e.target.closest('[data-m]');\n"
-      "  if(!el) return;\n"
-      "  var m=el.getAttribute('data-m');\n"
-      "  if(window.attrSetHilite) window.attrSetHilite(m);\n"
-      "  else rebase(+m);\n"
-      "}\n"
-      "legend.addEventListener('click',onClick);\n"
-      "chart.addEventListener('click',onClick);\n"
-      "var tip=document.getElementById('hurt-tip');\n"
-      "legend.addEventListener('mousemove',function(e){\n"
-      "  var el=e.target.closest('[data-m]');\n"
-      "  if(!el){tip.style.display='none';return;}\n"
-      "  var m=parseInt(el.getAttribute('data-m'));\n"
-      "  var vals=[];\n"
-      "  for(var i=0;i<npts;i++) vals.push(mdata[i*nm+m]);\n"
-      "  var mx=0; for(var i=0;i<npts;i++) if(vals[i]>mx) mx=vals[i];\n"
-      "  var sp=window.makeSparkline?window.makeSparkline(vals,{\n"
-      "    color:'rgb('+pal[m].join(',')+')',\n"
-      "    labelTop:'+'+mx.toFixed(2), labelRight:nb+' B'}):'';\n"
-      "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">model</span>'\n"
-      "    +'<span style=\"color:var(--fg)\">'+labels[m]+'</span></div>'\n"
-      "    +'<div style=\"color:var(--fg3);font-size:10px;margin-top:4px\">'\n"
-      "    +'loss per window</div>'+sp;\n"
-      "  var wr=chart.parentNode.getBoundingClientRect();\n"
-      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)+14;\n"
-      "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
-      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
-      "  tip.style.display='block';\n"
-      "});\n"
-      "legend.addEventListener('mouseleave',function(){tip.style.display='none';});\n"
-      "function hideTip(){\n"
-      "  var l=document.getElementById('hurt-scrub');\n"
-      "  if(l) l.setAttribute('opacity','0');\n"
-      "  tip.style.display='none';\n"
-      "}\n"
-      "chart.addEventListener('mousemove',function(e){\n"
-      "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
-      "  var r=svg.getBoundingClientRect();\n"
-      "  var px=(e.clientX-r.left)/r.width*W;\n"
-      "  if(px<PL||px>PL+pw){hideTip();return;}\n"
-      "  var i=Math.round((px-PL)/pw*(npts-1));\n"
-      "  if(i<0)i=0; if(i>=npts)i=npts-1;\n"
-      "  var bytePos=Math.round(i*(nb-1)/(npts-1));\n"
-      "  var rows=[],total=0;\n"
-      "  for(var m=0;m<nm;m++){\n"
-      "    var v=mdata[i*nm+m];\n"
-      "    if(v>0.001){rows.push({m:m,v:v}); total+=v;}\n"
-      "  }\n"
-      "  rows.sort(function(a,b){return b.v-a.v;});\n"
-      "  var l=document.getElementById('hurt-scrub');\n"
-      "  if(l){\n"
-      "    var x=PL+i*pw/(npts-1);\n"
-      "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
-      "    l.setAttribute('opacity','0.5');\n"
-      "  }\n"
-      "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
-      "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
-      "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">total</span>'\n"
-      "    +'<span style=\"color:#f87171;font-weight:600\">'+total.toFixed(2)+' b/B</span></div>';\n"
-      "  if(rows.length){h += '<div style=\"border-top:1px solid var(--bdr);'\n"
-      "    +'margin:4px 0 2px;padding-top:4px\"></div>';}\n"
-      "  var show=Math.min(rows.length,5);\n"
-      "  for(var k=0;k<show;k++){\n"
-      "    var rr=rows[k];\n"
-      "    h+='<div class=\"tip-row\">'\n"
-      "      +'<span><span class=\"tip-sw\" style=\"background:rgb('+pal[rr.m].join(',')+')\"></span>'\n"
-      "      +labels[rr.m]+'</span>'\n"
-      "      +'<span style=\"color:var(--fg)\">'+rr.v.toFixed(2)+'</span></div>';\n"
-      "  }\n"
-      "  if(rows.length>show) h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">+'\n"
-      "    +(rows.length-show)+' more</span></div>';\n"
-      "  tip.innerHTML=h;\n"
-      "  var wrap=chart.parentNode;\n"
-      "  var wr=wrap.getBoundingClientRect();\n"
-      "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
-      "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
-      "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
-      "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
-      "  tip.style.display='block';\n"
-      "});\n"
-      "chart.addEventListener('mouseleave',hideTip);\n"
-      "render();\n"
-      "})();</script>\n");
-
-    fprintf(f, "</div>\n\n");
-
-    free(mdata);
-  }
-
-  /* ── Model Net Contribution Timeline ── */
+/* ── Model Net Contribution Timeline ── */
+static void emit_net_timeline(FILE *f, const CompStats *s) {
   if (s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1
       && s->num_models > 0) {
     int nb = s->num_data_bytes;
@@ -5374,16 +3712,6 @@ static void write_html_report(const char *path, const CompStats *s) {
     if (smax_pos < 0.01f) smax_pos = 1.0f;
     if (smax_neg < 0.01f) smax_neg = 0.5f;
 
-    static const int net_pal[][3] = {
-      {34,211,238},{251,146,60},{167,139,250},{52,211,153},
-      {251,191,36},{248,113,113},{96,165,250},{232,121,249},
-      {163,230,53},{244,114,182},{45,212,191},{253,186,116},
-      {134,239,172},{196,181,253},{252,211,77},{125,211,252},
-      {249,168,212},{190,242,100},{253,164,175},{110,231,183},
-      {217,70,239},
-    };
-    int net_npal = (int)(sizeof(net_pal) / sizeof(net_pal[0]));
-
     int svg_w = 960, svg_h = 240;
     int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
 
@@ -5413,28 +3741,11 @@ static void write_html_report(const char *path, const CompStats *s) {
       "var upH=ph*smaxP/(smaxP+smaxN), loH=ph-upH;\n"
       "var midY=PT+upH;\n");
 
-    fprintf(f, "var pal=[");
-    for (int m = 0; m < nm; m++) {
-      int pi = m % net_npal;
-      fprintf(f, "%s[%d,%d,%d]", m ? "," : "",
-        net_pal[pi][0], net_pal[pi][1], net_pal[pi][2]);
-    }
-    fprintf(f, "];\n");
+    emit_pal_js(f, nm);
 
-    fprintf(f, "var labels=[");
-    for (int m = 0; m < nm; m++) {
-      fprintf(f, "%s\"%02X:%d\"", m ? "," : "",
-        s->model_masks[m], s->model_weights[m]);
-    }
-    fprintf(f, "];\n");
+    emit_labels_js(f, s);
 
-    fprintf(f, "var mdata=[");
-    for (int i = 0; i < npts; i++) {
-      for (int m = 0; m < nm; m++) {
-        fprintf(f, "%s%.4g", (i || m) ? "," : "", mdata[i * nm + m]);
-      }
-    }
-    fprintf(f, "];\n");
+    emit_mdata_js(f, mdata, npts, nm);
 
     fprintf(f, "%s",
       "var order=[];for(var i=0;i<nm;i++)order.push(i);\n"
@@ -5685,8 +3996,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     free(mdata);
   }
+}
 
-  /* ── Context Depth Timeline ── */
+/* ── Context Depth Timeline ── */
+static void emit_context_depth(FILE *f, const CompStats *s) {
   if (s->byte_model_contrib && s->num_data_bytes > 1 && s->num_models > 0) {
     fprintf(f, "%s",
       "<div class=\"card full\" id=\"sec-depth\">\n"
@@ -5862,8 +4175,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Model Correlation Matrix ── */
+/* ── Model Correlation Matrix ── */
+static void emit_correlation(FILE *f, const CompStats *s) {
   if (s->byte_model_contrib && s->num_data_bytes > 1 && s->num_models >= 2) {
     int nb = s->num_data_bytes;
     int nm = s->num_models;
@@ -6072,8 +4387,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     free(both_hurt);
     free(corr);
   }
+}
 
-  /* ── Top Surprises ── */
+/* ── Top Surprises ── */
+static void emit_surprises(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 0 && s->num_models > 0) {
     int nb = s->num_data_bytes;
     int topn = 20;
@@ -6287,8 +4604,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</div>\n\n");
     free(idx);
   }
+}
 
-  /* ── Cost Over File Position ── */
+/* ── Cost Over File Position ── */
+static void emit_cost_position(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 1) {
     int nb = s->num_data_bytes;
     int win = nb / 64;
@@ -6534,8 +4853,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     fprintf(f, "</div></div>\n\n");
     free(rolling);
   }
+}
 
-  /* ── Cumulative Cost ── */
+/* ── Cumulative Cost ── */
+static void emit_cum_cost(FILE *f, const CompStats *s) {
   if (s->byte_costs && s->num_data_bytes > 1) {
     fprintf(f, "%s",
       "<div class=\"card full\" id=\"sec-cumcost\">\n"
@@ -6657,8 +4978,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Bit-Position Heatmap ── */
+/* ── Bit-Position Heatmap ── */
+static void emit_bit_heatmap(FILE *f, const CompStats *s) {
   if (s->bit_costs && s->num_data_bytes > 1) {
     int nb = s->num_data_bytes;
     fprintf(f, "%s",
@@ -6770,8 +5093,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Repetition Structure ── */
+/* ── Repetition Structure ── */
+static void emit_repetition(FILE *f, const CompStats *s) {
   if (s->input_data && s->input_size > 4) {
     int n = s->input_size;
     const unsigned char *d = s->input_data;
@@ -7056,8 +5381,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     free(mlen);
     free(mdist);
   }
+}
 
-  /* ── Search Trajectory ── */
+/* ── Search Trajectory ── */
+static void emit_search_traj(FILE *f, const CompStats *s) {
   if (s->search_best && s->search_len > 0) {
     int npts = s->search_len;
     float smin = 1e9f, smax = -1e9f;
@@ -7375,8 +5702,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Mask Outcome Grid ── */
+/* ── Mask Outcome Grid ── */
+static void emit_mask_grid(FILE *f, const CompStats *s) {
   if (s->search_best && s->search_len > 0) {
     int counts[4] = {0, 0, 0, 0};
     float dmax_rej = 0;
@@ -7527,8 +5856,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Per-Model Statistics ── */
+/* ── Per-Model Statistics ── */
+static void emit_model_stats(FILE *f, const CompStats *s) {
   {
     int order[MAX_SEARCH];
     for (int m = 0; m < s->num_models; m++) order[m] = m;
@@ -7738,8 +6069,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Prediction Confidence ── */
+/* ── Prediction Confidence ── */
+static void emit_confidence(FILE *f, const CompStats *s) {
   {
     unsigned int max_conf = 0;
     for (int i = 0; i < 11; i++)
@@ -7774,8 +6107,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     }
     fprintf(f, "</table></div>\n\n");
   }
+}
 
-  /* ── Calibration ── */
+/* ── Calibration ── */
+static void emit_calibration(FILE *f, const CompStats *s) {
   {
     unsigned int total_cal = 0;
     for (int i = 0; i < 20; i++)
@@ -7916,8 +6251,10 @@ static void write_html_report(const char *path, const CompStats *s) {
       fprintf(f, "</div>\n\n");
     }
   }
+}
 
-  /* ── Byte Position Analysis ── */
+/* ── Byte Position Analysis ── */
+static void emit_byte_pos(FILE *f, const CompStats *s) {
   {
     double max_bpc = 0;
     for (int i = 0; i < 8; i++) {
@@ -7955,8 +6292,10 @@ static void write_html_report(const char *path, const CompStats *s) {
     }
     fprintf(f, "</table></div>\n\n");
   }
+}
 
-  /* ── Direct-Mapped Table ── */
+/* ── Direct-Mapped Table ── */
+static void emit_table_info(FILE *f, const CompStats *s) {
   {
     double load = s->ht_size ? 100.0 * s->ht_occupied / s->ht_size : 0;
     double tsz = (double)s->ht_size * 2.0; /* 2 bytes per slot */
@@ -7981,8 +6320,10 @@ static void write_html_report(const char *path, const CompStats *s) {
       s->ht_occupied, load);
     fprintf(f, "</table></div>\n\n");
   }
+}
 
-  /* ── Table Occupancy Growth ── */
+/* ── Table Occupancy Growth ── */
+static void emit_occ_growth(FILE *f, const CompStats *s) {
   if (s->occ_nsamples > 1) {
     fprintf(f, "%s",
       "<div class=\"card\" id=\"sec-occ\">\n"
@@ -8095,8 +6436,10 @@ static void write_html_report(const char *path, const CompStats *s) {
 
     fprintf(f, "</div>\n\n");
   }
+}
 
-  /* ── Counter Saturation ── */
+/* ── Counter Saturation ── */
+static void emit_saturation(FILE *f, const CompStats *s) {
   {
     unsigned int total_sat =
       s->sat_lopsided + s->sat_strong + s->sat_balanced + s->sat_mixed;
@@ -8132,42 +6475,300 @@ static void write_html_report(const char *path, const CompStats *s) {
     }
     fprintf(f, "</table></div>\n\n");
   }
+}
 
-  fprintf(f, "</div><!-- grid -->\n");
+/* ── Model Dominance / Hurt Timeline ── */
+/* One emitter for both stacked-area twins: hurt=0 stacks each model's
+   positive contribution (bits saved/byte), hurt=1 its penalty (bits
+   lost/byte). Same chart, same interactions, opposite sign. */
+static void emit_stack_timeline(FILE *f, const CompStats *s, int hurt) {
+  if (!(s->byte_model_contrib && s->byte_costs && s->num_data_bytes > 1 &&
+        s->num_models > 0))
+    return;
+  const char *key = hurt ? "hurt" : "dom";
+  const char *sec = hurt ? "sec-hurt" : "sec-dominance";
+  int nb = s->num_data_bytes;
+  int nm = s->num_models;
+  int win = nb / 64;
+  if (win < 4) win = 4;
+  if (win > 64) win = 64;
+  int npts = nb - win + 1;
+  if (npts < 2) npts = 2;
 
-  /* footer */
-  {
-    /* party-mode sine-wave scroller: one <i> per char, phase-shifted so the
-       marquee undulates. Hidden unless body.party is set. */
-    static const char scrolltxt[] =
-      "*** PAQ REPORT *** A CONTEXT-MIXING CRUNCHER *** SIZE IS EVERYTHING "
-      "*** GREETINGS TO CRINKLER . FARBRAUSCH . CONSPIRACY . MERCURY . "
-      "LOGICOMA . TBC *** KEEP IT UNDER 4K *** ";
-    fprintf(f, "<div class=\"scrolltext\"><span>");
-    for (int i = 0; scrolltxt[i]; i++) {
-      if (scrolltxt[i] == ' ')
-        fprintf(f, "<i style=\"animation-delay:-%.2fs\">&nbsp;</i>",
-                i * 0.07);
-      else
-        fprintf(f, "<i style=\"animation-delay:-%.2fs\">%c</i>",
-                i * 0.07, scrolltxt[i]);
+  /* rolling window contribution (hurt: penalty) per model */
+  float *mdata = (float *)calloc((size_t)npts * nm, sizeof(float));
+  float smax = 0;
+
+  for (int i = 0; i < npts; i++) {
+    int end = i + win;
+    if (end > nb) end = nb;
+    int cnt = end - i;
+    float row_total = 0;
+    for (int m = 0; m < nm; m++) {
+      float sum = 0;
+      for (int j = i; j < end; j++) {
+        float v = s->byte_model_contrib[j * nm + m];
+        if (hurt) v = -v;
+        if (v > 0) sum += v;
+      }
+      mdata[i * nm + m] = sum / cnt; /* avg bits per byte in window */
+      row_total += mdata[i * nm + m];
     }
-    fprintf(f, "</span></div>\n");
+    if (row_total > smax) smax = row_total;
   }
+  if (smax < 0.01f) smax = 1.0f;
+
+  int svg_w = 960, svg_h = 200;
+  int pad_l = 44, pad_r = 12, pad_t = 12, pad_b = 28;
 
   fprintf(f,
-    "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid var(--bdr);"
-    "font-size:11px;color:var(--fg3);text-align:center\">"
-    "Generated by context-mixing arithmetic compressor");
-  if (timebuf[0])
-    fprintf(f, " &middot; %s", timebuf);
-  if (g_cmdline[0]) {
-    fprintf(f, " &middot; <span style=\"font-family:var(--mono)\">");
-    fputs_html(g_cmdline, f);
-    fprintf(f, "</span>");
-  }
+    "<div class=\"card full\" id=\"%s\">\n"
+    "<h2>Model %s Timeline</h2>\n"
+    "<p class=\"desc\">Stacked area: each model's %s "
+    "over file position. Window = %d bytes. "
+    "<span style=\"color:var(--fg3)\">Click a model in the legend or chart "
+    "to rebase it to the bottom.</span></p>\n",
+    sec, hurt ? "Hurt" : "Dominance",
+    hurt ? "penalty (bits lost/byte)" : "contribution (bits saved/byte)",
+    win);
+
+  fprintf(f, "<div id=\"%s-legend\" style=\"display:flex;flex-wrap:wrap;"
+    "gap:6px 14px;margin-bottom:10px;font-size:11px;"
+    "font-family:var(--mono)\"></div>\n", key);
+  fprintf(f, "<div class=\"scrub-wrap\">\n");
+  fprintf(f, "<div id=\"%s-chart\"></div>\n", key);
+  fprintf(f, "<div id=\"%s-tip\" class=\"hover-tip\"></div>\n", key);
   fprintf(f, "</div>\n");
 
+  /* Embed raw per-window data + render code. Embedding mdata rather than
+     pre-stacked values lets JS re-stack on click. */
+  fprintf(f, "<script>(function(){\n");
+  fprintf(f, "var KEY='%s',SEC='%s',HURT=%d;\n", key, sec, hurt);
+  fprintf(f, "var nm=%d,npts=%d,nb=%d,smax=%g;\n", nm, npts, nb, smax);
+  fprintf(f, "var W=%d,H=%d,PL=%d,PR=%d,PT=%d,PB=%d;\n",
+    svg_w, svg_h, pad_l, pad_r, pad_t, pad_b);
+  fprintf(f, "var pw=W-PL-PR,ph=H-PT-PB;\n");
+  emit_pal_js(f, nm);
+  emit_labels_js(f, s);
+  emit_mdata_js(f, mdata, npts, nm);
+
+  fprintf(f, "%s",
+    "var TOTC=HURT?'#f87171':'#34d399';\n"
+    "var order=[];for(var i=0;i<nm;i++)order.push(i);\n"
+    "var legend=document.getElementById(KEY+'-legend');\n"
+    "var chart=document.getElementById(KEY+'-chart');\n"
+    "function path(d,fill,m){\n"
+    "  return '<path d=\"'+d+'\" fill=\"'+fill+'\" fill-opacity=\".75\" '\n"
+    "    +'data-m=\"'+m+'\" style=\"cursor:pointer\"/>';\n"
+    "}\n"
+    "function xCoord(i){return (PL+(i*pw/(npts>1?npts-1:1)))|0;}\n"
+    "function yCoord(v){\n"
+    "  var y=(PT+(ph*(1-v/smax)))|0;\n"
+    "  if(y<PT)y=PT;if(y>PT+ph)y=PT+ph;return y;\n"
+    "}\n"
+    "function render(){\n"
+    "  /* legend - always in palette order so colors stay put */\n"
+    "  var lh='';\n"
+    "  for(var m=0;m<nm;m++){\n"
+    "    var isBase=order[0]===m;\n"
+    "    lh += '<span data-m=\"'+m+'\" style=\"display:inline-flex;'\n"
+    "      +'align-items:center;gap:4px;cursor:pointer;padding:2px 5px;'\n"
+    "      +'border-radius:3px;'\n"
+    "      +(isBase?'background:rgba(127,140,170,.18);color:var(--fg)':'')+'\">'\n"
+    "      +'<span style=\"display:inline-block;width:10px;height:10px;'\n"
+    "      +'border-radius:2px;background:rgb('+pal[m].join(',')+')\"></span>'\n"
+    "      +labels[m]+(isBase?' \\u2193':'')+'</span>';\n"
+    "  }\n"
+    "  legend.innerHTML=lh;\n"
+    "  /* stack along x using current order */\n"
+    "  var stk=new Float32Array(npts*nm);\n"
+    "  for(var i=0;i<npts;i++){\n"
+    "    var c=0;\n"
+    "    for(var k=0;k<nm;k++){c+=mdata[i*nm+order[k]];stk[i*nm+k]=c;}\n"
+    "  }\n"
+    "  var s='<svg width=\"100%\" viewBox=\"0 0 '+W+' '+H\n"
+    "    +'\" style=\"display:block\">';\n"
+    "  s += '<rect x=\"'+PL+'\" y=\"'+PT+'\" width=\"'+pw+'\" height=\"'+ph\n"
+    "    +'\" fill=\"var(--bg3)\" rx=\"4\"/>';\n"
+    "  /* y gridlines */\n"
+    "  for(var i=0;i<=4;i++){\n"
+    "    var val=smax*(4-i)/4, y=(PT+ph*i/4)|0;\n"
+    "    s += '<line x1=\"'+PL+'\" y1=\"'+y+'\" x2=\"'+(PL+pw)+'\" y2=\"'+y\n"
+    "      +'\" stroke=\"var(--bdr)\" stroke-width=\"0.5\"/>'\n"
+    "      +'<text x=\"'+(PL-5)+'\" y=\"'+(y+3)+'\" text-anchor=\"end\" '\n"
+    "      +'font-size=\"9\" fill=\"var(--fg3)\">'+val.toFixed(HURT?2:1)+'</text>';\n"
+    "  }\n"
+    "  /* x labels */\n"
+    "  for(var i=0;i<=5;i++){\n"
+    "    var off=(((nb-1)*i/5)|0), x=(PL+(pw*i/5))|0;\n"
+    "    s += '<text x=\"'+x+'\" y=\"'+(PT+ph+16)+'\" text-anchor=\"middle\" '\n"
+    "      +'font-size=\"9\" fill=\"var(--fg3)\">'+off+'</text>';\n"
+    "  }\n"
+    "  /* paths - top of stack first so lower bands aren't obscured */\n"
+    "  for(var k=nm-1;k>=0;k--){\n"
+    "    var d='';\n"
+    "    for(var i=0;i<npts;i++)\n"
+    "      d += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+k])+' ';\n"
+    "    for(var i=npts-1;i>=0;i--)\n"
+    "      d += 'L'+xCoord(i)+','+yCoord(k>0?stk[i*nm+k-1]:0)+' ';\n"
+    "    s += path(d+'Z','rgb('+pal[order[k]].join(',')+')',order[k]);\n"
+    "  }\n"
+    "  /* top line */\n"
+    "  var dt='';\n"
+    "  for(var i=0;i<npts;i++)\n"
+    "    dt += (i?'L':'M')+xCoord(i)+','+yCoord(stk[i*nm+nm-1])+' ';\n"
+    "  s += '<path d=\"'+dt+'\" fill=\"none\" '\n"
+    "    +'stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
+    "  if(window.TUNED){\n"
+    "    for(var i=0;i<nb;i++) if(window.TUNED[i]){\n"
+    "      var tx2=xCoord(i<npts?i:npts-1);\n"
+    "      s += '<line x1=\"'+tx2+'\" y1=\"'+(PT+ph-5)+'\" x2=\"'+tx2\n"
+    "        +'\" y2=\"'+(PT+ph)+'\" stroke=\"#ff3fd8\" stroke-width=\"1\"/>';\n"
+    "    }\n"
+    "  }\n"
+    "  /* scrubber line, hidden initially */\n"
+    "  s += '<line id=\"'+KEY+'-scrub\" class=\"scrub-line\" '\n"
+    "    +'x1=\"0\" y1=\"'+PT+'\" x2=\"0\" y2=\"'+(PT+ph)+'\"/>';\n"
+    "  s += '</svg>';\n"
+    "  chart.innerHTML=s;\n"
+    "}\n"
+    "function rebase(m){\n"
+    "  order=order.filter(function(x){return x!==m;});\n"
+    "  order.unshift(m);\n"
+    "  render();\n"
+    "}\n"
+    "if(window.retuneHooks)window.retuneHooks.push({id:SEC,\n"
+    "  fn:function(){\n"
+    "    if(typeof BD==='undefined'||!BD.length||!BD[0].m) return;\n"
+    "    var win=Math.max(4,Math.min(64,(nb/64)|0));\n"
+    "    var sm=0;\n"
+    "    for(var i=0;i<npts;i++){\n"
+    "      var end=Math.min(i+win,nb),cnt=end-i,rt=0;\n"
+    "      for(var m=0;m<nm;m++){\n"
+    "        var sum=0;\n"
+    "        for(var j=i;j<end;j++){\n"
+    "          var v=BD[j].m[m];\n"
+    "          if(HURT) v=-v;\n"
+    "          if(v>0) sum+=v;\n"
+    "        }\n"
+    "        mdata[i*nm+m]=sum/cnt;rt+=sum/cnt;\n"
+    "      }\n"
+    "      if(rt>sm) sm=rt;\n"
+    "    }\n"
+    "    smax=sm<0.01?1:sm;\n"
+    "    render();\n"
+    "  }});\n"
+    "/* observer hook: Attribution Map drives this on cross-section selection */\n"
+    "window[KEY+'SetActive']=function(m){\n"
+    "  if(m===null||m===undefined||m==='-1'){\n"
+    "    order=[]; for(var i=0;i<nm;i++) order.push(i);\n"
+    "  } else {\n"
+    "    var n=+m;\n"
+    "    if(n>=0&&n<nm){\n"
+    "      order=order.filter(function(x){return x!==n;});\n"
+    "      order.unshift(n);\n"
+    "    }\n"
+    "  }\n"
+    "  render();\n"
+    "};\n"
+    "function onClick(e){\n"
+    "  var el=e.target.closest('[data-m]');\n"
+    "  if(!el) return;\n"
+    "  var m=el.getAttribute('data-m');\n"
+    "  /* route through Attribution Map so the tri-state cycle stays consistent */\n"
+    "  if(window.attrSetHilite) window.attrSetHilite(m);\n"
+    "  else rebase(+m);\n"
+    "}\n"
+    "legend.addEventListener('click',onClick);\n"
+    "chart.addEventListener('click',onClick);\n"
+    "/* hover scrubber: vertical line + tooltip with per-model breakdown */\n"
+    "var tip=document.getElementById(KEY+'-tip');\n"
+    "function hideTip(){\n"
+    "  var l=document.getElementById(KEY+'-scrub');\n"
+    "  if(l) l.setAttribute('opacity','0');\n"
+    "  tip.style.display='none';\n"
+    "}\n"
+    "/* hover legend swatch -> per-model sparkline */\n"
+    "legend.addEventListener('mousemove',function(e){\n"
+    "  var el=e.target.closest('[data-m]');\n"
+    "  if(!el){hideTip();return;}\n"
+    "  var m=parseInt(el.getAttribute('data-m'));\n"
+    "  var vals=[];\n"
+    "  for(var i=0;i<npts;i++) vals.push(mdata[i*nm+m]);\n"
+    "  var mx=0; for(var i=0;i<npts;i++) if(vals[i]>mx) mx=vals[i];\n"
+    "  var sp=window.makeSparkline?window.makeSparkline(vals,{\n"
+    "    color:'rgb('+pal[m].join(',')+')',\n"
+    "    labelTop:'+'+mx.toFixed(2), labelRight:nb+' B'}):'';\n"
+    "  tip.innerHTML='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">model</span>'\n"
+    "    +'<span style=\"color:var(--fg)\">'+labels[m]+'</span></div>'\n"
+    "    +'<div style=\"color:var(--fg3);font-size:10px;margin-top:4px\">'\n"
+    "    +(HURT?'loss':'gain')+' per window</div>'+sp;\n"
+    "  var wr=chart.parentNode.getBoundingClientRect();\n"
+    "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)+14;\n"
+    "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
+    "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+    "  tip.style.display='block';\n"
+    "});\n"
+    "legend.addEventListener('mouseleave',hideTip);\n"
+    "chart.addEventListener('mousemove',function(e){\n"
+    "  var svg=chart.querySelector('svg'); if(!svg) return;\n"
+    "  var r=svg.getBoundingClientRect();\n"
+    "  var px=(e.clientX-r.left)/r.width*W;\n"
+    "  if(px<PL||px>PL+pw){hideTip();return;}\n"
+    "  var i=Math.round((px-PL)/pw*(npts-1));\n"
+    "  if(i<0)i=0; if(i>=npts)i=npts-1;\n"
+    "  var bytePos=Math.round(i*(nb-1)/(npts-1));\n"
+    "  /* gather per-model values at this window, sorted desc */\n"
+    "  var rows=[],total=0;\n"
+    "  for(var m=0;m<nm;m++){\n"
+    "    var v=mdata[i*nm+m];\n"
+    "    if(v>0.001){rows.push({m:m,v:v}); total+=v;}\n"
+    "  }\n"
+    "  rows.sort(function(a,b){return b.v-a.v;});\n"
+    "  var l=document.getElementById(KEY+'-scrub');\n"
+    "  if(l){\n"
+    "    var x=PL+i*pw/(npts-1);\n"
+    "    l.setAttribute('x1',x); l.setAttribute('x2',x);\n"
+    "    l.setAttribute('opacity','0.5');\n"
+    "  }\n"
+    "  var h='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">byte</span>'\n"
+    "    +'<span style=\"color:var(--fg)\">~'+bytePos+'</span></div>'\n"
+    "    +'<div class=\"tip-row\"><span style=\"color:var(--fg3)\">total</span>'\n"
+    "    +'<span style=\"color:'+TOTC+';font-weight:600\">'+total.toFixed(2)+' b/B</span></div>';\n"
+    "  if(rows.length){h += '<div style=\"border-top:1px solid var(--bdr);'\n"
+    "    +'margin:4px 0 2px;padding-top:4px\"></div>';}\n"
+    "  var show=Math.min(rows.length,5);\n"
+    "  for(var k=0;k<show;k++){\n"
+    "    var rr=rows[k];\n"
+    "    h+='<div class=\"tip-row\">'\n"
+    "      +'<span><span class=\"tip-sw\" style=\"background:rgb('+pal[rr.m].join(',')+')\"></span>'\n"
+    "      +labels[rr.m]+'</span>'\n"
+    "      +'<span style=\"color:var(--fg)\">'+rr.v.toFixed(2)+'</span></div>';\n"
+    "  }\n"
+    "  if(rows.length>show) h+='<div class=\"tip-row\"><span style=\"color:var(--fg3)\">+'\n"
+    "    +(rows.length-show)+' more</span></div>';\n"
+    "  tip.innerHTML=h;\n"
+    "  var wrap=chart.parentNode;\n"
+    "  var wr=wrap.getBoundingClientRect();\n"
+    "  var tx=(e.clientX-wr.left)+12, ty=(e.clientY-wr.top)-40;\n"
+    "  if(tx+220>wr.width) tx=(e.clientX-wr.left)-220;\n"
+    "  if(ty<0) ty=(e.clientY-wr.top)+16;\n"
+    "  tip.style.left=tx+'px'; tip.style.top=ty+'px';\n"
+    "  tip.style.display='block';\n"
+    "});\n"
+    "chart.addEventListener('mouseleave',hideTip);\n"
+    "render();\n"
+    "})();</script>\n");
+
+  fprintf(f, "</div>\n\n");
+
+  free(mdata);
+}
+
+/* Everything after the report body: sidebar scroll-spy, theme
+   toggle, URL-state restore, keyboard shortcuts, and the entire
+   party-mode production. Pure string literals. */
+static void emit_report_scripts(FILE *f) {
   fprintf(f, "</div><!-- wrap -->\n"
     "<script>\n"
     "(function(){\n"
@@ -8464,6 +7065,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    trkRows.innerHTML=out;\n"
     "    var pat=document.getElementById('pt-pat');\n"
     "    if(pat) pat.textContent=(sonKey?'KEY '+sonKey.nm\n"
+    "      :syn.ah?'AH '+ahLbl\n"
     "      :'CHD '+TRK_CHD[(e.s>>syn.cs)&3])\n"
     "      +' POS '+Math.round(100*e.i/BD.length)+'%%';\n"
     "    /* rows just rendered, so the width is finally honest */\n"
@@ -8970,7 +7572,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var oct=12*(ci>>2);\n"
     "    if(sonKey)\n"
     "      return sonKey.r+KEYSC[sonKey.mi][[0,2,4,6][ci%%4]]+24+oct;\n"
-    "    var ch=CHORDS[(step>>syn.cs)&3];\n"
+    "    var ch=curChord(step);\n"
     "    return [ch[0],ch[1],ch[2],ch[0]+10][ci%%4]+24+oct;\n"
     "  }\n"
     "  /* the rack follows the widest instrument: when the band\n"
@@ -9073,14 +7675,14 @@ static void write_html_report(const char *path, const CompStats *s) {
     "        :c<syn.t3?[1,3,5][step%%3]:6;\n"
     "      return sonKey.r+sc[dg]+24;\n"
     "    }\n"
-    "    var ch=CHORDS[(step>>syn.cs)&3];\n"
+    "    var ch=curChord(step);\n"
     "    if(c<syn.t1) return ch[0]+24;       /* calm: root */\n"
     "    if(c<syn.t2) return ch[step%%3]+24; /* fine: chord tone */\n"
     "    if(c<syn.t3) return ch[step%%3]+26; /* tense: color tone */\n"
     "    return ch[(step+1)%%3]+25;          /* strained/pain: rub */\n"
     "  }\n"
     "  function schedNote(step,t){\n"
-    "    var ch=CHORDS[(step>>syn.cs)&3];\n"
+    "    var ch=curChord(step);\n"
     "    var n=ch[step%%3]+24;\n"
     "    var bandLive=false,notePan=0,leadC=-1;\n"
     "    if(sonify&&typeof BD!=='undefined'&&BD.length){\n"
@@ -9491,7 +8093,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "  });\n"
     "  window.partyToast=showToast;\n"
     "  /* the session keeps score; after ten minutes it confesses */\n"
-    "  var eggSet={},eggN=0,EGG_TOTAL=56;\n"
+    "  var eggSet={},eggN=0,EGG_TOTAL=57;\n"
     "  var finaleDone=false,finaleCyc=null,finaleEnd=null;\n"
     "  function egg(id){\n"
     "    if(!eggSet[id]){eggSet[id]=1;eggN++;}\n"
@@ -10146,6 +8748,42 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      if(dfPc) dfPc.textContent='100%% Complete';}\n"
     "    dfRaf=requestAnimationFrame(dfFrame);\n"
     "  }\n"
+    "  /* shared by every instrument that re-runs the codec: one header\n"
+    "     parse (PAQ.b64 decoded once, wmask walked once) and one context\n"
+    "     hash. the parsed byte array is shared read-only */\n"
+    "  var paqH=null;\n"
+    "  function paqHdr(){\n"
+    "    if(paqH) return paqH;\n"
+    "    if(typeof PAQ==='undefined'||!PAQ.b64) return null;\n"
+    "    var raw=atob(PAQ.b64);\n"
+    "    var cd=new Uint8Array(raw.length);\n"
+    "    for(var i=0;i<raw.length;i++) cd[i]=raw.charCodeAt(i);\n"
+    "    var lb=PAQ.lf?4:2,hb=PAQ.lf?8:6;\n"
+    "    var bitlen=0;\n"
+    "    for(var i=0;i<lb;i++) bitlen|=cd[i]<<(8*i);\n"
+    "    var wm=(cd[lb]|(cd[lb+1]<<8)|(cd[lb+2]<<16)|(cd[lb+3]<<24))>>>0;\n"
+    "    /* replay the loader's wmask walk for the model count, then\n"
+    "       decode weights + extended masks exactly like the C side */\n"
+    "    var num=0,w=wm;\n"
+    "    for(;;){var bt=w&0x80000000;w=(w<<1)>>>0;if(!w)break;if(!bt)num++;}\n"
+    "    var weights=[],ext=[],wv=0;\n"
+    "    w=wm;\n"
+    "    for(var n=0;n<num;n++){\n"
+    "      while(w&0x80000000){w=(w<<1)>>>0;wv++;}\n"
+    "      w=(w<<1)>>>0;\n"
+    "      weights.push(wv);\n"
+    "      ext.push((cd[hb+n]|(w&0xFFFFFF00))>>>0);\n"
+    "    }\n"
+    "    paqH={cd:cd,co:hb+num,bitlen:bitlen,nb:((bitlen-1)/8)|0,\n"
+    "      num:num,weights:weights,ext:ext};\n"
+    "    return paqH;\n"
+    "  }\n"
+    "  function ctxHash(buf,bp2,mask){\n"
+    "    var cm=mask&255,p=8+(bp2>>3),h=mask>>>0;\n"
+    "    h=dcCrc(h,(0x100|buf[p])>>((~bp2&7)+1));\n"
+    "    while(cm){p--;if(cm&128)h=dcCrc(h,buf[p]);cm=(cm<<1)&255;}\n"
+    "    return h;\n"
+    "  }\n"
     "  /* true decrunch: no simulation anywhere. PAQ.b64 is the emitted\n"
     "     .paq file (header, masks, payload); this is the actual decoder\n"
     "     from the C side ported statement for statement - CRC32-C in\n"
@@ -10236,39 +8874,14 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    while(cm){if(cm&128)h=dcCrc(h,0);cm=(cm<<1)&255;}\n"
     "    return h;\n"
     "  }\n"
-    "  function dcHash(bp2,mask){\n"
-    "    var cm=mask&255,p=8+(bp2>>3),h=mask>>>0,b=dc.buf;\n"
-    "    h=dcCrc(h,(0x100|b[p])>>((~bp2&7)+1));\n"
-    "    while(cm){p--;if(cm&128)h=dcCrc(h,b[p]);cm=(cm<<1)&255;}\n"
-    "    return h;\n"
-    "  }\n"
     "  function dcInit(){\n"
-    "    var raw=atob(PAQ.b64);\n"
-    "    var cd=new Uint8Array(raw.length);\n"
-    "    for(var i=0;i<raw.length;i++) cd[i]=raw.charCodeAt(i);\n"
-    "    var lb=PAQ.lf?4:2,hb=PAQ.lf?8:6;\n"
-    "    var bitlen=0;\n"
-    "    for(var i=0;i<lb;i++) bitlen|=cd[i]<<(8*i);\n"
-    "    var wm=(cd[lb]|(cd[lb+1]<<8)|(cd[lb+2]<<16)|(cd[lb+3]<<24))>>>0;\n"
-    "    /* replay the loader's wmask walk for the model count, then\n"
-    "       decode weights + extended masks exactly like the C side */\n"
-    "    var num=0,w=wm;\n"
-    "    for(;;){var bt=w&0x80000000;w=(w<<1)>>>0;if(!w)break;if(!bt)num++;}\n"
-    "    var weights=[],ext=[],wv=0;\n"
-    "    w=wm;\n"
-    "    for(var n=0;n<num;n++){\n"
-    "      while(w&0x80000000){w=(w<<1)>>>0;wv++;}\n"
-    "      w=(w<<1)>>>0;\n"
-    "      weights.push(wv);\n"
-    "      ext.push((cd[hb+n]|(w&0xFFFFFF00))>>>0);\n"
-    "    }\n"
-    "    var nb=((bitlen-1)/8)|0;\n"
-    "    dc={cd:cd,co:hb+num,bitlen:bitlen,nb:nb,num:num,\n"
-    "      weights:weights,ext:ext,cmax:8,\n"
-    "      buf:new Uint8Array(nb+16),\n"
+    "    var H=paqHdr();\n"
+    "    dc={cd:H.cd,co:H.co,bitlen:H.bitlen,nb:H.nb,num:H.num,\n"
+    "      weights:H.weights,ext:H.ext,cmax:8,\n"
+    "      buf:new Uint8Array(H.nb+16),\n"
     "      dt:new Uint8Array(2*(1<<PAQ.db)),\n"
-    "      costs:new Float32Array(nb),\n"
-    "      sl:new Int32Array(num||1),\n"
+    "      costs:new Float32Array(H.nb),\n"
+    "      sl:new Int32Array(H.num||1),\n"
     "      range:0x80000000,low:0,value:0,cpos:0,bp:0,occ:0};\n"
     "    for(var i=0;i<31;i++) dc.value=((dc.value<<1)|dcCBit(dc.cpos++))>>>0;\n"
     "  }\n"
@@ -10277,7 +8890,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    /* the microscope only pays for its slide when it is looking */\n"
     "    var snap=dcInspect?{m:[]}:null;\n"
     "    for(var m=0;m<d.num;m++){\n"
-    "      var h=(d.bp===0)?dcHash0(d.ext[m]):dcHash(d.bp-1,d.ext[m]);\n"
+    "      var h=(d.bp===0)?dcHash0(d.ext[m]):ctxHash(d.buf,d.bp-1,d.ext[m]);\n"
     "      var si=(h>>>(32-PAQ.db))*2;\n"
     "      var e0=d.dt[si],e1=d.dt[si+1];\n"
     "      var sh=(1-(((e0+255)&(e1+255))>>8))*2+d.weights[m];\n"
@@ -12512,27 +11125,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "     'forward' makes it audition first, re-pricing the file and\n"
     "     checking the report's own numbers against itself */\n"
     "  var fp=null,fpH=null,fpDT=null,fpJ=null,fpJN=0,fpM=null,fpS=null;\n"
-    "  function fpHdr(){\n"
-    "    if(fpH) return fpH;\n"
-    "    if(typeof PAQ==='undefined') return null;\n"
-    "    var raw=atob(PAQ.b64);\n"
-    "    var cd=new Uint8Array(raw.length);\n"
-    "    for(var i=0;i<raw.length;i++) cd[i]=raw.charCodeAt(i);\n"
-    "    var lb=PAQ.lf?4:2,hb=PAQ.lf?8:6;\n"
-    "    var wm=(cd[lb]|(cd[lb+1]<<8)|(cd[lb+2]<<16)|(cd[lb+3]<<24))>>>0;\n"
-    "    var num=0,w=wm;\n"
-    "    for(;;){var bt=w&0x80000000;w=(w<<1)>>>0;if(!w)break;if(!bt)num++;}\n"
-    "    var weights=[],ext=[],wv=0;\n"
-    "    w=wm;\n"
-    "    for(var n=0;n<num;n++){\n"
-    "      while(w&0x80000000){w=(w<<1)>>>0;wv++;}\n"
-    "      w=(w<<1)>>>0;\n"
-    "      weights.push(wv);\n"
-    "      ext.push((cd[hb+n]|(w&0xFFFFFF00))>>>0);\n"
-    "    }\n"
-    "    fpH={num:num,weights:weights,ext:ext};\n"
-    "    return fpH;\n"
-    "  }\n"
+    "  function fpHdr(){return fpH||(fpH=paqHdr());}\n"
     "  /* the exact cubic log2 the C side priced with (fast_log2f),\n"
     "     frounded at every step so the arithmetic is float-for-float\n"
     "     identical - no drift allowed, none tolerated */\n"
@@ -12549,12 +11142,6 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    return Math.fround(e+Math.fround(m*Math.fround(FPC0\n"
     "      +Math.fround(m*Math.fround(FPC1\n"
     "      +Math.fround(m*FPC2))))));\n"
-    "  }\n"
-    "  function fpHash(bp2,mask){\n"
-    "    var cm=mask&255,p=8+(bp2>>3),h=mask>>>0,b=fp.buf;\n"
-    "    h=dcCrc(h,(0x100|b[p])>>((~bp2&7)+1));\n"
-    "    while(cm){p--;if(cm&128)h=dcCrc(h,b[p]);cm=(cm<<1)&255;}\n"
-    "    return h;\n"
     "  }\n"
     "  function fpScore(bytes,wantM){\n"
     "    if(!fpHdr()) return null;\n"
@@ -12604,7 +11191,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "      var bit=(bp===0)?1:(fp.buf[8+(b2>>3)]>>(7-(b2&7)))&1;\n"
     "      var p0=PAQ.bp,p1=PAQ.bp;\n"
     "      for(var m=0;m<num;m++){\n"
-    "        var h=(bp===0)?dcHash0(ext[m]):fpHash(b2,ext[m]);\n"
+    "        var h=(bp===0)?dcHash0(ext[m]):ctxHash(fp.buf,b2,ext[m]);\n"
     "        var s2=(h>>>(32-PAQ.db))*2;\n"
     "        if(useJ) fpJ[fpJN++]=s2;\n"
     "        var e0=dt[s2],e1=dt[s2+1];\n"
@@ -13803,7 +12390,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    bi:4,bw:'square',bg:.05,st:8,bgx:1,pw:.8,\n"
     "    t1:1.5,t2:3,t3:5,cs:4,prog:0,rv:0,rt:1.8,\n"
     "    dw:0,dt:3,df:.35,fc:20000,fq:.7,wr:0,wa:0,\n"
-    "    sw:0,atk:0,cb:16,cmp:1};\n"
+    "    sw:0,atk:0,cb:16,cmp:1,ah:0};\n"
     "  var syn={};\n"
     "  function synReset(){for(var k in SYNDEF) syn[k]=SYNDEF[k];}\n"
     "  synReset();\n"
@@ -13821,6 +12408,40 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    for(var k=0;k<4;k++){\n"
     "      CHORDS[k]=SYNPR[p].c[k];TRK_CHD[k]=SYNPR[p].l[k];\n"
     "    }\n"
+    "  }\n"
+    "  /* auto harmony: the dominant model of the window around the\n"
+    "     needle picks the scale degree, and the chord is the diatonic\n"
+    "     triad on it - the file writes its own changes. un-keyed it\n"
+    "     lives in A minor; with a key pinned it borrows that scale */\n"
+    "  var ahCk=-1,ahC=null,ahLbl='';\n"
+    "  function curChord(step){\n"
+    "    if(!syn.ah||typeof BD==='undefined'||!BD.length||!BD[0].m)\n"
+    "      return CHORDS[(step>>syn.cs)&3];\n"
+    "    var ci2=step>>syn.cs;\n"
+    "    if(ci2===ahCk&&ahC) return ahC;\n"
+    "    ahCk=ci2;\n"
+    "    var nb2=BD.length;\n"
+    "    var i0=sonify?sonPos:((ci2*64)%%nb2);\n"
+    "    var nm=BD[0].m.length;\n"
+    "    var sums=[],m;\n"
+    "    for(m=0;m<nm;m++) sums.push(0);\n"
+    "    for(var j=i0;j<i0+64&&j<nb2;j++){\n"
+    "      var mm=BD[j].m;\n"
+    "      for(m=0;m<nm;m++) if(mm[m]>0) sums[m]+=mm[m];\n"
+    "    }\n"
+    "    var bm=0;\n"
+    "    for(m=1;m<nm;m++) if(sums[m]>sums[bm]) bm=m;\n"
+    "    var sc=KEYSC[sonKey?sonKey.mi:1];\n"
+    "    var base=sonKey?sonKey.r:57;\n"
+    "    var dg=bm%%7;\n"
+    "    function nAt(k){\n"
+    "      var o=0,d2=dg+k;\n"
+    "      while(d2>=7){d2-=7;o+=12;}\n"
+    "      return base+sc[d2]+o;\n"
+    "    }\n"
+    "    ahC=[nAt(0),nAt(2),nAt(4)];\n"
+    "    ahLbl=(typeof MI!=='undefined'&&MI[bm])?MI[bm].mask:'#'+bm;\n"
+    "    return ahC;\n"
     "  }\n"
     "  /* reverb: a wet send off the master bus. the impulse response\n"
     "     is generated - decaying noise - so the report stays a single\n"
@@ -14022,6 +12643,13 @@ static void write_html_report(const char *path, const CompStats *s) {
     "        [5,'32 STEPS']],syn.cs)\n"
     "      +synSel('prog','PROGRESSION',[[0,SYNPR[0].n],[1,SYNPR[1].n],\n"
     "        [2,SYNPR[2].n],[3,SYNPR[3].n]],syn.prog)\n"
+    "      +'<div style=\"display:flex;align-items:center;gap:8px;'\n"
+    "      +'margin:5px 0\"><span style=\"width:92px;flex-shrink:0\">'\n"
+    "      +'AUTO HARMONY</span><button id=\"syn-ah\" style=\"flex:1;'\n"
+    "      +'font-family:inherit;font-size:8px;padding:3px;'\n"
+    "      +'cursor:pointer;background:var(--bg3);color:var(--fg);'\n"
+    "      +'border:1px solid var(--bdr2)\">'\n"
+    "      +(syn.ah?'ON: THE FILE DECIDES':'OFF')+'</button></div>'\n"
     "      +'<div style=\"display:flex;gap:8px;margin-top:10px\">'\n"
     "      +'<button id=\"syn-rst\" style=\"flex:1;font-family:inherit;'\n"
     "      +'font-size:8px;padding:4px;cursor:pointer;'\n"
@@ -14103,6 +12731,13 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    if(cb3) cb3.addEventListener('click',function(){\n"
     "      syn.cmp=syn.cmp?0:1;cmpApply();\n"
     "      cb3.textContent=syn.cmp?'ON':'OFF';});\n"
+    "    var ab2=document.getElementById('syn-ah');\n"
+    "    if(ab2) ab2.addEventListener('click',function(){\n"
+    "      syn.ah=syn.ah?0:1;ahCk=-1;\n"
+    "      if(syn.ah) egg('harmony');\n"
+    "      ab2.textContent=syn.ah?'ON: THE FILE DECIDES':'OFF';\n"
+    "      showToast(syn.ah?'THE FILE WRITES THE CHANGES'\n"
+    "        :'BACK TO THE SONGBOOK');});\n"
     "    var rs2=document.getElementById('syn-rst');\n"
     "    if(rs2) rs2.addEventListener('click',function(){\n"
     "      synReset();synProg(0);beatDur=syn.bd;\n"
@@ -14137,45 +12772,22 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var i=hw.co+(p>>3);\n"
     "    return ((i<hw.cd.length?hw.cd[i]:0)>>(p&7))&1;\n"
     "  }\n"
-    "  function hwHash(bp2,mask){\n"
-    "    var cm=mask&255,p=8+(bp2>>3),h=mask>>>0,b=hw.buf;\n"
-    "    h=dcCrc(h,(0x100|b[p])>>((~bp2&7)+1));\n"
-    "    while(cm){p--;if(cm&128)h=dcCrc(h,b[p]);cm=(cm<<1)&255;}\n"
-    "    return h;\n"
-    "  }\n"
     "  function hwInit(){\n"
-    "    var raw=atob(PAQ.b64);\n"
-    "    var cd=new Uint8Array(raw.length);\n"
-    "    for(var i=0;i<raw.length;i++) cd[i]=raw.charCodeAt(i);\n"
-    "    var lb=PAQ.lf?4:2,hb=PAQ.lf?8:6;\n"
-    "    var bitlen=0;\n"
-    "    for(var i=0;i<lb;i++) bitlen|=cd[i]<<(8*i);\n"
-    "    var wm=(cd[lb]|(cd[lb+1]<<8)|(cd[lb+2]<<16)|(cd[lb+3]<<24))>>>0;\n"
-    "    var num=0,w=wm;\n"
-    "    for(;;){var bt=w&0x80000000;w=(w<<1)>>>0;if(!w)break;if(!bt)num++;}\n"
-    "    var weights=[],ext=[],wv=0;\n"
-    "    w=wm;\n"
-    "    for(var n=0;n<num;n++){\n"
-    "      while(w&0x80000000){w=(w<<1)>>>0;wv++;}\n"
-    "      w=(w<<1)>>>0;\n"
-    "      weights.push(wv);\n"
-    "      ext.push((cd[hb+n]|(w&0xFFFFFF00))>>>0);\n"
-    "    }\n"
-    "    var nb=((bitlen-1)/8)|0;\n"
-    "    hw={cd:cd,co:hb+num,bitlen:bitlen,nb:nb,num:num,\n"
-    "      weights:weights,ext:ext,\n"
-    "      buf:new Uint8Array(nb+16),\n"
+    "    var H=paqHdr();\n"
+    "    hw={cd:H.cd,co:H.co,bitlen:H.bitlen,nb:H.nb,num:H.num,\n"
+    "      weights:H.weights,ext:H.ext,\n"
+    "      buf:new Uint8Array(H.nb+16),\n"
     "      dt:new Uint8Array(2*(1<<PAQ.db)),\n"
     "      tags:new Uint16Array(1<<PAQ.db),\n"
     "      cb:new Uint8Array(Math.max(1,1<<(PAQ.db-3))),\n"
-    "      sl:new Int32Array(num||1),\n"
+    "      sl:new Int32Array(H.num||1),\n"
     "      range:0x80000000,low:0,value:0,cpos:0,bp:0};\n"
     "    for(var i=0;i<31;i++) hw.value=((hw.value<<1)|hwCBit(hw.cpos++))>>>0;\n"
     "  }\n"
     "  function hwStep(){\n"
     "    var d=hw,p0=PAQ.bp,p1=PAQ.bp,num=d.num;\n"
     "    for(var m=0;m<num;m++){\n"
-    "      var h=(d.bp===0)?dcHash0(d.ext[m]):hwHash(d.bp-1,d.ext[m]);\n"
+    "      var h=(d.bp===0)?dcHash0(d.ext[m]):ctxHash(d.buf,d.bp-1,d.ext[m]);\n"
     "      var si=h>>>(32-PAQ.db);\n"
     "      var s2=si*2;\n"
     "      var e0=d.dt[s2],e1=d.dt[s2+1];\n"
@@ -14430,43 +13042,20 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var i=wf.co+(p>>3);\n"
     "    return ((i<wf.cd.length?wf.cd[i]:0)>>(p&7))&1;\n"
     "  }\n"
-    "  function wfHash(bp2,mask){\n"
-    "    var cm=mask&255,p=8+(bp2>>3),h=mask>>>0,b=wf.buf;\n"
-    "    h=dcCrc(h,(0x100|b[p])>>((~bp2&7)+1));\n"
-    "    while(cm){p--;if(cm&128)h=dcCrc(h,b[p]);cm=(cm<<1)&255;}\n"
-    "    return h;\n"
-    "  }\n"
     "  function wfRam(db2){\n"
     "    var b=2<<db2;\n"
     "    return b>=1048576?(b>>>20)+' MB':(b>>>10)+' KB';\n"
     "  }\n"
     "  function wfInit(){\n"
-    "    var raw=atob(PAQ.b64);\n"
-    "    var cd=new Uint8Array(raw.length);\n"
-    "    for(var i=0;i<raw.length;i++) cd[i]=raw.charCodeAt(i);\n"
-    "    var lb=PAQ.lf?4:2,hb=PAQ.lf?8:6;\n"
-    "    var bitlen=0;\n"
-    "    for(var i=0;i<lb;i++) bitlen|=cd[i]<<(8*i);\n"
-    "    var wm=(cd[lb]|(cd[lb+1]<<8)|(cd[lb+2]<<16)|(cd[lb+3]<<24))>>>0;\n"
-    "    var num=0,w=wm;\n"
-    "    for(;;){var bt=w&0x80000000;w=(w<<1)>>>0;if(!w)break;if(!bt)num++;}\n"
-    "    var weights=[],ext=[],wv=0;\n"
-    "    w=wm;\n"
-    "    for(var n=0;n<num;n++){\n"
-    "      while(w&0x80000000){w=(w<<1)>>>0;wv++;}\n"
-    "      w=(w<<1)>>>0;\n"
-    "      weights.push(wv);\n"
-    "      ext.push((cd[hb+n]|(w&0xFFFFFF00))>>>0);\n"
-    "    }\n"
-    "    var nb=((bitlen-1)/8)|0;\n"
+    "    var H=paqHdr();\n"
     "    var dbs=[PAQ.db];\n"
     "    for(var k=2;k<=6;k+=2) if(PAQ.db-k>=10) dbs.push(PAQ.db-k);\n"
     "    var tabs=[];\n"
     "    for(var k=0;k<dbs.length;k++) tabs.push(new Uint8Array(2<<dbs[k]));\n"
-    "    wf={cd:cd,co:hb+num,bitlen:bitlen,nb:nb,num:num,ns:dbs.length,\n"
-    "      dbs:dbs,tabs:tabs,weights:weights,ext:ext,\n"
-    "      buf:new Uint8Array(nb+16),\n"
-    "      sl:new Int32Array((num||1)*dbs.length),\n"
+    "    wf={cd:H.cd,co:H.co,bitlen:H.bitlen,nb:H.nb,num:H.num,ns:dbs.length,\n"
+    "      dbs:dbs,tabs:tabs,weights:H.weights,ext:H.ext,\n"
+    "      buf:new Uint8Array(H.nb+16),\n"
+    "      sl:new Int32Array((H.num||1)*dbs.length),\n"
     "      p0a:new Array(dbs.length),p1a:new Array(dbs.length),\n"
     "      range:0x80000000,low:0,value:0,cpos:0,bp:0};\n"
     "    for(var i=0;i<31;i++) wf.value=((wf.value<<1)|wfCBit(wf.cpos++))>>>0;\n"
@@ -14475,7 +13064,7 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var d=wf,num=d.num,ns=d.ns,P0=d.p0a,P1=d.p1a;\n"
     "    for(var k=0;k<ns;k++){P0[k]=PAQ.bp;P1[k]=PAQ.bp;}\n"
     "    for(var m=0;m<num;m++){\n"
-    "      var h=(d.bp===0)?dcHash0(d.ext[m]):wfHash(d.bp-1,d.ext[m]);\n"
+    "      var h=(d.bp===0)?dcHash0(d.ext[m]):ctxHash(d.buf,d.bp-1,d.ext[m]);\n"
     "      for(var k=0;k<ns;k++){\n"
     "        var s2=(h>>>(32-d.dbs[k]))*2;\n"
     "        var t=d.tabs[k];\n"
@@ -14663,42 +13252,19 @@ static void write_html_report(const char *path, const CompStats *s) {
     "    var i=sb.co+(p>>3);\n"
     "    return ((i<sb.cd.length?sb.cd[i]:0)>>(p&7))&1;\n"
     "  }\n"
-    "  function sbHash(bp2,mask){\n"
-    "    var cm=mask&255,p=8+(bp2>>3),h=mask>>>0,b=sb.buf;\n"
-    "    h=dcCrc(h,(0x100|b[p])>>((~bp2&7)+1));\n"
-    "    while(cm){p--;if(cm&128)h=dcCrc(h,b[p]);cm=(cm<<1)&255;}\n"
-    "    return h;\n"
-    "  }\n"
     "  function sbInit(){\n"
-    "    var raw=atob(PAQ.b64);\n"
-    "    var cd0=new Uint8Array(raw.length);\n"
-    "    for(var i=0;i<raw.length;i++) cd0[i]=raw.charCodeAt(i);\n"
-    "    var lb=PAQ.lf?4:2,hb=PAQ.lf?8:6;\n"
-    "    var bitlen=0;\n"
-    "    for(var i=0;i<lb;i++) bitlen|=cd0[i]<<(8*i);\n"
-    "    var wm=(cd0[lb]|(cd0[lb+1]<<8)|(cd0[lb+2]<<16)|(cd0[lb+3]<<24))>>>0;\n"
-    "    var num=0,w=wm;\n"
-    "    for(;;){var bt=w&0x80000000;w=(w<<1)>>>0;if(!w)break;if(!bt)num++;}\n"
-    "    var weights=[],ext=[],wv=0;\n"
-    "    w=wm;\n"
-    "    for(var n=0;n<num;n++){\n"
-    "      while(w&0x80000000){w=(w<<1)>>>0;wv++;}\n"
-    "      w=(w<<1)>>>0;\n"
-    "      weights.push(wv);\n"
-    "      ext.push((cd0[hb+n]|(w&0xFFFFFF00))>>>0);\n"
-    "    }\n"
-    "    var nb=((bitlen-1)/8)|0;\n"
-    "    sb={cd0:cd0,cd:new Uint8Array(cd0.length),co:hb+num,\n"
-    "      bitlen:bitlen,nb:nb,num:num,weights:weights,ext:ext,\n"
-    "      buf:new Uint8Array(nb+16),\n"
+    "    var H=paqHdr();\n"
+    "    sb={cd0:H.cd,cd:new Uint8Array(H.cd.length),co:H.co,\n"
+    "      bitlen:H.bitlen,nb:H.nb,num:H.num,weights:H.weights,ext:H.ext,\n"
+    "      buf:new Uint8Array(H.nb+16),\n"
     "      dt:new Uint8Array(2*(1<<PAQ.db)),\n"
-    "      sl:new Int32Array(num||1),\n"
+    "      sl:new Int32Array(H.num||1),\n"
     "      range:0x80000000,low:0,value:0,cpos:0,bp:0};\n"
     "  }\n"
     "  function sbStep(){\n"
     "    var d=sb,p0=PAQ.bp,p1=PAQ.bp,num=d.num;\n"
     "    for(var m=0;m<num;m++){\n"
-    "      var h=(d.bp===0)?dcHash0(d.ext[m]):sbHash(d.bp-1,d.ext[m]);\n"
+    "      var h=(d.bp===0)?dcHash0(d.ext[m]):ctxHash(d.buf,d.bp-1,d.ext[m]);\n"
     "      var s2=(h>>>(32-PAQ.db))*2;\n"
     "      var e0=d.dt[s2],e1=d.dt[s2+1];\n"
     "      var sh=(1-(((e0+255)&(e1+255))>>8))*2+d.weights[m];\n"
@@ -15107,6 +13673,1187 @@ static void write_html_report(const char *path, const CompStats *s) {
     "})();\n"
     "</script>\n"
     "</body></html>\n");
+}
+
+static void write_html_report(const char *path, const CompStats *s) {
+  FILE *f = fopen(path, "w");
+  if (!f) {
+    fprintf(stderr, "Failed to open HTML output '%s'\n", path);
+    return;
+  }
+
+  double ratio = 100.0 * s->total_bytes / (double)s->input_size;
+  double savings = 100.0 - ratio;
+  float actual_bpb =
+      s->input_size > 0 ? (float)s->total_bytes * 8.0f / s->input_size : 0;
+  float est_delta = (float)s->total_bytes - s->estimated_bytes;
+  float est_delta_pct =
+      s->estimated_bytes > 0 ? 100.0f * est_delta / s->estimated_bytes : 0;
+  float context_gain = (float)s->entropy - actual_bpb;
+
+  /* Order-1 conditional entropy H1 = H(next byte | previous byte), from
+     bigram counts. Shows how much of the win order-1 modeling explains. */
+  double h1 = -1;
+  if (s->input_data && s->input_size > 1) {
+    unsigned int *bg = (unsigned int *)calloc(65536, sizeof(unsigned int));
+    unsigned int row_tot[256] = {0};
+    for (int i = 0; i + 1 < s->input_size; i++) {
+      bg[s->input_data[i] * 256 + s->input_data[i + 1]]++;
+      row_tot[s->input_data[i]]++;
+    }
+    double pairs = (double)(s->input_size - 1);
+    h1 = 0;
+    for (int r = 0; r < 256; r++) {
+      if (!row_tot[r])
+        continue;
+      for (int c = 0; c < 256; c++) {
+        unsigned int v = bg[r * 256 + c];
+        if (v)
+          h1 -= (v / pairs) * fast_log2f((float)v / row_tot[r]);
+      }
+    }
+    free(bg);
+  }
+
+  /* input fingerprint (CRC32-C) for run-to-run provenance */
+  unsigned int input_crc = 0;
+  if (s->input_data) {
+    unsigned int c = 0xFFFFFFFFu;
+    for (int i = 0; i < s->input_size; i++)
+      c = crc32c_u8(c, s->input_data[i]);
+    input_crc = c ^ 0xFFFFFFFFu;
+  }
+
+  char timebuf[64] = "";
+  {
+    time_t now = time(NULL);
+    struct tm *tmv = localtime(&now);
+    if (tmv)
+      strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tmv);
+  }
+
+  /* ── HTML head + CSS ── */
+  fprintf(f,
+    "<!DOCTYPE html>\n"
+    "<!--\n"
+    "    #####    ###    #####\n"
+    "    ##  ##  ## ##  ##  ##\n"
+    "    #####  ####### ##  ##\n"
+    "    ##     ##   ## ##  ##\n"
+    "    ##     ##   ##  #####\n"
+    "                        ##\n"
+    "    you found the source. we like you.\n"
+    "    69 64 64 71 64\n"
+    "-->\n"
+    "<html lang=\"en\"><head><meta charset=\"UTF-8\">\n"
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+    "<title>Compression Report &ndash; %s</title>\n"
+    "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n"
+    "<link href=\"https://fonts.googleapis.com/css2?"
+    "family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400"
+    "&family=Press+Start+2P"
+    "&family=JetBrains+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">\n"
+    "<style>\n"
+    ":root{\n"
+    "  --bg:#0c0e14;--bg2:#13161f;--bg3:#1a1e2b;--bg4:#242938;\n"
+    "  --bdr:#2a2f3f;--bdr2:#353b4f;\n"
+    "  --fg:#e8eaf0;--fg2:#a0a6b8;--fg3:#6b7186;\n"
+    "  --acc:#22d3ee;--acc2:#06b6d4;--acc3:#0891b2;\n"
+    "  --grn:#34d399;--grn2:#10b981;\n"
+    "  --red:#f87171;--red2:#ef4444;\n"
+    "  --ylw:#fbbf24;--ylw2:#f59e0b;\n"
+    "  --orn:#fb923c;--blu:#60a5fa;\n"
+    "  --mono:'JetBrains Mono',ui-monospace,'Cascadia Code','Consolas',monospace;\n"
+    "  --sans:'DM Sans',system-ui,-apple-system,sans-serif;\n"
+    "  --pix:'Press Start 2P',monospace;\n"
+    "  --pnk:#ff3fd8;--yel:#ffe33f;\n"
+    "  --shadow:0 1px 2px rgba(0,0,0,.25),0 14px 34px -18px rgba(0,0,0,.55);\n"
+    "}\n"
+    "body.light{\n"
+    "  --bg:#f6f7fa;--bg2:#ffffff;--bg3:#eef1f5;--bg4:#e0e4ec;\n"
+    "  --bdr:#d6dae3;--bdr2:#b8bdca;\n"
+    "  --fg:#11141c;--fg2:#3b4156;--fg3:#7a8094;\n"
+    "  --acc:#0891b2;--acc2:#06b6d4;--acc3:#0e7490;\n"
+    "  --grn:#059669;--grn2:#10b981;\n"
+    "  --red:#dc2626;--red2:#ef4444;\n"
+    "  --ylw:#d97706;--ylw2:#f59e0b;\n"
+    "  --orn:#ea580c;--blu:#2563eb;\n"
+    "  --shadow:0 1px 2px rgba(15,23,42,.05),0 14px 34px -18px rgba(15,23,42,.16);\n"
+    "}\n"
+    "*{margin:0;padding:0;box-sizing:border-box}\n"
+    "html{scroll-behavior:smooth}\n"
+    ".card[id]{scroll-margin-top:20px}\n"
+    "body{font-family:var(--sans);color:var(--fg);line-height:1.6;"
+    "-webkit-font-smoothing:antialiased;background:"
+    "radial-gradient(1100px 700px at 85%% -5%%,rgba(34,211,238,.06),transparent 60%%),"
+    "radial-gradient(900px 700px at -5%% 25%%,rgba(96,165,250,.05),transparent 60%%),"
+    "var(--bg);background-attachment:fixed}\n"
+    "::selection{background:rgba(34,211,238,.28)}\n"
+    "::-webkit-scrollbar{width:11px;height:11px}\n"
+    "::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:6px;"
+    "border:3px solid var(--bg)}\n"
+    "::-webkit-scrollbar-thumb:hover{background:var(--bdr2)}\n"
+    "::-webkit-scrollbar-track{background:transparent}\n"
+    ".wrap{padding:24px 28px 64px 28px;margin-left:200px;"
+    "max-width:calc(100vw - 200px)}\n"
+    "\n"
+    "/* ── Sidebar ── */\n"
+    ".sidebar{position:fixed;top:0;left:0;width:184px;height:100vh;"
+    "background:var(--bg2);border-right:1px solid var(--bdr);"
+    "padding:18px 0 12px;overflow-y:auto;z-index:100;"
+    "display:flex;flex-direction:column;scrollbar-width:thin}\n"
+    ".sb-brand{display:flex;align-items:center;gap:8px;padding:2px 16px 14px;"
+    "border-bottom:1px solid var(--bdr);margin-bottom:8px}\n"
+    ".sb-brand .dot{width:9px;height:9px;border-radius:50%%;flex-shrink:0;"
+    "background:linear-gradient(135deg,var(--acc),var(--blu));"
+    "box-shadow:0 0 10px rgba(34,211,238,.6)}\n"
+    ".sb-brand span{font-size:12px;font-weight:700;color:var(--fg);"
+    "letter-spacing:.4px}\n"
+    ".sidebar .sb-title{font-size:9.5px;font-weight:700;color:var(--fg3);"
+    "text-transform:uppercase;letter-spacing:1.4px;padding:0 16px;"
+    "margin:12px 0 4px}\n"
+    ".sidebar a{display:block;padding:5px 16px 5px 14px;font-size:12px;"
+    "color:var(--fg3);text-decoration:none;border-left:2px solid transparent;"
+    "border-radius:0 6px 6px 0;"
+    "transition:color .15s,border-color .15s,background .15s,padding .15s;"
+    "line-height:1.4}\n"
+    ".sidebar a:hover{color:var(--fg);background:rgba(127,140,170,.08);"
+    "padding-left:18px}\n"
+    ".sidebar a.active{color:var(--acc);border-left-color:var(--acc);"
+    "background:linear-gradient(90deg,rgba(34,211,238,.10),transparent)}\n"
+    "@media(max-width:900px){.sidebar{display:none}.wrap{margin-left:0}}\n"
+    "\n"
+    "/* ── Hero ── */\n"
+    ".hero{display:flex;align-items:center;gap:40px;padding:40px 0 36px;"
+    "border-bottom:1px solid var(--bdr)}\n"
+    ".hero-ring{position:relative;flex-shrink:0}\n"
+    ".hero-ring svg{display:block}\n"
+    ".hero-pct{position:absolute;inset:0;display:flex;flex-direction:column;"
+    "align-items:center;justify-content:center}\n"
+    ".hero-pct .big{font-size:32px;font-weight:700;letter-spacing:-1px;"
+    "color:var(--acc);line-height:1;text-shadow:0 0 26px}\n"
+    ".hero-pct .lbl{font-size:11px;color:var(--fg3);text-transform:uppercase;"
+    "letter-spacing:1.5px;margin-top:4px}\n"
+    ".hero-info h1{font-size:20px;font-weight:600;color:var(--fg);"
+    "margin-bottom:4px}\n"
+    ".hero-info .sub{font-size:13px;color:var(--fg3)}\n"
+    ".hero-stats{display:flex;gap:0;margin-top:18px}\n"
+    ".hero-stat{padding:0 26px;border-left:1px solid var(--bdr)}\n"
+    ".hero-stat:first-child{padding-left:0;border-left:none}\n"
+    ".hero-stat .val{font-family:var(--mono);font-size:20px;font-weight:600;"
+    "line-height:1}\n"
+    ".hero-stat .lbl{font-size:11px;color:var(--fg3);margin-top:3px;"
+    "text-transform:uppercase;letter-spacing:.5px}\n"
+    "\n"
+    "/* ── Cards ── */\n"
+    ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));"
+    "gap:20px;margin-top:28px}\n"
+    ".grid .full{grid-column:1/-1}\n"
+    ".card{background:linear-gradient(180deg,rgba(255,255,255,.014),"
+    "transparent 46%%),var(--bg2);border:1px solid var(--bdr);"
+    "border-radius:14px;padding:22px 24px;overflow:hidden;"
+    "box-shadow:var(--shadow);transition:border-color .25s}\n"
+    ".card:hover{border-color:var(--bdr2)}\n"
+    ".card h2{font-size:14px;font-weight:600;color:var(--fg);"
+    "margin-bottom:2px;display:flex;align-items:center;gap:9px;"
+    "letter-spacing:.2px}\n"
+    ".card h2::before{content:'';width:3px;height:15px;border-radius:2px;"
+    "flex-shrink:0;background:linear-gradient(180deg,var(--acc),var(--blu))}\n"
+    ".card .desc{font-size:11.5px;color:var(--fg3);margin-bottom:16px;"
+    "line-height:1.55}\n"
+    "\n"
+    "/* ── Tables ── */\n"
+    "table{border-collapse:collapse;width:100%%;font-size:12.5px;"
+    "font-variant-numeric:tabular-nums}\n"
+    "th{color:var(--fg3);font-weight:600;text-transform:uppercase;"
+    "font-size:10px;letter-spacing:.6px;padding:7px 10px;text-align:left;"
+    "border-bottom:1px solid var(--bdr2)}\n"
+    "th.r{text-align:right}\n"
+    "td{padding:6px 10px;border-bottom:1px solid var(--bdr);color:var(--fg2)}\n"
+    "td.r{text-align:right;font-family:var(--mono);font-size:11.5px}\n"
+    "td.n{font-weight:500;color:var(--fg)}\n"
+    "tr:hover td{background:rgba(127,140,170,.07)}\n"
+    ".kv td:first-child{color:var(--fg3);font-size:11.5px;white-space:nowrap}\n"
+    ".kv td:last-child{font-family:var(--mono);font-size:11.5px;"
+    "text-align:right;color:var(--fg)}\n"
+    "\n"
+    "/* ── Colors ── */\n"
+    ".c-acc{color:var(--acc)}.c-grn{color:var(--grn)}.c-red{color:var(--red)}\n"
+    ".c-ylw{color:var(--ylw)}.c-orn{color:var(--orn)}.c-blu{color:var(--blu)}\n"
+    ".c-fg2{color:var(--fg2)}\n"
+    "\n"
+    "/* ── Bar cells ── */\n"
+    ".bar-cell{position:relative}\n"
+    ".bar{position:absolute;left:0;top:0;bottom:0;border-radius:2px}\n"
+    ".bar-acc{background:var(--acc)}.bar-grn{background:var(--grn)}\n"
+    ".bar-blu{background:var(--blu)}.bar-ylw{background:var(--ylw)}\n"
+    ".bar-orn{background:var(--orn)}.bar-red{background:var(--red)}\n"
+    ".bar-label{position:relative;z-index:1}\n"
+    "\n"
+    "/* ── Anim ── */\n"
+    "@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}"
+    "to{opacity:1;transform:none}}\n"
+    ".card{animation:fadeUp .4s ease both}\n"
+    ".card:nth-child(1){animation-delay:.05s}\n"
+    ".card:nth-child(2){animation-delay:.1s}\n"
+    ".card:nth-child(3){animation-delay:.15s}\n"
+    ".card:nth-child(4){animation-delay:.2s}\n"
+    ".card:nth-child(5){animation-delay:.25s}\n"
+    ".card:nth-child(6){animation-delay:.3s}\n"
+    ".card:nth-child(7){animation-delay:.35s}\n"
+    ".card:nth-child(8){animation-delay:.4s}\n"
+    ".card:nth-child(9){animation-delay:.45s}\n"
+    ".card:nth-child(10){animation-delay:.5s}\n"
+    "\n"
+    "/* ── Misc ── */\n"
+    "svg text{font-family:var(--sans)}\n"
+    ".slider-row{display:flex;align-items:center;gap:10px;margin:6px 0 10px;"
+    "font-size:12px;color:var(--fg3)}\n"
+    ".slider-row input[type=range]{width:180px;accent-color:var(--acc)}\n"
+    ".slider-row button{font-size:10px;padding:3px 10px;border:1px solid var(--bdr2);"
+    "border-radius:6px;background:var(--bg3);color:var(--fg2);cursor:pointer;"
+    "font-family:var(--sans);transition:background .12s,color .12s,"
+    "border-color .12s}\n"
+    ".slider-row button:hover{background:var(--bg4);border-color:var(--fg3);"
+    "color:var(--fg)}\n"
+    "\n"
+    "/* ── Inspect panel ── */\n"
+    ".cd-panel{display:none;margin-top:14px;padding:14px 18px;"
+    "background:var(--bg3);border:1px solid var(--bdr2);border-radius:10px;"
+    "font-size:12px;color:var(--fg2);animation:fadeUp .2s ease both}\n"
+    ".cd-panel .cd-head{display:flex;align-items:baseline;gap:14px;"
+    "margin-bottom:10px}\n"
+    ".cd-panel .cd-byte{font-family:var(--mono);font-size:18px;"
+    "font-weight:600;color:var(--fg)}\n"
+    ".cd-panel .cd-sub{font-size:11px;color:var(--fg3)}\n"
+    ".cd-panel .cd-cost{font-family:var(--mono);font-size:14px;"
+    "font-weight:600}\n"
+    ".cd-panel .cd-bar{display:flex;align-items:center;gap:8px;"
+    "margin:3px 0;font-size:11px}\n"
+    ".cd-panel .cd-bar-lbl{font-family:var(--mono);width:50px;"
+    "color:var(--fg3);flex-shrink:0}\n"
+    ".cd-panel .cd-bar-track{flex:1;height:14px;background:var(--bg);"
+    "border-radius:3px;position:relative;overflow:hidden}\n"
+    ".cd-panel .cd-bar-fill{height:100%%;border-radius:3px;"
+    "position:absolute;left:0;top:0;transition:width .2s}\n"
+    ".cd-panel .cd-bar-val{font-family:var(--mono);width:70px;"
+    "text-align:right;flex-shrink:0}\n"
+    ".cmap-sel{stroke:var(--fg);stroke-width:2}\n"
+    ".son-now{stroke:var(--yel);stroke-width:2.5;"
+    "filter:drop-shadow(0 0 3px var(--yel))}\n"
+    ".hex-sel{outline:2px solid var(--fg);outline-offset:-1px}\n"
+    ".scrub-wrap{position:relative}\n"
+    ".scrub-line{stroke:var(--fg);stroke-width:0.6;opacity:0;"
+    "pointer-events:none;transition:opacity .1s}\n"
+    ".hover-tip{position:absolute;display:none;background:var(--bg);"
+    "border:1px solid var(--bdr2);border-radius:8px;padding:7px 11px;"
+    "font-size:11px;font-family:var(--mono);pointer-events:none;z-index:10;"
+    "white-space:nowrap;box-shadow:0 10px 28px rgba(0,0,0,.45);"
+    "color:var(--fg2);line-height:1.5}\n"
+    ".hover-tip .tip-row{display:flex;gap:8px;justify-content:space-between;"
+    "min-width:120px}\n"
+    ".hover-tip .tip-sw{display:inline-block;width:8px;height:8px;"
+    "border-radius:2px;margin-right:4px;vertical-align:middle}\n"
+    ".pm-th{cursor:pointer;user-select:none;transition:color .12s}\n"
+    ".pm-th:hover{color:var(--fg)}\n"
+    ".pm-th .sort-arrow{font-size:9px;color:var(--fg3);margin-left:4px}\n"
+    ".pm-th.active{color:var(--fg)}\n"
+    ".pm-th.active .sort-arrow{color:var(--acc)}\n"
+    ".tuned-chip{font-family:var(--mono);font-size:8px;font-weight:600;"
+    "color:#ff3fd8;border:1px solid #ff3fd8;border-radius:4px;"
+    "padding:1px 5px;margin-left:8px;letter-spacing:1px;flex-shrink:0}\n"
+    ".theme-toggle{margin:auto 12px 12px;padding:6px 10px;font-size:11px;"
+    "background:var(--bg3);color:var(--fg2);border:1px solid var(--bdr);"
+    "border-radius:6px;cursor:pointer;font-family:var(--sans);"
+    "display:flex;align-items:center;justify-content:center;gap:6px;"
+    "transition:background .12s,color .12s,border-color .12s}\n"
+    ".theme-toggle:hover{background:var(--bg4);color:var(--fg);"
+    "border-color:var(--bdr2)}\n"
+    ".mc-more{list-style:none;cursor:pointer;transition:color .12s}\n"
+    ".mc-more::-webkit-details-marker{display:none}\n"
+    ".mc-more:hover{color:var(--fg2)}\n"
+    ".mc-more .mc-caret{transition:transform .15s}\n"
+    "details[open]>.mc-more .mc-caret{transform:rotate(90deg)}\n"
+    "\n"
+    "/* ════ PARTY MODE (hidden; Konami code or 7 taps on the ring) ════ */\n"
+    "#stars,#raster,#copper2,#glenz,.scrolltext{display:none}\n"
+    "@keyframes copper{to{background-position:300%% 0}}\n"
+    "@keyframes scrolltx{to{transform:translateX(-100%%)}}\n"
+    "@keyframes wave{0%%,100%%{transform:translateY(-3px)}"
+    "50%%{transform:translateY(3px)}}\n"
+    "@keyframes stars{to{background-position:-520px 260px,-1120px 560px}}\n"
+    "@keyframes blink{50%%{opacity:0}}\n"
+    "@keyframes crackclr{0%%,100%%{color:var(--pnk)}33%%{color:var(--acc)}"
+    "66%%{color:var(--yel)}}\n"
+    "@keyframes ringpulse{0%%,100%%{filter:drop-shadow(0 0 6px "
+    "rgba(34,211,238,.7))}50%%{filter:drop-shadow(0 0 16px "
+    "rgba(255,63,216,.8))}}\n"
+    "@keyframes rgbjitter{0%%,100%%{text-shadow:2px 2px 0 rgba(255,63,216,.55)}"
+    "25%%{text-shadow:-2px 2px 0 rgba(34,211,238,.6)}"
+    "50%%{text-shadow:2px -2px 0 rgba(255,227,63,.6)}"
+    "75%%{text-shadow:-2px -2px 0 rgba(255,63,216,.6)}}\n"
+    "body.party{\n"
+    "  --bg:#000004;--bg2:#0b0b10;--bg3:#14141b;--bg4:#1f1f29;\n"
+    "  --bdr:#26262f;--bdr2:#3a3a48;\n"
+    "  --fg:#e8e8f0;--fg2:#9a9aad;--fg3:#63636f;\n"
+    "  --shadow:5px 5px 0 rgba(0,0,0,.45);\n"
+    "  --sans:'JetBrains Mono',ui-monospace,monospace;\n"
+    "  background:var(--bg);line-height:1.65}\n"
+    "body.party::before{content:'';position:fixed;top:0;left:0;right:0;"
+    "height:4px;z-index:10000;background:linear-gradient(90deg,var(--pnk),"
+    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 6s linear infinite}\n"
+    "body.party::after{content:'';position:fixed;inset:0;"
+    "pointer-events:none;z-index:9999;"
+    "background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0,"
+    "rgba(0,0,0,.16) 1px,transparent 1px,transparent 3px)}\n"
+    "body.party #stars{display:block;position:fixed;inset:0;z-index:-1;"
+    "pointer-events:none;background-image:"
+    "radial-gradient(rgba(255,255,255,.35) 1px,transparent 1.6px),"
+    "radial-gradient(rgba(255,255,255,.18) 1px,transparent 1.6px);"
+    "background-size:260px 260px,140px 140px;"
+    "animation:stars 90s linear infinite}\n"
+    "#flyby{display:none}\n"
+    "body.party.fly #flyby{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "image-rendering:pixelated;opacity:.8}\n"
+    "body.party.fly #stars{display:none}\n"
+    "#roto{display:none}\n"
+    "body.party.roto #roto{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "image-rendering:pixelated;opacity:.55}\n"
+    "body.party.roto #stars,body.party.roto #flyby{display:none}\n"
+    "#voxel{display:none}\n"
+    "/* no pixelated upscale here: nearest at a non-integer ratio makes\n"
+    "   terrain columns beat against the pixel grid while moving */\n"
+    "body.party.voxel #voxel{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "opacity:.65}\n"
+    "body.party.voxel #stars,body.party.voxel #flyby{display:none}\n"
+    "#tunnel{display:none}\n"
+    "body.party.tunl #tunnel{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "opacity:.6}\n"
+    "body.party.tunl #stars,body.party.tunl #flyby{display:none}\n"
+    "#blox{display:none}\n"
+    "body.party.blox #blox{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "opacity:.75}\n"
+    "body.party.blox #flyby{display:none}\n"
+    "/* tower picking: only in the void, where the mouse is free */\n"
+    "body.party.blox.void #blox{pointer-events:auto;cursor:crosshair}\n"
+    "#fire{display:none}\n"
+    "body.party.burn #fire{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "image-rendering:pixelated;opacity:.8}\n"
+    "body.party.burn #stars,body.party.burn #flyby{display:none}\n"
+    "body.party.burn.void #fire{pointer-events:auto;cursor:crosshair}\n"
+    "#twist{display:none}\n"
+    "body.party.twst #twist{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "opacity:.85}\n"
+    "body.party.twst #stars,body.party.twst #flyby{display:none}\n"
+    "body.party.twst.void #twist{pointer-events:auto;cursor:crosshair}\n"
+    "#kefrens{display:none}\n"
+    "body.party.kefr #kefrens{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "image-rendering:pixelated;opacity:.8}\n"
+    "body.party.kefr #stars,body.party.kefr #flyby{display:none}\n"
+    "body.party.kefr.void #kefrens{pointer-events:auto;cursor:crosshair}\n"
+    "/* echoes keeps #stars: bridges under a real sky */\n"
+    "#echoes{display:none}\n"
+    "body.party.echo #echoes{display:block;position:fixed;inset:0;"
+    "width:100vw;height:100vh;z-index:-1;pointer-events:none;"
+    "opacity:.85}\n"
+    "body.party.echo.void #echoes{pointer-events:auto;cursor:crosshair}\n"
+    "#moon{display:none}\n"
+    "body.party #moon.lit{display:block;position:fixed;top:72px;right:96px;"
+    "width:26px;height:26px;z-index:-1;pointer-events:none;"
+    "border-radius:50%%;background:"
+    "radial-gradient(circle at 62%% 40%%,rgba(0,0,0,.12) 0 12%%,"
+    "transparent 14%%),"
+    "radial-gradient(circle at 40%% 65%%,rgba(0,0,0,.10) 0 9%%,"
+    "transparent 11%%),"
+    "radial-gradient(circle at 35%% 35%%,#fff7d6,#ffe9a8 60%%,#e8c97a);"
+    "box-shadow:0 0 18px rgba(255,233,168,.45)}\n"
+    "body.party .scrolltext{display:block;overflow:hidden;"
+    "white-space:nowrap;margin-top:30px;border-top:1px solid var(--bdr);"
+    "border-bottom:1px solid var(--bdr);padding:9px 0;cursor:pointer;"
+    "font-family:var(--pix);font-size:9px;color:var(--acc)}\n"
+    "body.party .scrolltext span{display:inline-block;padding-left:100%%;"
+    "animation:scrolltx 32s linear infinite;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.5)}\n"
+    "body.party .scrolltext i{display:inline-block;font-style:normal;"
+    "animation:wave 1.4s ease-in-out infinite}\n"
+    "body.party ::selection{background:rgba(255,63,216,.35)}\n"
+    "body.party ::-webkit-scrollbar-thumb{border-radius:0}\n"
+    "body.party .card{background:var(--bg2);border-radius:0;"
+    "position:relative;padding-top:24px}\n"
+    "body.party .card::before{content:'';position:absolute;top:0;left:0;"
+    "right:0;height:3px;background:linear-gradient(90deg,var(--pnk),"
+    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 8s linear infinite;opacity:.85}\n"
+    "body.party .card:hover{border-color:var(--pnk)}\n"
+    "body.party .card h2{font-family:var(--pix);font-size:10px;"
+    "font-weight:400;text-transform:uppercase;letter-spacing:1px;"
+    "line-height:1.6;margin-bottom:6px;gap:10px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
+    "body.party .card:hover h2{animation:rgbjitter .35s steps(1) infinite}\n"
+    "body.party .card h2::before{width:8px;height:8px;border-radius:0;"
+    "background:var(--acc);box-shadow:2px 2px 0 var(--pnk)}\n"
+    "body.party .hero-info h1{font-family:var(--pix);font-size:14px;"
+    "font-weight:400;text-transform:uppercase;letter-spacing:1px;"
+    "line-height:1.5;margin-bottom:8px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
+    "body.party .hero-info h1::after{content:'\\2588';margin-left:8px;"
+    "color:var(--acc);animation:blink 1.1s steps(2) infinite}\n"
+    "body.party .hero-info::after{content:"
+    "var(--stamp,'*** FUCK YOU SHANNON PAQ BEGS TO DIFFER ***');"
+    "display:block;margin-top:12px;font-family:var(--pix);font-size:7px;"
+    "letter-spacing:1px;animation:crackclr 4s linear infinite}\n"
+    "body.party .hero-ring svg{animation:ringpulse 2.6s ease-in-out infinite}\n"
+    "body.party .hero-pct .lbl,body.party .hero-stat .lbl{"
+    "font-family:var(--pix);font-size:7px;letter-spacing:1px}\n"
+    "body.party .hero-stats .hero-stat:last-child{cursor:help}\n"
+    "body.party .hero-stats::after{content:'[ M = MUTE ]';display:flex;"
+    "align-items:center;margin-left:28px;font-family:var(--pix);"
+    "font-size:7px;letter-spacing:1px;color:var(--fg3);"
+    "animation:blink 2.4s steps(2) infinite}\n"
+    "body.party .sb-brand .dot{border-radius:0;background:var(--acc);"
+    "box-shadow:3px 3px 0 var(--pnk)}\n"
+    "body.party .sb-brand span:not(.dot){font-family:var(--pix);"
+    "font-size:8px;font-weight:400;letter-spacing:1px;"
+    "text-transform:uppercase;"
+    "text-shadow:1px 1px 0 rgba(255,63,216,.6)}\n"
+    "body.party .sidebar .sb-title{font-family:var(--pix);font-size:7px;"
+    "font-weight:400;letter-spacing:1px}\n"
+    "body.party .sidebar a:hover{text-shadow:1px 0 var(--pnk),"
+    "-1px 0 var(--acc);background:rgba(255,63,216,.07)}\n"
+    "body.party .sidebar a.active{border-left-color:var(--pnk)}\n"
+    "body.party .slider-row button{border-radius:0;text-transform:uppercase;"
+    "letter-spacing:.5px;box-shadow:2px 2px 0 rgba(0,0,0,.5)}\n"
+    "body.party .slider-row button:hover{border-color:var(--pnk)}\n"
+    "body.party .slider-row button:active{transform:translate(2px,2px);"
+    "box-shadow:none}\n"
+    "body.party .theme-toggle{border-radius:0;text-transform:uppercase;"
+    "letter-spacing:1px}\n"
+    "body.party .hover-tip{border-radius:0;"
+    "box-shadow:4px 4px 0 rgba(0,0,0,.55)}\n"
+    "body.party .cd-panel{border-radius:0}\n"
+    "body.party #raster{display:block;position:fixed;inset:0;z-index:-1;"
+    "pointer-events:none;background-image:"
+    "linear-gradient(180deg,transparent 0,rgba(255,63,216,.16) 50%%,"
+    "transparent 100%%),"
+    "linear-gradient(180deg,transparent 0,rgba(34,211,238,.13) 50%%,"
+    "transparent 100%%),"
+    "linear-gradient(180deg,transparent 0,rgba(255,227,63,.09) 50%%,"
+    "transparent 100%%);"
+    "background-size:100%% 180px,100%% 260px,100%% 340px;"
+    "animation:raster 5s linear infinite}\n"
+    "@keyframes raster{to{background-position:0 180px,0 -260px,0 340px}}\n"
+    "body.party #copper2{display:block;position:fixed;bottom:0;left:0;right:0;"
+    "height:4px;z-index:10000;background:linear-gradient(90deg,var(--pnk),"
+    "var(--acc),var(--yel),var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 6s linear infinite reverse}\n"
+    "body.party #glenz{display:block;position:fixed;right:36px;bottom:46px;"
+    /* the cube outranks every overlay. the cube always outranks
+       every overlay. do not ask why. */
+    "width:70px;height:70px;z-index:10006;cursor:pointer;touch-action:none;"
+    "transform-style:preserve-3d;animation:glenz 7s linear infinite}\n"
+    "body.party #glenz.kick{animation-duration:1.1s}\n"
+    "body.party #glenz.dead{animation:glenzfall 1.6s ease-in forwards}\n"
+    "@keyframes glenzfall{to{transform:translateY(130vh) rotateX(720deg)}}\n"
+    "body.party .hero-ring.docked{animation:ringdock .9s ease}\n"
+    "@keyframes ringdock{50%%{transform:scale(1.12)}}\n"
+    "body.party.mourning .scrolltext{color:#6a6a72}\n"
+    "body.party.mourning .scrolltext span{text-shadow:none}\n"
+    "body.party #moon.lit~#glenz i{border-color:#cfd8e3}\n"
+    "@keyframes glenz{to{transform:rotateX(360deg) rotateY(720deg)}}\n"
+    "body.party #glenz i{position:absolute;inset:0;"
+    "background:rgba(255,63,216,.10);border:1px solid var(--acc)}\n"
+    "body.party #glenz i:nth-child(even){background:rgba(34,211,238,.10);"
+    "border-color:var(--pnk)}\n"
+    "body.party #glenz i:nth-child(1){transform:translateZ(35px)}\n"
+    "body.party #glenz i:nth-child(2){transform:rotateY(180deg) "
+    "translateZ(35px)}\n"
+    "body.party #glenz i:nth-child(3){transform:rotateY(90deg) "
+    "translateZ(35px)}\n"
+    "body.party #glenz i:nth-child(4){transform:rotateY(-90deg) "
+    "translateZ(35px)}\n"
+    "body.party #glenz i:nth-child(5){transform:rotateX(90deg) "
+    "translateZ(35px)}\n"
+    "body.party #glenz i:nth-child(6){transform:rotateX(-90deg) "
+    "translateZ(35px)}\n"
+    "/* vinyl: while the file plays, the ring is a record */\n"
+    "body.party .hero-ring.vinyl{cursor:grab;touch-action:none}\n"
+    "body.party .hero-ring.vinyl:active{cursor:grabbing}\n"
+    "body.party .hero-ring.vinyl::before{content:'';position:absolute;"
+    "right:-8px;top:-12px;width:4px;height:58%%;z-index:3;"
+    "transform-origin:top center;transform:rotate(-26deg);"
+    "border-radius:2px;"
+    "background:linear-gradient(180deg,#8a8f9c,#565b66);"
+    "box-shadow:2px 2px 4px rgba(0,0,0,.5)}\n"
+    "body.party .hero-ring.vinyl::after{content:'';position:absolute;"
+    "left:calc(50%% - 3.5px);top:8px;width:7px;height:7px;"
+    "border-radius:50%%;background:var(--yel);z-index:2;"
+    "box-shadow:0 0 6px var(--yel);transform-origin:3.5px 62px;"
+    "animation:vinylspin 1.8s linear infinite}\n"
+    "body.party.mourning .hero-ring.vinyl::after{"
+    "animation-duration:3.6s}\n"
+    ".vinyl-arm{display:none}\n"
+    "body.party .hero-ring.vinyl .vinyl-arm{display:block;"
+    "position:absolute;right:-24px;top:20px;width:59px;height:5px;"
+    "z-index:3;transform-origin:right center;transform:rotate(6.5deg);"
+    "border-radius:3px;"
+    "background:linear-gradient(90deg,#6a6f7a,#9aa0ac);"
+    "box-shadow:2px 2px 4px rgba(0,0,0,.45)}\n"
+    "body.party .hero-ring.vinyl .vinyl-arm::after{content:'';"
+    "position:absolute;right:-4px;top:-3px;width:11px;height:11px;"
+    "border-radius:50%%;background:#9aa0ac;"
+    "box-shadow:1px 1px 3px rgba(0,0,0,.5)}\n"
+    "body.party .hero-ring.vinyl .vinyl-arm::before{content:'';"
+    "position:absolute;left:-3px;top:-3px;width:8px;height:11px;"
+    "border-radius:2px;background:#b9bfca;"
+    "box-shadow:1px 1px 3px rgba(0,0,0,.5)}\n"
+    "body.party .hero-ring.vinyl .hero-pct{"
+    "animation:vinylspin 1.8s linear infinite}\n"
+    "body.party.mourning .hero-ring.vinyl .hero-pct{"
+    "animation-duration:3.6s}\n"
+    "@keyframes vinylspin{to{transform:rotate(360deg)}}\n"
+    "/* bottom-left dock past the sidebar: oscilloscope + paqtracker */\n"
+    "#pt-dock{position:fixed;left:200px;bottom:16px;z-index:9997;"
+    "display:flex;flex-direction:column;gap:10px;pointer-events:none}\n"
+    "@media(max-width:900px){#pt-dock{left:16px}}\n"
+    "#pt-dock>div{pointer-events:auto}\n"
+    "/* zoom: the rack at 2x, growing up and to the right from its\n"
+    "   corner. chunky pixels are the point */\n"
+    "body.party #pt-dock.zoom{transform:scale(2);"
+    "transform-origin:0 100%%}\n"
+    "body.party #pt-dock.zoom canvas{image-rendering:pixelated}\n"
+    "/* halve the wide cap under 2x so the visual width still fits */\n"
+    "body.party #pt-dock.zoom #paqtrk.on.wide{"
+    "max-width:calc(50vw - 108px)}\n"
+    "#paqscope{display:none}\n"
+    "body.party #paqscope.on{display:block;width:max-content;"
+    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
+    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
+    "body.party #paqscope.on::before{content:'';display:block;height:3px;"
+    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
+    "var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 8s linear infinite}\n"
+    "#paqscope canvas{display:block;width:248px;height:56px}\n"
+    "#paqspec{display:none}\n"
+    "body.party #paqspec.on{display:block;width:max-content;"
+    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
+    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
+    "body.party #paqspec.on::before{content:'';display:block;height:3px;"
+    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
+    "var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 8s linear infinite}\n"
+    "#paqspec canvas{display:block;width:248px;height:56px}\n"
+    "#paqsg{display:none}\n"
+    "body.party #paqsg.on{display:block;width:max-content;"
+    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
+    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
+    "body.party #paqsg.on::before{content:'';display:block;height:3px;"
+    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
+    "var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 8s linear infinite}\n"
+    "#paqsg canvas{display:block;width:248px;height:72px}\n"
+    "#paqvec{display:none}\n"
+    "body.party #paqvec.on{display:block;width:max-content;"
+    "background:rgba(4,4,8,.93);border:1px solid var(--bdr2);"
+    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
+    "body.party #paqvec.on::before{content:'';display:block;height:3px;"
+    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
+    "var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 8s linear infinite}\n"
+    "#paqvec canvas{display:block;width:248px;height:120px}\n"
+    "#paqtrk{display:none}\n"
+    "body.party #paqtrk.on{display:block;width:248px;"
+    "background:rgba(4,4,8,.93);"
+    "border:1px solid var(--bdr2);padding:0 0 6px;"
+    "font-family:var(--pix);letter-spacing:.5px;"
+    "box-shadow:5px 5px 0 rgba(0,0,0,.45)}\n"
+    "/* band mode: the pattern grows sideways to seat the lineup */\n"
+    "body.party #paqtrk.on.wide{width:max-content;"
+    "max-width:calc(100vw - 216px)}\n"
+    "body.party #paqtrk.on::before{content:'';display:block;height:3px;"
+    "background:linear-gradient(90deg,var(--pnk),var(--acc),var(--yel),"
+    "var(--pnk));background-size:300%% 100%%;"
+    "animation:copper 8s linear infinite}\n"
+    "#paqtrk .pt-head{display:flex;justify-content:space-between;"
+    "align-items:center;gap:8px;padding:6px 8px;font-size:7px;"
+    "color:var(--acc);cursor:pointer;border-bottom:1px solid var(--bdr);"
+    "text-shadow:1px 1px 0 rgba(255,63,216,.55)}\n"
+    "#paqtrk .pt-head span{color:var(--yel);text-shadow:none;"
+    "white-space:nowrap}\n"
+    "#paqtrk .pt-row{display:flex;gap:7px;padding:2px 8px;font-size:7px;"
+    "line-height:1.5;color:var(--fg3);cursor:pointer;white-space:nowrap}\n"
+    "#paqtrk .pt-row.cur{background:rgba(255,63,216,.16);color:var(--fg);"
+    "outline:1px solid rgba(255,63,216,.5)}\n"
+    "#paqtrk .pt-row .o{width:32px;color:var(--fg3)}\n"
+    "#paqtrk .pt-row .nt{width:26px;color:var(--acc)}\n"
+    "#paqtrk .pt-row .by{width:18px;color:var(--fg2)}\n"
+    "#paqtrk .pt-row .co{width:30px;text-align:right}\n"
+    "#paqtrk .pt-row .fx{width:26px;text-align:right;color:var(--pnk)}\n"
+    "#paqtrk .pt-row.cur .nt{color:var(--yel)}\n"
+    "/* crt mode: the picture warps, the glass sits on top */\n"
+    "#crt-glass{display:none}\n"
+    "#crt-screen{position:fixed;inset:0;overflow-y:auto;"
+    "scrollbar-width:none}\n"
+    "#crt-screen::-webkit-scrollbar{display:none}\n"
+    "body.crt #crt-screen{filter:url(#crtwarp);"
+    "animation:crtflick .09s linear infinite alternate}\n"
+    "@keyframes crtflick{from{opacity:1}to{opacity:.962}}\n"
+    "body.crt #crt-glass{display:block;position:fixed;inset:0;"
+    "z-index:10001;pointer-events:none;border-radius:52px;"
+    "box-shadow:0 0 0 160px #030304,"
+    "inset 0 0 190px 55px rgba(0,0,0,.68),"
+    "inset 0 0 60px 10px rgba(120,200,255,.07)}\n"
+    "body.crt #crt-glass::before{content:'';position:absolute;"
+    "inset:0;border-radius:52px;"
+    "background:repeating-linear-gradient(90deg,"
+    "rgba(255,60,60,.09) 0 1px,rgba(60,255,90,.09) 1px 2px,"
+    "rgba(80,120,255,.09) 2px 3px)}\n"
+    "body.crt #crt-glass::after{content:'';position:absolute;"
+    "inset:0;border-radius:52px;"
+    "background:linear-gradient(180deg,transparent 0,"
+    "rgba(255,255,255,.05) 46%%,rgba(255,255,255,.09) 50%%,"
+    "rgba(255,255,255,.05) 54%%,transparent 100%%);"
+    "background-size:100%% 260px;background-repeat:no-repeat;"
+    "animation:crtband 6s linear infinite}\n"
+    "@keyframes crtband{from{background-position:0 -260px}"
+    "to{background-position:0 calc(100vh + 260px)}}\n"
+    "body.party.degauss{animation:degauss .5s ease-out}\n"
+    "@keyframes degauss{0%%{transform:scale(1.014,.986) skewX(1.4deg);"
+    "filter:hue-rotate(70deg) saturate(2.6)}"
+    "30%%{transform:scale(.992,1.008) skewX(-.9deg);"
+    "filter:hue-rotate(-45deg) saturate(1.9)}"
+    "60%%{transform:scale(1.005,.996) skewX(.35deg);"
+    "filter:hue-rotate(18deg)}"
+    "100%%{transform:none;filter:none}}\n"
+    "body.party-boot{animation:crtboot .55s ease-out}\n"
+    "@keyframes crtboot{0%%{transform:scaleY(.004);filter:brightness(6)}"
+    "55%%{transform:scaleY(1.03);filter:brightness(1.6)}"
+    "100%%{transform:none;filter:none}}\n"
+    "#decrunch{position:fixed;inset:0;z-index:10002;background:#000;"
+    "display:flex;flex-direction:column;align-items:center;"
+    "justify-content:center;gap:16px;font-family:var(--pix);"
+    "color:var(--acc);font-size:10px;letter-spacing:2px}\n"
+    "#decrunch .bar{color:var(--pnk);font-size:13px;letter-spacing:1px;"
+    "min-height:16px}\n"
+    ".pspark{position:fixed;width:4px;height:4px;z-index:10001;"
+    "pointer-events:none;animation:spark .5s ease-out forwards}\n"
+    "@keyframes spark{to{transform:translateY(12px) scale(0);opacity:0}}\n"
+    ".pburst{position:fixed;width:5px;height:5px;z-index:10001;"
+    "pointer-events:none;animation:pburst .45s ease-out forwards}\n"
+    "@keyframes pburst{to{transform:translate(var(--dx),var(--dy)) "
+    "scale(0);opacity:0}}\n"
+    "#endpart{position:fixed;inset:0;z-index:10002;background:rgba(0,0,4,.88);"
+    "display:flex;align-items:center;justify-content:center;cursor:pointer;"
+    "animation:endfade 9s ease both}\n"
+    "@keyframes endfade{0%%{opacity:0}8%%{opacity:1}88%%{opacity:1}"
+    "100%%{opacity:0}}\n"
+    "#endpart .ebox{font-family:var(--pix);font-size:11px;color:var(--acc);"
+    "letter-spacing:1px;text-align:center;line-height:2;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.5)}\n"
+    "#endpart .ers{margin:22px 0;width:320px}\n"
+    "#endpart .er{display:flex;justify-content:space-between;gap:30px;"
+    "font-size:8px;color:var(--fg);text-shadow:none;margin:6px 0}\n"
+    "#endpart .er span:last-child{color:var(--yel)}\n"
+    "#finale{position:fixed;inset:0;z-index:10005;overflow:hidden;"
+    "background:rgba(0,0,4,.6);cursor:pointer}\n"
+    "#finale .roll{position:absolute;left:0;right:0;text-align:center;"
+    "font-family:var(--pix);color:var(--fg);font-size:10px;"
+    "letter-spacing:2px;line-height:2.7;"
+    "animation:finroll 46s linear forwards}\n"
+    "@keyframes finroll{from{transform:translateY(100vh)}"
+    "to{transform:translateY(-100%%)}}\n"
+    "#finale .fh{color:var(--acc);font-size:13px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.55)}\n"
+    "#finale .fs{color:var(--fg3);font-size:8px;letter-spacing:3px;"
+    "margin-top:26px}\n"
+    "#finale .fy{color:var(--yel)}\n"
+    "#finale .fp{color:var(--pnk)}\n"
+    "#guru{position:fixed;inset:0;z-index:10003;background:#000;"
+    "cursor:pointer;display:flex;justify-content:center;"
+    "padding-top:26px}\n"
+    "#guru .box{border:5px solid #f00;padding:14px 44px;text-align:center;"
+    "font-family:var(--mono);color:#f00;font-size:15px;line-height:1.9;"
+    "height:fit-content;animation:gurublink 1.1s steps(2) infinite}\n"
+    "@keyframes gurublink{50%%{border-color:transparent}}\n"
+    "#party-toast{position:fixed;top:40%%;left:50%%;"
+    "transform:translate(-50%%,-50%%);z-index:10001;pointer-events:none;"
+    "font-family:var(--pix);font-size:14px;color:var(--acc);"
+    "background:rgba(0,0,4,.92);border:2px solid var(--pnk);"
+    "padding:18px 26px;letter-spacing:2px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.6)}\n"
+    "/* void: just the show, no report */\n"
+    "body.void .wrap,body.void .sidebar,body.void #pt-dock{display:none}\n"
+    "/* devcheats box (works outside party too) */\n"
+    "#cheatbox,#fpbox{position:fixed;inset:0;z-index:10004;"
+    "background:rgba(0,0,4,.88);display:flex;align-items:center;"
+    "justify-content:center;cursor:pointer}\n"
+    "#cheatbox .cbx,#fpbox .cbx{background:#0b0b10;"
+    "border:2px solid var(--pnk);"
+    "padding:20px 28px;font-family:var(--pix);font-size:8px;"
+    "color:var(--fg2);letter-spacing:1px;line-height:2.1;"
+    "max-height:82vh;overflow-y:auto;"
+    "box-shadow:8px 8px 0 rgba(0,0,0,.6)}\n"
+    "#cheatbox .ct,#fpbox .ct{color:var(--acc);font-size:10px;"
+    "margin-bottom:10px;"
+    "text-shadow:2px 2px 0 rgba(255,63,216,.5)}\n"
+    "#cheatbox .cr,#fpbox .cr{display:flex;"
+    "justify-content:space-between;gap:28px}\n"
+    "#cheatbox .cr span:first-child,#fpbox .cr span:first-child{"
+    "color:var(--yel)}\n"
+    "#cheatbox .cf,#fpbox .cf{margin-top:10px;color:var(--fg3);"
+    "font-size:7px;line-height:1.8}\n"
+    "</style></head><body>\n"
+    "<div id=\"stars\"></div>\n"
+    "<canvas id=\"flyby\"></canvas>\n"
+    "<div id=\"moon\"></div>\n"
+    "<div id=\"raster\"></div>\n"
+    "<div id=\"copper2\"></div>\n"
+    "<div id=\"crt-glass\"></div>\n"
+    "<div id=\"glenz\"><i></i><i></i><i></i><i></i><i></i><i></i></div>\n"
+    "<canvas id=\"roto\"></canvas>\n"
+    "<canvas id=\"voxel\"></canvas>\n"
+    "<canvas id=\"tunnel\"></canvas>\n"
+    "<canvas id=\"blox\"></canvas>\n"
+    "<canvas id=\"fire\"></canvas>\n"
+    "<canvas id=\"twist\"></canvas>\n"
+    "<canvas id=\"kefrens\"></canvas>\n"
+    "<canvas id=\"echoes\"></canvas>\n"
+    "<div id=\"pt-dock\">\n"
+    "<div id=\"paqscope\"><canvas id=\"scope-cv\" width=\"248\" "
+    "height=\"56\"></canvas></div>\n"
+    "<div id=\"paqspec\"><canvas id=\"spec-cv\" width=\"248\" "
+    "height=\"56\"></canvas></div>\n"
+    "<div id=\"paqsg\"><canvas id=\"sg-cv\" width=\"248\" "
+    "height=\"72\"></canvas></div>\n"
+    "<div id=\"paqvec\"><canvas id=\"vec-cv\" width=\"248\" "
+    "height=\"120\"></canvas></div>\n"
+    "<div id=\"paqtrk\"></div>\n"
+    "</div>\n"
+    "<nav class=\"sidebar\" id=\"sidebar\">\n"
+    "<div class=\"sb-brand\"><span class=\"dot\"></span>"
+    "<span>Compression Report</span></div>\n"
+    "<div class=\"sb-title\">Overview</div>\n"
+    "<a href=\"#sec-params\">Parameters</a>\n"
+    "<a href=\"#sec-output\">Output Breakdown</a>\n"
+    "<a href=\"#sec-header\">Header Anatomy</a>\n"
+    "<a href=\"#sec-mctrib\">Model Contribution</a>\n"
+    "<div class=\"sb-title\">Input Data</div>\n"
+    "<a href=\"#sec-bytefreq\">Byte Frequency</a>\n"
+    "<a href=\"#sec-bigram\">Byte Bigrams</a>\n"
+    "<a href=\"#sec-cmap\">Compressibility Map</a>\n"
+    "<a href=\"#sec-costhist\">Cost Histogram</a>\n"
+    "<a href=\"#sec-infoscatter\">Cost vs Entropy</a>\n"
+    "<a href=\"#sec-learn\">Learning Curve</a>\n"
+    "<a href=\"#sec-strings\">Strings</a>\n"
+    "<a href=\"#sec-hex\">Hex View</a>\n"
+    "<div class=\"sb-title\">Models</div>\n"
+    "<a href=\"#sec-attr\">Model Attribution</a>\n"
+    "<a href=\"#sec-dominance\">Model Dominance</a>\n"
+    "<a href=\"#sec-hurt\">Model Hurt</a>\n"
+    "<a href=\"#sec-net\">Model Net</a>\n"
+    "<a href=\"#sec-depth\">Context Depth</a>\n"
+    "<a href=\"#sec-corr\">Model Correlation</a>\n"
+    "<a href=\"#sec-surprises\">Top Surprises</a>\n"
+    "<div class=\"sb-title\">Position</div>\n"
+    "<a href=\"#sec-cost\">Cost Over Position</a>\n"
+    "<a href=\"#sec-cumcost\">Cumulative Cost</a>\n"
+    "<a href=\"#sec-bitmap\">Bit Heatmap</a>\n"
+    "<a href=\"#sec-repeat\">Repetition</a>\n"
+    "<div class=\"sb-title\">Search</div>\n"
+    "<a href=\"#sec-search\">Search Trajectory</a>\n"
+    "<a href=\"#sec-maskgrid\">Mask Outcomes</a>\n"
+    "<a href=\"#sec-models\">Model Statistics</a>\n"
+    "<div class=\"sb-title\">Coder</div>\n"
+    "<a href=\"#sec-conf\">Pred. Confidence</a>\n"
+    "<a href=\"#sec-calib\">Calibration</a>\n"
+    "<a href=\"#sec-bytepos\">Byte Position</a>\n"
+    "<a href=\"#sec-hash\">Direct-Mapped Table</a>\n"
+    "<a href=\"#sec-occ\">Table Growth</a>\n"
+    "<a href=\"#sec-sat\">Counter Saturation</a>\n"
+    "<button id=\"theme-toggle\" class=\"theme-toggle\" type=\"button\" "
+    "title=\"Toggle theme\">"
+    "<span id=\"theme-toggle-icon\">\xe2\x98\xbd</span>"
+    "<span id=\"theme-toggle-label\">Light</span></button>\n"
+    "</nav>\n"
+    "<div class=\"wrap\">\n",
+    s->input_file);
+
+  /* shared sparkline helper used by hover tooltips across the report */
+  fprintf(f, "%s",
+    "<script>\n"
+    "window.makeSparkline=function(values,opts){\n"
+    "  opts=opts||{};\n"
+    "  var W=opts.width||200,H=opts.height||40,P=2;\n"
+    "  var color=opts.color||'#22d3ee';\n"
+    "  var hi=(opts.highlightIdx!==undefined)?opts.highlightIdx:-1;\n"
+    "  var n=values.length; if(n<2) return '';\n"
+    "  var vmin=Infinity,vmax=-Infinity;\n"
+    "  for(var i=0;i<n;i++){\n"
+    "    if(values[i]<vmin) vmin=values[i];\n"
+    "    if(values[i]>vmax) vmax=values[i];\n"
+    "  }\n"
+    "  var hasNeg=vmin<0&&vmax>0;\n"
+    "  var midY=H/2, topY=2, botY=H-2;\n"
+    "  function yOf(v){\n"
+    "    if(hasNeg){\n"
+    "      var amp=Math.max(Math.abs(vmin),Math.abs(vmax));\n"
+    "      if(amp<0.001) return midY;\n"
+    "      return midY-(v/amp)*(midY-2);\n"
+    "    }\n"
+    "    if(vmax<=vmin) return botY;\n"
+    "    return botY-((v-vmin)/(vmax-vmin))*(botY-topY);\n"
+    "  }\n"
+    "  function xOf(i){return P+(i*(W-2*P)/(n>1?n-1:1));}\n"
+    "  var base=hasNeg?midY:botY;\n"
+    "  var area='M'+P+','+base;\n"
+    "  for(var i=0;i<n;i++) area+=' L'+xOf(i).toFixed(1)+','+yOf(values[i]).toFixed(1);\n"
+    "  area+=' L'+(W-P)+','+base+' Z';\n"
+    "  var line='';\n"
+    "  for(var i=0;i<n;i++) line+=(i?'L':'M')+xOf(i).toFixed(1)+','+yOf(values[i]).toFixed(1)+' ';\n"
+    "  var s='<svg width=\"'+W+'\" height=\"'+H+'\" '\n"
+    "    +'style=\"display:block;margin-top:6px\">'\n"
+    "    +'<rect x=\"0\" y=\"0\" width=\"'+W+'\" height=\"'+H+'\" '\n"
+    "    +'fill=\"var(--bg3)\" rx=\"3\"/>';\n"
+    "  if(hasNeg){\n"
+    "    s += '<line x1=\"0\" y1=\"'+midY+'\" x2=\"'+W+'\" y2=\"'+midY\n"
+    "      +'\" stroke=\"var(--fg3)\" stroke-width=\"0.5\"/>';\n"
+    "  }\n"
+    "  s += '<path d=\"'+area+'\" fill=\"'+color+'\" fill-opacity=\".25\"/>';\n"
+    "  s += '<path d=\"'+line+'\" fill=\"none\" stroke=\"'+color+'\" stroke-width=\"1\"/>';\n"
+    "  if(hi>=0&&hi<n){\n"
+    "    s += '<circle cx=\"'+xOf(hi).toFixed(1)+'\" '\n"
+    "      +'cy=\"'+yOf(values[hi]).toFixed(1)+'\" r=\"2.5\" fill=\"var(--fg)\"/>';\n"
+    "  }\n"
+    "  if(opts.labelTop) s += '<text x=\"4\" y=\"9\" font-size=\"8\" '\n"
+    "    +'fill=\"var(--fg3)\">'+opts.labelTop+'</text>';\n"
+    "  if(opts.labelBot) s += '<text x=\"4\" y=\"'+(H-3)+'\" font-size=\"8\" '\n"
+    "    +'fill=\"var(--fg3)\">'+opts.labelBot+'</text>';\n"
+    "  if(opts.labelRight) s += '<text x=\"'+(W-4)+'\" y=\"'+(H-3)\n"
+    "    +'\" text-anchor=\"end\" font-size=\"8\" fill=\"var(--fg3)\">'\n"
+    "    +opts.labelRight+'</text>';\n"
+    "  return s+'</svg>';\n"
+    "};\n"
+    "/* URL state: serialize active model/mode/sort to #hash so a particular\n"
+    "   finding can be bookmarked or shared as a deep link */\n"
+    "window.reportState={m:null,mode:null,sortCol:6,sortDir:-1};\n"
+    "window.reportStateSuppress=false;\n"
+    "window.serializeReportState=function(){\n"
+    "  if(window.reportStateSuppress) return;\n"
+    "  var s=window.reportState, parts=[];\n"
+    "  if(s.m!==null&&s.m!==undefined){\n"
+    "    parts.push('m='+s.m);\n"
+    "    if(s.mode) parts.push('mode='+s.mode);\n"
+    "  }\n"
+    "  if(s.sortCol!==6||s.sortDir!==-1)\n"
+    "    parts.push('sort='+s.sortCol+','+s.sortDir);\n"
+    "  var h=parts.length?'#'+parts.join('&'):location.pathname+location.search;\n"
+    "  try { history.replaceState(null,'',h); } catch(e) {}\n"
+    "};\n"
+    "window.parseReportState=function(){\n"
+    "  var h=location.hash.replace(/^#/,'');\n"
+    "  if(!h) return {};\n"
+    "  var out={};\n"
+    "  h.split('&').forEach(function(p){\n"
+    "    var i=p.indexOf('='); if(i<0) return;\n"
+    "    out[p.substring(0,i)]=p.substring(i+1);\n"
+    "  });\n"
+    "  return out;\n"
+    "};\n"
+    "/* retune registry: cards that can rebuild themselves from BD\n"
+    "   register here; the party-mode tuner calls retune() after\n"
+    "   committing edits, and each refreshed card wears a TUNED chip */\n"
+    "window.retuneHooks=[];\n"
+    "/* cooperative rebuild: one card per macrotask, so the audio\n"
+    "   scheduler keeps breathing between rebuilds instead of one\n"
+    "   long stall. a retune during a running pass restarts it */\n"
+    "window.retuneQ=null;\n"
+    "window.retune=function(){\n"
+    "  var t=window.TUNED,any=false;\n"
+    "  if(t) for(var i=0;i<t.length;i++) if(t[i]){any=true;break;}\n"
+    "  var fresh=(window.retuneQ===null);\n"
+    "  window.retuneQ={k:0,any:any};\n"
+    "  if(!fresh) return; /* the running chain picks up the new queue */\n"
+    "  function step(){\n"
+    "    var q=window.retuneQ;\n"
+    "    if(!q) return;\n"
+    "    if(q.k>=window.retuneHooks.length){window.retuneQ=null;return;}\n"
+    "    var hk=window.retuneHooks[q.k++];\n"
+    "    try{hk.fn();}catch(e){}\n"
+    "    var card=document.getElementById(hk.id);\n"
+    "    var h2=card?card.querySelector('h2'):null;\n"
+    "    if(h2){\n"
+    "      var chip=h2.querySelector('.tuned-chip');\n"
+    "      if(q.any&&!chip){\n"
+    "        chip=document.createElement('span');\n"
+    "        chip.className='tuned-chip';\n"
+    "        chip.textContent='TUNED';\n"
+    "        h2.appendChild(chip);\n"
+    "      }\n"
+    "      if(chip) chip.style.display=q.any?'':'none';\n"
+    "    }\n"
+    "    setTimeout(step,0);\n"
+    "  }\n"
+    "  setTimeout(step,0);\n"
+    "};\n"
+    "</script>\n");
+
+  /* identity beacon for cross-report party chatter */
+  fprintf(f,
+    "<script>var REPORT_ID={crc:'0x%08X',ratio:%.3f,inb:%d,outb:%d};"
+    "</script>\n",
+    input_crc, ratio, s->input_size, s->total_bytes);
+
+  /* the emitted .paq itself (header + masks + payload), base64. the
+     party-mode true decruncher re-runs the actual decoder on this and
+     checks the CRC - the report can prove the file round-trips */
+  if (s->comp_stream && s->num_models > 0) {
+    int lb = hdr_bitlen_bytes();
+    int hb = hdr_base_bytes();
+    int total = hb + s->num_models + s->comp_stream_bytes;
+    unsigned char *pf = (unsigned char *)malloc(total);
+    unsigned int bl = (unsigned int)s->hdr_bitlen;
+    memcpy(pf, &bl, lb);
+    memcpy(pf + lb, &s->hdr_wmask, 4);
+    memcpy(pf + hb, s->hdr_masks, s->num_models);
+    memcpy(pf + hb + s->num_models, s->comp_stream, s->comp_stream_bytes);
+    fprintf(f, "<script>var PAQ={db:%d,bp:%d,lf:%d,b64:'",
+            direct_bits, s->base_prob, s->large_field);
+    fprint_b64(f, pf, total);
+    fprintf(f, "'};</script>\n");
+    free(pf);
+  }
+
+  /* the band: top-8 models by bits saved, one channel each, with the
+     per-byte contribution packed to one hex nibble (0-15, saturating
+     at 4 bits) - party mode's multi-channel tracker plays from this */
+  if (s->byte_model_contrib && s->num_data_bytes > 0 && s->num_models > 0) {
+    int nm = s->num_models, nb = s->num_data_bytes;
+    int ord[MAX_SEARCH];
+    for (int m = 0; m < nm; m++)
+      ord[m] = m;
+    for (int i = 0; i < nm - 1; i++)
+      for (int j = i + 1; j < nm; j++)
+        if (s->model_bits_saved[ord[i]] < s->model_bits_saved[ord[j]]) {
+          int t = ord[i];
+          ord[i] = ord[j];
+          ord[j] = t;
+        }
+    int nch = nm < 8 ? nm : 8;
+    fprintf(f, "<script>var BAND={ch:[");
+    for (int c = 0; c < nch; c++)
+      fprintf(f, "%s\"%02X:%d\"", c ? "," : "", s->model_masks[ord[c]],
+              s->model_weights[ord[c]]);
+    fprintf(f, "],q:\"");
+    for (int i = 0; i < nb; i++)
+      for (int c = 0; c < nch; c++) {
+        float v = s->byte_model_contrib[i * nm + ord[c]];
+        int q = (int)(v * (15.0f / 4.0f) + 0.5f);
+        fputc("0123456789ABCDEF"[q < 0 ? 0 : q > 15 ? 15 : q], f);
+      }
+    fprintf(f, "\"};</script>\n");
+  }
+
+  /* ── Hero section with ring gauge ── */
+  {
+    /* ring gauge: SVG donut */
+    int ring_r = 60, ring_stroke = 10;
+    double circumf = 2.0 * 3.14159265 * ring_r;
+    double fill_len = circumf * savings / 100.0;
+    double gap_len = circumf - fill_len;
+    const char *ring_color = savings > 60 ? "#22d3ee"
+                           : savings > 40 ? "#34d399"
+                           : savings > 20 ? "#fbbf24"
+                                          : "#f87171";
+
+    fprintf(f, "<div class=\"hero\">\n");
+    fprintf(f,
+      "<div class=\"hero-ring\">\n"
+      "<svg width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\">\n"
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"var(--bg3)\" stroke-width=\"%d\"/>\n"
+      "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" fill=\"none\" "
+      "stroke=\"%s\" stroke-width=\"%d\" "
+      "stroke-dasharray=\"%.1f %.1f\" stroke-dashoffset=\"%.1f\" "
+      "stroke-linecap=\"round\" "
+      "style=\"transform:rotate(-90deg);transform-origin:center;"
+      "filter:drop-shadow(0 0 8px %s40)\"/>\n"
+      "</svg>\n"
+      "<div class=\"hero-pct\">"
+      "<span class=\"big\" style=\"color:%s\">%.0f%%</span>"
+      "<span class=\"lbl\">saved</span></div>\n"
+      "<div class=\"vinyl-arm\"></div>\n"
+      "</div>\n",
+      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
+      (ring_r + ring_stroke) * 2, (ring_r + ring_stroke) * 2,
+      ring_r + ring_stroke, ring_r + ring_stroke, ring_r, ring_stroke,
+      ring_r + ring_stroke, ring_r + ring_stroke, ring_r,
+      ring_color, ring_stroke, fill_len, gap_len, circumf * 0.25,
+      ring_color, ring_color, savings);
+
+    fprintf(f,
+      "<div class=\"hero-info\">\n"
+      "<h1>Compression Report</h1>\n"
+      "<p class=\"sub\">%s &middot; context-mixing arithmetic coder</p>\n"
+      "<div class=\"hero-stats\">\n"
+      "<div class=\"hero-stat\"><div class=\"val\">%d</div>"
+      "<div class=\"lbl\">Input bytes</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val c-acc\">%d</div>"
+      "<div class=\"lbl\">Output bytes</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val c-grn\">%.2f%%</div>"
+      "<div class=\"lbl\">Ratio</div></div>\n"
+      "<div class=\"hero-stat\"><div class=\"val\" style=\"color:%s\">%+.3f</div>"
+      "<div class=\"lbl\">H\xe2\x82\x80 gain</div></div>\n"
+      "</div></div></div>\n\n",
+      s->input_file, s->input_size, s->total_bytes, ratio,
+      context_gain > 0 ? "#34d399" : "#f87171", context_gain);
+  }
+
+  fprintf(f, "<div class=\"grid\">\n");
+
+  /* ── Summary card ── */
+  fprintf(f,
+    "<div class=\"card\" id=\"sec-params\">\n"
+    "<h2>Parameters</h2>\n"
+    "<p class=\"desc\">Compression settings and entropy metrics.</p>\n"
+    "<table class=\"kv\">\n");
+  fprintf(f, "<tr><td>Search</td><td>beam %d%s%s</td></tr>\n",
+    s->beam, s->simple ? " simple" : "", s->extreme ? " extreme" : "");
+  fprintf(f, "<tr><td>Base probability</td><td>%d</td></tr>\n", s->base_prob);
+  fprintf(f, "<tr><td>Models</td><td style=\"font-size:10.5px\">%s</td></tr>\n",
+    s->model_string);
+  fprintf(f, "<tr><td>Compressed bits</td><td>%d</td></tr>\n",
+    s->compressed_bits);
+  fprintf(f, "<tr><td>Header</td><td>%d bytes</td></tr>\n", s->header_bytes);
+  fprintf(f, "<tr><td>Large mode (-L)</td><td class=\"%s\">%s</td></tr>\n",
+    s->large_field ? "c-blu" : "c-grn",
+    s->large_field ? "on (32-bit length field)"
+                   : "off (16-bit length field)");
+  fprintf(f, "<tr><td>Estimated (pre-encode)</td><td>%.3f bytes</td></tr>\n",
+    s->estimated_bytes);
+  fprintf(f,
+    "<tr><td>Estimator delta</td>"
+    "<td class=\"%s\">%+.1f bytes (%+.1f%%)</td></tr>\n",
+    (est_delta < 2 && est_delta > -2) ? "c-grn"
+    : (est_delta < 5 && est_delta > -5) ? "c-ylw" : "c-orn",
+    est_delta, est_delta_pct);
+  fprintf(f,
+    "<tr><td>Shannon H\xe2\x82\x80</td>"
+    "<td>%.3f bits/byte</td></tr>\n", s->entropy);
+  if (h1 >= 0)
+    fprintf(f,
+      "<tr><td>Order-1 H\xe2\x82\x81</td>"
+      "<td>%.3f bits/byte</td></tr>\n", h1);
+  fprintf(f,
+    "<tr><td>Actual (incl. header)</td>"
+    "<td class=\"%s\">%.3f bits/byte</td></tr>\n",
+    actual_bpb < s->entropy ? "c-grn"
+    : actual_bpb < s->entropy * 1.1 ? "c-blu"
+    : actual_bpb < s->entropy * 1.3 ? "c-ylw" : "c-orn",
+    actual_bpb);
+  fprintf(f,
+    "<tr><td>Prediction cost</td>"
+    "<td>%.1f bits (%.1f B)</td></tr>\n",
+    s->total_cost, s->total_cost / 8.0);
+  {
+    /* actual emitted bits minus ideal (sum of -log2 p): arithmetic coder
+       loss + termination. Should be a byte or two. */
+    double ovh = s->compressed_bits - s->total_cost;
+    fprintf(f,
+      "<tr><td>Coder overhead</td>"
+      "<td class=\"%s\">%+.1f bits (%.2f B)</td></tr>\n",
+      ovh < 16 ? "c-grn" : ovh < 64 ? "c-ylw" : "c-orn",
+      ovh, ovh / 8.0);
+  }
+  fprintf(f,
+    "<tr><td>Arith coder min range</td>"
+    "<td>0x%08X</td></tr>\n", s->min_range);
+  fprintf(f, "<tr><td>Search time</td><td>%.1f ms</td></tr>\n", s->search_ms);
+  if (g_encode_ms > 0)
+    fprintf(f,
+      "<tr><td>Encode time</td>"
+      "<td>%.3f ms/pass (%.1f MB/s, %d rep%s)</td></tr>\n",
+      g_encode_ms, s->input_size / g_encode_ms / 1000.0, timing_reps,
+      timing_reps == 1 ? "" : "s");
+  if (s->input_data)
+    fprintf(f, "<tr><td>Input CRC32-C</td><td>0x%08X</td></tr>\n", input_crc);
+  fprintf(f, "</table></div>\n\n");
+
+  emit_output_breakdown(f, s);
+  emit_header_anatomy(f, s);
+  emit_model_contrib(f, s);
+  emit_byte_freq(f, s);
+  emit_bigram(f, s);
+  emit_cmap(f, s);
+  emit_cost_hist(f, s);
+  emit_info_scatter(f, s);
+  emit_learning_curve(f, s);
+  emit_strings(f, s);
+  emit_hex_view(f, s);
+  emit_attr_map(f, s);
+  emit_stack_timeline(f, s, 0);
+  emit_stack_timeline(f, s, 1);
+  emit_net_timeline(f, s);
+  emit_context_depth(f, s);
+  emit_correlation(f, s);
+  emit_surprises(f, s);
+  emit_cost_position(f, s);
+  emit_cum_cost(f, s);
+  emit_bit_heatmap(f, s);
+  emit_repetition(f, s);
+  emit_search_traj(f, s);
+  emit_mask_grid(f, s);
+  emit_model_stats(f, s);
+  emit_confidence(f, s);
+  emit_calibration(f, s);
+  emit_byte_pos(f, s);
+  emit_table_info(f, s);
+  emit_occ_growth(f, s);
+  emit_saturation(f, s);
+
+  fprintf(f, "</div><!-- grid -->\n");
+
+  /* footer */
+  {
+    /* party-mode sine-wave scroller: one <i> per char, phase-shifted so the
+       marquee undulates. Hidden unless body.party is set. */
+    static const char scrolltxt[] =
+      "*** PAQ REPORT *** A CONTEXT-MIXING CRUNCHER *** SIZE IS EVERYTHING "
+      "*** GREETINGS TO CRINKLER . FARBRAUSCH . CONSPIRACY . MERCURY . "
+      "LOGICOMA . TBC *** KEEP IT UNDER 4K *** ";
+    fprintf(f, "<div class=\"scrolltext\"><span>");
+    for (int i = 0; scrolltxt[i]; i++) {
+      if (scrolltxt[i] == ' ')
+        fprintf(f, "<i style=\"animation-delay:-%.2fs\">&nbsp;</i>",
+                i * 0.07);
+      else
+        fprintf(f, "<i style=\"animation-delay:-%.2fs\">%c</i>",
+                i * 0.07, scrolltxt[i]);
+    }
+    fprintf(f, "</span></div>\n");
+  }
+
+  fprintf(f,
+    "<div style=\"margin-top:32px;padding-top:16px;border-top:1px solid var(--bdr);"
+    "font-size:11px;color:var(--fg3);text-align:center\">"
+    "Generated by context-mixing arithmetic compressor");
+  if (timebuf[0])
+    fprintf(f, " &middot; %s", timebuf);
+  if (g_cmdline[0]) {
+    fprintf(f, " &middot; <span style=\"font-family:var(--mono)\">");
+    fputs_html(g_cmdline, f);
+    fprintf(f, "</span>");
+  }
+  fprintf(f, "</div>\n");
+
+  emit_report_scripts(f);
   fclose(f);
 }
 
