@@ -979,6 +979,8 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   G(120, EvalParams mg;)
 } EvalParamsInitial;
 
+G(121, S(1) i32 trend;)
+
 G(121, S(0) EvalParamsMerged eval_params;)
 
 G(121, // EVAL PARAMETERS
@@ -1072,6 +1074,7 @@ G(
 S(0) i32 eval(Position *const restrict pos) {
   G(124, i32 score = eval_params.tempo;)
   G(124, i32 phase = 0;)
+  score += pos->flipped ? -trend : trend;
 
   for (i32 c = 0; c < 2; c++) {
 
@@ -1899,6 +1902,13 @@ void iteratively_deepen(
             break;
           })
     }
+
+    // TREND
+    i32 x = score / 2;
+    if (x > 13) { x = 13; }
+    if (x < -13) { x = -13; }
+    const i32 packed = x + ((x / 2) << 16);
+    trend = data->pos.flipped ? -packed : packed;
 
     if (G(303, stop) || G(303, elapsed > data->max_time / 10)) {
       break;
