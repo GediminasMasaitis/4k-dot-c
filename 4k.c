@@ -1299,6 +1299,7 @@ typedef struct [[nodiscard]] {
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
+  G(179, i32 cont_history[2][64][6][64];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1416,6 +1417,10 @@ i32 search(
   G(306, SearchStack *const stack = data->stack;
     SearchStack *const ss = stack + ply;)
   G(306, i32(*const move_history)[6][64][64] = data->move_history;)
+  // Slice of countermove history for the move that led to this node.
+  // Depends on ss, so not part of the G(306) group.
+  i32(*const cont_hist)[64] =
+      data->cont_history[pos->flipped][ss[1].prev_move.to];
 
   G(305, // IN-CHECK EXTENSION
     const bool in_check = find_in_check(pos);
@@ -1547,6 +1552,9 @@ i32 search(
           G(187, // HISTORY HEURISTIC
             move_history[pos->flipped][moves[order_index].takes_piece]
                         [moves[order_index].from][moves[order_index].to]) +
+          G(187, // COUNTERMOVE HISTORY
+            cont_hist[moves[order_index].takes_piece]
+                     [moves[order_index].to]) +
           G(187, // MOST VALUABLE VICTIM
             G(219, moves[order_index].takes_piece) * G(219, 545));
       if (order_move_score > move_score) {
@@ -1650,6 +1658,12 @@ i32 search(
 
                   *this_hist +=
                   bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                G(234,
+                  i32 *const this_cont =
+                      &cont_hist[ss->best_move.takes_piece][ss->best_move.to];
+
+                  *this_cont +=
+                  bonus - G(325, bonus) * G(325, *this_cont) / 1024;)
                 G(
                     234, for (i32 prev_index = 0; prev_index < move_index;
                               prev_index++) {
@@ -1659,6 +1673,10 @@ i32 search(
                                        [prev.from][prev.to];
                       *prev_hist -=
                           bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                      i32 *const prev_cont =
+                          &cont_hist[prev.takes_piece][prev.to];
+                      *prev_cont -=
+                          bonus + G(326, bonus) * G(326, *prev_cont) / 1024;
                     })
               })
           break;
