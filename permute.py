@@ -25,6 +25,10 @@ pass_operations = ['permute', 'static', 'const', 'alt']
 static_combo_size = 1
 const_combo_size = 1
 alt_combo_size = 1
+# 0 = unlimited; otherwise cap the alt combo round at this many variants,
+# best promise (sum of the members' single-flip size deltas) first.
+# Ordering needs alt_prune_noops for the single-flip sizes.
+alt_combo_budget = 0
 # For combo (size >= 2) rounds: first run a single-flip round, then drop
 # flips whose asm is identical to the baseline's from the combo round.
 static_prune_noops = False
@@ -963,8 +967,9 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
     OUTSIDE its own flip set was adopted after it was dispatched; same-site
     alternatives stay comparable, like same-group permutations.
 
-    Returns (any_improved, asm_hashes); asm_hashes is parallel to variants
-    (entries stay None on failure, staleness, or when not requested).
+    Returns (any_improved, results); results is parallel to variants with
+    (size, asm_hash) entries (None on failure or staleness; asm_hash is
+    None when not requested).
     """
     global global_best_size, global_best_src
 
@@ -977,7 +982,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
         'stale': 0,
     }
     nsites = len(state['spans'])
-    asm_hashes = [None] * len(variants)
+    results = [None] * len(variants)
     drain = CountdownEvent()
 
     def is_stale_locked(sites, version):
@@ -1053,7 +1058,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                     state['stale'] += 1
                     stale = True
                 else:
-                    asm_hashes[idx] = asm_hash
+                    results[idx] = (size, asm_hash)
                     if size < pass_best['best']:
                         new_spans = find_spans(variant)
                         if len(new_spans) != nsites:
@@ -1134,7 +1139,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
         f'   {"IMPROVED" if any_improved else "no change"}'
     )
     header_bar.close()
-    return any_improved, asm_hashes
+    return any_improved, results
 
 def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
                  stats_prefix, worker_slot_queue):
@@ -1161,7 +1166,7 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
         # is dropped from the combo round. Unknown hashes stay active.
         base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
         singles = [([flip], lbl) for flip, lbl in single_flips]
-        improved, asm_hashes = run_patch_round(
+        improved, results = run_patch_round(
             singles, baseline, find_spans, src_path, pass_best, stats_prefix,
             f'{stats_prefix} {label} noop-prune singles',
             f'{label.lower()} toggle', worker_slot_queue, want_asm_hash=True)
@@ -1169,6 +1174,7 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
             with open(src_path, 'w') as f:
                 f.write(pass_best['best_content'])
             return True
+        asm_hashes = [r[1] if r else None for r in results]
         flips = [sf for sf, ah in zip(single_flips, asm_hashes)
                  if ah is None or base_asm is None or ah != base_asm]
         tqdm.write(f'{label} noop prune: {len(flips)}/{len(single_flips)} '
@@ -1220,12 +1226,14 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
     if len(site_alts) < alt_combo_size:
         return False
 
+    deltas = {}  # flip -> single-flip size delta vs the round baseline
     if alt_combo_size > 1 and alt_prune_noops:
+        base_size = pass_best['best']
         base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
         flat = [(list_idx, alt) for list_idx, site in enumerate(site_alts)
                 for alt in site]
         singles = [([flip], lbl) for _, (flip, lbl) in flat]
-        improved, asm_hashes = run_patch_round(
+        improved, results = run_patch_round(
             singles, baseline, alt_find_spans, src_path, pass_best,
             stats_prefix, f'{stats_prefix} Alt noop-prune singles', 'alt',
             worker_slot_queue, want_asm_hash=True)
@@ -1234,8 +1242,11 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
                 f.write(pass_best['best_content'])
             return True
         pruned = [[] for _ in site_alts]
-        for (list_idx, alt), ah in zip(flat, asm_hashes):
+        for (list_idx, alt), res in zip(flat, results):
+            ah = res[1] if res else None
             if ah is None or base_asm is None or ah != base_asm:
+                if res is not None:
+                    deltas[alt[0]] = res[0] - base_size
                 pruned[list_idx].append((alt, ah))
         active = sum(len(site) for site in pruned)
         if alt_dedup_asm:
@@ -1260,11 +1271,21 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
         if len(site_alts) < alt_combo_size:
             return False
 
-    variants = []
+    # Most promising first: sum of member single-flip deltas (0 when no
+    # prune data). With the lazy speculative submission this also means
+    # adoptions land early and later variants re-render against them.
+    scored = []
     for combo in itertools.combinations(site_alts, alt_combo_size):
         for choice in itertools.product(*combo):
-            variants.append(([flip for flip, _ in choice],
-                             ', '.join(lbl for _, lbl in choice)))
+            flips = [flip for flip, _ in choice]
+            scored.append((sum(deltas.get(f, 0) for f in flips), flips,
+                           ', '.join(lbl for _, lbl in choice)))
+    scored.sort(key=lambda v: v[0])
+    if alt_combo_budget and len(scored) > alt_combo_budget:
+        tqdm.write(f'Alt combos: {len(scored)} candidates, running the '
+                   f'best-scored {alt_combo_budget}')
+        scored = scored[:alt_combo_budget]
+    variants = [(flips, lbl) for _, flips, lbl in scored]
 
     improved, _ = run_patch_round(
         variants, baseline, alt_find_spans, src_path, pass_best, stats_prefix,
@@ -1274,6 +1295,25 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
         with open(src_path, 'w') as f:
             f.write(pass_best['best_content'])
     return improved
+
+TOGGLE_RE = re.compile(r'\b([SC])\(\s*([01])\s*\)')
+
+def shuffle_choice_macros(content):
+    """Randomize every A() digit and S()/C() bit for restart diversity.
+
+    Every menu option and toggle state is semantics-preserving by
+    construction, so any random assignment is a valid starting point —
+    this diversifies restarts in type/storage space the way shuffle_tree
+    does in G/H ordering space.
+    """
+    def rand_alt(m):
+        n = len(m.group(2).split(','))
+        return f'A({random.randrange(n)},{m.group(2)})'
+    content = ALT_RE.sub(rand_alt, content)
+
+    def rand_toggle(m):
+        return f'{m.group(1)}({random.randint(0, 1)})'
+    return TOGGLE_RE.sub(rand_toggle, content)
 
 def shuffle_tree(root_nodes, src_filename):
     """Randomly shuffle all G and H groups. Returns shuffled content string."""
@@ -1348,10 +1388,18 @@ def main():
     if not isinstance(alt_combo_size, int) or alt_combo_size < 1:
         raise ValueError(
             f'alt combo size must be an integer >= 1, got {alt_combo_size!r}')
+    if not isinstance(alt_combo_budget, int) or alt_combo_budget < 0:
+        raise ValueError(
+            f'alt combo budget must be an integer >= 0, '
+            f'got {alt_combo_budget!r}')
     print(f'Pass operations: {pass_operations} '
-          f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size}; '
+          f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size}, '
+          f'budget: {alt_combo_budget or "unlimited"}; '
           f'noop prune: static={static_prune_noops}, alt={alt_prune_noops}; '
           f'alt asm dedup: {alt_dedup_asm})')
+    if alt_combo_budget and not alt_prune_noops:
+        print('Warning: alt_combo_budget without alt_prune_noops truncates '
+              'in enumeration order (no promise scores available)')
     if alt_dedup_asm and not alt_prune_noops:
         print('Warning: alt_dedup_asm only takes effect when alt_prune_noops '
               'is enabled (it reuses the prune round asm hashes)')
@@ -1386,6 +1434,7 @@ def main():
 
         if enable_random_shuffle:
             text = shuffle_tree(root_nodes, src_filename)
+            text = shuffle_choice_macros(text)
 
         # Get initial size
         with open(src_filename, 'w') as f:
