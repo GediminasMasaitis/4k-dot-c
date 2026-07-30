@@ -20,7 +20,7 @@ max_parallelism = 12
 enable_random_shuffle = False
 random_seed = None
 num_runs = 999
-pass_operations = ['permute', 'static', 'const']
+pass_operations = ['permute', 'static', 'const', 'alt']
 static_combo_size = 1
 const_combo_size = 1
 use_compression = True
@@ -944,6 +944,97 @@ def stage_toggle(macro, label, combo_size, src_path, pass_best, stats_prefix,
             f.write(pass_best['best_content'])
     return any_improved
 
+# Alternative sites: A(id, opt0, opt1, ...) selects opt<id>. Menus are
+# per-site certificates in the source; every listed option is equivalent
+# there, so flipping digits is semantics-preserving by construction.
+ALT_RE = re.compile(r'\bA\(\s*(\d)\s*,([^)]*)\)')
+
+def build_alt_option(baseline, patches, src_path, worker_slot_queue):
+    # Same worker-slot discipline as build_toggle_option: acquire inside the
+    # task so the submitting loop never blocks.
+    worker_id = worker_slot_queue.get()
+    try:
+        variant = baseline
+        for (start, end), text in sorted(patches, reverse=True):
+            variant = variant[:start] + text + variant[end:]
+        workdir = f'worker_{worker_id}'
+        with open(os.path.join(workdir, src_path), 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag = run_make_and_get_size(cwd=workdir,
+                                                    source_content=variant)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+        return size, cache_tag, variant, patches
+    finally:
+        worker_slot_queue.put(worker_id)
+
+def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
+    """One round over all A(id, ...) sites, trying every alternative digit."""
+    global global_best_size, global_best_src
+    baseline = pass_best['best_content']
+    variants = []
+    for m in ALT_RE.finditer(baseline):
+        options = [s.strip() for s in m.group(2).split(',')]
+        cur = int(m.group(1))
+        for d in range(len(options)):
+            if d != cur:
+                variants.append(([(m.span(1), str(d))],
+                                 f'@{m.start()} {options[cur]}->{options[d]}'))
+    if not variants:
+        return False
+
+    any_improved = False
+    stats_bar = tqdm(
+        total=len(variants),
+        desc=f'{stats_prefix}   Alt toggles',
+        unit='it',
+        position=0,
+        leave=True
+    )
+
+    all_futures = []
+
+    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
+        for patches, label in variants:
+            all_futures.append((execr.submit(
+                build_alt_option, baseline, patches, src_path,
+                worker_slot_queue), label))
+
+        for future, label in all_futures:
+            try:
+                size, cache_tag, variant, patches = future.result()
+            except Exception as e:
+                stats_bar.write(f'  Alt task failed ({label}): {e}')
+                stats_bar.update(1)
+                continue
+            with global_best_lock:
+                run_improved = False
+                if size < pass_best['best']:
+                    pass_best['best'] = size
+                    pass_best['best_content'] = variant
+                    any_improved = True
+                    run_improved = True
+                global_improved = False
+                if size < global_best_size:
+                    global_best_size = size
+                    global_best_src = variant
+                    with open('global_best.c', 'w') as gf:
+                        gf.write(global_best_src)
+                    print(f'*** New GLOBAL best via alt toggle: {fmt_size(size)} ***')
+                    global_improved = True
+
+            tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
+            stats_bar.write(f'[{stats_prefix}] alt {label} size {fmt_size(size)} {cache_tag} {tag}')
+            stats_bar.update(1)
+
+    stats_bar.close()
+    if any_improved:
+        with open(src_path, 'w') as f:
+            f.write(pass_best['best_content'])
+    return any_improved
+
 def shuffle_tree(root_nodes, src_filename):
     """Randomly shuffle all G and H groups. Returns shuffled content string."""
     global _uid_counter
@@ -1005,10 +1096,10 @@ def main():
     signal.signal(signal.SIGINT, _on_sigint)
 
     for operation in pass_operations:
-        if operation != 'permute' and operation not in toggle_stages:
+        if operation not in ('permute', 'alt') and operation not in toggle_stages:
             raise ValueError(
                 f'Unknown pass operation {operation!r}; '
-                f"valid: 'permute', {', '.join(map(repr, toggle_stages))}")
+                f"valid: 'permute', 'alt', {', '.join(map(repr, toggle_stages))}")
     for stage_name, combo_size in toggle_combo_sizes.items():
         if not isinstance(combo_size, int) or combo_size < 1:
             raise ValueError(
@@ -1084,6 +1175,24 @@ def main():
                     if engine.run_pass(iteration, pass_best,
                                        stats_prefix=f'Run {run}'):
                         any_improved = True
+                    continue
+
+                if operation == 'alt':
+                    while True:
+                        improved = stage_alt(
+                            src_filename, pass_best,
+                            stats_prefix=f'Run {run}',
+                            worker_slot_queue=static_worker_slots)
+                        if improved:
+                            any_improved = True
+                            engine.best_size = pass_best['best']
+                            engine.best_content = pass_best['best_content']
+                            # Alt flips are cross-cutting; bump a special
+                            # group to invalidate in-flight permutation tasks
+                            engine.group_versions['__alt__'] = \
+                                engine.group_versions.get('__alt__', 0) + 1
+                        else:
+                            break
                     continue
 
                 macro, label, version_key = toggle_stages[operation]
