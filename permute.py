@@ -23,6 +23,7 @@ num_runs = 999
 pass_operations = ['permute', 'static', 'const', 'alt']
 static_combo_size = 1
 const_combo_size = 1
+alt_combo_size = 1
 use_compression = True
 compress_bprob = 10
 compress_direct_bits = 30
@@ -971,19 +972,29 @@ def build_alt_option(baseline, patches, src_path, worker_slot_queue):
         worker_slot_queue.put(worker_id)
 
 def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
-    """One round over all A(id, ...) sites, trying every alternative digit."""
+    """One round over all A(id, ...) sites, trying every alternative digit.
+
+    With alt_combo_size > 1, every combination of that many distinct sites
+    is tried with the full cross product of their alternative digits.
+    """
     global global_best_size, global_best_src
     baseline = pass_best['best_content']
-    variants = []
+    site_alts = []
     for m in ALT_RE.finditer(baseline):
         options = [s.strip() for s in m.group(2).split(',')]
         cur = int(m.group(1))
-        for d in range(len(options)):
-            if d != cur:
-                variants.append(([(m.span(1), str(d))],
-                                 f'@{m.start()} {options[cur]}->{options[d]}'))
-    if not variants:
+        alts = [((m.span(1), str(d)),
+                 f'@{m.start()} {options[cur]}->{options[d]}')
+                for d in range(len(options)) if d != cur]
+        if alts:
+            site_alts.append(alts)
+    if len(site_alts) < alt_combo_size:
         return False
+    variants = []
+    for combo in itertools.combinations(site_alts, alt_combo_size):
+        for choice in itertools.product(*combo):
+            variants.append(([flip for flip, _ in choice],
+                             ', '.join(lbl for _, lbl in choice)))
 
     any_improved = False
     stats_bar = tqdm(
@@ -1105,8 +1116,11 @@ def main():
             raise ValueError(
                 f'{stage_name} combo size must be an integer >= 1, '
                 f'got {combo_size!r}')
+    if not isinstance(alt_combo_size, int) or alt_combo_size < 1:
+        raise ValueError(
+            f'alt combo size must be an integer >= 1, got {alt_combo_size!r}')
     print(f'Pass operations: {pass_operations} '
-          f'(combo sizes: {toggle_combo_sizes})')
+          f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size})')
 
     if random_seed is not None:
         random.seed(random_seed)
