@@ -1189,7 +1189,7 @@ get_hash(const Position *const pos) {
 
 S(1)
 void get_piece_hashes(H(300, 1, const Position *const pos), H(300, 1, u64 hashes[4])) {
-  for (A(0, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
+  for (A(1, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
     hashes[p / 2] ^= (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
   }
 }
@@ -1248,7 +1248,7 @@ search(
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, const A(0, i32, i64) raw_eval = tt_hit ? tt_entry->static_eval : eval(pos); A(0, i32, i64) static_eval = raw_eval; assert(static_eval < mate);
     assert(static_eval > -mate);)
-  for (A(0, i32, u32, i64, u64) i = 0; i < 6; i++) {
+  for (A(2, i32, u32, i64, u64) i = 0; i < 6; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
@@ -1301,7 +1301,7 @@ search(
   }
 
   G(213, Move moves[max_moves]; ss->num_moves = movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
-  G(213, A(0, u8, i32, u32, i64, u64) tt_flag = Upper;)
+  G(213, A(2, u8, i32, u32, i64, u64) tt_flag = Upper;)
   G(213, A(0, i32, i64) best_score = in_qsearch ? static_eval : -inf;)
   G(213, G(214, ss)[G(214, 2)].position_hash = tt_hash;)
   G(213, A(0, i32, u32, i64, u64) moves_evaluated = 0;)
@@ -1362,7 +1362,7 @@ search(
             ? G(229, moves_evaluated / 11) + G(229, depth / 12) + G(229, (move_score / -334)) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1)))
             : 0;
 
-    A(0, i32, i64) score;
+    A(1, i32, i64) score;
     while (true) {
       score = -search(
 #ifdef FULL
@@ -1604,7 +1604,7 @@ void iteratively_deepen(
   for (A(0, i32, u32, i64, u64) depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(254, A(0, i32, i64) window = 12;)
+    G(254, A(1, i32, i64) window = 12;)
     G(254, size_t elapsed;)
     while (true) {
       G(255, const A(0, i32, i64) alpha = score - window;)
