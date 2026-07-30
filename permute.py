@@ -24,6 +24,10 @@ pass_operations = ['permute', 'static', 'const', 'alt']
 static_combo_size = 1
 const_combo_size = 1
 alt_combo_size = 1
+# For combo (size >= 2) rounds: first run a single-flip round, then drop
+# flips whose asm is identical to the baseline's from the combo round.
+static_prune_noops = False
+alt_prune_noops = False
 use_compression = True
 compress_bprob = 10
 compress_direct_bits = 30
@@ -33,6 +37,7 @@ enable_asm_cache = True
 persist_asm_cache = True
 enable_binary_cache = True
 persist_binary_cache = True
+persist_source_asm_map = True
 cache_backup_dir = '/mnt/c/shared/chess6/picklejar'
 errors_dir = 'errors'
 
@@ -153,6 +158,13 @@ binary_cache_lock = threading.Lock()
 binary_cache_hits = 0
 binary_cache_misses = 0
 
+# =============================================
+# Source hash -> asm hash map (lets noop classification survive
+# source-cache hits, so prune passes stay cheap on warm caches)
+# =============================================
+SOURCE_ASM_MAP_PATH = 'source_asm_map.pkl'
+source_asm_map_lock = threading.Lock()
+
 def _load_cache(path, label, persist):
     if not persist:
         return {}
@@ -183,6 +195,8 @@ def _save_cache(cache, lock, path, persist):
 source_cache = _load_cache(SOURCE_CACHE_PATH, 'source', persist_source_cache)
 asm_cache = _load_cache(ASM_CACHE_PATH, 'asm', persist_asm_cache)
 binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary', persist_binary_cache)
+source_asm_map = _load_cache(SOURCE_ASM_MAP_PATH, 'source->asm',
+                             persist_source_asm_map)
 
 def backup_caches():
     """Copy the persisted cache files to cache_backup_dir, if configured.
@@ -202,8 +216,11 @@ def backup_caches():
     _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH,
                 persist_binary_cache)
+    _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH,
+                persist_source_asm_map)
     copied = []
-    for path in (SOURCE_CACHE_PATH, ASM_CACHE_PATH, BINARY_CACHE_PATH):
+    for path in (SOURCE_CACHE_PATH, ASM_CACHE_PATH, BINARY_CACHE_PATH,
+                 SOURCE_ASM_MAP_PATH):
         if not os.path.exists(path):
             continue
         # Copy via a temp name so an interrupted copy never leaves a torn
@@ -377,7 +394,13 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
         rendered.append(render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters))
     return ''.join(rendered)
 
-def run_make_and_get_size(cwd=None, source_content=None):
+def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
+    """Returns (size, cache_tag, asm_hash).
+
+    asm_hash is None unless it happened to be computed, or want_asm_hash is
+    set — in which case the source-cache shortcut is only taken when the
+    source->asm map already knows the hash (otherwise we compile for it).
+    """
     global source_cache_hits, source_cache_misses
     global asm_cache_hits, asm_cache_misses
     global binary_cache_hits, binary_cache_misses
@@ -385,10 +408,13 @@ def run_make_and_get_size(cwd=None, source_content=None):
     # Source-level cache: skip compile + compress entirely
     if enable_source_cache and use_compression and source_content is not None:
         src_hash = hashlib.md5(source_content.encode()).digest()
+        with source_asm_map_lock:
+            known_asm = source_asm_map.get(src_hash)
         with source_cache_lock:
-            if src_hash in source_cache:
+            if src_hash in source_cache and \
+                    (not want_asm_hash or known_asm is not None):
                 source_cache_hits += 1
-                return source_cache[src_hash], '(S)'
+                return source_cache[src_hash], '(S)', known_asm
             source_cache_misses += 1
     else:
         src_hash = None
@@ -412,7 +438,13 @@ def run_make_and_get_size(cwd=None, source_content=None):
         m = re.search(r'(\d+)\s+[A-Z][a-z]{2}\s+\d+.*4kc', proc.stdout)
         if not m:
             raise RuntimeError("Failed to parse file size from ls output:\n" + proc.stdout)
-        return int(m.group(1)), ''
+        asm_hash = None
+        if want_asm_hash:
+            asm_abs = os.path.join(cwd, '4k.s') if cwd else '4k.s'
+            if os.path.exists(asm_abs):
+                with open(asm_abs, 'rb') as f:
+                    asm_hash = hashlib.md5(f.read()).digest()
+        return int(m.group(1)), '', asm_hash
 
     # Step 1: Compile to assembly
     try:
@@ -430,12 +462,19 @@ def run_make_and_get_size(cwd=None, source_content=None):
         print("cwd:", cwd)
         raise
 
-    # Step 2: Hash the assembly and check asm cache
-    if enable_asm_cache and use_compression:
+    # Step 2: Hash the assembly (recording the source->asm map) and check
+    # the asm cache
+    if enable_asm_cache or want_asm_hash:
         asm_abs = os.path.join(cwd, '4k.s') if cwd else '4k.s'
         with open(asm_abs, 'rb') as f:
             asm_hash = hashlib.md5(f.read()).digest()
+        if src_hash is not None:
+            with source_asm_map_lock:
+                source_asm_map[src_hash] = asm_hash
+    else:
+        asm_hash = None
 
+    if asm_hash is not None and enable_asm_cache:
         with asm_cache_lock:
             if asm_hash in asm_cache:
                 asm_cache_hits += 1
@@ -444,10 +483,8 @@ def run_make_and_get_size(cwd=None, source_content=None):
                 if src_hash is not None:
                     with source_cache_lock:
                         source_cache[src_hash] = size
-                return size, '(A)'
+                return size, '(A)', asm_hash
             asm_cache_misses += 1
-    else:
-        asm_hash = None
 
     # Step 3: Assemble and link
     try:
@@ -482,7 +519,7 @@ def run_make_and_get_size(cwd=None, source_content=None):
                 if asm_hash is not None:
                     with asm_cache_lock:
                         asm_cache[asm_hash] = size
-                return size, '(B)'
+                return size, '(B)', asm_hash
             binary_cache_misses += 1
     else:
         binary_hash = None
@@ -528,8 +565,9 @@ def run_make_and_get_size(cwd=None, source_content=None):
             should_save_src = (source_cache_misses % 10 == 0)
         if should_save_src:
             _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
+            _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH, persist_source_asm_map)
 
-    return size, ''
+    return size, '', asm_hash
 
 def read_file(path):
     with open(path, 'r') as f:
@@ -604,7 +642,7 @@ class SpeculativeEngine:
         workdir = f'worker_{worker_id}'
         with open(os.path.join(workdir, self.src_path), 'w') as f:
             f.write(content)
-        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=content)
+        size, cache_tag, _ = run_make_and_get_size(cwd=workdir, source_content=content)
 
         return (size, cache_tag, content, group_id, perm, task_group_versions)
 
@@ -852,71 +890,90 @@ toggle_combo_sizes = {
     'static': static_combo_size,
     'const': const_combo_size,
 }
+toggle_prune_noops = {
+    'static': static_prune_noops,
+    'const': False,
+}
 
-def build_toggle_option(macro, baseline, flips, src_path,
-                        worker_slot_queue):
+def build_patch_option(baseline, patches, src_path, worker_slot_queue,
+                       want_asm_hash=False):
     # Acquire the worker dir inside the task (not at submission time) so the
     # submitting loop never blocks — the executor caps concurrency at
     # max_parallelism, which equals the slot count, so get() cannot deadlock.
     worker_id = worker_slot_queue.get()
     try:
-        # Apply flips back-to-front so earlier spans stay valid even if the
+        # Apply patches back-to-front so earlier spans stay valid even if the
         # replacement length differs (e.g. 'S( 0 )' -> 'S(1)').
         variant = baseline
-        for (start, end), new_val in sorted(flips, reverse=True):
-            variant = variant[:start] + f'{macro}({new_val})' + variant[end:]
+        for (start, end), text in sorted(patches, reverse=True):
+            variant = variant[:start] + text + variant[end:]
         workdir = f'worker_{worker_id}'
-        dest = os.path.join(workdir, src_path)
-        with open(dest, 'w') as f:
+        with open(os.path.join(workdir, src_path), 'w') as f:
             f.write(variant)
         try:
-            size, cache_tag = run_make_and_get_size(cwd=workdir,
-                                                    source_content=variant)
+            size, cache_tag, asm_hash = run_make_and_get_size(
+                cwd=workdir, source_content=variant,
+                want_asm_hash=want_asm_hash)
         except Exception as e:
             save_error_source(variant, e)
             raise
-        return size, cache_tag, variant, flips
+        return size, cache_tag, variant, asm_hash
     finally:
         worker_slot_queue.put(worker_id)
 
-def stage_toggle(macro, label, combo_size, src_path, pass_best, stats_prefix,
-                 worker_slot_queue):
-    global global_best_size, global_best_src
-    baseline = pass_best['best_content']
-    matches = list(re.finditer(re.escape(macro) + r'\(\s*([01])\s*\)', baseline))
-    if len(matches) < combo_size:
-        return False
+def baseline_asm_hash(baseline, src_path, worker_slot_queue):
+    """Asm hash of the unmodified baseline (reference for noop pruning)."""
+    return build_patch_option(baseline, [], src_path, worker_slot_queue,
+                              want_asm_hash=True)[3]
 
-    # Each variant flips combo_size distinct sites at once.
-    single_flips = [(m.span(), '1' if m.group(1) == '0' else '0')
-                    for m in matches]
-    combos = list(itertools.combinations(single_flips, combo_size))
+def run_patch_round(variants, baseline, src_path, pass_best, stats_prefix,
+                    round_desc, kind_label, worker_slot_queue,
+                    want_asm_hash=False):
+    """Build every (patches, label) variant of baseline, adopting greedily.
+
+    Returns (any_improved, asm_hashes); asm_hashes is parallel to variants
+    (entries stay None on failure or when hashes were not requested).
+    """
+    global global_best_size, global_best_src
 
     any_improved = False
-    stats_bar = tqdm(
-        total=len(combos),
-        desc=f'{stats_prefix}   {label} toggles (x{combo_size})',
-        unit='it',
+    asm_hashes = [None] * len(variants)
+
+    header_bar = tqdm(
+        total=1,
+        desc=(
+            f'{stats_prefix}   Run best: {fmt_size(pass_best["best"])}'
+            f'   Global best: {fmt_size(global_best_size)}'
+            f'   Saved this run: {fmt_size(pass_best["initial"] - pass_best["best"])}'
+        ),
+        bar_format='{desc}',
         position=0,
-        leave=True
+        leave=True,
+    )
+    progress_bar = tqdm(
+        total=len(variants),
+        desc=round_desc,
+        unit='it',
+        position=1,
+        leave=False,
+        smoothing=0,
     )
 
-    all_futures = []
-
     with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-        for flips in combos:
-            all_futures.append(execr.submit(
-                build_toggle_option,
-                macro, baseline, flips, src_path, worker_slot_queue
-            ))
+        futures = [
+            (execr.submit(build_patch_option, baseline, patches, src_path,
+                          worker_slot_queue, want_asm_hash), idx, label)
+            for idx, (patches, label) in enumerate(variants)
+        ]
 
-        for future in all_futures:
+        for future, idx, label in futures:
             try:
-                size, cache_tag, variant, flips = future.result()
+                size, cache_tag, variant, asm_hash = future.result()
             except Exception as e:
-                stats_bar.write(f'  {label} toggle task failed: {e}')
-                stats_bar.update(1)
+                progress_bar.write(f'  {kind_label} task failed ({label}): {e}')
+                progress_bar.update(1)
                 continue
+            asm_hashes[idx] = asm_hash
             with global_best_lock:
                 run_improved = False
                 if size < pass_best['best']:
@@ -930,54 +987,99 @@ def stage_toggle(macro, label, combo_size, src_path, pass_best, stats_prefix,
                     global_best_src = variant
                     with open('global_best.c', 'w') as gf:
                         gf.write(global_best_src)
-                    print(f'*** New GLOBAL best via {label.lower()} toggle: {fmt_size(size)} ***')
                     global_improved = True
+                cur_best = pass_best['best']
+                cur_global = global_best_size
+                cur_saved = pass_best['initial'] - cur_best
 
+            if run_improved or global_improved:
+                header_bar.set_description(
+                    f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
+                    f'   Global best: {fmt_size(cur_global)}'
+                    f'   Saved this run: {fmt_size(cur_saved)}'
+                )
+                if global_improved:
+                    progress_bar.write(
+                        f'*** New GLOBAL best via {kind_label}: {fmt_size(size)} ***')
             tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            desc = ', '.join(f'{span} -> {macro}({new_val})'
-                             for span, new_val in flips)
-            stats_bar.write(f'[{stats_prefix}] toggle at {desc} size {fmt_size(size)} {cache_tag} {tag}')
-            stats_bar.update(1)
+            progress_bar.write(
+                f'[{stats_prefix}] {kind_label} {label} size {fmt_size(size)} {cache_tag} {tag}')
+            progress_bar.update(1)
 
-    stats_bar.close()
-    if any_improved:
+    progress_bar.close()
+    header_bar.set_description(
+        f'{stats_prefix}   Run best: {fmt_size(pass_best["best"])}'
+        f'   Global best: {fmt_size(global_best_size)}'
+        f'   Saved this run: {fmt_size(pass_best["initial"] - pass_best["best"])}'
+        f'   {"IMPROVED" if any_improved else "no change"}'
+    )
+    header_bar.close()
+    return any_improved, asm_hashes
+
+def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
+                 stats_prefix, worker_slot_queue):
+    baseline = pass_best['best_content']
+    matches = list(re.finditer(re.escape(macro) + r'\(\s*([01])\s*\)', baseline))
+    if len(matches) < combo_size:
+        return False
+
+    single_flips = []
+    for m in matches:
+        new_val = '1' if m.group(1) == '0' else '0'
+        single_flips.append(
+            ((m.span(), f'{macro}({new_val})'),
+             f'@{m.start()} {macro}({m.group(1)})->{macro}({new_val})'))
+
+    flips = single_flips
+    if combo_size > 1 and prune_noops:
+        # Noop prune: run all single flips first (still adopting any wins);
+        # a flip whose asm matches the baseline's did nothing on its own and
+        # is dropped from the combo round. Unknown hashes stay active.
+        base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
+        singles = [([flip], lbl) for flip, lbl in single_flips]
+        improved, asm_hashes = run_patch_round(
+            singles, baseline, src_path, pass_best, stats_prefix,
+            f'{stats_prefix} {label} noop-prune singles',
+            f'{label.lower()} toggle', worker_slot_queue, want_asm_hash=True)
+        if improved:
+            with open(src_path, 'w') as f:
+                f.write(pass_best['best_content'])
+            return True
+        flips = [sf for sf, ah in zip(single_flips, asm_hashes)
+                 if ah is None or base_asm is None or ah != base_asm]
+        tqdm.write(f'{label} noop prune: {len(flips)}/{len(single_flips)} '
+                   f'flips active -> {math.comb(len(flips), combo_size)} '
+                   f'combos (unpruned: '
+                   f'{math.comb(len(single_flips), combo_size)})')
+        if len(flips) < combo_size:
+            return False
+
+    # Each variant flips combo_size distinct sites at once.
+    variants = [([f for f, _ in combo], ', '.join(l for _, l in combo))
+                for combo in itertools.combinations(flips, combo_size)]
+    improved, _ = run_patch_round(
+        variants, baseline, src_path, pass_best, stats_prefix,
+        f'{stats_prefix} {label} toggles (x{combo_size})',
+        f'{label.lower()} toggle', worker_slot_queue)
+    if improved:
         with open(src_path, 'w') as f:
             f.write(pass_best['best_content'])
-    return any_improved
+    return improved
 
 # Alternative sites: A(id, opt0, opt1, ...) selects opt<id>. Menus are
 # per-site certificates in the source; every listed option is equivalent
 # there, so flipping digits is semantics-preserving by construction.
 ALT_RE = re.compile(r'\bA\(\s*(\d)\s*,([^)]*)\)')
 
-def build_alt_option(baseline, patches, src_path, worker_slot_queue):
-    # Same worker-slot discipline as build_toggle_option: acquire inside the
-    # task so the submitting loop never blocks.
-    worker_id = worker_slot_queue.get()
-    try:
-        variant = baseline
-        for (start, end), text in sorted(patches, reverse=True):
-            variant = variant[:start] + text + variant[end:]
-        workdir = f'worker_{worker_id}'
-        with open(os.path.join(workdir, src_path), 'w') as f:
-            f.write(variant)
-        try:
-            size, cache_tag = run_make_and_get_size(cwd=workdir,
-                                                    source_content=variant)
-        except Exception as e:
-            save_error_source(variant, e)
-            raise
-        return size, cache_tag, variant, patches
-    finally:
-        worker_slot_queue.put(worker_id)
-
 def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
     """One round over all A(id, ...) sites, trying every alternative digit.
 
     With alt_combo_size > 1, every combination of that many distinct sites
-    is tried with the full cross product of their alternative digits.
+    is tried with the full cross product of their alternative digits. With
+    alt_prune_noops also enabled, a single-flip round runs first (adopting
+    any wins); only flips whose asm differs from the baseline's join the
+    combo round.
     """
-    global global_best_size, global_best_src
     baseline = pass_best['best_content']
     site_alts = []
     for m in ALT_RE.finditer(baseline):
@@ -990,61 +1092,45 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
             site_alts.append(alts)
     if len(site_alts) < alt_combo_size:
         return False
+
+    if alt_combo_size > 1 and alt_prune_noops:
+        base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
+        flat = [(site_idx, alt) for site_idx, site in enumerate(site_alts)
+                for alt in site]
+        singles = [([flip], lbl) for _, (flip, lbl) in flat]
+        improved, asm_hashes = run_patch_round(
+            singles, baseline, src_path, pass_best, stats_prefix,
+            f'{stats_prefix} Alt noop-prune singles', 'alt',
+            worker_slot_queue, want_asm_hash=True)
+        if improved:
+            with open(src_path, 'w') as f:
+                f.write(pass_best['best_content'])
+            return True
+        pruned = [[] for _ in site_alts]
+        for (site_idx, alt), ah in zip(flat, asm_hashes):
+            if ah is None or base_asm is None or ah != base_asm:
+                pruned[site_idx].append(alt)
+        site_alts = [site for site in pruned if site]
+        kept = sum(len(site) for site in site_alts)
+        tqdm.write(f'Alt noop prune: {kept}/{len(flat)} flips active across '
+                   f'{len(site_alts)} sites')
+        if len(site_alts) < alt_combo_size:
+            return False
+
     variants = []
     for combo in itertools.combinations(site_alts, alt_combo_size):
         for choice in itertools.product(*combo):
             variants.append(([flip for flip, _ in choice],
                              ', '.join(lbl for _, lbl in choice)))
 
-    any_improved = False
-    stats_bar = tqdm(
-        total=len(variants),
-        desc=f'{stats_prefix}   Alt toggles',
-        unit='it',
-        position=0,
-        leave=True
-    )
-
-    all_futures = []
-
-    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-        for patches, label in variants:
-            all_futures.append((execr.submit(
-                build_alt_option, baseline, patches, src_path,
-                worker_slot_queue), label))
-
-        for future, label in all_futures:
-            try:
-                size, cache_tag, variant, patches = future.result()
-            except Exception as e:
-                stats_bar.write(f'  Alt task failed ({label}): {e}')
-                stats_bar.update(1)
-                continue
-            with global_best_lock:
-                run_improved = False
-                if size < pass_best['best']:
-                    pass_best['best'] = size
-                    pass_best['best_content'] = variant
-                    any_improved = True
-                    run_improved = True
-                global_improved = False
-                if size < global_best_size:
-                    global_best_size = size
-                    global_best_src = variant
-                    with open('global_best.c', 'w') as gf:
-                        gf.write(global_best_src)
-                    print(f'*** New GLOBAL best via alt toggle: {fmt_size(size)} ***')
-                    global_improved = True
-
-            tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            stats_bar.write(f'[{stats_prefix}] alt {label} size {fmt_size(size)} {cache_tag} {tag}')
-            stats_bar.update(1)
-
-    stats_bar.close()
-    if any_improved:
+    improved, _ = run_patch_round(
+        variants, baseline, src_path, pass_best, stats_prefix,
+        f'{stats_prefix} Alt toggles (x{alt_combo_size})', 'alt',
+        worker_slot_queue)
+    if improved:
         with open(src_path, 'w') as f:
             f.write(pass_best['best_content'])
-    return any_improved
+    return improved
 
 def shuffle_tree(root_nodes, src_filename):
     """Randomly shuffle all G and H groups. Returns shuffled content string."""
@@ -1120,7 +1206,8 @@ def main():
         raise ValueError(
             f'alt combo size must be an integer >= 1, got {alt_combo_size!r}')
     print(f'Pass operations: {pass_operations} '
-          f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size})')
+          f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size}; '
+          f'noop prune: static={static_prune_noops}, alt={alt_prune_noops})')
 
     if random_seed is not None:
         random.seed(random_seed)
@@ -1156,7 +1243,7 @@ def main():
         # Get initial size
         with open(src_filename, 'w') as f:
             f.write(text)
-        initial_size, _ = run_make_and_get_size(cwd=None)
+        initial_size, _, _ = run_make_and_get_size(cwd=None)
 
         pass_best = {
             'initial': initial_size,
@@ -1213,6 +1300,7 @@ def main():
                 while True:
                     improved = stage_toggle(
                         macro, label, toggle_combo_sizes[operation],
+                        toggle_prune_noops.get(operation, False),
                         src_filename, pass_best,
                         stats_prefix=f'Run {run}',
                         worker_slot_queue=static_worker_slots)
@@ -1250,7 +1338,9 @@ def main():
     _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
     _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
-    print(f'Caches saved to {SOURCE_CACHE_PATH}, {ASM_CACHE_PATH} and {BINARY_CACHE_PATH}')
+    _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH, persist_source_asm_map)
+    print(f'Caches saved to {SOURCE_CACHE_PATH}, {ASM_CACHE_PATH}, '
+          f'{BINARY_CACHE_PATH} and {SOURCE_ASM_MAP_PATH}')
     backup_caches()
 
 if __name__ == '__main__':
