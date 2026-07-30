@@ -139,7 +139,7 @@ G(
         }
 #endif
 
-        const A(0, char, i8, u8, i32) ch = *string;
+        const A(3, char, i8, u8, i32) ch = *string;
         if (ch <= ' ') {
           *string = 0;
           return ch != '\n';
@@ -378,7 +378,7 @@ G(
     25, [[nodiscard]] S(1)
             u64 ray(H(26, 1, const u64 blockers), H(26, 1, const u64 mask), H(26, 1, const u64 bb), H(26, 1, const A(2, i8, i16, i32, i64) shift_by)) {
               u64 result = shift(H(10, 6, shift_by), H(10, 6, mask), H(10, 6, bb));
-              for (A(2, i8, i16, i32, i64) i = 5; i >= 0; i--) {
+              for (A(3, i8, i16, i32, i64) i = 5; i >= 0; i--) {
                 result |= shift(H(10, 7, shift_by), H(10, 7, mask), H(10, 7, result & ~blockers));
               }
               return result;
@@ -946,7 +946,7 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
     for (A(2, i8, u8, i32, u32, i64, u64) p = Pawn; p <= King; p++) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
-        const A(3, i8, u8, i16, i32, u32, i64, u64) sq = lsb(copy);
+        const A(4, i8, u8, i16, i32, u32, i64, u64) sq = lsb(copy);
         G(137, phase += initial_params.phases[p];)
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const A(2, i8, i16, i32, i64) file = G(138, sq) & G(138, 7);)
@@ -1315,7 +1315,7 @@ search(
     // MOVE ORDERING
     G(215, A(3, u8, i16, u16, i32, u32, i64, u64) best_index = 0;)
     G(215, A(0, i32, i64) move_score = ~0x1010101LL;)
-    for (A(3, u8, i16, u16, i32, u32, i64, u64) order_index = move_index; order_index < ss->num_moves; order_index++) {
+    for (A(5, u8, i16, u16, i32, u32, i64, u64) order_index = move_index; order_index < ss->num_moves; order_index++) {
       assert(moves[order_index].takes_piece == piece_on(H(55, 7, pos), H(55, 7, moves[order_index].to)));
       const A(0, i32, i64) order_move_score = G(187, // KILLER MOVE
                                                 G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 730)) +
@@ -1360,7 +1360,7 @@ search(
     moves_evaluated++;
 
     // LATE MOVE REDUCTION
-    A(0, i32, i64)
+    A(1, i32, i64)
     reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, moves_evaluated / 11) + G(229, depth / 12) + G(229, (move_score / -334)) +
                                                                    G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1)))
                                                              : 0;
@@ -1462,7 +1462,7 @@ S(1) void init() {
         const u64 bb = 1ULL << sq;
         G(251, u64 sw_bb = southwest(bb);)
         G(251, u64 ne_bb = northeast(bb);)
-        for (A(2, i8, u8, i32, u32, i64, u64) i = 6; i > 0; i--) {
+        for (A(4, i8, u8, i32, u32, i64, u64) i = 6; i > 0; i--) {
           G(252, sw_bb |= southwest(sw_bb);)
           G(252, ne_bb |= northeast(ne_bb);)
         }
@@ -2034,7 +2034,7 @@ S(1) void run() {
       run_smp();
 #endif
 #else
-      for (A(2, i8, u8, i32, u32, i64, u64) i = 2 << main_data->pos.flipped; i > 0; i--) {
+      for (A(4, i8, u8, i32, u32, i64, u64) i = 2 << main_data->pos.flipped; i > 0; i--) {
         getl(line);
         main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
