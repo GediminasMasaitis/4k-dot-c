@@ -12,6 +12,7 @@ from queue import Queue
 import threading
 import random
 import signal
+import time
 
 # =============================================
 # Configuration
@@ -20,9 +21,28 @@ max_parallelism = 12
 enable_random_shuffle = False
 random_seed = None
 num_runs = 999
-pass_operations = ['permute', 'static', 'const']
+pass_operations = ['permute', 'static', 'const', 'alt']
 static_combo_size = 1
 const_combo_size = 1
+alt_combo_size = 1
+# 0 = unlimited; otherwise cap the alt combo round at this many variants,
+# best promise (sum of the members' single-flip size deltas) first.
+# Ordering needs alt_prune_noops for the single-flip sizes.
+alt_combo_budget = 0
+# 0 = unlimited; cap how many improving iterations each stage may run per
+# pass (a stage always stops once an iteration finds no improvement; the
+# outer pass loop returns to capped stages while anything still improves).
+static_max_iterations = 0
+const_max_iterations = 0
+alt_max_iterations = 0
+# For combo (size >= 2) rounds: first run a single-flip round, then drop
+# flips whose asm is identical to the baseline's from the combo round.
+static_prune_noops = False
+alt_prune_noops = False
+# Within a site, collapse active flips whose asm is identical to a single
+# representative before enumerating combos (needs alt_prune_noops for the
+# asm hashes; classmates are interchangeable in combos with high odds).
+alt_dedup_asm = False
 use_compression = True
 compress_bprob = 10
 compress_direct_bits = 30
@@ -32,6 +52,7 @@ enable_asm_cache = True
 persist_asm_cache = True
 enable_binary_cache = True
 persist_binary_cache = True
+persist_source_asm_map = True
 cache_backup_dir = '/mnt/c/shared/chess6/picklejar'
 errors_dir = 'errors'
 
@@ -113,6 +134,19 @@ _errors_saved = set()  # md5 hex digests already saved
 _errors_lock = threading.Lock()
 _shutting_down = False
 
+_journal_lock = threading.Lock()
+
+def journal_adoption(kind, detail, old_size, new_size, is_global):
+    """Append an adopted run-best improvement to adoptions.log (best-effort)."""
+    g = '\tGLOBAL' if is_global else ''
+    try:
+        with _journal_lock, open('adoptions.log', 'a') as f:
+            f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")}\t{kind}\t'
+                    f'{old_size} -> {new_size} ({new_size - old_size:+})\t'
+                    f'{detail}{g}\n')
+    except OSError:
+        pass
+
 files_to_copy = [
     'Makefile',
     '4k.c',
@@ -152,6 +186,13 @@ binary_cache_lock = threading.Lock()
 binary_cache_hits = 0
 binary_cache_misses = 0
 
+# =============================================
+# Source hash -> asm hash map (lets noop classification survive
+# source-cache hits, so prune passes stay cheap on warm caches)
+# =============================================
+SOURCE_ASM_MAP_PATH = 'source_asm_map.pkl'
+source_asm_map_lock = threading.Lock()
+
 def _load_cache(path, label, persist):
     if not persist:
         return {}
@@ -182,6 +223,8 @@ def _save_cache(cache, lock, path, persist):
 source_cache = _load_cache(SOURCE_CACHE_PATH, 'source', persist_source_cache)
 asm_cache = _load_cache(ASM_CACHE_PATH, 'asm', persist_asm_cache)
 binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary', persist_binary_cache)
+source_asm_map = _load_cache(SOURCE_ASM_MAP_PATH, 'source->asm',
+                             persist_source_asm_map)
 
 def backup_caches():
     """Copy the persisted cache files to cache_backup_dir, if configured.
@@ -201,8 +244,11 @@ def backup_caches():
     _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH,
                 persist_binary_cache)
+    _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH,
+                persist_source_asm_map)
     copied = []
-    for path in (SOURCE_CACHE_PATH, ASM_CACHE_PATH, BINARY_CACHE_PATH):
+    for path in (SOURCE_CACHE_PATH, ASM_CACHE_PATH, BINARY_CACHE_PATH,
+                 SOURCE_ASM_MAP_PATH):
         if not os.path.exists(path):
             continue
         # Copy via a temp name so an interrupted copy never leaves a torn
@@ -376,7 +422,13 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
         rendered.append(render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters))
     return ''.join(rendered)
 
-def run_make_and_get_size(cwd=None, source_content=None):
+def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
+    """Returns (size, cache_tag, asm_hash).
+
+    asm_hash is None unless it happened to be computed, or want_asm_hash is
+    set — in which case the source-cache shortcut is only taken when the
+    source->asm map already knows the hash (otherwise we compile for it).
+    """
     global source_cache_hits, source_cache_misses
     global asm_cache_hits, asm_cache_misses
     global binary_cache_hits, binary_cache_misses
@@ -384,10 +436,13 @@ def run_make_and_get_size(cwd=None, source_content=None):
     # Source-level cache: skip compile + compress entirely
     if enable_source_cache and use_compression and source_content is not None:
         src_hash = hashlib.md5(source_content.encode()).digest()
+        with source_asm_map_lock:
+            known_asm = source_asm_map.get(src_hash)
         with source_cache_lock:
-            if src_hash in source_cache:
+            if src_hash in source_cache and \
+                    (not want_asm_hash or known_asm is not None):
                 source_cache_hits += 1
-                return source_cache[src_hash], '(S)'
+                return source_cache[src_hash], '(S)', known_asm
             source_cache_misses += 1
     else:
         src_hash = None
@@ -411,7 +466,13 @@ def run_make_and_get_size(cwd=None, source_content=None):
         m = re.search(r'(\d+)\s+[A-Z][a-z]{2}\s+\d+.*4kc', proc.stdout)
         if not m:
             raise RuntimeError("Failed to parse file size from ls output:\n" + proc.stdout)
-        return int(m.group(1)), ''
+        asm_hash = None
+        if want_asm_hash:
+            asm_abs = os.path.join(cwd, '4k.s') if cwd else '4k.s'
+            if os.path.exists(asm_abs):
+                with open(asm_abs, 'rb') as f:
+                    asm_hash = hashlib.md5(f.read()).digest()
+        return int(m.group(1)), '', asm_hash
 
     # Step 1: Compile to assembly
     try:
@@ -429,12 +490,19 @@ def run_make_and_get_size(cwd=None, source_content=None):
         print("cwd:", cwd)
         raise
 
-    # Step 2: Hash the assembly and check asm cache
-    if enable_asm_cache and use_compression:
+    # Step 2: Hash the assembly (recording the source->asm map) and check
+    # the asm cache
+    if enable_asm_cache or want_asm_hash:
         asm_abs = os.path.join(cwd, '4k.s') if cwd else '4k.s'
         with open(asm_abs, 'rb') as f:
             asm_hash = hashlib.md5(f.read()).digest()
+        if src_hash is not None:
+            with source_asm_map_lock:
+                source_asm_map[src_hash] = asm_hash
+    else:
+        asm_hash = None
 
+    if asm_hash is not None and enable_asm_cache:
         with asm_cache_lock:
             if asm_hash in asm_cache:
                 asm_cache_hits += 1
@@ -443,10 +511,8 @@ def run_make_and_get_size(cwd=None, source_content=None):
                 if src_hash is not None:
                     with source_cache_lock:
                         source_cache[src_hash] = size
-                return size, '(A)'
+                return size, '(A)', asm_hash
             asm_cache_misses += 1
-    else:
-        asm_hash = None
 
     # Step 3: Assemble and link
     try:
@@ -481,7 +547,7 @@ def run_make_and_get_size(cwd=None, source_content=None):
                 if asm_hash is not None:
                     with asm_cache_lock:
                         asm_cache[asm_hash] = size
-                return size, '(B)'
+                return size, '(B)', asm_hash
             binary_cache_misses += 1
     else:
         binary_hash = None
@@ -527,8 +593,9 @@ def run_make_and_get_size(cwd=None, source_content=None):
             should_save_src = (source_cache_misses % 10 == 0)
         if should_save_src:
             _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
+            _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH, persist_source_asm_map)
 
-    return size, ''
+    return size, '', asm_hash
 
 def read_file(path):
     with open(path, 'r') as f:
@@ -603,7 +670,11 @@ class SpeculativeEngine:
         workdir = f'worker_{worker_id}'
         with open(os.path.join(workdir, self.src_path), 'w') as f:
             f.write(content)
-        size, cache_tag = run_make_and_get_size(cwd=workdir, source_content=content)
+        try:
+            size, cache_tag, _ = run_make_and_get_size(cwd=workdir, source_content=content)
+        except Exception as e:
+            save_error_source(content, e)
+            raise
 
         return (size, cache_tag, content, group_id, perm, task_group_versions)
 
@@ -617,15 +688,9 @@ class SpeculativeEngine:
             try:
                 result = future.result()
             except Exception as e:
+                # The erroring source is saved by _build_task itself — by now
+                # another task may already have reused the worker dir.
                 group_bar.write(f'  Task failed: {e}')
-                # Save erroring source from worker dir
-                try:
-                    src_path = os.path.join(f'worker_{worker_id}', self.src_path)
-                    if os.path.exists(src_path):
-                        with open(src_path, 'r') as ef:
-                            save_error_source(ef.read(), e)
-                except Exception:
-                    pass
                 with self.lock:
                     self._completed += 1
                 total_bar.update(1)
@@ -645,6 +710,7 @@ class SpeculativeEngine:
             is_run_best = False
             is_global_best = False
             is_stale = False
+            prev_best = None
 
             with self.lock:
                 if self._is_cross_group_stale(group_id, task_group_versions):
@@ -652,6 +718,7 @@ class SpeculativeEngine:
                     self._stale_discards += 1
                     is_stale = True
                 elif size < self.best_size:
+                    prev_best = self.best_size
                     self.best_size = size
                     self.best_content = content
                     self.group_versions[group_id] = self.group_versions.get(group_id, 0) + 1
@@ -681,6 +748,11 @@ class SpeculativeEngine:
             group_bar.write(
                 f'[{stats_prefix} pass {iteration}] {group_id} perm size: '
                 f'{fmt_size(size)} {cache_tag} {tag}')
+
+            if is_run_best:
+                journal_adoption(
+                    'permute', f'{stats_prefix} pass {iteration} {group_id}',
+                    prev_best, size, is_global_best)
 
             if is_run_best and stats_bar is not None:
                 with self.lock:
@@ -719,7 +791,8 @@ class SpeculativeEngine:
             n = len(groups[gid])
             if n <= 1:
                 continue
-            perms = list(itertools.permutations(range(n)))
+            perms = [p for p in itertools.permutations(range(n))
+                     if p != tuple(range(n))]
             group_order.append((gid, None, perms))
 
         h_bases = list(h_base_to_ids.keys())
@@ -730,7 +803,8 @@ class SpeculativeEngine:
             n = len(groups[ids[0]])
             if n <= 1:
                 continue
-            perms = list(itertools.permutations(range(n)))
+            perms = [p for p in itertools.permutations(range(n))
+                     if p != tuple(range(n))]
             group_order.append((base, ids, perms))
 
         total_perms = sum(len(p) for _, _, p in group_order)
@@ -851,98 +925,405 @@ toggle_combo_sizes = {
     'static': static_combo_size,
     'const': const_combo_size,
 }
+toggle_prune_noops = {
+    'static': static_prune_noops,
+    'const': False,
+}
+toggle_max_iterations = {
+    'static': static_max_iterations,
+    'const': const_max_iterations,
+}
 
-def build_toggle_option(macro, baseline, flips, src_path,
-                        worker_slot_queue):
+def build_patch_option(baseline, patches, src_path, worker_slot_queue,
+                       want_asm_hash=False):
     # Acquire the worker dir inside the task (not at submission time) so the
     # submitting loop never blocks — the executor caps concurrency at
     # max_parallelism, which equals the slot count, so get() cannot deadlock.
     worker_id = worker_slot_queue.get()
     try:
-        # Apply flips back-to-front so earlier spans stay valid even if the
+        # Apply patches back-to-front so earlier spans stay valid even if the
         # replacement length differs (e.g. 'S( 0 )' -> 'S(1)').
         variant = baseline
-        for (start, end), new_val in sorted(flips, reverse=True):
-            variant = variant[:start] + f'{macro}({new_val})' + variant[end:]
+        for (start, end), text in sorted(patches, reverse=True):
+            variant = variant[:start] + text + variant[end:]
         workdir = f'worker_{worker_id}'
-        dest = os.path.join(workdir, src_path)
-        with open(dest, 'w') as f:
+        with open(os.path.join(workdir, src_path), 'w') as f:
             f.write(variant)
         try:
-            size, cache_tag = run_make_and_get_size(cwd=workdir,
-                                                    source_content=variant)
+            size, cache_tag, asm_hash = run_make_and_get_size(
+                cwd=workdir, source_content=variant,
+                want_asm_hash=want_asm_hash)
         except Exception as e:
             save_error_source(variant, e)
             raise
-        return size, cache_tag, variant, flips
+        return size, cache_tag, variant, asm_hash
     finally:
         worker_slot_queue.put(worker_id)
 
-def stage_toggle(macro, label, combo_size, src_path, pass_best, stats_prefix,
-                 worker_slot_queue):
+def baseline_asm_hash(baseline, src_path, worker_slot_queue):
+    """Asm hash of the unmodified baseline (reference for noop pruning)."""
+    return build_patch_option(baseline, [], src_path, worker_slot_queue,
+                              want_asm_hash=True)[3]
+
+def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
+                    stats_prefix, round_desc, kind_label, worker_slot_queue,
+                    want_asm_hash=False):
+    """Build every (flips, label) variant, adopting improvements greedily.
+
+    Each flip is (site_index, replacement_text); site spans are re-resolved
+    via find_spans(content), so variants submitted after an adoption are
+    re-rendered against the latest content — the same speculative scheme as
+    the G/H engine. A completed result is stale (discarded) if a site
+    OUTSIDE its own flip set was adopted after it was dispatched; same-site
+    alternatives stay comparable, like same-group permutations.
+
+    Returns (any_improved, results); results is parallel to variants with
+    (size, asm_hash) entries (None on failure or staleness; asm_hash is
+    None when not requested).
+    """
     global global_best_size, global_best_src
+
+    lock = threading.Lock()
+    state = {
+        'content': baseline,
+        'spans': find_spans(baseline),
+        'adoptions': [],  # site-sets of adopted variants, oldest first
+        'improvements': 0,
+        'stale': 0,
+    }
+    nsites = len(state['spans'])
+    results = [None] * len(variants)
+    drain = CountdownEvent()
+
+    def is_stale_locked(sites, version):
+        for adopted in state['adoptions'][version:]:
+            if adopted - sites:
+                return True
+        return False
+
+    header_bar = tqdm(
+        total=1,
+        desc=(
+            f'{stats_prefix}   Run best: {fmt_size(pass_best["best"])}'
+            f'   Global best: {fmt_size(global_best_size)}'
+            f'   Saved this run: {fmt_size(pass_best["initial"] - pass_best["best"])}'
+        ),
+        bar_format='{desc}',
+        position=0,
+        leave=True,
+    )
+    progress_bar = tqdm(
+        total=len(variants),
+        desc=round_desc,
+        unit='it',
+        position=1,
+        leave=False,
+        smoothing=0,
+    )
+
+    def task(wid, flips, sites, content, spans, version):
+        with lock:
+            if is_stale_locked(sites, version):
+                return None
+        variant = content
+        for (start, end), text in sorted(
+                ((spans[s], t) for s, t in flips), reverse=True):
+            variant = variant[:start] + text + variant[end:]
+        workdir = f'worker_{wid}'
+        with open(os.path.join(workdir, src_path), 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag, asm_hash = run_make_and_get_size(
+                cwd=workdir, source_content=variant,
+                want_asm_hash=want_asm_hash)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+        return size, cache_tag, variant, asm_hash, version
+
+    def on_done(future, wid, idx, label, sites):
+        # The enclosing function's global statement does not reach nested
+        # scopes; without this the assignments below make these names local
+        # and the earlier reads raise UnboundLocalError.
+        global global_best_size, global_best_src
+        worker_slot_queue.put(wid)
+        try:
+            try:
+                result = future.result()
+            except Exception as e:
+                progress_bar.write(f'  {kind_label} task failed ({label}): {e}')
+                return
+            if result is None:
+                with lock:
+                    state['stale'] += 1
+                return
+            size, cache_tag, variant, asm_hash, version = result
+
+            run_improved = False
+            global_improved = False
+            stale = False
+            prev_best = None
+            with lock:
+                if is_stale_locked(sites, version):
+                    state['stale'] += 1
+                    stale = True
+                else:
+                    results[idx] = (size, asm_hash)
+                    if size < pass_best['best']:
+                        new_spans = find_spans(variant)
+                        if len(new_spans) != nsites:
+                            raise RuntimeError(
+                                f'{kind_label}: site count changed on adoption '
+                                f'({nsites} -> {len(new_spans)})')
+                        prev_best = pass_best['best']
+                        pass_best['best'] = size
+                        pass_best['best_content'] = variant
+                        state['content'] = variant
+                        state['spans'] = new_spans
+                        state['adoptions'].append(sites)
+                        state['improvements'] += 1
+                        run_improved = True
+                    with global_best_lock:
+                        if size < global_best_size:
+                            global_best_size = size
+                            global_best_src = variant
+                            with open('global_best.c', 'w') as gf:
+                                gf.write(global_best_src)
+                            global_improved = True
+                cur_best = pass_best['best']
+                cur_saved = pass_best['initial'] - cur_best
+
+            if stale:
+                tag = '(stale)'
+            elif global_improved:
+                tag = 'NEW GLOBAL'
+            elif run_improved:
+                tag = 'NEW RUN'
+            else:
+                tag = ''
+            if run_improved:
+                journal_adoption(kind_label, f'{stats_prefix} {label}',
+                                 prev_best, size, global_improved)
+            if run_improved or global_improved:
+                header_bar.set_description(
+                    f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
+                    f'   Global best: {fmt_size(global_best_size)}'
+                    f'   Saved this run: {fmt_size(cur_saved)}'
+                )
+                if global_improved:
+                    progress_bar.write(
+                        f'*** New GLOBAL best via {kind_label}: {fmt_size(size)} ***')
+            progress_bar.write(
+                f'[{stats_prefix}] {kind_label} {label} size {fmt_size(size)} {cache_tag} {tag}')
+        except Exception as e:
+            progress_bar.write(f'  {kind_label} result handling failed ({label}): {e}')
+        finally:
+            progress_bar.update(1)
+            drain.decrement()
+
+    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
+        for idx, (flips, label) in enumerate(variants):
+            sites = frozenset(s for s, _ in flips)
+            # Throttle via worker slots so each variant is rendered against
+            # the freshest content at submission time.
+            wid = worker_slot_queue.get()
+            with lock:
+                content = state['content']
+                spans = state['spans']
+                version = len(state['adoptions'])
+            drain.increment()
+            future = execr.submit(task, wid, flips, sites, content, spans,
+                                  version)
+            future.add_done_callback(
+                lambda f, w=wid, i=idx, l=label, s=sites: on_done(f, w, i, l, s))
+        drain.wait()
+
+    progress_bar.close()
+    any_improved = state['improvements'] > 0
+    header_bar.set_description(
+        f'{stats_prefix}   Run best: {fmt_size(pass_best["best"])}'
+        f'   Global best: {fmt_size(global_best_size)}'
+        f'   Saved this run: {fmt_size(pass_best["initial"] - pass_best["best"])}'
+        f'   Improvements: {state["improvements"]}'
+        f'   Stale discards: {state["stale"]}'
+        f'   {"IMPROVED" if any_improved else "no change"}'
+    )
+    header_bar.close()
+    return any_improved, results
+
+def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
+                 stats_prefix, worker_slot_queue):
     baseline = pass_best['best_content']
-    matches = list(re.finditer(re.escape(macro) + r'\(\s*([01])\s*\)', baseline))
+    pattern = re.compile(re.escape(macro) + r'\(\s*([01])\s*\)')
+    matches = list(pattern.finditer(baseline))
     if len(matches) < combo_size:
         return False
 
+    def find_spans(content):
+        return [m.span() for m in pattern.finditer(content)]
+
+    single_flips = []
+    for site_idx, m in enumerate(matches):
+        new_val = '1' if m.group(1) == '0' else '0'
+        single_flips.append(
+            ((site_idx, f'{macro}({new_val})'),
+             f'@{m.start()} {macro}({m.group(1)})->{macro}({new_val})'))
+
+    flips = single_flips
+    if combo_size > 1 and prune_noops:
+        # Noop prune: run all single flips first (still adopting any wins);
+        # a flip whose asm matches the baseline's did nothing on its own and
+        # is dropped from the combo round. Unknown hashes stay active.
+        base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
+        singles = [([flip], lbl) for flip, lbl in single_flips]
+        improved, results = run_patch_round(
+            singles, baseline, find_spans, src_path, pass_best, stats_prefix,
+            f'{stats_prefix} {label} noop-prune singles',
+            f'{label.lower()} toggle', worker_slot_queue, want_asm_hash=True)
+        if improved:
+            with open(src_path, 'w') as f:
+                f.write(pass_best['best_content'])
+            return True
+        asm_hashes = [r[1] if r else None for r in results]
+        flips = [sf for sf, ah in zip(single_flips, asm_hashes)
+                 if ah is None or base_asm is None or ah != base_asm]
+        tqdm.write(f'{label} noop prune: {len(flips)}/{len(single_flips)} '
+                   f'flips active -> {math.comb(len(flips), combo_size)} '
+                   f'combos (unpruned: '
+                   f'{math.comb(len(single_flips), combo_size)})')
+        if len(flips) < combo_size:
+            return False
+
     # Each variant flips combo_size distinct sites at once.
-    single_flips = [(m.span(), '1' if m.group(1) == '0' else '0')
-                    for m in matches]
-    combos = list(itertools.combinations(single_flips, combo_size))
-
-    any_improved = False
-    stats_bar = tqdm(
-        total=len(combos),
-        desc=f'{stats_prefix}   {label} toggles (x{combo_size})',
-        unit='it',
-        position=0,
-        leave=True
-    )
-
-    all_futures = []
-
-    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-        for flips in combos:
-            all_futures.append(execr.submit(
-                build_toggle_option,
-                macro, baseline, flips, src_path, worker_slot_queue
-            ))
-
-        for future in all_futures:
-            try:
-                size, cache_tag, variant, flips = future.result()
-            except Exception as e:
-                stats_bar.write(f'  {label} toggle task failed: {e}')
-                stats_bar.update(1)
-                continue
-            with global_best_lock:
-                run_improved = False
-                if size < pass_best['best']:
-                    pass_best['best'] = size
-                    pass_best['best_content'] = variant
-                    any_improved = True
-                    run_improved = True
-                global_improved = False
-                if size < global_best_size:
-                    global_best_size = size
-                    global_best_src = variant
-                    with open('global_best.c', 'w') as gf:
-                        gf.write(global_best_src)
-                    print(f'*** New GLOBAL best via {label.lower()} toggle: {fmt_size(size)} ***')
-                    global_improved = True
-
-            tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
-            desc = ', '.join(f'{span} -> {macro}({new_val})'
-                             for span, new_val in flips)
-            stats_bar.write(f'[{stats_prefix}] toggle at {desc} size {fmt_size(size)} {cache_tag} {tag}')
-            stats_bar.update(1)
-
-    stats_bar.close()
-    if any_improved:
+    variants = [([f for f, _ in combo], ', '.join(l for _, l in combo))
+                for combo in itertools.combinations(flips, combo_size)]
+    improved, _ = run_patch_round(
+        variants, baseline, find_spans, src_path, pass_best, stats_prefix,
+        f'{stats_prefix} {label} toggles (x{combo_size})',
+        f'{label.lower()} toggle', worker_slot_queue)
+    if improved:
         with open(src_path, 'w') as f:
             f.write(pass_best['best_content'])
-    return any_improved
+    return improved
+
+# Alternative sites: A(id, opt0, opt1, ...) selects opt<id>. Menus are
+# per-site certificates in the source; every listed option is equivalent
+# there, so flipping digits is semantics-preserving by construction.
+ALT_RE = re.compile(r'\bA\(\s*(\d)\s*,([^)]*)\)')
+
+def alt_find_spans(content):
+    return [m.span(1) for m in ALT_RE.finditer(content)]
+
+def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
+    """One round over all A(id, ...) sites, trying every alternative digit.
+
+    With alt_combo_size > 1, every combination of that many distinct sites
+    is tried with the full cross product of their alternative digits. With
+    alt_prune_noops also enabled, a single-flip round runs first (adopting
+    any wins); only flips whose asm differs from the baseline's join the
+    combo round.
+    """
+    baseline = pass_best['best_content']
+    site_alts = []
+    for match_idx, m in enumerate(ALT_RE.finditer(baseline)):
+        options = [s.strip() for s in m.group(2).split(',')]
+        cur = int(m.group(1))
+        alts = [((match_idx, str(d)),
+                 f'@{m.start()} {options[cur]}->{options[d]}')
+                for d in range(len(options)) if d != cur]
+        if alts:
+            site_alts.append(alts)
+    if len(site_alts) < alt_combo_size:
+        return False
+
+    deltas = {}  # flip -> single-flip size delta vs the round baseline
+    if alt_combo_size > 1 and alt_prune_noops:
+        base_size = pass_best['best']
+        base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
+        flat = [(list_idx, alt) for list_idx, site in enumerate(site_alts)
+                for alt in site]
+        singles = [([flip], lbl) for _, (flip, lbl) in flat]
+        improved, results = run_patch_round(
+            singles, baseline, alt_find_spans, src_path, pass_best,
+            stats_prefix, f'{stats_prefix} Alt noop-prune singles', 'alt',
+            worker_slot_queue, want_asm_hash=True)
+        if improved:
+            with open(src_path, 'w') as f:
+                f.write(pass_best['best_content'])
+            return True
+        pruned = [[] for _ in site_alts]
+        for (list_idx, alt), res in zip(flat, results):
+            ah = res[1] if res else None
+            if ah is None or base_asm is None or ah != base_asm:
+                if res is not None:
+                    deltas[alt[0]] = res[0] - base_size
+                pruned[list_idx].append((alt, ah))
+        active = sum(len(site) for site in pruned)
+        if alt_dedup_asm:
+            # Within a site, active flips with identical asm are duplicates
+            # of each other; keep one representative per asm class. Unknown
+            # hashes are conservatively kept individually.
+            for list_idx, site in enumerate(pruned):
+                seen = set()
+                reps = []
+                for alt, ah in site:
+                    if ah is not None:
+                        if ah in seen:
+                            continue
+                        seen.add(ah)
+                    reps.append((alt, ah))
+                pruned[list_idx] = reps
+        site_alts = [[alt for alt, _ in site] for site in pruned if site]
+        kept = sum(len(site) for site in site_alts)
+        dedup_note = f', {kept} after asm dedup' if alt_dedup_asm else ''
+        tqdm.write(f'Alt noop prune: {active}/{len(flat)} flips active'
+                   f'{dedup_note} across {len(site_alts)} sites')
+        if len(site_alts) < alt_combo_size:
+            return False
+
+    # Most promising first: sum of member single-flip deltas (0 when no
+    # prune data). With the lazy speculative submission this also means
+    # adoptions land early and later variants re-render against them.
+    scored = []
+    for combo in itertools.combinations(site_alts, alt_combo_size):
+        for choice in itertools.product(*combo):
+            flips = [flip for flip, _ in choice]
+            scored.append((sum(deltas.get(f, 0) for f in flips), flips,
+                           ', '.join(lbl for _, lbl in choice)))
+    scored.sort(key=lambda v: v[0])
+    if alt_combo_budget and len(scored) > alt_combo_budget:
+        tqdm.write(f'Alt combos: {len(scored)} candidates, running the '
+                   f'best-scored {alt_combo_budget}')
+        scored = scored[:alt_combo_budget]
+    variants = [(flips, lbl) for _, flips, lbl in scored]
+
+    improved, _ = run_patch_round(
+        variants, baseline, alt_find_spans, src_path, pass_best, stats_prefix,
+        f'{stats_prefix} Alt toggles (x{alt_combo_size})', 'alt',
+        worker_slot_queue)
+    if improved:
+        with open(src_path, 'w') as f:
+            f.write(pass_best['best_content'])
+    return improved
+
+TOGGLE_RE = re.compile(r'\b([SC])\(\s*([01])\s*\)')
+
+def shuffle_choice_macros(content):
+    """Randomize every A() digit and S()/C() bit for restart diversity.
+
+    Every menu option and toggle state is semantics-preserving by
+    construction, so any random assignment is a valid starting point —
+    this diversifies restarts in type/storage space the way shuffle_tree
+    does in G/H ordering space.
+    """
+    def rand_alt(m):
+        n = len(m.group(2).split(','))
+        return f'A({random.randrange(n)},{m.group(2)})'
+    content = ALT_RE.sub(rand_alt, content)
+
+    def rand_toggle(m):
+        return f'{m.group(1)}({random.randint(0, 1)})'
+    return TOGGLE_RE.sub(rand_toggle, content)
 
 def shuffle_tree(root_nodes, src_filename):
     """Randomly shuffle all G and H groups. Returns shuffled content string."""
@@ -1005,23 +1386,48 @@ def main():
     signal.signal(signal.SIGINT, _on_sigint)
 
     for operation in pass_operations:
-        if operation != 'permute' and operation not in toggle_stages:
+        if operation not in ('permute', 'alt') and operation not in toggle_stages:
             raise ValueError(
                 f'Unknown pass operation {operation!r}; '
-                f"valid: 'permute', {', '.join(map(repr, toggle_stages))}")
+                f"valid: 'permute', 'alt', {', '.join(map(repr, toggle_stages))}")
     for stage_name, combo_size in toggle_combo_sizes.items():
         if not isinstance(combo_size, int) or combo_size < 1:
             raise ValueError(
                 f'{stage_name} combo size must be an integer >= 1, '
                 f'got {combo_size!r}')
+    if not isinstance(alt_combo_size, int) or alt_combo_size < 1:
+        raise ValueError(
+            f'alt combo size must be an integer >= 1, got {alt_combo_size!r}')
+    if not isinstance(alt_combo_budget, int) or alt_combo_budget < 0:
+        raise ValueError(
+            f'alt combo budget must be an integer >= 0, '
+            f'got {alt_combo_budget!r}')
+    for name, val in (('static', static_max_iterations),
+                      ('const', const_max_iterations),
+                      ('alt', alt_max_iterations)):
+        if not isinstance(val, int) or val < 0:
+            raise ValueError(
+                f'{name} max iterations must be an integer >= 0, got {val!r}')
     print(f'Pass operations: {pass_operations} '
-          f'(combo sizes: {toggle_combo_sizes})')
+          f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size}, '
+          f'budget: {alt_combo_budget or "unlimited"}; '
+          f'noop prune: static={static_prune_noops}, alt={alt_prune_noops}; '
+          f'alt asm dedup: {alt_dedup_asm}; '
+          f'max iterations: static={static_max_iterations or "unlimited"}, '
+          f'const={const_max_iterations or "unlimited"}, '
+          f'alt={alt_max_iterations or "unlimited"})')
+    if alt_combo_budget and not alt_prune_noops:
+        print('Warning: alt_combo_budget without alt_prune_noops truncates '
+              'in enumeration order (no promise scores available)')
+    if alt_dedup_asm and not alt_prune_noops:
+        print('Warning: alt_dedup_asm only takes effect when alt_prune_noops '
+              'is enabled (it reuses the prune round asm hashes)')
 
     if random_seed is not None:
         random.seed(random_seed)
         print(f'Random seed: {random_seed}')
-    else:
-        print('Random shuffling enabled with no fixed seed')
+    print(f'Random shuffle: '
+          f'{"enabled" if enable_random_shuffle else "disabled"}')
 
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
 
@@ -1047,11 +1453,12 @@ def main():
 
         if enable_random_shuffle:
             text = shuffle_tree(root_nodes, src_filename)
+            text = shuffle_choice_macros(text)
 
         # Get initial size
         with open(src_filename, 'w') as f:
             f.write(text)
-        initial_size, _ = run_make_and_get_size(cwd=None)
+        initial_size, _, _ = run_make_and_get_size(cwd=None)
 
         pass_best = {
             'initial': initial_size,
@@ -1086,12 +1493,41 @@ def main():
                         any_improved = True
                     continue
 
+                if operation == 'alt':
+                    stage_iter = 0
+                    while True:
+                        stage_iter += 1
+                        improved = stage_alt(
+                            src_filename, pass_best,
+                            stats_prefix=(f'Run {run} pass {iteration} '
+                                          f'iteration {stage_iter}'),
+                            worker_slot_queue=static_worker_slots)
+                        if improved:
+                            any_improved = True
+                            engine.best_size = pass_best['best']
+                            engine.best_content = pass_best['best_content']
+                            # Alt flips are cross-cutting; bump a special
+                            # group to invalidate in-flight permutation tasks
+                            engine.group_versions['__alt__'] = \
+                                engine.group_versions.get('__alt__', 0) + 1
+                            if alt_max_iterations and \
+                                    stage_iter >= alt_max_iterations:
+                                break
+                        else:
+                            break
+                    continue
+
                 macro, label, version_key = toggle_stages[operation]
+                max_iters = toggle_max_iterations.get(operation, 0)
+                stage_iter = 0
                 while True:
+                    stage_iter += 1
                     improved = stage_toggle(
                         macro, label, toggle_combo_sizes[operation],
+                        toggle_prune_noops.get(operation, False),
                         src_filename, pass_best,
-                        stats_prefix=f'Run {run}',
+                        stats_prefix=(f'Run {run} pass {iteration} '
+                                      f'iteration {stage_iter}'),
                         worker_slot_queue=static_worker_slots)
                     if improved:
                         any_improved = True
@@ -1101,6 +1537,8 @@ def main():
                         # invalidate all in-flight permutation tasks
                         engine.group_versions[version_key] = \
                             engine.group_versions.get(version_key, 0) + 1
+                        if max_iters and stage_iter >= max_iters:
+                            break
                     else:
                         break
 
@@ -1127,7 +1565,9 @@ def main():
     _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
     _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
-    print(f'Caches saved to {SOURCE_CACHE_PATH}, {ASM_CACHE_PATH} and {BINARY_CACHE_PATH}')
+    _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH, persist_source_asm_map)
+    print(f'Caches saved to {SOURCE_CACHE_PATH}, {ASM_CACHE_PATH}, '
+          f'{BINARY_CACHE_PATH} and {SOURCE_ASM_MAP_PATH}')
     backup_caches()
 
 if __name__ == '__main__':
