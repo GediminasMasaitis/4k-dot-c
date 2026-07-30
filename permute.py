@@ -926,18 +926,40 @@ def baseline_asm_hash(baseline, src_path, worker_slot_queue):
     return build_patch_option(baseline, [], src_path, worker_slot_queue,
                               want_asm_hash=True)[3]
 
-def run_patch_round(variants, baseline, src_path, pass_best, stats_prefix,
-                    round_desc, kind_label, worker_slot_queue,
+def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
+                    stats_prefix, round_desc, kind_label, worker_slot_queue,
                     want_asm_hash=False):
-    """Build every (patches, label) variant of baseline, adopting greedily.
+    """Build every (flips, label) variant, adopting improvements greedily.
+
+    Each flip is (site_index, replacement_text); site spans are re-resolved
+    via find_spans(content), so variants submitted after an adoption are
+    re-rendered against the latest content — the same speculative scheme as
+    the G/H engine. A completed result is stale (discarded) if a site
+    OUTSIDE its own flip set was adopted after it was dispatched; same-site
+    alternatives stay comparable, like same-group permutations.
 
     Returns (any_improved, asm_hashes); asm_hashes is parallel to variants
-    (entries stay None on failure or when hashes were not requested).
+    (entries stay None on failure, staleness, or when not requested).
     """
     global global_best_size, global_best_src
 
-    any_improved = False
+    lock = threading.Lock()
+    state = {
+        'content': baseline,
+        'spans': find_spans(baseline),
+        'adoptions': [],  # site-sets of adopted variants, oldest first
+        'improvements': 0,
+        'stale': 0,
+    }
+    nsites = len(state['spans'])
     asm_hashes = [None] * len(variants)
+    drain = CountdownEvent()
+
+    def is_stale_locked(sites, version):
+        for adopted in state['adoptions'][version:]:
+            if adopted - sites:
+                return True
+        return False
 
     header_bar = tqdm(
         total=1,
@@ -959,58 +981,126 @@ def run_patch_round(variants, baseline, src_path, pass_best, stats_prefix,
         smoothing=0,
     )
 
-    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-        futures = [
-            (execr.submit(build_patch_option, baseline, patches, src_path,
-                          worker_slot_queue, want_asm_hash), idx, label)
-            for idx, (patches, label) in enumerate(variants)
-        ]
+    def task(wid, flips, sites, content, spans, version):
+        with lock:
+            if is_stale_locked(sites, version):
+                return None
+        variant = content
+        for (start, end), text in sorted(
+                ((spans[s], t) for s, t in flips), reverse=True):
+            variant = variant[:start] + text + variant[end:]
+        workdir = f'worker_{wid}'
+        with open(os.path.join(workdir, src_path), 'w') as f:
+            f.write(variant)
+        try:
+            size, cache_tag, asm_hash = run_make_and_get_size(
+                cwd=workdir, source_content=variant,
+                want_asm_hash=want_asm_hash)
+        except Exception as e:
+            save_error_source(variant, e)
+            raise
+        return size, cache_tag, variant, asm_hash, version
 
-        for future, idx, label in futures:
+    def on_done(future, wid, idx, label, sites):
+        # The enclosing function's global statement does not reach nested
+        # scopes; without this the assignments below make these names local
+        # and the earlier reads raise UnboundLocalError.
+        global global_best_size, global_best_src
+        worker_slot_queue.put(wid)
+        try:
             try:
-                size, cache_tag, variant, asm_hash = future.result()
+                result = future.result()
             except Exception as e:
                 progress_bar.write(f'  {kind_label} task failed ({label}): {e}')
-                progress_bar.update(1)
-                continue
-            asm_hashes[idx] = asm_hash
-            with global_best_lock:
-                run_improved = False
-                if size < pass_best['best']:
-                    pass_best['best'] = size
-                    pass_best['best_content'] = variant
-                    any_improved = True
-                    run_improved = True
-                global_improved = False
-                if size < global_best_size:
-                    global_best_size = size
-                    global_best_src = variant
-                    with open('global_best.c', 'w') as gf:
-                        gf.write(global_best_src)
-                    global_improved = True
+                return
+            if result is None:
+                with lock:
+                    state['stale'] += 1
+                return
+            size, cache_tag, variant, asm_hash, version = result
+
+            run_improved = False
+            global_improved = False
+            stale = False
+            with lock:
+                if is_stale_locked(sites, version):
+                    state['stale'] += 1
+                    stale = True
+                else:
+                    asm_hashes[idx] = asm_hash
+                    if size < pass_best['best']:
+                        new_spans = find_spans(variant)
+                        if len(new_spans) != nsites:
+                            raise RuntimeError(
+                                f'{kind_label}: site count changed on adoption '
+                                f'({nsites} -> {len(new_spans)})')
+                        pass_best['best'] = size
+                        pass_best['best_content'] = variant
+                        state['content'] = variant
+                        state['spans'] = new_spans
+                        state['adoptions'].append(sites)
+                        state['improvements'] += 1
+                        run_improved = True
+                    with global_best_lock:
+                        if size < global_best_size:
+                            global_best_size = size
+                            global_best_src = variant
+                            with open('global_best.c', 'w') as gf:
+                                gf.write(global_best_src)
+                            global_improved = True
                 cur_best = pass_best['best']
-                cur_global = global_best_size
                 cur_saved = pass_best['initial'] - cur_best
 
+            if stale:
+                tag = '(stale)'
+            elif global_improved:
+                tag = 'NEW GLOBAL'
+            elif run_improved:
+                tag = 'NEW RUN'
+            else:
+                tag = ''
             if run_improved or global_improved:
                 header_bar.set_description(
                     f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
-                    f'   Global best: {fmt_size(cur_global)}'
+                    f'   Global best: {fmt_size(global_best_size)}'
                     f'   Saved this run: {fmt_size(cur_saved)}'
                 )
                 if global_improved:
                     progress_bar.write(
                         f'*** New GLOBAL best via {kind_label}: {fmt_size(size)} ***')
-            tag = "NEW GLOBAL" if global_improved else ("NEW RUN" if run_improved else "")
             progress_bar.write(
                 f'[{stats_prefix}] {kind_label} {label} size {fmt_size(size)} {cache_tag} {tag}')
+        except Exception as e:
+            progress_bar.write(f'  {kind_label} result handling failed ({label}): {e}')
+        finally:
             progress_bar.update(1)
+            drain.decrement()
+
+    with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
+        for idx, (flips, label) in enumerate(variants):
+            sites = frozenset(s for s, _ in flips)
+            # Throttle via worker slots so each variant is rendered against
+            # the freshest content at submission time.
+            wid = worker_slot_queue.get()
+            with lock:
+                content = state['content']
+                spans = state['spans']
+                version = len(state['adoptions'])
+            drain.increment()
+            future = execr.submit(task, wid, flips, sites, content, spans,
+                                  version)
+            future.add_done_callback(
+                lambda f, w=wid, i=idx, l=label, s=sites: on_done(f, w, i, l, s))
+        drain.wait()
 
     progress_bar.close()
+    any_improved = state['improvements'] > 0
     header_bar.set_description(
         f'{stats_prefix}   Run best: {fmt_size(pass_best["best"])}'
         f'   Global best: {fmt_size(global_best_size)}'
         f'   Saved this run: {fmt_size(pass_best["initial"] - pass_best["best"])}'
+        f'   Improvements: {state["improvements"]}'
+        f'   Stale discards: {state["stale"]}'
         f'   {"IMPROVED" if any_improved else "no change"}'
     )
     header_bar.close()
@@ -1019,15 +1109,19 @@ def run_patch_round(variants, baseline, src_path, pass_best, stats_prefix,
 def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
                  stats_prefix, worker_slot_queue):
     baseline = pass_best['best_content']
-    matches = list(re.finditer(re.escape(macro) + r'\(\s*([01])\s*\)', baseline))
+    pattern = re.compile(re.escape(macro) + r'\(\s*([01])\s*\)')
+    matches = list(pattern.finditer(baseline))
     if len(matches) < combo_size:
         return False
 
+    def find_spans(content):
+        return [m.span() for m in pattern.finditer(content)]
+
     single_flips = []
-    for m in matches:
+    for site_idx, m in enumerate(matches):
         new_val = '1' if m.group(1) == '0' else '0'
         single_flips.append(
-            ((m.span(), f'{macro}({new_val})'),
+            ((site_idx, f'{macro}({new_val})'),
              f'@{m.start()} {macro}({m.group(1)})->{macro}({new_val})'))
 
     flips = single_flips
@@ -1038,7 +1132,7 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
         base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
         singles = [([flip], lbl) for flip, lbl in single_flips]
         improved, asm_hashes = run_patch_round(
-            singles, baseline, src_path, pass_best, stats_prefix,
+            singles, baseline, find_spans, src_path, pass_best, stats_prefix,
             f'{stats_prefix} {label} noop-prune singles',
             f'{label.lower()} toggle', worker_slot_queue, want_asm_hash=True)
         if improved:
@@ -1058,7 +1152,7 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
     variants = [([f for f, _ in combo], ', '.join(l for _, l in combo))
                 for combo in itertools.combinations(flips, combo_size)]
     improved, _ = run_patch_round(
-        variants, baseline, src_path, pass_best, stats_prefix,
+        variants, baseline, find_spans, src_path, pass_best, stats_prefix,
         f'{stats_prefix} {label} toggles (x{combo_size})',
         f'{label.lower()} toggle', worker_slot_queue)
     if improved:
@@ -1071,6 +1165,9 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
 # there, so flipping digits is semantics-preserving by construction.
 ALT_RE = re.compile(r'\bA\(\s*(\d)\s*,([^)]*)\)')
 
+def alt_find_spans(content):
+    return [m.span(1) for m in ALT_RE.finditer(content)]
+
 def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
     """One round over all A(id, ...) sites, trying every alternative digit.
 
@@ -1082,10 +1179,10 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
     """
     baseline = pass_best['best_content']
     site_alts = []
-    for m in ALT_RE.finditer(baseline):
+    for match_idx, m in enumerate(ALT_RE.finditer(baseline)):
         options = [s.strip() for s in m.group(2).split(',')]
         cur = int(m.group(1))
-        alts = [((m.span(1), str(d)),
+        alts = [((match_idx, str(d)),
                  f'@{m.start()} {options[cur]}->{options[d]}')
                 for d in range(len(options)) if d != cur]
         if alts:
@@ -1095,21 +1192,21 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
 
     if alt_combo_size > 1 and alt_prune_noops:
         base_asm = baseline_asm_hash(baseline, src_path, worker_slot_queue)
-        flat = [(site_idx, alt) for site_idx, site in enumerate(site_alts)
+        flat = [(list_idx, alt) for list_idx, site in enumerate(site_alts)
                 for alt in site]
         singles = [([flip], lbl) for _, (flip, lbl) in flat]
         improved, asm_hashes = run_patch_round(
-            singles, baseline, src_path, pass_best, stats_prefix,
-            f'{stats_prefix} Alt noop-prune singles', 'alt',
+            singles, baseline, alt_find_spans, src_path, pass_best,
+            stats_prefix, f'{stats_prefix} Alt noop-prune singles', 'alt',
             worker_slot_queue, want_asm_hash=True)
         if improved:
             with open(src_path, 'w') as f:
                 f.write(pass_best['best_content'])
             return True
         pruned = [[] for _ in site_alts]
-        for (site_idx, alt), ah in zip(flat, asm_hashes):
+        for (list_idx, alt), ah in zip(flat, asm_hashes):
             if ah is None or base_asm is None or ah != base_asm:
-                pruned[site_idx].append(alt)
+                pruned[list_idx].append(alt)
         site_alts = [site for site in pruned if site]
         kept = sum(len(site) for site in site_alts)
         tqdm.write(f'Alt noop prune: {kept}/{len(flat)} flips active across '
@@ -1124,7 +1221,7 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
                              ', '.join(lbl for _, lbl in choice)))
 
     improved, _ = run_patch_round(
-        variants, baseline, src_path, pass_best, stats_prefix,
+        variants, baseline, alt_find_spans, src_path, pass_best, stats_prefix,
         f'{stats_prefix} Alt toggles (x{alt_combo_size})', 'alt',
         worker_slot_queue)
     if improved:
