@@ -12,6 +12,7 @@ from queue import Queue
 import threading
 import random
 import signal
+import time
 
 # =============================================
 # Configuration
@@ -28,6 +29,10 @@ alt_combo_size = 1
 # flips whose asm is identical to the baseline's from the combo round.
 static_prune_noops = False
 alt_prune_noops = False
+# Within a site, collapse active flips whose asm is identical to a single
+# representative before enumerating combos (needs alt_prune_noops for the
+# asm hashes; classmates are interchangeable in combos with high odds).
+alt_dedup_asm = False
 use_compression = True
 compress_bprob = 10
 compress_direct_bits = 30
@@ -118,6 +123,19 @@ def print_cache_stats(prefix=''):
 _errors_saved = set()  # md5 hex digests already saved
 _errors_lock = threading.Lock()
 _shutting_down = False
+
+_journal_lock = threading.Lock()
+
+def journal_adoption(kind, detail, old_size, new_size, is_global):
+    """Append an adopted run-best improvement to adoptions.log (best-effort)."""
+    g = '\tGLOBAL' if is_global else ''
+    try:
+        with _journal_lock, open('adoptions.log', 'a') as f:
+            f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")}\t{kind}\t'
+                    f'{old_size} -> {new_size} ({new_size - old_size:+})\t'
+                    f'{detail}{g}\n')
+    except OSError:
+        pass
 
 files_to_copy = [
     'Makefile',
@@ -642,7 +660,11 @@ class SpeculativeEngine:
         workdir = f'worker_{worker_id}'
         with open(os.path.join(workdir, self.src_path), 'w') as f:
             f.write(content)
-        size, cache_tag, _ = run_make_and_get_size(cwd=workdir, source_content=content)
+        try:
+            size, cache_tag, _ = run_make_and_get_size(cwd=workdir, source_content=content)
+        except Exception as e:
+            save_error_source(content, e)
+            raise
 
         return (size, cache_tag, content, group_id, perm, task_group_versions)
 
@@ -656,15 +678,9 @@ class SpeculativeEngine:
             try:
                 result = future.result()
             except Exception as e:
+                # The erroring source is saved by _build_task itself — by now
+                # another task may already have reused the worker dir.
                 group_bar.write(f'  Task failed: {e}')
-                # Save erroring source from worker dir
-                try:
-                    src_path = os.path.join(f'worker_{worker_id}', self.src_path)
-                    if os.path.exists(src_path):
-                        with open(src_path, 'r') as ef:
-                            save_error_source(ef.read(), e)
-                except Exception:
-                    pass
                 with self.lock:
                     self._completed += 1
                 total_bar.update(1)
@@ -684,6 +700,7 @@ class SpeculativeEngine:
             is_run_best = False
             is_global_best = False
             is_stale = False
+            prev_best = None
 
             with self.lock:
                 if self._is_cross_group_stale(group_id, task_group_versions):
@@ -691,6 +708,7 @@ class SpeculativeEngine:
                     self._stale_discards += 1
                     is_stale = True
                 elif size < self.best_size:
+                    prev_best = self.best_size
                     self.best_size = size
                     self.best_content = content
                     self.group_versions[group_id] = self.group_versions.get(group_id, 0) + 1
@@ -720,6 +738,11 @@ class SpeculativeEngine:
             group_bar.write(
                 f'[{stats_prefix} pass {iteration}] {group_id} perm size: '
                 f'{fmt_size(size)} {cache_tag} {tag}')
+
+            if is_run_best:
+                journal_adoption(
+                    'permute', f'{stats_prefix} pass {iteration} {group_id}',
+                    prev_best, size, is_global_best)
 
             if is_run_best and stats_bar is not None:
                 with self.lock:
@@ -758,7 +781,8 @@ class SpeculativeEngine:
             n = len(groups[gid])
             if n <= 1:
                 continue
-            perms = list(itertools.permutations(range(n)))
+            perms = [p for p in itertools.permutations(range(n))
+                     if p != tuple(range(n))]
             group_order.append((gid, None, perms))
 
         h_bases = list(h_base_to_ids.keys())
@@ -769,7 +793,8 @@ class SpeculativeEngine:
             n = len(groups[ids[0]])
             if n <= 1:
                 continue
-            perms = list(itertools.permutations(range(n)))
+            perms = [p for p in itertools.permutations(range(n))
+                     if p != tuple(range(n))]
             group_order.append((base, ids, perms))
 
         total_perms = sum(len(p) for _, _, p in group_order)
@@ -1022,6 +1047,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
             run_improved = False
             global_improved = False
             stale = False
+            prev_best = None
             with lock:
                 if is_stale_locked(sites, version):
                     state['stale'] += 1
@@ -1034,6 +1060,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                             raise RuntimeError(
                                 f'{kind_label}: site count changed on adoption '
                                 f'({nsites} -> {len(new_spans)})')
+                        prev_best = pass_best['best']
                         pass_best['best'] = size
                         pass_best['best_content'] = variant
                         state['content'] = variant
@@ -1059,6 +1086,9 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                 tag = 'NEW RUN'
             else:
                 tag = ''
+            if run_improved:
+                journal_adoption(kind_label, f'{stats_prefix} {label}',
+                                 prev_best, size, global_improved)
             if run_improved or global_improved:
                 header_bar.set_description(
                     f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
@@ -1206,11 +1236,27 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
         pruned = [[] for _ in site_alts]
         for (list_idx, alt), ah in zip(flat, asm_hashes):
             if ah is None or base_asm is None or ah != base_asm:
-                pruned[list_idx].append(alt)
-        site_alts = [site for site in pruned if site]
+                pruned[list_idx].append((alt, ah))
+        active = sum(len(site) for site in pruned)
+        if alt_dedup_asm:
+            # Within a site, active flips with identical asm are duplicates
+            # of each other; keep one representative per asm class. Unknown
+            # hashes are conservatively kept individually.
+            for list_idx, site in enumerate(pruned):
+                seen = set()
+                reps = []
+                for alt, ah in site:
+                    if ah is not None:
+                        if ah in seen:
+                            continue
+                        seen.add(ah)
+                    reps.append((alt, ah))
+                pruned[list_idx] = reps
+        site_alts = [[alt for alt, _ in site] for site in pruned if site]
         kept = sum(len(site) for site in site_alts)
-        tqdm.write(f'Alt noop prune: {kept}/{len(flat)} flips active across '
-                   f'{len(site_alts)} sites')
+        dedup_note = f', {kept} after asm dedup' if alt_dedup_asm else ''
+        tqdm.write(f'Alt noop prune: {active}/{len(flat)} flips active'
+                   f'{dedup_note} across {len(site_alts)} sites')
         if len(site_alts) < alt_combo_size:
             return False
 
@@ -1304,13 +1350,17 @@ def main():
             f'alt combo size must be an integer >= 1, got {alt_combo_size!r}')
     print(f'Pass operations: {pass_operations} '
           f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size}; '
-          f'noop prune: static={static_prune_noops}, alt={alt_prune_noops})')
+          f'noop prune: static={static_prune_noops}, alt={alt_prune_noops}; '
+          f'alt asm dedup: {alt_dedup_asm})')
+    if alt_dedup_asm and not alt_prune_noops:
+        print('Warning: alt_dedup_asm only takes effect when alt_prune_noops '
+              'is enabled (it reuses the prune round asm hashes)')
 
     if random_seed is not None:
         random.seed(random_seed)
         print(f'Random seed: {random_seed}')
-    else:
-        print('Random shuffling enabled with no fixed seed')
+    print(f'Random shuffle: '
+          f'{"enabled" if enable_random_shuffle else "disabled"}')
 
     src_filename = sys.argv[1] if len(sys.argv) > 1 else '4k.c'
 
