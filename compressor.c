@@ -15,9 +15,7 @@
    so hashes and compressed output are identical across architectures. */
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
 #include <nmmintrin.h> /* _mm_crc32_u8 (SSE4.2) */
-static inline unsigned int crc32c_u8(unsigned int h, unsigned char byte) {
-  return _mm_crc32_u8(h, byte);
-}
+static inline unsigned int crc32c_u8(unsigned int h, unsigned char byte) { return _mm_crc32_u8(h, byte); }
 #elif defined(__aarch64__) || defined(_M_ARM64)
 #include <arm_acle.h> /* __crc32cb (ARMv8 CRC32) */
 #ifdef __clang__
@@ -154,8 +152,7 @@ static inline float fast_log2f(float x) {
   int exp = (int)(bits.u >> 23) - 127;
   bits.u = (bits.u & 0x7FFFFFu) | 0x3F800000u;
   float m = bits.f - 1.0f;
-  return exp + m * (1.42286530448213f +
-                    m * (-0.58208536795165f + m * 0.15922006346951f));
+  return exp + m * (1.42286530448213f + m * (-0.58208536795165f + m * 0.15922006346951f));
 }
 
 static inline void *alloc_aligned(size_t size) {
@@ -202,26 +199,23 @@ static inline void counter_update(unsigned char prob[2], int bit) {
     prob[!bit] >>= 1;
 }
 
-static unsigned char *alloc_padded(const unsigned char *ctx,
-                                   const unsigned char *data, int size) {
+static unsigned char *alloc_padded(const unsigned char *ctx, const unsigned char *data, int size) {
   unsigned char *buf = (unsigned char *)malloc(size + MAX_CTX);
   memcpy(buf, ctx, MAX_CTX);
   memcpy(buf + MAX_CTX, data, size);
   return buf;
 }
 
-#define DYNPUSH(arr, len, cap, val, elem_sz)                                   \
-  do {                                                                         \
-    if ((len) >= (cap)) {                                                      \
-      (cap) = (cap) ? (cap) * 2 : 4096;                                        \
-      (arr) = realloc((arr), (cap) * (elem_sz));                               \
-    }                                                                          \
-    (arr)[(len)++] = (val);                                                    \
+#define DYNPUSH(arr, len, cap, val, elem_sz)                                                                                                                   \
+  do {                                                                                                                                                         \
+    if ((len) >= (cap)) {                                                                                                                                      \
+      (cap) = (cap) ? (cap) * 2 : 4096;                                                                                                                        \
+      (arr) = realloc((arr), (cap) * (elem_sz));                                                                                                               \
+    }                                                                                                                                                          \
+    (arr)[(len)++] = (val);                                                                                                                                    \
   } while (0)
 
-static inline unsigned int hash_mix(unsigned int h, unsigned char byte) {
-  return crc32c_u8(h, byte);
-}
+static inline unsigned int hash_mix(unsigned int h, unsigned char byte) { return crc32c_u8(h, byte); }
 
 static unsigned int ctx_hash_initial(unsigned int mask) {
   unsigned char cmask = (unsigned char)mask;
@@ -235,8 +229,7 @@ static unsigned int ctx_hash_initial(unsigned int mask) {
   return h;
 }
 
-static unsigned int ctx_hash(const unsigned char *data, int bit_pos,
-                             unsigned int mask) {
+static unsigned int ctx_hash(const unsigned char *data, int bit_pos, unsigned int mask) {
   unsigned char cmask = (unsigned char)mask;
   const unsigned char *ptr = data + (bit_pos >> 3);
   unsigned int h = mask;
@@ -253,13 +246,9 @@ static unsigned int ctx_hash(const unsigned char *data, int bit_pos,
   return h;
 }
 
-static inline int get_bit(const unsigned char *data, int pos) {
-  return (data[pos >> 3] >> (7 - (pos & 7))) & 1;
-}
+static inline int get_bit(const unsigned char *data, int pos) { return (data[pos >> 3] >> (7 - (pos & 7))) & 1; }
 
-static inline int get_compressed_bit(const unsigned char *data, int pos) {
-  return (data[pos >> 3] >> (pos & 7)) & 1;
-}
+static inline int get_compressed_bit(const unsigned char *data, int pos) { return (data[pos >> 3] >> (pos & 7)) & 1; }
 
 static void arith_init(ArithCoder *ac, void *dest) {
   ac->dest = (unsigned char *)dest;
@@ -278,8 +267,7 @@ static void propagate_carry(unsigned char *dest, int pos) {
   }
 }
 
-static void arith_encode(ArithCoder *ac, unsigned int p0, unsigned int p1,
-                         int bit) {
+static void arith_encode(ArithCoder *ac, unsigned int p0, unsigned int p1, int bit) {
   unsigned int total = p0 + p1;
   unsigned int thresh = (uint64_t)ac->range * p0 / total;
   if (bit) {
@@ -310,8 +298,7 @@ static int arith_finish(const ArithCoder *ac) {
   return pos;
 }
 
-static unsigned int encode_weight_mask(const ModelSet *ml, unsigned char *masks,
-                                       int terminate) {
+static unsigned int encode_weight_mask(const ModelSet *ml, unsigned char *masks, int terminate) {
   unsigned int wmask = 0;
   int remaining = ml->num_models;
   int bit = 31;
@@ -335,9 +322,7 @@ static unsigned int encode_weight_mask(const ModelSet *ml, unsigned char *masks,
   return wmask & (unsigned)(-2 + (terminate ^ parity));
 }
 
-static void decode_weight_mask(unsigned int wmask, int num_models,
-                               const unsigned char *ctx_masks, int *weights,
-                               unsigned int *ext_masks) {
+static void decode_weight_mask(unsigned int wmask, int num_models, const unsigned char *ctx_masks, int *weights, unsigned int *ext_masks) {
   int wval = 0;
   for (int n = 0; n < num_models; n++) {
     while (wmask & 0x80000000u) {
@@ -352,21 +337,18 @@ static void decode_weight_mask(unsigned int wmask, int num_models,
 
 static void model_set_print(const ModelSet *ml, FILE *f) {
   for (int m = 0; m < ml->num_models; m++)
-    fprintf(f, "%s%02X:%d", m ? " " : "", ml->models[m].mask,
-            ml->models[m].weight);
+    fprintf(f, "%s%02X:%d", m ? " " : "", ml->models[m].mask, ml->models[m].weight);
   fprintf(f, "\n");
 }
 
 static void model_set_sprint(const ModelSet *ml, char *buf, int bufsize) {
   int pos = 0;
   for (int m = 0; m < ml->num_models && pos < bufsize - 6; m++)
-    pos += snprintf(buf + pos, bufsize - pos, "%s%02X:%d", m ? " " : "",
-                    ml->models[m].mask, ml->models[m].weight);
+    pos += snprintf(buf + pos, bufsize - pos, "%s%02X:%d", m ? " " : "", ml->models[m].mask, ml->models[m].weight);
 }
 
-static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
-                                 unsigned char mask, const unsigned char *data,
-                                 int bit_pos, unsigned int generation) {
+static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size, unsigned char mask, const unsigned char *data, int bit_pos,
+                                 unsigned int generation) {
   const unsigned char *dp = &data[bit_pos / 8];
   unsigned char bn = (unsigned char)(bit_pos & 7);
   for (unsigned int h = ctx_hash(data, bit_pos, mask);; h++) {
@@ -380,8 +362,7 @@ static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
       e->generation = generation;
       return e;
     }
-    if (e->mask == mask && e->bitnum == bn &&
-        (dp[0] & (0xFF00 >> bn)) == (e->data_ptr[0] & (0xFF00 >> bn))) {
+    if (e->mask == mask && e->bitnum == bn && (dp[0] & (0xFF00 >> bn)) == (e->data_ptr[0] & (0xFF00 >> bn))) {
       int match = 1;
       for (int i = 0; i < 8; i++) {
         if (((mask >> i) & 1) && dp[i - 8] != e->data_ptr[i - 8]) {
@@ -395,10 +376,8 @@ static CtxEntry *ctx_table_probe(CtxEntry *table, unsigned int table_size,
   }
 }
 
-static int compute_single_model(const unsigned char *data, int total_bits,
-                                unsigned char mask, CtxEntry *ht, int ht_size,
-                                CompactPredBlock *out_blocks, int *out_offsets,
-                                unsigned int generation) {
+static int compute_single_model(const unsigned char *data, int total_bits, unsigned char mask, CtxEntry *ht, int ht_size, CompactPredBlock *out_blocks,
+                                int *out_offsets, unsigned int generation) {
   int max_blocks = (total_bits + PKG_BITS - 1) / PKG_BITS;
   int num_blocks = 0;
 
@@ -409,8 +388,7 @@ static int compute_single_model(const unsigned char *data, int total_bits,
       float rp = 0, tp = 0;
       if (base + off < total_bits) {
         int bit = get_bit(data, base + off);
-        CtxEntry *e =
-            ctx_table_probe(ht, ht_size, mask, data, base + off, generation);
+        CtxEntry *e = ctx_table_probe(ht, ht_size, mask, data, base + off, generation);
         int boost = (e->prob[0] == 0 || e->prob[1] == 0) ? 2 : 0;
         if (e->prob[0] || e->prob[1])
           needs_commit = 1;
@@ -433,8 +411,7 @@ static int compute_single_model(const unsigned char *data, int total_bits,
   return num_blocks;
 }
 
-static void eval_setup(Evaluator *ev, const CompState *cs, int length,
-                       int base_prob, float log_scale) {
+static void eval_setup(Evaluator *ev, const CompState *cs, int length, int base_prob, float log_scale) {
   ev->cs = cs;
   ev->log_scale = log_scale;
 
@@ -450,8 +427,7 @@ static void eval_setup(Evaluator *ev, const CompState *cs, int length,
   for (int i = 0; i < nblocks; i++) {
     for (int j = 0; j < NPV; j++) {
       ev->accum[i].prob[j][0] = base_v;
-      ev->accum[i].prob[j][1] =
-          (i * PKG_BITS + j * 4 < length) ? total_v : base_v;
+      ev->accum[i].prob[j][1] = (i * PKG_BITS + j * 4 < length) ? total_v : base_v;
     }
     int remain = length - i * PKG_BITS;
     if (remain > PKG_BITS)
@@ -466,9 +442,7 @@ static void eval_destroy(const Evaluator *ev) {
   free(ev->accum_sizes);
 }
 
-static inline int eval_get_size(const Evaluator *ev) {
-  return (int)(ev->cost / (TPREC / BIT_PREC));
-}
+static inline int eval_get_size(const Evaluator *ev) { return (int)(ev->cost / (TPREC / BIT_PREC)); }
 
 static int64_t eval_adjust(const Evaluator *ev, int model_idx, int delta) {
   const ModelPred *mp = &ev->cs->models[model_idx];
@@ -506,10 +480,8 @@ static int64_t eval_adjust(const Evaluator *ev, int model_idx, int delta) {
     for (int I = 0; I < NPV; I++) {
       v8u16 packed;
       memcpy(&packed, mb->prob[I], 16);
-      v8u16 ri =
-          __builtin_shufflevector(vzero16, packed, 0, 8, 1, 9, 2, 10, 3, 11);
-      v8u16 ti =
-          __builtin_shufflevector(vzero16, packed, 4, 12, 5, 13, 6, 14, 7, 15);
+      v8u16 ri = __builtin_shufflevector(vzero16, packed, 0, 8, 1, 9, 2, 10, 3, 11);
+      v8u16 ti = __builtin_shufflevector(vzero16, packed, 4, 12, 5, 13, 6, 14, 7, 15);
       v4f fr;
       memcpy(&fr, &ri, 16);
       v4f ft;
@@ -564,8 +536,7 @@ static int64_t eval_evaluate(Evaluator *ev, const ModelSet *ml) {
   return ev->cost;
 }
 
-static CompState *state_new(const unsigned char *data, int size, int base_prob,
-                            Evaluator *eval, const unsigned char *ctx) {
+static CompState *state_new(const unsigned char *data, int size, int base_prob, Evaluator *eval, const unsigned char *ctx) {
   CompState *cs = (CompState *)calloc(1, sizeof(CompState));
   cs->eval = eval;
   int total_bits = size * 8;
@@ -577,8 +548,7 @@ static CompState *state_new(const unsigned char *data, int size, int base_prob,
 
   int max_blocks_per_model = (total_bits + PKG_BITS - 1) / PKG_BITS;
   int arena_capacity = 256 * max_blocks_per_model;
-  cs->block_arena = (CompactPredBlock *)alloc_aligned(arena_capacity *
-                                                      sizeof(CompactPredBlock));
+  cs->block_arena = (CompactPredBlock *)alloc_aligned(arena_capacity * sizeof(CompactPredBlock));
   cs->map_arena = (int *)malloc(arena_capacity * sizeof(int));
 
   int ht_size = prev_prime(total_bits * 2);
@@ -587,9 +557,7 @@ static CompState *state_new(const unsigned char *data, int size, int base_prob,
   int cursor = 0;
   for (int m = 0; m < 256; m++) {
     cs->models[m].offset = cursor;
-    cs->models[m].num_blocks = compute_single_model(
-        dp, total_bits, (unsigned char)m, ht, ht_size, &cs->block_arena[cursor],
-        &cs->map_arena[cursor], m + 1);
+    cs->models[m].num_blocks = compute_single_model(dp, total_bits, (unsigned char)m, ht, ht_size, &cs->block_arena[cursor], &cs->map_arena[cursor], m + 1);
     cursor += cs->models[m].num_blocks;
   }
   free(ht);
@@ -613,18 +581,11 @@ static void hbs_free(const HashBitStream *hb) {
   free(hb->weights);
 }
 
-static inline void hbs_push_hash(HashBitStream *hb, unsigned int v) {
-  DYNPUSH(hb->hashes, hb->hashes_len, hb->hashes_cap, v, sizeof(unsigned int));
-}
+static inline void hbs_push_hash(HashBitStream *hb, unsigned int v) { DYNPUSH(hb->hashes, hb->hashes_len, hb->hashes_cap, v, sizeof(unsigned int)); }
 
-static inline void hbs_push_bit(HashBitStream *hb, int v) {
-  DYNPUSH(hb->bits, hb->bits_len, hb->bits_cap, (unsigned char)v,
-          sizeof(unsigned char));
-}
+static inline void hbs_push_bit(HashBitStream *hb, int v) { DYNPUSH(hb->bits, hb->bits_len, hb->bits_cap, (unsigned char)v, sizeof(unsigned char)); }
 
-static HashBitStream compute_hash_stream(const unsigned char *data, int size,
-                                         unsigned char *ctx, const ModelSet *ml,
-                                         int first, int finish) {
+static HashBitStream compute_hash_stream(const unsigned char *data, int size, unsigned char *ctx, const ModelSet *ml, int first, int finish) {
   int total_bits = first + size * 8;
   int num = ml->num_models;
   HashBitStream out;
@@ -663,9 +624,7 @@ static HashBitStream compute_hash_stream(const unsigned char *data, int size,
 /* Direct-mapped, lossy, no-probing encoder (original Crinkler scheme).
    Table is 2 bytes per slot (prob[0], prob[1]); slot = hash & dmask. Two
    different contexts that map to the same slot silently share a counter. */
-static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
-                                      unsigned char *dt, unsigned int dmask,
-                                      int base_prob) {
+static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb, unsigned char *dt, unsigned int dmask, int base_prob) {
   int num = hb->num_weights;
   int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
 
@@ -677,8 +636,7 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
     for (int m = 0; m < num; m++) {
       unsigned int h = hb->hashes[hpos++];
       unsigned char *e = &dt[2u * (h >> (32 - direct_bits))];
-      unsigned int shift =
-          (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + hb->weights[m];
+      unsigned int shift = (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + hb->weights[m];
       probs[0] += (unsigned)e[0] << shift;
       probs[1] += (unsigned)e[1] << shift;
       matched[m] = e;
@@ -693,8 +651,7 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb,
   }
 }
 
-static int compress_4k(const unsigned char *data, int size, unsigned char *out,
-                       const ModelSet *ml, int base_prob) {
+static int compress_4k(const unsigned char *data, int size, unsigned char *out, const ModelSet *ml, int base_prob) {
   unsigned char ctx[MAX_CTX] = {};
   HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
   int reps = timing_reps < 1 ? 1 : timing_reps;
@@ -710,12 +667,11 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
       exit(1);
     }
     if (verbose)
-      printf("  Direct-mapped table: %u slots (%zu bytes, 2 B/slot)\n",
-             dmask + 1, dbytes);
+      printf("  Direct-mapped table: %u slots (%zu bytes, 2 B/slot)\n", dmask + 1, dbytes);
     double t0 = mono_sec();
     for (int r = 0; r < reps; r++) {
       if (r > 0)
-        memset(dt, 0, dbytes); /* re-zero only for subsequent timing reps */
+        memset(dt, 0, dbytes);             /* re-zero only for subsequent timing reps */
       memset(out, 0, (size_t)size + 1024); /* coder XORs into dest */
       arith_init(&ac, out);
       encode_from_stream_direct(&ac, &hb, dt, dmask, base_prob);
@@ -729,8 +685,7 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out,
   return total;
 }
 
-static unsigned int real_compress_size(const unsigned char *data, int size,
-                                       const ModelSet *ml, int base_prob) {
+static unsigned int real_compress_size(const unsigned char *data, int size, const ModelSet *ml, int base_prob) {
   int max_out = size + 1024;
   unsigned char *out = (unsigned char *)calloc(max_out, 1);
   int comp_bits = compress_4k(data, size, out, ml, base_prob);
@@ -740,13 +695,11 @@ static unsigned int real_compress_size(const unsigned char *data, int size,
 }
 
 /* Inverse of encode_from_stream_direct: same direct-mapped lossy table. */
-static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
-                                int base_prob) {
+static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out, int base_prob) {
   int bitlen = 0;
   memcpy(&bitlen, cdata, hdr_bitlen_bytes()); /* 2 or 4 little-endian bytes */
   unsigned int stored_wmask;
-  memcpy(&stored_wmask, cdata + hdr_bitlen_bytes(),
-         4); /* wmask follows bitlen */
+  memcpy(&stored_wmask, cdata + hdr_bitlen_bytes(), 4); /* wmask follows bitlen */
   int num = wmask_num_models(stored_wmask);
   int data_bytes = (bitlen - 1) / 8;
 
@@ -777,11 +730,9 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
     unsigned char *matched[MAX_SEARCH];
     for (int m = 0; m < num; m++) {
-      unsigned int h = (bp == 0) ? ctx_hash_initial(ext_masks[m])
-                                 : ctx_hash(dp, bp - 1, ext_masks[m]);
+      unsigned int h = (bp == 0) ? ctx_hash_initial(ext_masks[m]) : ctx_hash(dp, bp - 1, ext_masks[m]);
       unsigned char *e = &dt[2u * (h >> (32 - direct_bits))];
-      unsigned int shift =
-          (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + weights[m];
+      unsigned int shift = (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + weights[m];
       probs[0] += (unsigned)e[0] << shift;
       probs[1] += (unsigned)e[1] << shift;
       matched[m] = e;
@@ -822,9 +773,7 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out,
   return data_bytes;
 }
 
-static unsigned int approximate_weights(CompState *cs, ModelSet *ml,
-                                        const unsigned char *data, int size,
-                                        int base_prob) {
+static unsigned int approximate_weights(CompState *cs, ModelSet *ml, const unsigned char *data, int size, int base_prob) {
   for (int i = 0; i < ml->num_models; i++)
     ml->models[i].weight = __builtin_popcount(ml->models[i].mask);
   if (extreme)
@@ -833,9 +782,7 @@ static unsigned int approximate_weights(CompState *cs, ModelSet *ml,
   return eval_get_size(cs->eval);
 }
 
-static unsigned int optimize_weights(CompState *cs, ModelSet *ml,
-                                     const unsigned char *data, int size,
-                                     int base_prob) {
+static unsigned int optimize_weights(CompState *cs, ModelSet *ml, const unsigned char *data, int size, int base_prob) {
   ModelSet cand = *ml;
   int idx = ml->num_models - 1;
   int dir = 1;
@@ -848,8 +795,7 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml,
     cand = *ml;
     cand.models[idx].weight += dir;
     int improved = 0;
-    if (cand.models[idx].weight <= MAX_WEIGHT &&
-        cand.models[idx].weight != 255) {
+    if (cand.models[idx].weight <= MAX_WEIGHT && cand.models[idx].weight != 255) {
       unsigned int trial;
       if (extreme) {
         trial = real_compress_size(data, size, &cand, base_prob);
@@ -859,10 +805,8 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml,
       }
       if (trial < best) {
         if (verbose >= 2)
-          printf("    weight %02X: %d->%d, est %.1f -> %.1f bytes\n",
-                 ml->models[idx].mask, ml->models[idx].weight,
-                 cand.models[idx].weight, best / (float)(BIT_PREC * 8),
-                 trial / (float)(BIT_PREC * 8));
+          printf("    weight %02X: %d->%d, est %.1f -> %.1f bytes\n", ml->models[idx].mask, ml->models[idx].weight, cand.models[idx].weight,
+                 best / (float)(BIT_PREC * 8), trial / (float)(BIT_PREC * 8));
         best = trial;
         *ml = cand;
         last_improved = idx;
@@ -885,11 +829,8 @@ static unsigned int optimize_weights(CompState *cs, ModelSet *ml,
   return best;
 }
 
-static unsigned int try_weights(CompState *cs, ModelSet *ml, int simple,
-                                const unsigned char *data, int size,
-                                int base_prob) {
-  return simple ? approximate_weights(cs, ml, data, size, base_prob)
-                : optimize_weights(cs, ml, data, size, base_prob);
+static unsigned int try_weights(CompState *cs, ModelSet *ml, int simple, const unsigned char *data, int size, int base_prob) {
+  return simple ? approximate_weights(cs, ml, data, size, base_prob) : optimize_weights(cs, ml, data, size, base_prob);
 }
 
 static int model_set_cmp(const void *a, const void *b) {
@@ -898,9 +839,7 @@ static int model_set_cmp(const void *a, const void *b) {
   return (sa > sb) - (sa < sb);
 }
 
-static ModelSet search_best_models(const unsigned char *data, int size,
-                                   const unsigned char ctx[MAX_CTX], int beam,
-                                   int simple, int base_prob, int *out_size,
+static ModelSet search_best_models(const unsigned char *data, int size, const unsigned char ctx[MAX_CTX], int beam, int simple, int base_prob, int *out_size,
                                    const ModelSet *seed) {
   const int EFLAG = INT_MIN;
   const int nsets = beam * 2;
@@ -920,8 +859,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   if (seed && seed->num_models > 0) {
     sets[0] = *seed;
     if (extreme) {
-      sets[0].size =
-          real_compress_size(data, size, &sets[0], base_prob) | EFLAG;
+      sets[0].size = real_compress_size(data, size, &sets[0], base_prob) | EFLAG;
     } else {
       eval_evaluate(cs->eval, &sets[0]);
       sets[0].size = eval_get_size(cs->eval) | EFLAG;
@@ -976,8 +914,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
           if (verbose && new_sz < INT_MAX) {
             char setbuf[512] = "";
             model_set_sprint(next, setbuf, sizeof(setbuf));
-            printf("  +mask %02X -> %2d models, est %.1f bytes [%s]\n", mask,
-                   next->num_models, new_sz / (float)(BIT_PREC * 8), setbuf);
+            printf("  +mask %02X -> %2d models, est %.1f bytes [%s]\n", mask, next->num_models, new_sz / (float)(BIT_PREC * 8), setbuf);
             fflush(stdout);
             mask_helped = 1;
           }
@@ -993,9 +930,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
               if (verbose) {
                 char setbuf[512] = "";
                 model_set_sprint(next, setbuf, sizeof(setbuf));
-                printf("  -mask %02X -> %2d models, est %.1f bytes [%s]\n",
-                       removed.mask, next->num_models,
-                       trial / (float)(BIT_PREC * 8), setbuf);
+                printf("  -mask %02X -> %2d models, est %.1f bytes [%s]\n", removed.mask, next->num_models, trial / (float)(BIT_PREC * 8), setbuf);
                 fflush(stdout);
               }
               best_sz = trial;
@@ -1031,8 +966,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   ModelSet best = sets[0];
 
   if (verbose) {
-    printf("\n  Search: %d masks tried, %d accepted, %d rejected\n",
-           masks_tried, masks_accepted, masks_tried - masks_accepted);
+    printf("\n  Search: %d masks tried, %d accepted, %d rejected\n", masks_tried, masks_accepted, masks_tried - masks_accepted);
     printf("  Final weight optimization:\n");
   }
   int final_sz = optimize_weights(cs, &best, data, size, base_prob);
@@ -1041,8 +975,7 @@ static ModelSet search_best_models(const unsigned char *data, int size,
   if (verbose) {
     char setbuf[512] = "";
     model_set_sprint(&best, setbuf, sizeof(setbuf));
-    printf("  Final: %2d models, est %.1f bytes [%s]\n", best.num_models,
-           final_sz / (float)(BIT_PREC * 8), setbuf);
+    printf("  Final: %2d models, est %.1f bytes [%s]\n", best.num_models, final_sz / (float)(BIT_PREC * 8), setbuf);
   }
 
   if (!extreme) {
@@ -1108,11 +1041,9 @@ static void print_usage(const char *prog) {
   printf("Usage: %s [options] <input_file>\n\nOptions:\n", prog);
   printf("  -o <file>    Output file (default: <input>.paq or <input>.bin)\n");
   printf("  -d           Decompress mode\n");
-  printf("  -k <n>       Search beam width (default: %d). >1 also accepts\n",
-         DEFAULT_BEAM);
+  printf("  -k <n>       Search beam width (default: %d). >1 also accepts\n", DEFAULT_BEAM);
   printf("               non-improving mask additions during search\n");
-  printf(
-      "  -s           Simple search: skip per-candidate weight optimization\n");
+  printf("  -s           Simple search: skip per-candidate weight optimization\n");
   printf("  -m <models>  Use explicit models, skip search (e.g. \"00:1 80:2 "
          "C0:3\")\n");
   printf("  -w           Optimize weights on explicit models from -m\n");
@@ -1120,10 +1051,8 @@ static void print_usage(const char *prog) {
   printf("  -e           Extreme: use real compression during search\n");
   printf("  -H <bits>    Direct-mapped table size = 2^bits 2-byte slots\n");
   printf("               (default 24); loader DIRECT_BITS must match\n");
-  printf(
-      "  -L           Large mode: 32-bit header bitlength field for inputs\n");
-  printf(
-      "               >~8KB. Not stored in file; pass -L to both compress\n");
+  printf("  -L           Large mode: 32-bit header bitlength field for inputs\n");
+  printf("               >~8KB. Not stored in file; pass -L to both compress\n");
   printf("               and decompress\n");
   printf("  -R <n>       Repeat encode pass n times for stable timing\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
@@ -1165,8 +1094,7 @@ int main(int argc, char *argv[]) {
       int n = parse_models(optarg, &explicit_models);
       if (n < 1) {
         fprintf(stderr, "Invalid model string: '%s'\n", optarg);
-        fprintf(stderr,
-                "Expected format: \"00:1 80:2 C0:3\" (hex_mask:weight)\n");
+        fprintf(stderr, "Expected format: \"00:1 80:2 C0:3\" (hex_mask:weight)\n");
         return 1;
       }
       have_explicit_models = 1;
@@ -1181,8 +1109,7 @@ int main(int argc, char *argv[]) {
     case 'H':
       direct_bits = atoi(optarg);
       if (direct_bits < 1 || direct_bits > 30) {
-        fprintf(stderr,
-                "Direct-map bits must be 1..30 (table = 2^bits slots)\n");
+        fprintf(stderr, "Direct-map bits must be 1..30 (table = 2^bits slots)\n");
         return 1;
       }
       break;
@@ -1263,8 +1190,7 @@ int main(int argc, char *argv[]) {
     int num_models = wmask_num_models(wm);
 
     if (bitlen < 1 || hdr_base_bytes() + num_models > data_size) {
-      fprintf(stderr, "Corrupt header (bitlen=%d, models=%d, filesize=%d)\n",
-              bitlen, num_models, data_size);
+      fprintf(stderr, "Corrupt header (bitlen=%d, models=%d, filesize=%d)\n", bitlen, num_models, data_size);
       free(data);
       return 1;
     }
@@ -1304,8 +1230,7 @@ int main(int argc, char *argv[]) {
   }
 
   printf("Input:       %s (%d bytes)\n", input_file, data_size);
-  printf("Search:      beam %d%s%s\n", beam, simple ? " simple" : "",
-         extreme ? " extreme" : "");
+  printf("Search:      beam %d%s%s\n", beam, simple ? " simple" : "", extreme ? " extreme" : "");
   printf("Base prob:   %d\n", base_prob);
   if (max_passes > 1 && !have_explicit_models)
     printf("Max passes:  %d\n", max_passes);
@@ -1322,8 +1247,7 @@ int main(int argc, char *argv[]) {
     if (optimize_explicit_weights) {
       printf("Optimizing weights for %d explicit models...\n", ml.num_models);
       Evaluator eval = {0};
-      CompState *cs =
-          extreme ? NULL : state_new(data, data_size, base_prob, &eval, ctx);
+      CompState *cs = extreme ? NULL : state_new(data, data_size, base_prob, &eval, ctx);
       est_size = optimize_weights(cs, &ml, data, data_size, base_prob);
       if (!extreme) {
         state_destroy(cs);
@@ -1336,24 +1260,20 @@ int main(int argc, char *argv[]) {
       printf("Skipping search, using %d explicit models\n", ml.num_models);
     }
   } else {
-    ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
-                            &est_size, NULL);
+    ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est_size, NULL);
 
     for (int pass = 2; pass <= max_passes; pass++) {
       int prev_size = est_size;
       if (verbose)
         printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
-      ml = search_best_models(data, data_size, ctx, beam, simple, base_prob,
-                              &est_size, &ml);
+      ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est_size, &ml);
       if (est_size >= prev_size) {
         if (verbose)
           printf("  No improvement, stopping.\n");
         break;
       }
       if (verbose)
-        printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass,
-               prev_size / (float)(BIT_PREC * 8),
-               est_size / (float)(BIT_PREC * 8));
+        printf("  Pass %d improved: %.1f -> %.1f bytes\n", pass, prev_size / (float)(BIT_PREC * 8), est_size / (float)(BIT_PREC * 8));
     }
 
     printf("\nEstimated:   %.3f bytes\n", est_size / (float)(BIT_PREC * 8));
@@ -1376,13 +1296,11 @@ int main(int argc, char *argv[]) {
   int total_bits = header_bytes * 8 + comp_bits;
 
   if (verbose) {
-    printf("Raw:         %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits,
-           100.0f * comp_bytes / data_size);
+    printf("Raw:         %d bytes %d bits (%.2f%%)\n", comp_bytes, comp_bits, 100.0f * comp_bytes / data_size);
     printf("Weightmask:  %08X\n", wmask);
     printf("Padding:     %d bits\n", total_bytes * 8 - total_bits);
   }
-  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", total_bytes, total_bits,
-         100.0f * total_bytes / data_size);
+  printf("Compressed:  %d bytes %d bits (%.2f%%)\n", total_bytes, total_bits, 100.0f * total_bytes / data_size);
   printf("Table:       direct-mapped (lossy), 2^%d slots\n", direct_bits);
   printf("Search time: %.1f ms\n", search_ms);
   printf("Encode time: %.3f ms/iter (reps=%d)\n", g_encode_ms, timing_reps);
