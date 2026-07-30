@@ -29,6 +29,12 @@ alt_combo_size = 1
 # best promise (sum of the members' single-flip size deltas) first.
 # Ordering needs alt_prune_noops for the single-flip sizes.
 alt_combo_budget = 0
+# 0 = unlimited; cap how many improving iterations each stage may run per
+# pass (a stage always stops once an iteration finds no improvement; the
+# outer pass loop returns to capped stages while anything still improves).
+static_max_iterations = 0
+const_max_iterations = 0
+alt_max_iterations = 0
 # For combo (size >= 2) rounds: first run a single-flip round, then drop
 # flips whose asm is identical to the baseline's from the combo round.
 static_prune_noops = False
@@ -923,6 +929,10 @@ toggle_prune_noops = {
     'static': static_prune_noops,
     'const': False,
 }
+toggle_max_iterations = {
+    'static': static_max_iterations,
+    'const': const_max_iterations,
+}
 
 def build_patch_option(baseline, patches, src_path, worker_slot_queue,
                        want_asm_hash=False):
@@ -1392,11 +1402,20 @@ def main():
         raise ValueError(
             f'alt combo budget must be an integer >= 0, '
             f'got {alt_combo_budget!r}')
+    for name, val in (('static', static_max_iterations),
+                      ('const', const_max_iterations),
+                      ('alt', alt_max_iterations)):
+        if not isinstance(val, int) or val < 0:
+            raise ValueError(
+                f'{name} max iterations must be an integer >= 0, got {val!r}')
     print(f'Pass operations: {pass_operations} '
           f'(combo sizes: {toggle_combo_sizes}, alt: {alt_combo_size}, '
           f'budget: {alt_combo_budget or "unlimited"}; '
           f'noop prune: static={static_prune_noops}, alt={alt_prune_noops}; '
-          f'alt asm dedup: {alt_dedup_asm})')
+          f'alt asm dedup: {alt_dedup_asm}; '
+          f'max iterations: static={static_max_iterations or "unlimited"}, '
+          f'const={const_max_iterations or "unlimited"}, '
+          f'alt={alt_max_iterations or "unlimited"})')
     if alt_combo_budget and not alt_prune_noops:
         print('Warning: alt_combo_budget without alt_prune_noops truncates '
               'in enumeration order (no promise scores available)')
@@ -1475,10 +1494,13 @@ def main():
                     continue
 
                 if operation == 'alt':
+                    stage_iter = 0
                     while True:
+                        stage_iter += 1
                         improved = stage_alt(
                             src_filename, pass_best,
-                            stats_prefix=f'Run {run}',
+                            stats_prefix=(f'Run {run} pass {iteration} '
+                                          f'iteration {stage_iter}'),
                             worker_slot_queue=static_worker_slots)
                         if improved:
                             any_improved = True
@@ -1488,17 +1510,24 @@ def main():
                             # group to invalidate in-flight permutation tasks
                             engine.group_versions['__alt__'] = \
                                 engine.group_versions.get('__alt__', 0) + 1
+                            if alt_max_iterations and \
+                                    stage_iter >= alt_max_iterations:
+                                break
                         else:
                             break
                     continue
 
                 macro, label, version_key = toggle_stages[operation]
+                max_iters = toggle_max_iterations.get(operation, 0)
+                stage_iter = 0
                 while True:
+                    stage_iter += 1
                     improved = stage_toggle(
                         macro, label, toggle_combo_sizes[operation],
                         toggle_prune_noops.get(operation, False),
                         src_filename, pass_best,
-                        stats_prefix=f'Run {run}',
+                        stats_prefix=(f'Run {run} pass {iteration} '
+                                      f'iteration {stage_iter}'),
                         worker_slot_queue=static_worker_slots)
                     if improved:
                         any_improved = True
@@ -1508,6 +1537,8 @@ def main():
                         # invalidate all in-flight permutation tasks
                         engine.group_versions[version_key] = \
                             engine.group_versions.get(version_key, 0) + 1
+                        if max_iters and stage_iter >= max_iters:
+                            break
                     else:
                         break
 
