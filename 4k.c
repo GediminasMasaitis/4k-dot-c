@@ -11,6 +11,18 @@
 #define CONST_0
 #define CONST_1 const
 #define C(id) CONST_##id
+// A(id, a, b, ...) picks alternative <id> from the menu. Every option listed
+// at a site must be semantically interchangeable there; the menu is the
+// per-site certificate the permuter trusts blindly.
+#define A_0(a, b...) a
+#define A_1(a, b, c...) b
+#define A_2(a, b, c, d...) c
+#define A_3(a, b, c, d, e...) d
+#define A_4(a, b, c, d, e, f...) e
+#define A_5(a, b, c, d, e, f, g...) f
+#define A_6(a, b, c, d, e, f, g, h...) g
+#define A_7(a, b, c, d, e, f, g, h, i...) h
+#define A(id, list...) A_##id(list)
 
 #define A_0(a, b...) a
 #define A_1(a, b, c...) b
