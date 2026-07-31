@@ -1115,6 +1115,7 @@ typedef struct [[nodiscard]] {
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
+  G(179, Move counter_moves[2][64][64];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1222,8 +1223,10 @@ search(
   assert(alpha < beta);
   assert(ply >= 0);
 
-  G(306, SearchStack *const stack = data->stack; SearchStack *const ss = stack + ply;)
-  G(306, i32(*const move_history)[6][64][64] = data->move_history;)
+  SearchStack *const stack = data->stack;
+  SearchStack *const ss = stack + ply;
+  G(305, i32(*const move_history)[6][64][64] = data->move_history;)
+  G(305, Move counter = data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to];)
 
   G(305, // IN-CHECK EXTENSION
     const A(0, bool, i8, u8, i32) in_check = find_in_check(pos);
@@ -1336,6 +1339,8 @@ search(
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30)) +
                                               G(187, // HISTORY HEURISTIC
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
+                                              G(187, // COUNTER MOVE
+                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 600)) +
                                               G(187, // MOST VALUABLE VICTIM
                                                 G(219, moves[order_index].takes_piece) * G(219, 545));
       if (order_move_score > move_score) {
@@ -1417,6 +1422,9 @@ search(
           assert(ss->best_move.takes_piece == piece_on(H(55, 8, pos), H(55, 8, ss->best_move.to)));
           G(233, tt_flag = Lower;)
           G(233, if (ss->best_move.takes_piece == None) { ss->killer = ss->best_move; })
+          G(
+              233, // COUNTER MOVE UPDATE
+              if (ss->best_move.takes_piece == None) { data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to] = ss->best_move; })
           G(
               233, if (!in_qsearch) {
                 const A(2, i16, u16, i32, i64) bonus = depth * depth;
