@@ -790,7 +790,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(117, 1, i8 bishop_pawns[2];))
     H(116, 1, H(119, 1, i8 open_files[12];) H(119, 1, i8 mobilities[5];) H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 pst_file[48];)
       H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 tempo;))
-    H(116, 1, H(118, 1, i8 bishop_pair;) H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 phalanx_pawn[6];) H(118, 1, i8 protected_pawn[6];) H(118, 1, i8 pst_rank[48];)
+    H(116, 1, H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn[6];) H(118, 1, i8 protected_pawn[6];) H(118, 1, i8 pst_rank[48];)
       H(118, 1, i8 king_attacks[5];))
 } EvalParams;
 
@@ -800,7 +800,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(117, 2, i32 bishop_pawns[2];))
     H(116, 2, H(119, 2, i32 open_files[12];) H(119, 2, i32 mobilities[5];) H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 pst_file[48];)
       H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 tempo;))
-    H(116, 2, H(118, 2, i32 bishop_pair;) H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 phalanx_pawn[6];) H(118, 2, i32 protected_pawn[6];) H(118, 2, i32 pst_rank[48];)
+    H(116, 2, H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn[6];) H(118, 2, i32 protected_pawn[6];) H(118, 2, i32 pst_rank[48];)
       H(118, 2, i32 king_attacks[5];))
 } EvalParamsMerged;
 
@@ -955,6 +955,16 @@ S(0) A(1, i16, i32, i64) eval(Position* const restrict pos) {
               G(155, // PAWN PUSH THREATS
                 if (G(169, in_front) & G(169, ~piece_bb) & G(169, attacked_by_pawns)) { score += eval_params.pawn_threat[p - 2]; })
 
+                G(155, // KING SHIELD
+                  if (G(156, G(157, p) == G(157, King)) && G(156, G(158, piece_bb) & G(158, 0xC3D7))) {
+                    const u64 shield = file < 3 ? 0x700 : 0xE000;
+                    G(159, score += G(160, count(G(161, shield) & G(161, pawns[0]))) * G(160, eval_params.king_shield[0]);)
+                      G(159, score += G(162, count(G(163, north(shield)) & G(163, pawns[0]))) * G(162, eval_params.king_shield[1]);)
+                  })
+
+                G(155, // PIECES ATTACKED BY PAWNS
+                  if (G(164, piece_bb) & G(164, no_passers)) { score += eval_params.pawn_attacked_penalty[c]; })
+
                 G(155, // BISHOP COLOUR PAWNS
                   if (G(165, p) == G(165, Bishop)) {
                     u64 mask = 0xAA55AA55AA55AA55ULL;
@@ -964,16 +974,6 @@ S(0) A(1, i16, i32, i64) eval(Position* const restrict pos) {
                     for (A(1, i8, u8, i32, u32, i64, u64) i = 0; i < 2; i++) {
                       score += G(167, eval_params.bishop_pawns[i]) * G(167, count(G(168, pawns[i]) & G(168, mask)));
                     }
-                  })
-
-                G(155, // PIECES ATTACKED BY PAWNS
-                  if (G(164, piece_bb) & G(164, no_passers)) { score += eval_params.pawn_attacked_penalty[c]; })
-
-                G(155, // KING SHIELD
-                  if (G(156, G(157, p) == G(157, King)) && G(156, G(158, piece_bb) & G(158, 0xC3D7))) {
-                    const u64 shield = file < 3 ? 0x700 : 0xE000;
-                    G(159, score += G(160, count(G(161, shield) & G(161, pawns[0]))) * G(160, eval_params.king_shield[0]);)
-                      G(159, score += G(162, count(G(163, north(shield)) & G(163, pawns[0]))) * G(162, eval_params.king_shield[1]);)
                   })
 
                 G(155, const u64 mobility = get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
@@ -1263,8 +1263,8 @@ search(
   G(213, Move moves[max_moves]; ss->num_moves = movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
     G(213, A(1, i16, i32, i64) best_score = in_qsearch ? static_eval : -inf;)
     G(213, G(214, ss)[G(214, 2)].position_hash = tt_hash;)
-    G(213, A(3, u8, i16, u16, i32, u32, i64, u64) quiets_evaluated = 0;)
     G(213, A(1, i8, u8, i16, u16, i32, u32, i64, u64) tt_flag = Upper;)
+    G(213, A(3, u8, i16, u16, i32, u32, i64, u64) quiets_evaluated = 0;)
     G(213, A(3, u8, i16, u16, i32, u32, i64, u64) moves_evaluated = 0;)
 
     for (A(3, u8, i16, u16, i32, u32, i64, u64) move_index = 0; move_index < ss->num_moves; move_index++) {
@@ -1398,7 +1398,7 @@ search(
   G(242, // UPDATE CORRECTION HISTORY
     if (G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval))) && G(243, G(245, ss->best_move.takes_piece) == G(245, None))) {
       G(246, A(0, i32, i64) dd = depth * depth; if (dd > 78) { dd = 78; })
-        G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target > 176) { target = 176; }) G(247, if (target < -176) { target = -176; }))
+        G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -176) { target = -176; }) G(247, if (target > 176) { target = 176; }))
 
         for (A(4, i8, u8, i32, u32, i64, u64) i = 0; i < 6; i++) {
           *corr_entries[i] = (G(248, G(250, target) * G(250, 256) * G(250, dd)) + G(248, G(249, *corr_entries[i]) * G(249, (484 - dd)))) / 484;
