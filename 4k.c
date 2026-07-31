@@ -1301,7 +1301,7 @@ search(
         })
 
         G(222, // MOVE SCORE PRUNING
-          if (G(223, moves_evaluated) && G(223, move_score < G(224, -175) * G(224, depth))) { break; })
+          if (G(223, moves_evaluated) && G(223, move_score < G(224, -175) * G(224, depth)) && G(223, !in_check)) { break; })
 
         Position npos = *pos;
 #ifdef FULL
