@@ -1396,7 +1396,7 @@ search(
   }
 
   G(242, // UPDATE CORRECTION HISTORY
-    if (G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval))) && G(243, G(245, ss->best_move.takes_piece) == G(245, None))) {
+    if (G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval))) && G(243, G(245, ss->best_move.takes_piece) == G(245, None)) && G(243, !in_check)) {
       G(246, A(0, i32, i64) dd = depth * depth; if (dd > 78) { dd = 78; })
         G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -176) { target = -176; }) G(247, if (target > 176) { target = 176; }))
 
