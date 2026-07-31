@@ -1151,6 +1151,8 @@ void get_piece_hashes(H(300, 1, const Position* const pos), H(300, 1, u64 hashes
   }
 }
 
+S(1) void gravity(i32* const hist, const i32 delta) { *hist += delta - __builtin_abs(delta) * *hist / 1024; }
+
 S(1)
 A(1, i16, i32, i64)
 search(
@@ -1367,23 +1369,14 @@ search(
                 G(233, if (ss->best_move.takes_piece == None) { ss->killer = ss->best_move; })
                 G(233, if (!in_qsearch) {
                 const A(2, i16, u16, i32, i64) bonus = depth * depth;
-                G(234, i32* const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
-
-                *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
-                  G(234, i32* const this_cont1 = &cont_hist1[ss->best_move.takes_piece][ss->best_move.to];
-
-                *this_cont1 += bonus - G(325, bonus) * G(325, *this_cont1) / 1024;)
-                  G(234, i32* const this_cont2 = &cont_hist2[ss->best_move.takes_piece][ss->best_move.to];
-
-                *this_cont2 += bonus - G(329, bonus) * G(329, *this_cont2) / 1024;)
+                G(234, gravity(&move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to], bonus);)
+                  G(234, gravity(&cont_hist1[ss->best_move.takes_piece][ss->best_move.to], bonus);)
+                  G(234, gravity(&cont_hist2[ss->best_move.takes_piece][ss->best_move.to], bonus);)
                   G(234, for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index < move_index; prev_index++) {
                   const Move prev = moves[prev_index];
-                  i32* const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
-                  *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
-                  i32* const prev_cont1 = &cont_hist1[prev.takes_piece][prev.to];
-                  *prev_cont1 -= bonus + G(326, bonus) * G(326, *prev_cont1) / 1024;
-                  i32* const prev_cont2 = &cont_hist2[prev.takes_piece][prev.to];
-                  *prev_cont2 -= bonus + G(330, bonus) * G(330, *prev_cont2) / 1024;
+                  gravity(&move_history[pos->flipped][prev.takes_piece][prev.from][prev.to], -bonus);
+                  gravity(&cont_hist1[prev.takes_piece][prev.to], -bonus);
+                  gravity(&cont_hist2[prev.takes_piece][prev.to], -bonus);
                 })
               })
                 break;
