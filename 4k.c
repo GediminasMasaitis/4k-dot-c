@@ -403,7 +403,7 @@ G(
       G(36, const u64 west_bb = west(bb);)
       G(37, const u64 horizontal1 = G(38, west_bb) | G(38, east_bb);)
       G(37, const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
-      return G(40, horizontal2 >> 8) | G(40, horizontal2 << 8) | G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
+      return G(40, horizontal2 >> 8) | G(40, horizontal2 << 8) | G(40, horizontal1 << 16) | G(40, horizontal1 >> 16);
     })
 
 G(
@@ -482,7 +482,7 @@ G(
     })
 
 G(
-    57, [[nodiscard]] S(0) u64 get_mobility(H(69, 1, const Position *pos), H(69, 1, const A(5, i8, u8, i16, i32, u32, i64, u64) piece),
+    57, [[nodiscard]] S(1) u64 get_mobility(H(69, 1, const Position *pos), H(69, 1, const A(5, i8, u8, i16, i32, u32, i64, u64) piece),
                                             H(69, 1, const A(5, i8, u8, i16, i32, u32, i64, u64) sq)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
@@ -619,8 +619,8 @@ G(
 
       G(89, // Update castling permissions
         const u64 oppMask = mask >> 56;
-        G(92, pos->castling[0] &= !(mask & 0x90);) G(92, pos->castling[2] &= !(oppMask & 0x90);) G(92, pos->castling[3] &= !(oppMask & 0x11);)
-            G(92, pos->castling[1] &= !(mask & 0x11);))
+        G(92, pos->castling[1] &= !(mask & 0x11);) G(92, pos->castling[3] &= !(oppMask & 0x11);) G(92, pos->castling[2] &= !(oppMask & 0x90);)
+            G(92, pos->castling[0] &= !(mask & 0x90);))
 
       if (find_in_check(pos)) {
         return false;
@@ -814,7 +814,7 @@ static bool get_fen(Position *restrict pos, char *restrict fen) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i16 material[6];
   H(116, 1,
-    H(117, 1, i8 passed_king_distance[2];) H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 king_shield[2];)
+    H(117, 1, i8 king_shield[2];) H(117, 1, i8 pawn_threat[5];) H(117, 1, i8 bishop_pawns[2];) H(117, 1, i8 passed_king_distance[2];)
         H(117, 1, i8 piece_threats[2];))
   H(116, 1,
     H(119, 1, i8 mobilities[5];) H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 pst_file[48];) H(119, 1, i8 tempo;)
@@ -827,7 +827,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 typedef struct [[nodiscard]] __attribute__((packed)) {
   i32 material[6];
   H(116, 2,
-    H(117, 2, i32 passed_king_distance[2];) H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 king_shield[2];)
+    H(117, 2, i32 king_shield[2];) H(117, 2, i32 pawn_threat[5];) H(117, 2, i32 bishop_pawns[2];) H(117, 2, i32 passed_king_distance[2];)
         H(117, 2, i32 piece_threats[2];))
   H(116, 2,
     H(119, 2, i32 mobilities[5];) H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 pst_file[48];)
@@ -1082,8 +1082,8 @@ typedef struct [[nodiscard]] {
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
-  G(178, Move move;)
   G(178, i8 depth;)
+  G(178, Move move;)
   G(178, i16 static_eval;)
   G(178, u8 flag;)
   G(178, u16 partial_hash;)
@@ -1609,8 +1609,8 @@ void iteratively_deepen(
     G(254, A(1, i32, i64) window = 12;)
     G(254, size_t elapsed;)
     while (true) {
-      G(255, const A(0, i32, i64) beta = G(256, score) + G(256, window);)
       G(255, const A(0, i32, i64) alpha = score - window;)
+      G(255, const A(0, i32, i64) beta = G(256, score) + G(256, window);)
       score = search(
 #ifdef FULL
           &data->nodes,
