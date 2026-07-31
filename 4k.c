@@ -1240,7 +1240,7 @@ search(
         })
 
         G(206, // RAZORING
-          in_qsearch = G(208, static_eval) + G(208, G(209, 83) * G(209, depth)) <= alpha;)
+          in_qsearch = G(208, static_eval) + G(208, G(209, 83) * G(209, (depth + improving))) <= alpha;)
     }
 
     // NULL MOVE PRUNING
