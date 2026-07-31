@@ -24,16 +24,6 @@
 #define A_7(a, b, c, d, e, f, g, h, i...) h
 #define A(id, list...) A_##id(list)
 
-#define A_0(a, b...) a
-#define A_1(a, b, c...) b
-#define A_2(a, b, c, d...) c
-#define A_3(a, b, c, d, e...) d
-#define A_4(a, b, c, d, e, f...) e
-#define A_5(a, b, c, d, e, f, g...) f
-#define A_6(a, b, c, d, e, f, g, h...) g
-#define A_7(a, b, c, d, e, f, g, h, i...) h
-#define A(id, list...) A_##id(list)
-
 #pragma region libc shims
 
 #ifdef _MSC_VER
@@ -684,7 +674,7 @@ enum { max_moves = 218 };
         H(93, 5, movelist), H(93, 5, -9));)
   G(98, // PAWN DOUBLE MOVES
     movelist = generate_pawn_moves(
-        H(93, 3, north(G(102, (only_captures ? 0xFF00000000000000ull : ~0ull))) & G(102, G(103, pos->colour[0]) & G(103, pos->pieces[Pawn])) & G(102, ~all)),
+        H(93, 3, north(G(103, pos->colour[0]) & G(103, pos->pieces[Pawn])) & G(102, ~all) & G(102, (only_captures ? 0xFF00000000000000ull : ~0ull))),
         H(93, 3, pos), H(93, 3, movelist), H(93, 3, -8));)
   G(
       98, // LONG CASTLE
@@ -1079,7 +1069,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
