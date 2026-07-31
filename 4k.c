@@ -1051,7 +1051,7 @@ typedef struct [[nodiscard]] {
 #endif
   G(179, Position pos;)
     G(179, u64 max_time;)
-    G(179, Move counter_moves[2][64][64];)
+    G(179, i32 cont_history[2][64][6][64];)
     G(179, SearchStack stack[1024];)
     G(179, i32 corrhist[corrhist_size];)
     G(179, i32 move_history[2][6][64][64];)
@@ -1165,7 +1165,7 @@ search(
   SearchStack* const stack = data->stack;
   SearchStack* const ss = stack + ply;
   G(305, i32(* const move_history)[6][64][64] = data->move_history;)
-    G(305, Move counter = data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to];)
+    G(305, i32(* const cont_hist)[64] = data->cont_history[pos->flipped][ss[1].prev_move.to];)
 
     G(305, // IN-CHECK EXTENSION
       const A(0, bool, i8, u8, i32) in_check = find_in_check(pos);
@@ -1281,8 +1281,8 @@ search(
               (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30)) +
             G(187, // KILLER MOVE
               G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 730)) +
-            G(187, // COUNTER MOVE
-              G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 600));
+            G(187, // COUNTERMOVE HISTORY
+              cont_hist[moves[order_index].takes_piece][moves[order_index].to]);
           if (order_move_score > move_score) {
             G(220, best_index = order_index;)
               G(220, move_score = order_move_score;)
@@ -1362,17 +1362,20 @@ search(
               assert(ss->best_move.takes_piece == piece_on(H(55, 8, pos), H(55, 8, ss->best_move.to)));
               G(233, tt_flag = Lower;)
                 G(233, if (ss->best_move.takes_piece == None) { ss->killer = ss->best_move; })
-                G(233, // COUNTER MOVE UPDATE
-                  if (ss->best_move.takes_piece == None) { data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to] = ss->best_move; })
                 G(233, if (!in_qsearch) {
                 const A(2, i16, u16, i32, i64) bonus = depth * depth;
                 G(234, i32* const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
 
                 *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                  G(234, i32* const this_cont = &cont_hist[ss->best_move.takes_piece][ss->best_move.to];
+
+                *this_cont += bonus - G(325, bonus) * G(325, *this_cont) / 1024;)
                   G(234, for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index < move_index; prev_index++) {
                   const Move prev = moves[prev_index];
                   i32* const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
                   *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                  i32* const prev_cont = &cont_hist[prev.takes_piece][prev.to];
+                  *prev_cont -= bonus + G(326, bonus) * G(326, *prev_cont) / 1024;
                 })
               })
                 break;
