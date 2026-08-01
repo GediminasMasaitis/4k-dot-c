@@ -1335,7 +1335,9 @@ search(
                                               G(187, // KILLER MOVE
                                                 G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 730)) +
                                               G(187, // COUNTER MOVE
-                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 600));
+                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 600)) -
+                                              // LEAST VALUABLE ATTACKER
+                                              !!moves[order_index].takes_piece * piece_on(H(55, 11, pos), H(55, 11, moves[order_index].from)) * 90;
       if (order_move_score > move_score) {
         G(220, best_index = order_index;)
         G(220, move_score = order_move_score;)
