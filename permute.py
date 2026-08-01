@@ -136,11 +136,18 @@ _shutting_down = False
 
 _journal_lock = threading.Lock()
 
+# One log file per script invocation, named after the start time.
+adoptions_dir = 'adoptions'
+adoptions_log_path = os.path.join(
+    adoptions_dir, time.strftime('%Y-%m-%d_%H-%M-%S') + '.log')
+
 def journal_adoption(kind, detail, old_size, new_size, is_global):
-    """Append an adopted run-best improvement to adoptions.log (best-effort)."""
+    """Append an adopted run-best improvement to the adoptions log
+    (best-effort)."""
     g = '\tGLOBAL' if is_global else ''
     try:
-        with _journal_lock, open('adoptions.log', 'a') as f:
+        os.makedirs(adoptions_dir, exist_ok=True)
+        with _journal_lock, open(adoptions_log_path, 'a') as f:
             f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")}\t{kind}\t'
                     f'{old_size} -> {new_size} ({new_size - old_size:+})\t'
                     f'{detail}{g}\n')
@@ -1209,7 +1216,7 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
 # Alternative sites: A(id, opt0, opt1, ...) selects opt<id>. Menus are
 # per-site certificates in the source; every listed option is equivalent
 # there, so flipping digits is semantics-preserving by construction.
-ALT_RE = re.compile(r'\bA\(\s*(\d)\s*,([^)]*)\)')
+ALT_RE = re.compile(r'\bA\(\s*(\d+)\s*,([^)]*)\)')
 
 def alt_find_spans(content):
     return [m.span(1) for m in ALT_RE.finditer(content)]
