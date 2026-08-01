@@ -650,6 +650,7 @@ class SpeculativeEngine:
         self._completed = 0
         self._stale_discards = 0
         self._improvements = 0
+        self._retry = []
         self._last_stats_at = 0
 
     def shutdown(self):
@@ -685,7 +686,15 @@ class SpeculativeEngine:
 
         return (size, cache_tag, content, group_id, perm, task_group_versions)
 
-    def _on_done(self, future, worker_id, total_bar, group_bar, stats_bar,
+    def _requeue_stale(self, item, total_bar):
+        """Queue a stale item for re-dispatch against the latest base."""
+        with self.lock:
+            self._stale_discards += 1
+            self._retry.append(item)
+        total_bar.total += 1
+        total_bar.refresh()
+
+    def _on_done(self, future, worker_id, item, total_bar, group_bar, stats_bar,
                  stats_prefix, iteration):
         global global_best_size, global_best_src
 
@@ -707,8 +716,8 @@ class SpeculativeEngine:
                 self._completed += 1
 
             if result is None:
-                with self.lock:
-                    self._stale_discards += 1
+                # Stale before it was built — requeue against the new base.
+                self._requeue_stale(item, total_bar)
                 total_bar.update(1)
                 return
 
@@ -722,7 +731,6 @@ class SpeculativeEngine:
             with self.lock:
                 if self._is_cross_group_stale(group_id, task_group_versions):
                     # A different group improved since this task was dispatched
-                    self._stale_discards += 1
                     is_stale = True
                 elif size < self.best_size:
                     prev_best = self.best_size
@@ -745,7 +753,8 @@ class SpeculativeEngine:
                                 pass
 
             if is_stale:
-                tag = "(stale)"
+                self._requeue_stale(item, total_bar)
+                tag = "(stale, requeued)"
             elif is_global_best:
                 tag = "NEW GLOBAL BEST!"
             elif is_run_best:
@@ -827,6 +836,7 @@ class SpeculativeEngine:
         self._completed = 0
         self._stale_discards = 0
         self._improvements = 0
+        self._retry = []
         self._initial_size = pass_best['initial']
         self._drain.reset()
 
@@ -860,42 +870,62 @@ class SpeculativeEngine:
             smoothing=0,
         )
 
+        def submit_item(gid, corr_ids, perm):
+            nonlocal snap_group_versions, snap_nodes, snap_groups
+            wid = self.worker_slots.get()
+
+            # Re-snapshot only if a DIFFERENT group improved since last snapshot
+            with self.lock:
+                needs_resnap = False
+                for g, v in self.group_versions.items():
+                    if g != gid and v > snap_group_versions.get(g, 0):
+                        needs_resnap = True
+                        break
+                if needs_resnap:
+                    latest_content = self.best_content
+                    snap_group_versions = dict(self.group_versions)
+
+            if needs_resnap:
+                snap_nodes, snap_groups, _ = parse_content(latest_content)
+
+            self._drain.increment()
+            fut = self.executor.submit(
+                self._build_task,
+                gid, corr_ids, perm,
+                snap_group_versions, snap_nodes, snap_groups, wid
+            )
+
+            fut.add_done_callback(
+                lambda f, w=wid, item=(gid, corr_ids, perm): self._on_done(
+                    f, w, item, total_bar, group_bar, stats_bar,
+                    stats_prefix, iteration)
+            )
+
         for group_idx, (gid, corr_ids, perms) in enumerate(group_order):
             group_bar.reset(total=len(perms))
             group_bar.set_description(
                 f'{stats_prefix} pass {iteration} {gid} ({group_idx+1}/{total_groups})')
             for perm in perms:
-                wid = self.worker_slots.get()
-
-                # Re-snapshot only if a DIFFERENT group improved since last snapshot
-                with self.lock:
-                    needs_resnap = False
-                    for g, v in self.group_versions.items():
-                        if g != gid and v > snap_group_versions.get(g, 0):
-                            needs_resnap = True
-                            break
-                    if needs_resnap:
-                        latest_content = self.best_content
-                        snap_group_versions = dict(self.group_versions)
-
-                if needs_resnap:
-                    snap_nodes, snap_groups, _ = parse_content(latest_content)
-
-                self._drain.increment()
-                fut = self.executor.submit(
-                    self._build_task,
-                    gid, corr_ids, perm,
-                    snap_group_versions, snap_nodes, snap_groups, wid
-                )
-
-                fut.add_done_callback(
-                    lambda f, w=wid: self._on_done(
-                        f, w, total_bar, group_bar, stats_bar,
-                        stats_prefix, iteration)
-                )
+                submit_item(gid, corr_ids, perm)
                 group_bar.update(1)
 
-        self._drain.wait()
+        # Requeue rounds: stale items re-run against the adopted base until a
+        # full drain leaves nothing stale. Terminates because an item only
+        # goes stale after an adoption, and adoptions strictly shrink the
+        # size, so each pass has finitely many.
+        while True:
+            self._drain.wait()
+            with self.lock:
+                retry_items = list(self._retry)
+                self._retry.clear()
+            if not retry_items:
+                break
+            group_bar.reset(total=len(retry_items))
+            group_bar.set_description(
+                f'{stats_prefix} pass {iteration} requeue ({len(retry_items)} stale)')
+            for gid, corr_ids, perm in retry_items:
+                submit_item(gid, corr_ids, perm)
+                group_bar.update(1)
 
         total_bar.close()
         group_bar.close()
@@ -907,7 +937,7 @@ class SpeculativeEngine:
             f'{stats_prefix}   Run best: {fmt_size(self.best_size)}'
             f'   Global best: {fmt_size(global_best_size)}'
             f'   Improvements: {improvements}'
-            f'   Stale discards: {self._stale_discards}'
+            f'   Stale requeues: {self._stale_discards}'
             f'   {"IMPROVED" if improved else "no change"}'
         )
         stats_bar.close()
@@ -980,13 +1010,15 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
     Each flip is (site_index, replacement_text); site spans are re-resolved
     via find_spans(content), so variants submitted after an adoption are
     re-rendered against the latest content — the same speculative scheme as
-    the G/H engine. A completed result is stale (discarded) if a site
-    OUTSIDE its own flip set was adopted after it was dispatched; same-site
-    alternatives stay comparable, like same-group permutations.
+    the G/H engine. A completed result is stale if a site OUTSIDE its own
+    flip set was adopted after it was dispatched; same-site alternatives
+    stay comparable, like same-group permutations. Stale variants are
+    requeued and re-run against the adopted base until every variant has a
+    fresh measurement (adoptions are finite, so this terminates).
 
     Returns (any_improved, results); results is parallel to variants with
-    (size, asm_hash) entries (None on failure or staleness; asm_hash is
-    None when not requested).
+    (size, asm_hash) entries (None only on failure; asm_hash is None when
+    not requested).
     """
     global global_best_size, global_best_src
 
@@ -997,6 +1029,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
         'adoptions': [],  # site-sets of adopted variants, oldest first
         'improvements': 0,
         'stale': 0,
+        'retry': [],  # variant indices to re-dispatch against the new base
     }
     nsites = len(state['spans'])
     results = [None] * len(variants)
@@ -1061,8 +1094,12 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                 progress_bar.write(f'  {kind_label} task failed ({label}): {e}')
                 return
             if result is None:
+                # Stale before it was built — requeue against the new base.
                 with lock:
                     state['stale'] += 1
+                    state['retry'].append(idx)
+                progress_bar.total += 1
+                progress_bar.refresh()
                 return
             size, cache_tag, variant, asm_hash, version = result
 
@@ -1073,6 +1110,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
             with lock:
                 if is_stale_locked(sites, version):
                     state['stale'] += 1
+                    state['retry'].append(idx)
                     stale = True
                 else:
                     results[idx] = (size, asm_hash)
@@ -1101,7 +1139,9 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                 cur_saved = pass_best['initial'] - cur_best
 
             if stale:
-                tag = '(stale)'
+                progress_bar.total += 1
+                progress_bar.refresh()
+                tag = '(stale, requeued)'
             elif global_improved:
                 tag = 'NEW GLOBAL'
             elif run_improved:
@@ -1129,7 +1169,8 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
             drain.decrement()
 
     with ThreadPoolExecutor(max_workers=max_parallelism) as execr:
-        for idx, (flips, label) in enumerate(variants):
+        def submit_variant(idx):
+            flips, label = variants[idx]
             sites = frozenset(s for s, _ in flips)
             # Throttle via worker slots so each variant is rendered against
             # the freshest content at submission time.
@@ -1143,7 +1184,22 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                                   version)
             future.add_done_callback(
                 lambda f, w=wid, i=idx, l=label, s=sites: on_done(f, w, i, l, s))
-        drain.wait()
+
+        for idx in range(len(variants)):
+            submit_variant(idx)
+
+        # Requeue rounds: stale variants re-run against the adopted base
+        # until a full drain leaves nothing stale (adoptions are finite, so
+        # this terminates).
+        while True:
+            drain.wait()
+            with lock:
+                round_items = list(state['retry'])
+                state['retry'].clear()
+            if not round_items:
+                break
+            for idx in round_items:
+                submit_variant(idx)
 
     progress_bar.close()
     any_improved = state['improvements'] > 0
@@ -1152,7 +1208,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
         f'   Global best: {fmt_size(global_best_size)}'
         f'   Saved this run: {fmt_size(pass_best["initial"] - pass_best["best"])}'
         f'   Improvements: {state["improvements"]}'
-        f'   Stale discards: {state["stale"]}'
+        f'   Stale requeues: {state["stale"]}'
         f'   {"IMPROVED" if any_improved else "no change"}'
     )
     header_bar.close()
