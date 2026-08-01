@@ -1328,8 +1328,8 @@ search(
       assert(moves[order_index].takes_piece == piece_on(H(55, 7, pos), H(55, 7, moves[order_index].to)));
       const A(1, i32, i64) order_move_score = G(187, // HISTORY HEURISTIC
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
-                                              G(187, // MOST VALUABLE VICTIM
-                                                G(219, moves[order_index].takes_piece) * G(219, 545)) +
+                                              G(187, // MOST VALUABLE VICTIM / PROMOTION
+                                                G(219, (moves[order_index].takes_piece + moves[order_index].promo)) * G(219, 545)) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30)) +
                                               G(187, // KILLER MOVE
