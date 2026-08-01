@@ -71,9 +71,12 @@ def main():
     with open(src_path, encoding='utf-8') as file:
         source = file.read()
 
-    source = re.sub(r'^#define (G|H|S|C|STATIC_[01]|CONST_[01])\b.*\n', '', source,
+    source = re.sub(r'^#define (G|H|S|C|A|A_\d+|STATIC_[01]|CONST_[01])\b.*\n', '', source,
                     flags=re.MULTILINE)
     source = strip_macros(source)
+    source = re.sub(r'\bA\(\s*(\d+)\s*,([^)]*)\)',
+                    lambda m: [s.strip() for s in m.group(2).split(',')][int(m.group(1))],
+                    source)
     source = re.sub(r'\bS\(1\)', 'static', source)
     source = re.sub(r'\bS\(0\)', '', source)
     source = re.sub(r'\bC\(1\)', 'const', source)

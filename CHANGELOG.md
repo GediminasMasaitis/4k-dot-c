@@ -11802,3 +11802,64 @@ info depth 21 score cp 23 time 4900 nodes 10232214 nps 2088155 pv e2e4 c7c5 g1f3
 info depth 22 score cp 33 time 6353 nodes 13257297 nps 2086523 pv e2e4 c7c5 g1f3 d7d6 b1c3 g8f6 d2d4 c5d4 f3d4 e7e6 c1g5 a7a6 f1e2 c8d7 e1g1 b8c6 d4c6 d7c6 d1d4
 13257297 nodes 2086491 nps
 ```
+
+### 9.48
+NMP reduction by distance to beta
+
+4  thread: 4083 bytes (+13)
+MD5: 11e38fded16a1bd377a9e797a3d53210
+
+1 thread: 4061 bytes (+15)
+MD5: bf7e7e22a3739a3145bfb63265908d06
+
+```py
+info depth 1 score cp 2 lowerbound time 0 nodes 6 nps 118520
+info depth 1 score cp 17 time 0 nodes 26 nps 177582 pv b1c3
+info depth 2 score cp 29 lowerbound time 0 nodes 47 nps 227494
+info depth 2 score cp 30 time 0 nodes 121 nps 348262 pv b1c3 b8c6
+info depth 3 score cp 21 time 0 nodes 228 nps 431345 pv b1c3 b8c6 e2e3
+info depth 4 score cp 28 time 0 nodes 459 nps 577580 pv b1c3 e7e6 e2e3 b8c6
+info depth 5 score cp 16 upperbound time 0 nodes 617 nps 633966
+info depth 5 score cp 13 time 2 nodes 1726 nps 815330 pv b1c3 e7e6 d2d4 b8c6
+info depth 6 score cp 23 time 4 nodes 3427 nps 793847 pv e2e4 b8c6 d2d4 e7e6 d4d5 e6d5 e4d5
+info depth 7 score cp 11 upperbound time 6 nodes 5088 nps 756303
+info depth 7 score cp 21 time 8 nodes 6181 nps 767359 pv e2e4 d7d5 e4e5 c7c5 d2d4 c5d4 d1d4
+info depth 8 score cp 14 time 12 nodes 10842 nps 841673 pv c2c4 d7d5 c4d5 d8d5 b1c3 d5d6 e2e3 g8f6
+info depth 9 score cp 8 time 22 nodes 20408 nps 906317 pv c2c4 g8f6 d2d4 d7d5 c4d5 d8d5 b1c3 d5h5 g1f3
+info depth 10 score cp 20 lowerbound time 44 nodes 45505 nps 1016013
+info depth 10 score cp 16 time 53 nodes 54554 nps 1016217 pv b1c3 d7d5 d2d4 b8c6 c1f4 g8f6 g1f3 c8f5 e2e3 e7e6
+info depth 11 score cp 27 time 97 nodes 115535 nps 1189388 pv d2d4 d7d5 c1f4 e7e6 g1f3 c7c5 d4c5 f8c5 c2c4 b8c6 c4d5 d8d5
+info depth 12 score cp 26 time 136 nodes 183165 nps 1339015 pv d2d4 d7d5 e2e3 e7e6 c2c4 c7c5 b1c3 c5d4 e3d4 d5c4 f1c4 b8c6
+info depth 13 score cp 22 time 235 nodes 361590 nps 1535132 pv d2d4 g8f6 e2e3 b8c6 g1f3 d7d5 f1d3 e7e6 e1g1 c6b4 c1d2 b4d3 c2d3
+info depth 14 score cp 24 time 401 nodes 671525 nps 1673427 pv d2d4 g8f6 c2c4 d7d5 e2e3 d5c4 f1c4 c7c5 g1f3 b8c6 e1g1 c5d4 f3d4 c6d4
+info depth 15 score cp 24 time 597 nodes 1063625 nps 1778940 pv d2d4 d7d5 g1f3 g8f6 e2e3 e7e6 c2c4 c7c5 b1c3 c5d4 e3d4 b8c6 c1g5 d5c4 f1c4
+info depth 16 score cp 36 lowerbound time 891 nodes 1673020 nps 1877412
+info depth 16 score cp 42 time 968 nodes 1832876 nps 1893100 pv e2e4 d7d5 e4d5 d8d5 g1f3 c8g4 f1e2 b8c6 e1g1 g8f6 b1c3 d5d6 h2h3 g4f3 e2f3 e8c8
+info depth 17 score cp 38 time 1126 nodes 2150439 nps 1909657 pv e2e4 d7d5 e4d5 d8d5 g1f3 c8g4 f1e2 b8c6 e1g1 e7e6 b1c3 d5f5 h2h3 g4f3 e2f3 e8c8
+info depth 18 score cp 31 time 1435 nodes 2771874 nps 1930466 pv e2e4 d7d5 e4d5 d8d5 g1f3 c8g4 f1e2 b8c6 e1g1 e7e6 b1c3 d5f5 h2h3 g4f3 e2f3 e8c8 d2d4 g8f6 f3c6
+info depth 19 score cp 34 time 1785 nodes 3497239 nps 1958772 pv e2e4 d7d5 e4d5 d8d5 g1f3 c8g4 b1c3 d5e6 d1e2 b8c6 e2e6 f7e6 f1e2 c6b4 f3d4 g4e2 e1e2 c7c5 d4e6 b4c2
+info depth 20 score cp 28 time 2354 nodes 4658908 nps 1978708 pv e2e4 d7d5 e4d5 d8d5 g1f3 c8g4 f1e2 b8c6 e1g1 g8f6 b1c3 d5f5 d2d3 e7e6 h2h3 g4f3 e2f3 e8c8 c1e3 f8d6 f3c6 b7c6
+info depth 21 score cp 16 upperbound time 3945 nodes 7655505 nps 1940450
+info depth 21 score cp 34 time 4295 nodes 8319871 nps 1936926 pv e2e4 d7d5 e4d5 d8d5 d2d4 b8c6 c1e3 d5d6 b1c3 g8f6 a2a3 a7a6 f1e2 c8f5 d4d5 c6e5
+info depth 22 score cp 22 upperbound time 5235 nodes 10081420 nps 1925696
+info depth 22 score cp 17 time 6271 nodes 12069810 nps 1924469 pv e2e4 e7e5 g1f3
+12069810 nodes 1924455 nps
+```
+
+```py
+Elo   | 13.77 +- 7.05 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=80MB
+LLR   | 3.02 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 3836 W: 1101 L: 949 D: 1786
+Penta | [64, 418, 841, 492, 103]
+https://gedas.pythonanywhere.com/test/2065/
+```
+
+```py
+Elo   | 4.69 +- 3.51 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=80MB
+LLR   | 2.97 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 13108 W: 3398 L: 3221 D: 6489
+Penta | [146, 1546, 3051, 1607, 204]
+https://gedas.pythonanywhere.com/test/2069/
+```
