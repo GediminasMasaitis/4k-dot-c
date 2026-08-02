@@ -1298,12 +1298,12 @@ search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      G(211, A(0, i32, i64) nmp_red = (static_eval - beta) / 128; if (nmp_red > 3) { nmp_red = 3; })
       const A(2, i16, i32, i64) score = -search(
 #ifdef FULL
           nodes,
 #endif
-          H(186, 2, H(187, 2, data), H(187, 2, -alpha), H(187, 2, &npos), H(187, 2, depth - G(212, depth / 4) - G(212, 4) - G(212, nmp_red))),
+          H(186, 2, H(187, 2, data), H(187, 2, -alpha), H(187, 2, &npos),
+            H(187, 2, depth - G(212, depth / 4) - G(212, 4) - G(212, ((static_eval - beta) / 128)))),
           H(186, 2, H(188, 2, ply + 1), H(188, 2, -beta), H(188, 2, false)));
       if (score >= beta) {
         return score;
