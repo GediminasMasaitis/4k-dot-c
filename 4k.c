@@ -1072,7 +1072,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1297,7 +1297,8 @@ search(
     }
 
     // NULL MOVE PRUNING
-    if (G(210, depth > 2) && G(210, do_null) && G(210, static_eval >= beta)) {
+    if (G(210, depth > 2) && G(210, do_null) && G(210, static_eval >= beta) &&
+        G(210, G(329, pos->colour[0]) & G(329, ~(G(330, pos->pieces[Pawn]) | G(330, pos->pieces[King]))))) {
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
