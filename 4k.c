@@ -336,14 +336,14 @@ G(
     })
 
 G(7, [[nodiscard]] S(1) u64 flip_bb(const u64 bb) { return __builtin_bswap64(bb); })
-G(7, [[nodiscard]] S(1) A(3, i8, u8, i16, i32, u32, i64, u64) lsb(u64 bb) { return __builtin_ctzll(bb); })
+G(7, [[nodiscard]] S(1) A(4, i8, u8, i16, u16, i32, u32, i64, u64) lsb(u64 bb) { return __builtin_ctzll(bb); })
 
 G(
     7, [[nodiscard]] S(1) u64 shift(H(10, 1, const A(2, i8, i16, i32, i64) shift), H(10, 1, const u64 mask), H(10, 1, const u64 bb)) {
       return shift > 0 ? G(11, bb << shift) & G(11, mask) : G(12, bb >> -shift) & G(12, mask);
     })
 
-G(7, [[nodiscard]] S(1) A(3, i8, i16, i32, i64) count(const u64 bb) { return __builtin_popcountll(bb); })
+G(7, [[nodiscard]] S(1) A(5, i8, u8, i16, u16, i32, i64) count(const u64 bb) { return __builtin_popcountll(bb); })
 
 G(13, [[nodiscard]] S(1) u64 west(const u64 bb) { return G(14, bb >> 1) & G(14, ~0x8080808080808080ull); })
 
@@ -405,7 +405,7 @@ G(
 G(
     32, [[nodiscard]] S(0) u64 bishop(H(43, 1, const u64 blockers), H(43, 1, const u64 bb)) {
       assert(count(bb) == 1);
-      const A(3, i8, u8, i16, i32, u32, i64, u64) sq = lsb(bb);
+      const A(4, i8, u8, i16, u16, i32, u32, i64, u64) sq = lsb(bb);
       return G(44, xattack(H(27, 3, blockers), H(27, 3, bb), H(27, 3, diag_mask[sq]))) |
              G(44, xattack(H(27, 4, blockers), H(27, 4, bb), H(27, 4, flip_bb(diag_mask[G(45, sq) ^ G(45, 56)]))));
     })
@@ -440,7 +440,8 @@ G(
     S(1) void swapmoves(G(48, Move *const lhs), G(48, Move *const rhs)) { swapu32(G(49, (u32a *)rhs), G(49, (u32a *)lhs)); })
 
 G(
-    46, S(1) void move_str(H(50, 1, const A(2, bool, u8, i32, u32, i64, u64) flip), H(50, 1, const Move *restrict move), H(50, 1, char *restrict str)) {
+    46, S(1) void move_str(H(50, 1, const A(5, bool, i8, u8, i16, u16, i32, u32, i64, u64) flip), H(50, 1, const Move *restrict move),
+                           H(50, 1, char *restrict str)) {
       assert(move->from >= 0);
       assert(move->from < 64);
       assert(move->to >= 0);
@@ -452,7 +453,7 @@ G(
 
       G(
           51, // Hack to save bytes, technically UB but works on GCC 14.2
-          for (A(2, i8, u8, i32, u32, i64, u64) i = 0; i < 2; i++) {
+          for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 2; i++) {
             G(52, str[i * 2 + 1] = '1' + ((&move->from)[i] / 8 ^ 7 * flip);)
             G(52, str[i * 2] = 'a' + (&move->from)[i] % 8;)
           })
@@ -462,11 +463,11 @@ G(
 G(46, [[nodiscard]] S(1) bool move_equal(G(53, Move *const rhs), G(53, Move *const lhs)) { return G(54, *(u32a *)lhs) == G(54, *(u32a *)rhs); })
 
 G(
-    46, [[nodiscard]] S(0) A(5, i8, u8, i16, i32, u32, i64, u64)
-            piece_on(H(55, 1, const Position *const restrict pos), H(55, 1, const A(3, i8, u8, i16, i32, u32, i64, u64) sq)) {
+    46, [[nodiscard]] S(0) A(4, i8, u8, i16, u16, i32, u32, i64, u64)
+            piece_on(H(55, 1, const Position *const restrict pos), H(55, 1, const A(4, i8, u8, i16, u16, i32, u32, i64, u64) sq)) {
               assert(sq >= 0);
               assert(sq < 64);
-              for (A(3, i8, u8, i32, u32, i64, u64) i = Pawn; i <= King; ++i) {
+              for (A(5, i8, u8, i16, u16, i32, u32, i64, u64) i = Pawn; i <= King; ++i) {
                 if (G(56, pos->pieces[i]) & G(56, 1ull << sq)) {
                   return i;
                 }
@@ -475,7 +476,7 @@ G(
             })
 
 G(
-    57, [[nodiscard]] S(1) A(3, bool, u8, i32, u32, i64, u64) is_attacked(H(58, 1, const Position *const restrict pos), H(58, 1, const u64 bb)) {
+    57, [[nodiscard]] S(1) A(6, bool, i8, u8, i16, u16, i32, u32, i64, u64) is_attacked(H(58, 1, const Position *const restrict pos), H(58, 1, const u64 bb)) {
       assert(count(bb) == 1);
       const u64 theirs = pos->colour[1];
       G(59, const u64 pawns = theirs & pos->pieces[Pawn];)
@@ -487,8 +488,8 @@ G(
     })
 
 G(
-    57, [[nodiscard]] S(1) u64 get_mobility(H(69, 1, const Position *pos), H(69, 1, const A(5, i8, u8, i16, i32, u32, i64, u64) piece),
-                                            H(69, 1, const A(6, i8, u8, i16, i32, u32, i64, u64) sq)) {
+    57, [[nodiscard]] S(1) u64 get_mobility(H(69, 1, const Position *pos), H(69, 1, const A(6, i8, u8, i16, u16, i32, u32, i64, u64) piece),
+                                            H(69, 1, const A(7, i8, u8, i16, u16, i32, u32, i64, u64) sq)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
       G(70, if (piece == King) { moves = king(bb); })
@@ -505,24 +506,24 @@ G(
       G(
           67, // Hack to flip the first 10 bitboards in Position.
           u64a *pos_ptr = (u64a *)pos;
-          for (A(2, i8, u8, i32, u32, i64, u64) i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
+          for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 10; i++) { pos_ptr[i] = flip_bb(pos_ptr[i]); })
       G(67, pos->colour[0] ^= pos->colour[1]; pos->colour[1] ^= pos->colour[0]; pos->colour[0] ^= pos->colour[1];)
 
       G(67, pos->castling32 = G(68, (pos->castling32 >> 16)) | G(68, (pos->castling32 << 16));)
       G(67, pos->flipped ^= 1;)
     })
 
-S(0) A(2, bool, u8, i32, u32, i64, u64) find_in_check(const Position *restrict pos) {
+S(0) A(5, bool, i8, u8, i16, u16, i32, u32, i64, u64) find_in_check(const Position *restrict pos) {
   return is_attacked(H(58, 2, pos), H(58, 2, G(73, pos->colour[0]) & G(73, pos->pieces[King])));
 }
 
 G(
     74, S(1) Move *generate_piece_moves(H(75, 1, const u64 to_mask), H(75, 1, Move *restrict movelist), H(75, 1, const Position *restrict pos)) {
-      for (A(3, i8, u8, i32, u32, i64, u64) piece = Knight; piece <= King; piece++) {
+      for (A(5, i8, u8, i16, u16, i32, u32, i64, u64) piece = Knight; piece <= King; piece++) {
         assert(piece == Knight || piece == Bishop || piece == Rook || piece == Queen || piece == King);
         u64 copy = G(76, pos->colour[0]) & G(76, pos->pieces[piece]);
         while (copy) {
-          const A(0, i8, u8, i16, i32, u32, i64, u64) from = lsb(copy);
+          const A(0, i8, u8, i16, u16, i32, u32, i64, u64) from = lsb(copy);
           assert(from >= 0);
           assert(from < 64);
           G(77, u64 moves = G(78, to_mask) & G(78, get_mobility(H(69, 2, pos), H(69, 2, piece), H(69, 2, from)));)
@@ -530,7 +531,7 @@ G(
           G(77, copy &= copy - 1;)
 
           while (moves) {
-            const A(1, i8, u8, i16, i32, u32, i64, u64) to = lsb(moves);
+            const A(1, i8, u8, i16, u16, i32, u32, i64, u64) to = lsb(moves);
             assert(to >= 0);
             assert(to < 64);
 
@@ -547,17 +548,17 @@ G(
     74, S(0) Move *generate_pawn_moves(H(93, 1, u64 to_mask), H(93, 1, const Position *const pos), H(93, 1, Move *restrict movelist),
                                        H(93, 1, const A(3, i8, i16, i32, i64) offset)) {
       while (to_mask) {
-        const A(1, i8, u8, i16, i32, u32, i64, u64) to = lsb(to_mask);
+        const A(1, i8, u8, i16, u16, i32, u32, i64, u64) to = lsb(to_mask);
         to_mask &= to_mask - 1;
-        const A(1, i8, u8, i16, i32, u32, i64, u64) from = G(94, to) + G(94, offset);
+        const A(1, i8, u8, i16, u16, i32, u32, i64, u64) from = G(94, to) + G(94, offset);
         assert(from >= 0);
         assert(from < 64);
         assert(to >= 0);
         assert(to < 64);
         assert(piece_on(H(55, 5, pos), H(55, 5, from)) == Pawn);
-        const A(1, i8, u8, i16, i32, u32, i64, u64) takes = piece_on(H(55, 6, pos), H(55, 6, to));
+        const A(1, i8, u8, i16, u16, i32, u32, i64, u64) takes = piece_on(H(55, 6, pos), H(55, 6, to));
         if (to > 55) {
-          for (A(5, i8, u8, i16, i32, u32, i64, u64) piece = Queen; piece >= Knight; piece--) {
+          for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) piece = Queen; piece >= Knight; piece--) {
             *movelist++ = ((Move){.from = from, .to = to, .promo = piece, .takes_piece = takes});
           }
         } else {
@@ -569,7 +570,7 @@ G(
     })
 
 G(
-    74, S(0) A(3, bool, u8, i32, u32, i64, u64) makemove(H(80, 1, Position *const restrict pos), H(80, 1, const Move *const restrict move)) {
+    74, S(0) A(6, bool, i8, u8, i16, u16, i32, u32, i64, u64) makemove(H(80, 1, Position *const restrict pos), H(80, 1, const Move *const restrict move)) {
       assert(move->from >= 0);
       assert(move->from < 64);
       assert(move->to >= 0);
@@ -581,7 +582,7 @@ G(
 
       G(81, const u64 from = 1ull << move->from;)
       G(81, const u64 to = 1ull << move->to;)
-      G(82, const A(3, i8, u8, i16, i32, u32, i64, u64) piece = piece_on(H(55, 4, pos), H(55, 4, move->from)); assert(piece != None);)
+      G(82, const A(4, i8, u8, i16, u16, i32, u32, i64, u64) piece = piece_on(H(55, 4, pos), H(55, 4, move->from)); assert(piece != None);)
       G(82, const u64 mask = G(83, from) | G(83, to);)
       G(82, const u64 south_to = south(to);)
 
@@ -657,7 +658,8 @@ G(
 enum { max_moves = 218 };
 
 [[nodiscard]] S(0) A(3, u8, i16, u16, i32, u32, i64, u64)
-    movegen(H(95, 1, const Position *const restrict pos), H(95, 1, const A(4, bool, u8, i32, u32, i64, u64) only_captures), H(95, 1, Move *restrict movelist)) {
+    movegen(H(95, 1, const Position *const restrict pos), H(95, 1, const A(7, bool, i8, u8, i16, u16, i32, u32, i64, u64) only_captures),
+            H(95, 1, Move *restrict movelist)) {
 
   G(96, const u64 all = G(97, pos->colour[1]) | G(97, pos->colour[0]);)
   G(96, const Move *start = movelist;)
@@ -928,35 +930,35 @@ G(
                                                                               }};)
 
 G(
-    121, [[nodiscard]] S(1) A(0, i32, i64) combine_eval_param(H(122, 1, const A(0, i32, i64) mg_val), H(122, 1, const A(0, i32, i64) eg_val)) {
+    121, [[nodiscard]] S(1) A(0, i32, i64) combine_eval_param(H(122, 1, const A(1, i16, i32, i64) mg_val), H(122, 1, const A(1, i16, i32, i64) eg_val)) {
       return G(123, mg_val) + G(123, (eg_val << 16));
     })
 
 S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
   G(124, A(0, i32, i64) score = eval_params.tempo;)
-  G(124, A(3, i8, u8, i16, i32, i64) phase = 0;)
+  G(124, A(4, i8, u8, i16, u16, i32, i64) phase = 0;)
 
-  for (A(2, i8, u8, i32, u32, i64, u64) c = 0; c < 2; c++) {
+  for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) c = 0; c < 2; c++) {
 
     G(
         125, // BISHOP PAIR
         if (count(G(126, pos->pieces[Bishop]) & G(126, pos->colour[0])) > 1) { score += eval_params.bishop_pair; })
 
     G(
-        125, u64 pawns[2]; for (A(0, i8, u8, i32, u32, i64, u64) i = 0; i < 2; i++) {
+        125, u64 pawns[2]; for (A(0, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 2; i++) {
           pawns[i] = G(128, pos->colour[i]) & G(128, pos->pieces[Pawn]);
         } const u64 attacked_by_pawns = G(129, southwest(pawns[1])) | G(129, southeast(pawns[1]));
         G(130, const u64 no_passers = G(131, pawns[1]) | G(131, attacked_by_pawns);))
     G(125, const u64 opp_king_zone = king(G(127, pos->pieces[King]) & G(127, pos->colour[1]));)
-    for (A(2, i8, u8, i32, u32, i64, u64) p = Pawn; p <= King; p++) {
+    for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) p = Pawn; p <= King; p++) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
-        const A(6, i8, u8, i16, i32, u32, i64, u64) sq = lsb(copy);
+        const A(7, i8, u8, i16, u16, i32, u32, i64, u64) sq = lsb(copy);
         G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, phase += initial_params.phases[p];)
         G(137, copy &= copy - 1;)
-        G(137, const A(2, i8, i16, i32, i64) rank = sq >> 3;)
-        G(137, const A(2, i8, i16, i32, i64) file = G(138, sq) & G(138, 7);)
+        G(137, const A(4, i8, u8, i16, u16, i32, i64) rank = sq >> 3;)
+        G(137, const A(4, i8, u8, i16, u16, i32, i64) file = G(138, sq) & G(138, 7);)
         G(137, const u64 in_front = 0x101010101010101ULL << sq;)
         G(93, G(999, // SPLIT PIECE-SQUARE TABLES FOR RANK
                 score += eval_params.pst_rank[G(152, G(147, (p - 1)) * G(147, 8)) + G(152, rank)];)
@@ -982,10 +984,10 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
               G(145, score += eval_params.passed_pawns[rank - 1];)
 
               // PASSED PAWN KING DISTANCE
-              for (A(4, i8, u8, i32, u32, i64, u64) i = 0; i < 2; i++) {
-                const A(3, i8, i16, i32, i64) king_sq = lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
-                G(149, const A(2, i8, i16, i32, i64) rank_distance = __builtin_abs(king_sq / 8 - G(150, 1) - G(150, rank));)
-                G(149, const A(2, i8, i16, i32, i64) file_distance = __builtin_abs(king_sq % 8 - file);)
+              for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 2; i++) {
+                const A(5, i8, u8, i16, u16, i32, i64) king_sq = lsb(G(148, pos->colour[i]) & G(148, pos->pieces[King]));
+                G(149, const A(4, i8, u8, i16, u16, i32, i64) rank_distance = __builtin_abs(king_sq / 8 - G(150, 1) - G(150, rank));)
+                G(149, const A(4, i8, u8, i16, u16, i32, i64) file_distance = __builtin_abs(king_sq % 8 - file);)
                 score +=
                     G(151, (rank_distance > file_distance ? rank_distance : file_distance)) * G(151, (rank - 1)) * G(151, eval_params.passed_king_distance[i]);
               }
@@ -1022,7 +1024,7 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
                     if (!(G(166, piece_bb) & G(166, mask))) {
                       mask = ~mask;
                     }
-                    for (A(1, i8, u8, i32, u32, i64, u64) i = 0; i < 2; i++) {
+                    for (A(1, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 2; i++) {
                       score += G(167, eval_params.bishop_pawns[i]) * G(167, count(G(168, pawns[i]) & G(168, mask)));
                     }
                   })
@@ -1052,7 +1054,7 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
     G(75, flip_pos(pos);)
   }
 
-  const A(0, i8, i16, i32, i64) stronger_side_pawns_missing = 8 - count(G(175, pos->colour[score < 0]) & G(175, pos->pieces[Pawn]));
+  const A(4, i8, u8, i16, u16, i32, i64) stronger_side_pawns_missing = 8 - count(G(175, pos->colour[score < 0]) & G(175, pos->pieces[Pawn]));
   return (G(304, G(176, (i16)score) * G(176, phase)) +
           G(304, G(177, ((score + 0x8000) >> 16)) * G(177, (128 - stronger_side_pawns_missing * stronger_side_pawns_missing)) / 128 * (24 - phase))) /
          24;
@@ -1081,9 +1083,9 @@ typedef struct [[nodiscard]] {
   G(119, Move best_move;)
   G(119, Move prev_move;)
   G(119, u64 position_hash;)
-  G(119, i32 num_moves;)
+  G(119, A(3, u8, i16, u16, i32, u32, i64, u64) num_moves;)
   G(119, Move killer;)
-  G(119, i32 static_eval;)
+  G(119, A(1, i16, i32, i64) static_eval;)
 } SearchStack;
 
 typedef struct [[nodiscard]] __attribute__((packed)) {
@@ -1137,7 +1139,7 @@ typedef long long __attribute__((__vector_size__(16))) i128;
 
   // USE 16 BYTE POSITION SEGMENTS AS KEYS FOR AES
   const u8 *const data = (const u8 *)pos;
-  for (A(0, i8, u8, i32, u32, i64, u64) i = 0; i < 6; i++) {
+  for (A(0, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
     i128 key;
     __builtin_memcpy(&key, data + G(181, i) * G(181, 16), 16);
     hash = __builtin_ia32_aesenc128(hash, key);
@@ -1188,8 +1190,8 @@ get_hash(const Position *const pos) {
 
 [[nodiscard]] S(1) u64 get_material_hash(const Position *const pos) {
   u64 hash = 0;
-  for (A(2, i8, u8, i32, u32, i64, u64) c = 0; c < 2; c++) {
-    for (A(2, i8, u8, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
+  for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) c = 0; c < 2; c++) {
+    for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
       hash = G(182, count(G(184, pos->pieces[p]) & G(184, pos->colour[c]))) + G(182, G(183, hash) * G(183, 9));
     }
   }
@@ -1198,7 +1200,7 @@ get_hash(const Position *const pos) {
 
 S(1)
 void get_piece_hashes(H(300, 1, const Position *const pos), H(300, 1, u64 hashes[4])) {
-  for (A(4, i8, u8, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
+  for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
     hashes[p / 2] ^= (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
   }
 }
@@ -1209,8 +1211,8 @@ search(
 #ifdef FULL
     u64 *nodes,
 #endif
-    H(186, 1, H(187, 1, ThreadData *data), H(187, 1, const A(0, i32, i64) beta), H(187, 1, Position *const pos), H(187, 1, A(0, i32, i64) depth)),
-    H(186, 1, H(188, 1, const A(1, i16, i32, i64) ply), H(188, 1, A(0, i32, i64) alpha), H(188, 1, const A(0, bool, i8, u8, i32) do_null))) {
+    H(186, 1, H(187, 1, ThreadData *data), H(187, 1, const A(0, i32, i64) beta), H(187, 1, Position *const pos), H(187, 1, A(1, i16, i32, i64) depth)),
+    H(186, 1, H(188, 1, const A(2, i16, u16, i32, i64) ply), H(188, 1, A(0, i32, i64) alpha), H(188, 1, const A(0, bool, i8, u8, i16, u16, i32) do_null))) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1220,12 +1222,12 @@ search(
   G(305, Move counter = data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to];)
 
   G(305, // IN-CHECK EXTENSION
-    const A(0, bool, i8, u8, i32) in_check = find_in_check(pos);
+    const A(0, bool, i8, u8, i16, u16, i32) in_check = find_in_check(pos);
     depth += in_check;)
 
   G(305, // FULL REPETITION DETECTION
     const u64 tt_hash = get_hash(pos);)
-  A(0, bool, i8, u8, i32) in_qsearch = depth <= 0;
+  A(0, bool, i8, u8, i16, u16, i32) in_qsearch = depth <= 0;
   for (A(1, i16, i32, i64) i = G(189, ply); G(190, i >= 0) && G(190, do_null); i -= 2) {
     if (G(191, tt_hash) == G(191, stack[i].position_hash)) {
       return 0;
@@ -1236,7 +1238,7 @@ search(
   G(192, ss->best_move = (Move){0};)
   G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
-  const A(0, bool, i8, u8, i32) tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);
+  const A(0, bool, i8, u8, i16, u16, i32) tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);
   if (tt_hit) {
     ss->best_move = tt_entry->move;
 
@@ -1259,7 +1261,7 @@ search(
     assert(static_eval < mate); assert(static_eval > -mate);)
   G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) | G(272, ss->prev_move.to << 8))) + G(271, 16384);)
   G(197, corr_hashes[4] = G(270, ss[1].prev_move.from) | G(270, ss[1].prev_move.to << 8);)
-  for (A(4, i8, u8, i32, u32, i64, u64) i = 0; i < 6; i++) {
+  for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
@@ -1267,7 +1269,7 @@ search(
   }
 
   ss->static_eval = static_eval;
-  const A(1, bool, i8, u8, i32) improving = ply > 1 && static_eval > ss[-2].static_eval;
+  const A(1, bool, i8, u8, i16, u16, i32) improving = ply > 1 && static_eval > ss[-2].static_eval;
   if (G(199, tt_hit) && G(199, G(201, tt_entry->flag) != G(201, static_eval) > tt_entry->score)) {
     static_eval = tt_entry->score;
   }
@@ -1299,7 +1301,7 @@ search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      G(211, A(1, i32, i64) nmp_red = (static_eval - beta) / 128; if (nmp_red > 3) { nmp_red = 3; })
+      G(211, A(3, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 128; if (nmp_red > 3) { nmp_red = 3; })
       const A(2, i16, i32, i64) score = -search(
 #ifdef FULL
           nodes,
@@ -1314,9 +1316,9 @@ search(
 
   G(213, G(214, ss)[G(214, 2)].position_hash = tt_hash;)
   G(213, Move moves[max_moves]; ss->num_moves = movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
-  G(213, A(3, u8, i16, u16, i32, u32, i64, u64) moves_evaluated = 0;)
   G(213, A(1, i16, i32, i64) best_score = in_qsearch ? static_eval : -inf;)
   G(213, A(1, i8, u8, i16, u16, i32, u32, i64, u64) tt_flag = Upper;)
+  G(213, A(3, u8, i16, u16, i32, u32, i64, u64) moves_evaluated = 0;)
   G(213, A(3, u8, i16, u16, i32, u32, i64, u64) quiets_evaluated = 0;)
 
   for (A(3, u8, i16, u16, i32, u32, i64, u64) move_index = 0; move_index < ss->num_moves; move_index++) {
@@ -1452,11 +1454,11 @@ search(
 
   G(
       242, // UPDATE CORRECTION HISTORY
-      if (G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval))) && G(243, G(245, ss->best_move.takes_piece) == G(245, None))) {
+      if (G(243, G(245, ss->best_move.takes_piece) == G(245, None)) && G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval)))) {
         G(246, A(0, i32, i64) dd = depth * depth; if (dd > 78) { dd = 78; })
         G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -176) { target = -176; }) G(247, if (target > 176) { target = 176; }))
 
-        for (A(4, i8, u8, i32, u32, i64, u64) i = 0; i < 6; i++) {
+        for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
           *corr_entries[i] = (G(248, G(250, target) * G(250, 256) * G(250, dd)) + G(248, G(249, *corr_entries[i]) * G(249, (484 - dd)))) / 484;
         }
       })
@@ -1471,11 +1473,11 @@ search(
 S(1) void init() {
   G(
       80, // INIT DIAGONAL MASKS
-      for (A(2, i8, u8, i32, u32, i64, u64) sq = 0; sq < 64; sq++) {
+      for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) sq = 0; sq < 64; sq++) {
         const u64 bb = 1ULL << sq;
         G(251, u64 sw_bb = southwest(bb);)
         G(251, u64 ne_bb = northeast(bb);)
-        for (A(4, i8, u8, i32, u32, i64, u64) i = 6; i > 0; i--) {
+        for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 6; i > 0; i--) {
           G(252, sw_bb |= southwest(sw_bb);)
           G(252, ne_bb |= northeast(ne_bb);)
         }
@@ -1483,7 +1485,7 @@ S(1) void init() {
       })
   G(
       80, // MERGE EVAL PARAMS
-      for (A(0, u8, i16, i32, u32, i64, u64) i = 0; i < sizeof(EvalParamsMerged) / sizeof(i32); i++) {
+      for (A(0, u8, i16, u16, i32, u32, i64, u64) i = 0; i < sizeof(EvalParamsMerged) / sizeof(i32); i++) {
         ((i32 *)&eval_params)[i] = combine_eval_param(H(122, 2, i < 6 ? initial_params.mg.material[i] : ((i8 *)&initial_params.mg)[6 + i]),
                                                       H(122, 2, i < 6 ? initial_params.eg.material[i] : ((i8 *)&initial_params.eg)[6 + i]));
       })
@@ -1615,9 +1617,9 @@ void iteratively_deepen(
     ThreadData *data) {
   A(1, i16, i32, i64) score = -inf;
 #ifdef FULL
-  for (A(3, i8, u8, i16, i32, u32, i64, u64) depth = 1; depth < maxdepth; depth++) {
+  for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) depth = 1; depth < maxdepth; depth++) {
 #else
-  for (A(3, i8, u8, i16, i32, u32, i64, u64) depth = 1; depth < max_ply; depth++) {
+  for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
     G(254, A(1, i32, i64) window = 12;)
@@ -2047,7 +2049,7 @@ S(1) void run() {
       run_smp();
 #endif
 #else
-      for (A(4, i8, u8, i32, u32, i64, u64) i = 2 << main_data->pos.flipped; i > 0; i--) {
+      for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 2 << main_data->pos.flipped; i > 0; i--) {
         getl(line);
         main_data->max_time = (u64)atoi(line) << 19; // Roughly /2 time
       }
