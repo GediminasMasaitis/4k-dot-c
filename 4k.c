@@ -403,20 +403,20 @@ G(
     })
 
 G(
-    32, [[nodiscard]] S(0) u64 bishop(H(43, 1, const u64 blockers), H(43, 1, const u64 bb)) {
-      assert(count(bb) == 1);
-      const A(4, i8, u8, i16, u16, i32, u32, i64, u64) sq = lsb(bb);
-      return G(44, xattack(H(27, 3, blockers), H(27, 3, bb), H(27, 3, diag_mask[sq]))) |
-             G(44, xattack(H(27, 4, blockers), H(27, 4, bb), H(27, 4, flip_bb(diag_mask[G(45, sq) ^ G(45, 56)]))));
-    })
-
-G(
     32, [[nodiscard]] S(0) u64 knight(const u64 bb) {
       G(36, const u64 east_bb = east(bb);)
       G(36, const u64 west_bb = west(bb);)
       G(37, const u64 horizontal1 = G(38, west_bb) | G(38, east_bb);)
       G(37, const u64 horizontal2 = G(39, east(east_bb)) | G(39, west(west_bb));)
       return G(40, horizontal2 << 8) | G(40, horizontal2 >> 8) | G(40, horizontal1 >> 16) | G(40, horizontal1 << 16);
+    })
+
+G(
+    32, [[nodiscard]] S(0) u64 bishop(H(43, 1, const u64 blockers), H(43, 1, const u64 bb)) {
+      assert(count(bb) == 1);
+      const A(4, i8, u8, i16, u16, i32, u32, i64, u64) sq = lsb(bb);
+      return G(44, xattack(H(27, 3, blockers), H(27, 3, bb), H(27, 3, diag_mask[sq]))) |
+             G(44, xattack(H(27, 4, blockers), H(27, 4, bb), H(27, 4, flip_bb(diag_mask[G(45, sq) ^ G(45, 56)]))));
     })
 
 G(
@@ -482,8 +482,8 @@ G(
       G(59, const u64 pawns = theirs & pos->pieces[Pawn];)
       G(59, const u64 blockers = theirs | pos->colour[0];)
       return G(60, G(61, (G(62, southwest(pawns)) | G(62, southeast(pawns)))) & G(61, bb)) ||
-             G(60, G(63, bishop(H(43, 2, blockers), H(43, 2, bb))) & G(63, theirs) & G(63, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
              G(60, G(65, rook(H(41, 2, blockers), H(41, 2, bb))) & G(65, (pos->pieces[Rook] | pos->pieces[Queen])) & G(65, theirs)) ||
+             G(60, G(63, bishop(H(43, 2, blockers), H(43, 2, bb))) & G(63, theirs) & G(63, (pos->pieces[Bishop] | pos->pieces[Queen]))) ||
              G(60, G(64, pos->pieces[King]) & G(64, king(bb)) & G(64, theirs)) || G(60, G(66, pos->pieces[Knight]) & G(66, knight(bb)) & G(66, theirs));
     })
 
