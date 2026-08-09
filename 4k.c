@@ -1307,7 +1307,7 @@ search(
 #ifdef FULL
           nodes,
 #endif
-          H(186, 2, H(187, 2, &npos), H(187, 2, data), H(187, 2, -alpha), H(187, 2, depth - G(212, depth / 4) - G(212, 4) - G(212, nmp_red))),
+          H(186, 2, H(187, 2, &npos), H(187, 2, data), H(187, 2, -alpha), H(187, 2, depth - G(212, depth / 4) - G(212, 3) - G(212, nmp_red))),
           H(186, 2, H(188, 2, ply + 1), H(188, 2, -beta), H(188, 2, false)));
       if (score >= beta) {
         return score;
