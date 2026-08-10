@@ -1069,7 +1069,7 @@ enum : u64 { tt_length = 1ULL << 23 }; // 80MB
 // enum : u64 { tt_length = 1ULL << 31 }; // 20GB
 #endif
 enum { Upper = 0, Lower = 1, Exact = 2 };
-enum { max_ply = 96 };
+enum { max_ply = 32 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
 enum { thread_count = 1 };
