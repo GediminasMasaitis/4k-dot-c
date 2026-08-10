@@ -133,12 +133,6 @@ G(
     })
 
 G(
-    1, S(0) void exit_now() {
-      asm volatile("syscall" : : "a"(60));
-      __builtin_unreachable();
-    })
-
-G(
     1,
     S(0) void putl(const char *const restrict string) {
       A(2, i16, u16, i32, u32, i64, u64) length = 0;
@@ -152,6 +146,12 @@ G(
     S(1) void puts(const char *const restrict string) {
       putl(string);
       putl("\n");
+    })
+
+G(
+    1, S(0) void exit_now() {
+      asm volatile("syscall" : : "a"(60));
+      __builtin_unreachable();
     })
 
 #ifdef FULL
@@ -954,12 +954,12 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
       u64 copy = G(136, pos->colour[0]) & G(136, pos->pieces[p]);
       while (copy) {
         const A(6, i8, u8, i16, u16, i32, u32, i64, u64) sq = lsb(copy);
-        G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, copy &= copy - 1;)
+        G(137, const A(4, i8, u8, i16, u16, i32, i64) file = G(138, sq) & G(138, 7);)
+        G(137, const u64 in_front = 0x101010101010101ULL << sq;)
+        G(137, const u64 piece_bb = 1ULL << sq;)
         G(137, const A(4, i8, u8, i16, u16, i32, i64) rank = sq >> 3;)
         G(137, phase += initial_params.phases[p];)
-        G(137, const u64 in_front = 0x101010101010101ULL << sq;)
-        G(137, const A(4, i8, u8, i16, u16, i32, i64) file = G(138, sq) & G(138, 7);)
         G(93, G(999, // SPLIT PIECE-SQUARE TABLES FOR RANK
                 score += eval_params.pst_rank[G(152, G(147, (p - 1)) * G(147, 8)) + G(152, rank)];)
 
@@ -1002,8 +1002,8 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
         G(
             93, if (p > Pawn) {
               G(
-                  155, // PAWN PUSH THREATS
-                  if (G(169, in_front) & G(169, attacked_by_pawns)) { score += eval_params.pawn_threat[p - 2]; })
+                  155, // PIECES ATTACKED BY PAWNS
+                  if (G(164, piece_bb) & G(164, no_passers)) { score += eval_params.pawn_attacked_penalty[c]; })
 
               G(
                   155, // KING SHIELD
@@ -1014,8 +1014,8 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
                   })
 
               G(
-                  155, // PIECES ATTACKED BY PAWNS
-                  if (G(164, piece_bb) & G(164, no_passers)) { score += eval_params.pawn_attacked_penalty[c]; })
+                  155, // PAWN PUSH THREATS
+                  if (G(169, in_front) & G(169, attacked_by_pawns)) { score += eval_params.pawn_threat[p - 2]; })
 
               G(
                   155, // BISHOP COLOUR PAWNS
@@ -1072,7 +1072,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1107,8 +1107,8 @@ typedef struct [[nodiscard]] {
   G(179, u64 max_time;)
   G(179, Move counter_moves[2][64][64];)
   G(179, SearchStack stack[1024];)
-  G(179, i32 corrhist[corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
+  G(179, i32 corrhist[corrhist_size];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
