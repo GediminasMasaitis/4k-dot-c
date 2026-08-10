@@ -870,7 +870,9 @@ G(
                                                                                               -14, -8,  -4,  0,   3,   4,   13, 6,   // Queen
                                                                                               -10, 16,  -11, -28, -27, -11, 11, 1,   // King
                                                                                           },
-                                                                                      .mobilities = {6, 5, 2, 3, -2, 26, 24, 17, -1, -20, 9, 13, 19, 14, 0},
+                                                                                      .mobilities = {H(331, 2, 6, 5, 2, 3, -2, )
+                                                                                                         H(331, 2, 26, 24, 17, -1, -20, )
+                                                                                                             H(331, 2, 9, 13, 19, 14, 0, )},
                                                                                       .pawn_threat = {-17, -8, -7, -8, -1},
                                                                                       .open_files = {9, -11, -11, 17, -2, -22, 7, -9, -10, 33, -11, -57},
                                                                                       .passed_pawns = {-9, -2, 9, 41, 75, 126},
@@ -904,7 +906,8 @@ G(
                                                                                           -21, -7, 3,  8,  15, 13, -2, -9,  // Queen
                                                                                           -30, -1, 10, 17, 19, 14, 4,  -30, // King
                                                                                       },
-                                                                                  .mobilities = {5, 3, 4, 1, -4, 33, 37, 25, 28, 30, -4, -2, -6, 9, 0},
+                                                                                  .mobilities = {H(331, 3, 5, 3, 4, 1, -4, ) H(331, 3, 33, 37, 25, 28, 30, )
+                                                                                                     H(331, 3, -4, -2, -6, 9, 0, )},
                                                                                   .pawn_threat = {-2, -5, -17, -12, -7},
                                                                                   .open_files = {7, 3, 18, 9, 25, 8, 23, -7, 3, 12, 40, 7},
                                                                                   .passed_pawns = {14, 3, 20, 47, 101, 94},
@@ -1023,13 +1026,12 @@ S(0) A(1, i16, i32, i64) eval(Position *const restrict pos) {
                   155, const u64 mobility = get_mobility(H(69, 3, pos), H(69, 3, p), H(69, 3, sq));
 
                   // MOBILITY / PIECE THREATS / KING ATTACKS
-                  const u64 mobility_masks[] =
-                      {
-                          ~pos->colour[0] & ~attacked_by_pawns,
-                          pos->colour[1] & ~(pos->pieces[Pawn] | attacked_by_pawns),
-                          opp_king_zone,
-                      };
-                  for (i32 i = 0; i < 3; i++) { score += count(mobility & mobility_masks[i]) * eval_params.mobilities[i * 5 + p - 2]; })
+                  const u64 mobility_masks[] = {H(331, 1, G(332, ~pos->colour[0]) & G(332, ~attacked_by_pawns), ) H(
+                      331, 1, G(333, pos->colour[1]) & G(333, ~(G(334, pos->pieces[Pawn]) | G(334, attacked_by_pawns))), ) H(331, 1, opp_king_zone, )};
+                  for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 3; i++) {
+                    score += G(335, count(G(336, mobility) & G(336, mobility_masks[i]))) *
+                             G(335, eval_params.mobilities[G(337, G(338, i) * G(338, 5)) + G(337, p) + G(337, -2)]);
+                  })
             })
 
         G(93, // MATERIAL
@@ -1059,7 +1061,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
