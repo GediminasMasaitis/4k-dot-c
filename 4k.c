@@ -1422,7 +1422,10 @@ search(
               if (ss->best_move.takes_piece == None) { data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to] = ss->best_move; })
           G(
               233, if (!in_qsearch) {
-                const A(2, i16, u16, i32, i64) bonus = depth * depth;
+                A(2, i16, u16, i32, i64) bonus = depth * depth;
+                if (bonus > 1024) {
+                  bonus = 1024;
+                }
                 G(234, i32 *const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
 
                   *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
