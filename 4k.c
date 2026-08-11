@@ -121,6 +121,12 @@ G(
     })
 
 G(
+    1, S(0) void exit_now() {
+      asm volatile("syscall" : : "a"(60));
+      __builtin_unreachable();
+    })
+
+G(
     1, [[nodiscard]] static bool strcmp(const char *restrict lhs, const char *restrict rhs) {
       while (*lhs || *rhs) {
         if (*lhs != *rhs) {
@@ -130,12 +136,6 @@ G(
         rhs++;
       }
       return false;
-    })
-
-G(
-    1, S(0) void exit_now() {
-      asm volatile("syscall" : : "a"(60));
-      __builtin_unreachable();
     })
 
 G(
@@ -1072,7 +1072,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1259,8 +1259,8 @@ search(
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, const A(1, i16, i32, i64) raw_eval = tt_hit ? tt_entry->static_eval : eval(pos); A(1, i16, i32, i64) static_eval = raw_eval;
     assert(static_eval < mate); assert(static_eval > -mate);)
-  G(197, corr_hashes[4] = G(270, ss[1].prev_move.from) | G(270, ss[1].prev_move.to << 8);)
   G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) | G(272, ss->prev_move.to << 8))) + G(271, 16384);)
+  G(197, corr_hashes[4] = G(270, ss[1].prev_move.from) | G(270, ss[1].prev_move.to << 8);)
   for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
@@ -1348,11 +1348,11 @@ search(
 
     G(
         222, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(225, !in_check) &&
+        if (G(225, depth < 5) &&
             G(225, G(226, static_eval) + G(226, G(227, 176) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
                            G(226, initial_params.eg.material[moves[move_index].takes_piece]) <
                        alpha) &&
-            G(225, depth < 5) && G(225, moves_evaluated)) { break; })
+            G(225, moves_evaluated) && G(225, !in_check)) { break; })
 
     G(
         222, // MOVE SCORE PRUNING
@@ -1463,7 +1463,7 @@ search(
         G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -176) { target = -176; }) G(247, if (target > 176) { target = 176; }))
 
         for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
-          *corr_entries[i] = (G(248, G(250, target) * G(250, 256) * G(250, dd)) + G(248, G(249, *corr_entries[i]) * G(249, (484 - dd)))) / 484;
+          *corr_entries[i] = (G(248, G(249, *corr_entries[i]) * G(249, (484 - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / 484;
         }
       })
 
