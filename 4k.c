@@ -850,6 +850,42 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
   G(120, EvalParams mg;)
 } EvalParamsInitial;
 
+#define TUNE_PARAMETER(name, initial, min, max, step)                                                                                                          \
+  int name = initial;                                                                                                                                          \
+  int name##_min = min;                                                                                                                                        \
+  int name##_max = max;                                                                                                                                        \
+  float name##_step = step;
+
+#define PRINT_TUNE_OPTION(name) printf("option name " #name " type spin default %i min -32768 max 32767\n", name)
+
+#define READ_TUNE_OPTION(name)                                                                                                                                 \
+  else if (!strcmp(line, #name)) {                                                                                                                             \
+    getl(line);                                                                                                                                                \
+    getl(line);                                                                                                                                                \
+    name = atoi(line);                                                                                                                                         \
+    init();                                                                                                                                                    \
+  }
+
+#define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %f, 0.002\n", name, name##_min, name##_max, name##_step)
+
+TUNE_PARAMETER(rfp_depth, 10, 6, 14, 0.5)
+TUNE_PARAMETER(rfp_margin, 32, 16, 64, 2.4)
+TUNE_PARAMETER(razor_margin, 83, 48, 192, 7.2)
+TUNE_PARAMETER(nmp_eval_divisor, 128, 64, 256, 9.6)
+TUNE_PARAMETER(mvv_weight, 1635, 768, 3072, 115.2)
+TUNE_PARAMETER(killer_weight, 2190, 768, 3072, 115.2)
+TUNE_PARAMETER(counter_weight, 1800, 768, 3072, 115.2)
+TUNE_PARAMETER(lmr_history_divisor, -1002, -2304, -96, 110.4)
+TUNE_PARAMETER(lmr_move_divisor, 11, 6, 16, 0.5)
+TUNE_PARAMETER(lmr_depth_divisor, 12, 6, 24, 0.9)
+TUNE_PARAMETER(ffp_depth, 5, 3, 9, 0.5)
+TUNE_PARAMETER(ffp_margin, 176, 72, 288, 10.8)
+TUNE_PARAMETER(msp_margin, -525, -960, -192, 38.4)
+TUNE_PARAMETER(aw_margin, 12, 6, 36, 1.5)
+TUNE_PARAMETER(corrhist_dd_clamp, 78, 32, 156, 6.2)
+TUNE_PARAMETER(corrhist_clamp, 176, 64, 320, 12.8)
+TUNE_PARAMETER(corrhist_weight, 484, 256, 1024, 38.4)
+
 G(121, S(0) EvalParamsMerged eval_params;)
 
 G(
@@ -1283,17 +1319,17 @@ search(
   }
 
   if (G(203, !in_check) && G(203, G(204, alpha) == G(204, beta - 1))) {
-    if (G(205, depth < 10) && G(205, !in_qsearch)) {
+    if (G(205, depth < rfp_depth) && G(205, !in_qsearch)) {
 
       G(206, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(207, 32) * G(207, (depth - improving)) >= beta) {
+        if (static_eval - G(207, rfp_margin) * G(207, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(206, // RAZORING
-        in_qsearch = G(208, static_eval) + G(208, G(209, 83) * G(209, depth)) <= alpha;)
+        in_qsearch = G(208, static_eval) + G(208, G(209, razor_margin) * G(209, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1302,7 +1338,7 @@ search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      G(211, A(3, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 128; if (nmp_red > 3) { nmp_red = 3; })
+      G(211, A(3, i16, u16, i32, i64) nmp_red = (static_eval - beta) / nmp_eval_divisor; if (nmp_red > 3) { nmp_red = 3; })
       const A(2, i16, i32, i64) score = -search(
 #ifdef FULL
           nodes,
@@ -1331,11 +1367,11 @@ search(
       const A(1, i32, i64) order_move_score = G(187, // HISTORY HEURISTIC
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
                                               G(187, // MOST VALUABLE VICTIM
-                                                G(219, moves[order_index].takes_piece) * G(219, 1635)) +
+                                                G(219, moves[order_index].takes_piece) * G(219, mvv_weight)) +
                                               G(187, // KILLER MOVE
-                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 2190)) +
+                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, killer_weight)) +
                                               G(187, // COUNTER MOVE
-                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 1800)) +
+                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, counter_weight)) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30));
       if (order_move_score > move_score) {
@@ -1348,15 +1384,15 @@ search(
 
     G(
         222, // FORWARD FUTILITY PRUNING / DELTA PRUNING
-        if (G(225, depth < 5) &&
-            G(225, G(226, static_eval) + G(226, G(227, 176) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
+        if (G(225, depth < ffp_depth) &&
+            G(225, G(226, static_eval) + G(226, G(227, ffp_margin) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
                            G(226, initial_params.eg.material[moves[move_index].takes_piece]) <
                        alpha) &&
             G(225, moves_evaluated) && G(225, !in_check)) { break; })
 
     G(
         222, // MOVE SCORE PRUNING
-        if (G(223, moves_evaluated) && G(223, move_score < G(224, -525) * G(224, depth))) { break; })
+        if (G(223, moves_evaluated) && G(223, move_score < G(224, msp_margin) * G(224, depth))) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1374,9 +1410,10 @@ search(
 
     // LATE MOVE REDUCTION
     A(1, i32, i64)
-    reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 12) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
-                                                                   G(229, moves_evaluated / 11) + G(229, (move_score / -1002))
-                                                             : 0;
+    reduction = G(228, depth > 3) && G(228, move_score <= 0)
+                    ? G(229, depth / lmr_depth_divisor) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
+                          G(229, moves_evaluated / lmr_move_divisor) + G(229, (move_score / lmr_history_divisor))
+                    : 0;
 
     A(2, i16, i32, i64) score;
     while (true) {
@@ -1456,11 +1493,13 @@ search(
   G(
       242, // UPDATE CORRECTION HISTORY
       if (G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval))) && G(243, G(245, ss->best_move.takes_piece) == G(245, None))) {
-        G(246, A(1, i32, i64) dd = depth * depth; if (dd > 78) { dd = 78; })
-        G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -176) { target = -176; }) G(247, if (target > 176) { target = 176; }))
+        G(246, A(1, i32, i64) dd = depth * depth; if (dd > corrhist_dd_clamp) { dd = corrhist_dd_clamp; })
+        G(246, A(0, i32, i64) target = best_score - ss->static_eval;
+          G(247, if (target < -corrhist_clamp) { target = -corrhist_clamp; }) G(247, if (target > corrhist_clamp) { target = corrhist_clamp; }))
 
         for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
-          *corr_entries[i] = (G(248, G(249, *corr_entries[i]) * G(249, (484 - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / 484;
+          *corr_entries[i] =
+              (G(248, G(249, *corr_entries[i]) * G(249, (corrhist_weight - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / corrhist_weight;
         }
       })
 
@@ -1623,7 +1662,7 @@ void iteratively_deepen(
   for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(254, A(1, i32, i64) window = 12;)
+    G(254, A(1, i32, i64) window = aw_margin;)
     G(254, size_t elapsed;)
     while (true) {
       G(255, const A(0, i32, i64) alpha = score - window;)
@@ -1895,6 +1934,23 @@ S(1) void run() {
       puts("");
       puts("option name Hash type spin default 80 min 1 max 65536");
       puts("option name Threads type spin default 1 min 1 max 256");
+      PRINT_TUNE_OPTION(rfp_depth);
+      PRINT_TUNE_OPTION(rfp_margin);
+      PRINT_TUNE_OPTION(razor_margin);
+      PRINT_TUNE_OPTION(nmp_eval_divisor);
+      PRINT_TUNE_OPTION(mvv_weight);
+      PRINT_TUNE_OPTION(killer_weight);
+      PRINT_TUNE_OPTION(counter_weight);
+      PRINT_TUNE_OPTION(lmr_history_divisor);
+      PRINT_TUNE_OPTION(lmr_move_divisor);
+      PRINT_TUNE_OPTION(lmr_depth_divisor);
+      PRINT_TUNE_OPTION(ffp_depth);
+      PRINT_TUNE_OPTION(ffp_margin);
+      PRINT_TUNE_OPTION(msp_margin);
+      PRINT_TUNE_OPTION(aw_margin);
+      PRINT_TUNE_OPTION(corrhist_dd_clamp);
+      PRINT_TUNE_OPTION(corrhist_clamp);
+      PRINT_TUNE_OPTION(corrhist_weight);
       puts("uciok");
     } else if (!strcmp(line, "setoption")) {
 #if defined(FULL) && !defined(NOSTDLIB)
@@ -1922,6 +1978,41 @@ S(1) void run() {
         thread_count = atoi(line);
 #endif
       }
+      READ_TUNE_OPTION(rfp_depth)
+      READ_TUNE_OPTION(rfp_margin)
+      READ_TUNE_OPTION(razor_margin)
+      READ_TUNE_OPTION(nmp_eval_divisor)
+      READ_TUNE_OPTION(mvv_weight)
+      READ_TUNE_OPTION(killer_weight)
+      READ_TUNE_OPTION(counter_weight)
+      READ_TUNE_OPTION(lmr_history_divisor)
+      READ_TUNE_OPTION(lmr_move_divisor)
+      READ_TUNE_OPTION(lmr_depth_divisor)
+      READ_TUNE_OPTION(ffp_depth)
+      READ_TUNE_OPTION(ffp_margin)
+      READ_TUNE_OPTION(msp_margin)
+      READ_TUNE_OPTION(aw_margin)
+      READ_TUNE_OPTION(corrhist_dd_clamp)
+      READ_TUNE_OPTION(corrhist_clamp)
+      READ_TUNE_OPTION(corrhist_weight)
+    } else if (!strcmp(line, "tune")) {
+      PRINT_TUNE_INPUT(rfp_depth);
+      PRINT_TUNE_INPUT(rfp_margin);
+      PRINT_TUNE_INPUT(razor_margin);
+      PRINT_TUNE_INPUT(nmp_eval_divisor);
+      PRINT_TUNE_INPUT(mvv_weight);
+      PRINT_TUNE_INPUT(killer_weight);
+      PRINT_TUNE_INPUT(counter_weight);
+      PRINT_TUNE_INPUT(lmr_history_divisor);
+      PRINT_TUNE_INPUT(lmr_move_divisor);
+      PRINT_TUNE_INPUT(lmr_depth_divisor);
+      PRINT_TUNE_INPUT(ffp_depth);
+      PRINT_TUNE_INPUT(ffp_margin);
+      PRINT_TUNE_INPUT(msp_margin);
+      PRINT_TUNE_INPUT(aw_margin);
+      PRINT_TUNE_INPUT(corrhist_dd_clamp);
+      PRINT_TUNE_INPUT(corrhist_clamp);
+      PRINT_TUNE_INPUT(corrhist_weight);
     } else if (!strcmp(line, "ucinewgame")) {
 #if defined(FULL) && !defined(NOSTDLIB)
       bg_stop();
