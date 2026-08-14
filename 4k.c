@@ -827,7 +827,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
         H(119, 1, i8 open_files[12];))
   H(116, 1,
-    H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn[6];) H(118, 1, i8 protected_pawn[6];) H(118, 1, i8 pst_rank[48];)
+    H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 protected_pawn[6];) H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn[6];) H(118, 1, i8 pst_rank[48];)
         H(118, 1, i8 king_attacks[5];))
 } EvalParams;
 
@@ -840,7 +840,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
         H(119, 2, i32 pst_file[48];) H(119, 2, i32 open_files[12];))
   H(116, 2,
-    H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn[6];) H(118, 2, i32 protected_pawn[6];) H(118, 2, i32 pst_rank[48];)
+    H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 protected_pawn[6];) H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn[6];) H(118, 2, i32 pst_rank[48];)
         H(118, 2, i32 king_attacks[5];))
 } EvalParamsMerged;
 
