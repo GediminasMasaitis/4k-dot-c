@@ -1072,7 +1072,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1287,13 +1287,13 @@ search(
 
       G(206, {
         // REVERSE FUTILITY PRUNING
-        if (static_eval - G(207, 32) * G(207, (depth - improving)) >= beta) {
+        if (static_eval - G(207, 36) * G(207, (depth - improving)) >= beta) {
           return static_eval;
         }
       })
 
       G(206, // RAZORING
-        in_qsearch = G(208, static_eval) + G(208, G(209, 83) * G(209, depth)) <= alpha;)
+        in_qsearch = G(208, static_eval) + G(208, G(209, 75) * G(209, depth)) <= alpha;)
     }
 
     // NULL MOVE PRUNING
@@ -1302,7 +1302,7 @@ search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      G(211, A(3, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 128; if (nmp_red > 3) { nmp_red = 3; })
+      G(211, A(3, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 114; if (nmp_red > 3) { nmp_red = 3; })
       const A(2, i16, i32, i64) score = -search(
 #ifdef FULL
           nodes,
@@ -1331,11 +1331,11 @@ search(
       const A(1, i32, i64) order_move_score = G(187, // HISTORY HEURISTIC
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
                                               G(187, // MOST VALUABLE VICTIM
-                                                G(219, moves[order_index].takes_piece) * G(219, 545)) +
+                                                G(219, moves[order_index].takes_piece) * G(219, 557)) +
                                               G(187, // KILLER MOVE
-                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 730)) +
+                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 714)) +
                                               G(187, // COUNTER MOVE
-                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 600)) +
+                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 604)) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30));
       if (order_move_score > move_score) {
@@ -1349,7 +1349,7 @@ search(
     G(
         222, // FORWARD FUTILITY PRUNING / DELTA PRUNING
         if (G(225, depth < 5) &&
-            G(225, G(226, static_eval) + G(226, G(227, 176) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
+            G(225, G(226, static_eval) + G(226, G(227, 180) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
                            G(226, initial_params.eg.material[moves[move_index].takes_piece]) <
                        alpha) &&
             G(225, moves_evaluated) && G(225, !in_check)) { break; })
@@ -1374,8 +1374,8 @@ search(
 
     // LATE MOVE REDUCTION
     A(1, i32, i64)
-    reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 12) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
-                                                                   G(229, moves_evaluated / 11) + G(229, (move_score / -334))
+    reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 11) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
+                                                                   G(229, moves_evaluated / 10) + G(229, (move_score / -334))
                                                              : 0;
 
     A(2, i16, i32, i64) score;
@@ -1459,11 +1459,11 @@ search(
   G(
       242, // UPDATE CORRECTION HISTORY
       if (G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval))) && G(243, G(245, ss->best_move.takes_piece) == G(245, None))) {
-        G(246, A(1, i32, i64) dd = depth * depth; if (dd > 78) { dd = 78; })
-        G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -176) { target = -176; }) G(247, if (target > 176) { target = 176; }))
+        G(246, A(1, i32, i64) dd = depth * depth; if (dd > 70) { dd = 70; })
+        G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -175) { target = -175; }) G(247, if (target > 175) { target = 175; }))
 
         for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
-          *corr_entries[i] = (G(248, G(249, *corr_entries[i]) * G(249, (484 - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / 484;
+          *corr_entries[i] = (G(248, G(249, *corr_entries[i]) * G(249, (502 - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / 502;
         }
       })
 
@@ -1626,7 +1626,7 @@ void iteratively_deepen(
   for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) depth = 1; depth < max_ply; depth++) {
 #endif
     // ASPIRATION WINDOWS
-    G(254, A(1, i32, i64) window = 12;)
+    G(254, A(1, i32, i64) window = 14;)
     G(254, size_t elapsed;)
     while (true) {
       G(255, const A(0, i32, i64) alpha = score - window;)
