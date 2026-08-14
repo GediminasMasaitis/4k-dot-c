@@ -1422,18 +1422,14 @@ search(
               if (ss->best_move.takes_piece == None) { data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to] = ss->best_move; })
           G(
               233, if (!in_qsearch) {
-                A(2, i16, u16, i32, i64) bonus = depth * depth;
-                if (bonus > 1024) {
-                  bonus = 1024;
-                }
                 G(234, i32 *const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
 
-                  *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                  *this_hist += depth - G(235, depth) * G(235, *this_hist) / 1024;)
                 G(
                     234, for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index < move_index; prev_index++) {
                       const Move prev = moves[prev_index];
                       i32 *const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
-                      *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                      *prev_hist -= depth + G(236, depth) * G(236, *prev_hist) / 1024;
                     })
               })
           break;
