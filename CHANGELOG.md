@@ -11933,3 +11933,48 @@ Games | N: 18548 W: 4852 L: 4664 D: 9032
 Penta | [192, 1987, 4734, 2163, 198]
 https://gedas.pythonanywhere.com/test/2085/
 ```
+
+Progression test 9.49 vs 9.0
+```py
+Elo   | 91.21 +- 4.91 (95%)
+Conf  | 10.0+0.10s Threads=1 Hash=80MB
+Games | N: 10002 W: 4300 L: 1733 D: 3969
+Penta | [97, 581, 1734, 1836, 753]
+https://gedas.pythonanywhere.com/test/2086/
+```
+
+Progression test 9.49 vs 9.0
+```py
+Elo   | 102.40 +- 4.46 (95%)
+Conf  | 60.0+0.60s Threads=1 Hash=80MB
+Games | N: 10004 W: 4324 L: 1458 D: 4222
+Penta | [38, 427, 1812, 2081, 644]
+https://gedas.pythonanywhere.com/test/2088/
+```
+
+### 9.50
+History overflow fix
+
+4  thread: 4094 bytes (+5)
+MD5: 7cfe276d24a0d8a1e6528225fea6e8d1
+
+1 thread: 4100 bytes (+14)
+MD5: 19302d394ba70c8efc7ae827e2c7c082
+
+```py
+Elo   | 0.82 +- 1.62 (95%)
+SPRT  | 10.0+0.10s Threads=1 Hash=80MB
+LLR   | -2.95 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 63340 W: 16804 L: 16654 D: 29882
+Penta | [1076, 6943, 15466, 7125, 1060]
+https://gedas.pythonanywhere.com/test/2101/
+```
+
+```py
+Elo   | 0.60 +- 2.00 (95%)
+SPRT  | 60.0+0.60s Threads=1 Hash=80MB
+LLR   | -1.85 (-2.94, 2.94) [0.00, 5.00]
+Games | N: 32510 W: 8165 L: 8109 D: 16236
+Penta | [297, 3375, 8843, 3455, 285]
+https://gedas.pythonanywhere.com/test/2103/
+```
