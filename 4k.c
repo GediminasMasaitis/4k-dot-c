@@ -1069,7 +1069,7 @@ enum : u64 { tt_length = 1ULL << 23 }; // 80MB
 // enum : u64 { tt_length = 1ULL << 31 }; // 20GB
 #endif
 enum { Upper = 0, Lower = 1, Exact = 2 };
-enum { max_ply = 96 };
+enum { max_ply = 64 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
 enum { thread_count = 1 };
@@ -1331,11 +1331,11 @@ search(
       const A(1, i32, i64) order_move_score = G(187, // HISTORY HEURISTIC
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
                                               G(187, // MOST VALUABLE VICTIM
-                                                G(219, moves[order_index].takes_piece) * G(219, 545)) +
+                                                G(219, moves[order_index].takes_piece) * G(219, 1635)) +
                                               G(187, // KILLER MOVE
-                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 730)) +
+                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 2190)) +
                                               G(187, // COUNTER MOVE
-                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 600)) +
+                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 1800)) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30));
       if (order_move_score > move_score) {
@@ -1356,7 +1356,7 @@ search(
 
     G(
         222, // MOVE SCORE PRUNING
-        if (G(223, moves_evaluated) && G(223, move_score < G(224, -175) * G(224, depth))) { break; })
+        if (G(223, moves_evaluated) && G(223, move_score < G(224, -525) * G(224, depth))) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1375,7 +1375,7 @@ search(
     // LATE MOVE REDUCTION
     A(1, i32, i64)
     reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 12) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
-                                                                   G(229, moves_evaluated / 11) + G(229, (move_score / -334))
+                                                                   G(229, moves_evaluated / 11) + G(229, (move_score / -1002))
                                                              : 0;
 
     A(2, i16, i32, i64) score;
@@ -1422,18 +1422,15 @@ search(
               if (ss->best_move.takes_piece == None) { data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to] = ss->best_move; })
           G(
               233, if (!in_qsearch) {
-                A(2, i16, u16, i32, i64) bonus = depth * depth;
-                if (bonus > 1024) {
-                  bonus = 1024;
-                }
+                const A(2, i16, u16, i32, i64) bonus = depth * depth;
                 G(234, i32 *const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
 
-                  *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                  *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 4096;)
                 G(
                     234, for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index < move_index; prev_index++) {
                       const Move prev = moves[prev_index];
                       i32 *const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
-                      *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                      *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 4096;
                     })
               })
           break;
