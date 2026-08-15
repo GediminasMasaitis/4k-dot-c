@@ -868,11 +868,11 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 
 #define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %f, 0.002\n", name, name##_min, name##_max, name##_step)
 
-TUNE_PARAMETER(mvv_weight, 1635, 768, 3072, 115.2)
-TUNE_PARAMETER(killer_weight, 2190, 768, 3072, 115.2)
-TUNE_PARAMETER(counter_weight, 1800, 768, 3072, 115.2)
-TUNE_PARAMETER(lmr_history_divisor, -1002, -2304, -96, 110.4)
-TUNE_PARAMETER(msp_margin, -525, -960, -192, 38.4)
+TUNE_PARAMETER(mvv_weight, 1638, 768, 3072, 115.2)
+TUNE_PARAMETER(killer_weight, 2162, 768, 3072, 115.2)
+TUNE_PARAMETER(counter_weight, 1805, 768, 3072, 115.2)
+TUNE_PARAMETER(lmr_history_divisor, -888, -2304, -96, 110.4)
+TUNE_PARAMETER(msp_margin, -455, -960, -192, 38.4)
 
 G(121, S(0) EvalParamsMerged eval_params;)
 
