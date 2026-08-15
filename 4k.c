@@ -1331,11 +1331,11 @@ search(
       const A(1, i32, i64) order_move_score = G(187, // HISTORY HEURISTIC
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
                                               G(187, // MOST VALUABLE VICTIM
-                                                G(219, moves[order_index].takes_piece) * G(219, 1635)) +
+                                                G(219, moves[order_index].takes_piece) * G(219, 1638)) +
                                               G(187, // KILLER MOVE
-                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 2190)) +
+                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 2162)) +
                                               G(187, // COUNTER MOVE
-                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 1800)) +
+                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 1805)) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30));
       if (order_move_score > move_score) {
@@ -1356,7 +1356,7 @@ search(
 
     G(
         222, // MOVE SCORE PRUNING
-        if (G(223, moves_evaluated) && G(223, move_score < G(224, -525) * G(224, depth))) { break; })
+        if (G(223, moves_evaluated) && G(223, move_score < G(224, -455) * G(224, depth))) { break; })
 
     Position npos = *pos;
 #ifdef FULL
@@ -1375,7 +1375,7 @@ search(
     // LATE MOVE REDUCTION
     A(1, i32, i64)
     reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 12) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
-                                                                   G(229, moves_evaluated / 11) + G(229, (move_score / -1002))
+                                                                   G(229, moves_evaluated / 11) + G(229, (move_score / -888))
                                                              : 0;
 
     A(2, i16, i32, i64) score;
