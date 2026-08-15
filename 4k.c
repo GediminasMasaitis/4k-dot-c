@@ -440,7 +440,7 @@ G(
     S(1) void swapmoves(G(48, Move *const lhs), G(48, Move *const rhs)) { swapu32(G(49, (u32a *)rhs), G(49, (u32a *)lhs)); })
 
 G(
-    46, S(1) void move_str(H(50, 1, const A(5, bool, i8, u8, i16, u16, i32, u32, i64, u64) flip), H(50, 1, const Move *restrict move),
+    46, S(1) void move_str(H(50, 1, const A(1, bool, i8, u8, i16, u16, i32, u32, i64, u64) flip), H(50, 1, const Move *restrict move),
                            H(50, 1, char *restrict str)) {
       assert(move->from >= 0);
       assert(move->from < 64);
@@ -492,8 +492,8 @@ G(
                                             H(69, 1, const A(6, i8, u8, i16, u16, i32, u32, i64, u64) sq)) {
       u64 moves = 0;
       const u64 bb = 1ULL << sq;
-      G(70, if (piece == King) { moves = king(bb); })
-      else G(70, if (piece == Knight) { moves = knight(bb); }) else {
+      G(70, if (piece == Knight) { moves = knight(bb); })
+      else G(70, if (piece == King) { moves = king(bb); }) else {
         const u64 blockers = G(71, pos->colour[1]) | G(71, pos->colour[0]);
         G(72, if (piece != Bishop) { moves |= rook(H(41, 3, blockers), H(41, 3, bb)); })
         G(72, if (piece != Rook) { moves |= bishop(H(43, 3, blockers), H(43, 3, bb)); })
@@ -827,7 +827,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(119, 1, i8 pawn_attacked_penalty[2];) H(119, 1, i8 passed_blocked_pawns[6];) H(119, 1, i8 tempo;) H(119, 1, i8 mobilities[5];) H(119, 1, i8 pst_file[48];)
         H(119, 1, i8 open_files[12];))
   H(116, 1,
-    H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 protected_pawn[6];) H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn[6];) H(118, 1, i8 pst_rank[48];)
+    H(118, 1, i8 passed_pawns[6];) H(118, 1, i8 bishop_pair;) H(118, 1, i8 phalanx_pawn[6];) H(118, 1, i8 protected_pawn[6];) H(118, 1, i8 pst_rank[48];)
         H(118, 1, i8 king_attacks[5];))
 } EvalParams;
 
@@ -840,7 +840,7 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
     H(119, 2, i32 pawn_attacked_penalty[2];) H(119, 2, i32 passed_blocked_pawns[6];) H(119, 2, i32 tempo;) H(119, 2, i32 mobilities[5];)
         H(119, 2, i32 pst_file[48];) H(119, 2, i32 open_files[12];))
   H(116, 2,
-    H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 protected_pawn[6];) H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn[6];) H(118, 2, i32 pst_rank[48];)
+    H(118, 2, i32 passed_pawns[6];) H(118, 2, i32 bishop_pair;) H(118, 2, i32 phalanx_pawn[6];) H(118, 2, i32 protected_pawn[6];) H(118, 2, i32 pst_rank[48];)
         H(118, 2, i32 king_attacks[5];))
 } EvalParamsMerged;
 
@@ -930,7 +930,7 @@ G(
                                                                               }};)
 
 G(
-    121, [[nodiscard]] S(1) A(0, i32, i64) combine_eval_param(H(122, 1, const A(1, i16, i32, i64) mg_val), H(122, 1, const A(1, i16, i32, i64) eg_val)) {
+    121, [[nodiscard]] S(1) A(1, i32, i64) combine_eval_param(H(122, 1, const A(1, i16, i32, i64) mg_val), H(122, 1, const A(2, i16, i32, i64) eg_val)) {
       return G(123, mg_val) + G(123, (eg_val << 16));
     })
 
@@ -1107,8 +1107,8 @@ typedef struct [[nodiscard]] {
   G(179, u64 max_time;)
   G(179, Move counter_moves[2][64][64];)
   G(179, SearchStack stack[1024];)
-  G(179, i32 corrhist[corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
+  G(179, i32 corrhist[corrhist_size];)
 } ThreadData;
 
 typedef struct __attribute__((aligned(16))) ThreadHeadStruct {
@@ -1319,8 +1319,8 @@ search(
   G(213, Move moves[max_moves]; ss->num_moves = movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
   G(213, A(3, u8, i16, u16, i32, u32, i64, u64) moves_evaluated = 0;)
   G(213, A(1, i16, i32, i64) best_score = in_qsearch ? static_eval : -inf;)
-  G(213, A(1, i8, u8, i16, u16, i32, u32, i64, u64) tt_flag = Upper;)
   G(213, A(3, u8, i16, u16, i32, u32, i64, u64) quiets_evaluated = 0;)
+  G(213, A(1, i8, u8, i16, u16, i32, u32, i64, u64) tt_flag = Upper;)
 
   for (A(3, u8, i16, u16, i32, u32, i64, u64) move_index = 0; move_index < ss->num_moves; move_index++) {
     // MOVE ORDERING
@@ -1352,7 +1352,7 @@ search(
             G(225, G(226, static_eval) + G(226, G(227, 176) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
                            G(226, initial_params.eg.material[moves[move_index].takes_piece]) <
                        alpha) &&
-            G(225, moves_evaluated) && G(225, !in_check)) { break; })
+            G(225, !in_check) && G(225, moves_evaluated)) { break; })
 
     G(
         222, // MOVE SCORE PRUNING
@@ -1639,11 +1639,11 @@ void iteratively_deepen(
       }
 #endif
       elapsed = get_time() - start_time;
-      G(257, window *= 2;)
       G(257, if (G(258, elapsed > data->max_time) || G(258, (G(259, score < beta) && G(259, score > alpha)))) { break; })
+      G(257, window *= 2;)
     }
 
-    if (G(303, stop) || G(303, elapsed > data->max_time / 10)) {
+    if (G(303, elapsed > data->max_time / 10) || G(303, stop)) {
       break;
     }
   }
