@@ -869,22 +869,22 @@ typedef struct [[nodiscard]] __attribute__((packed)) {
 #define PRINT_TUNE_INPUT(name) printf(#name ", int, %i, %i, %i, %f, 0.002\n", name, name##_min, name##_max, name##_step)
 
 TUNE_PARAMETER(rfp_depth, 10, 6, 14, 0.5)
-TUNE_PARAMETER(rfp_margin, 32, 16, 64, 2.4)
-TUNE_PARAMETER(razor_margin, 83, 48, 192, 7.2)
-TUNE_PARAMETER(nmp_eval_divisor, 128, 64, 256, 9.6)
-TUNE_PARAMETER(mvv_weight, 545, 256, 1024, 38.4)
-TUNE_PARAMETER(killer_weight, 730, 256, 1024, 38.4)
-TUNE_PARAMETER(counter_weight, 600, 256, 1024, 38.4)
+TUNE_PARAMETER(rfp_margin, 36, 16, 64, 2.4)
+TUNE_PARAMETER(razor_margin, 75, 48, 192, 7.2)
+TUNE_PARAMETER(nmp_eval_divisor, 114, 64, 256, 9.6)
+TUNE_PARAMETER(mvv_weight, 557, 256, 1024, 38.4)
+TUNE_PARAMETER(killer_weight, 714, 256, 1024, 38.4)
+TUNE_PARAMETER(counter_weight, 604, 256, 1024, 38.4)
 TUNE_PARAMETER(lmr_history_divisor, -334, -768, 0, 38.4)
-TUNE_PARAMETER(lmr_move_divisor, 11, 6, 16, 0.5)
-TUNE_PARAMETER(lmr_depth_divisor, 12, 6, 24, 0.9)
+TUNE_PARAMETER(lmr_move_divisor, 10, 6, 16, 0.5)
+TUNE_PARAMETER(lmr_depth_divisor, 11, 6, 24, 0.9)
 TUNE_PARAMETER(ffp_depth, 5, 3, 9, 0.5)
-TUNE_PARAMETER(ffp_margin, 176, 72, 288, 10.8)
+TUNE_PARAMETER(ffp_margin, 180, 72, 288, 10.8)
 TUNE_PARAMETER(msp_margin, -175, -320, -64, 12.8)
-TUNE_PARAMETER(aw_margin, 12, 6, 36, 1.5)
-TUNE_PARAMETER(corrhist_dd_clamp, 78, 32, 156, 6.2)
-TUNE_PARAMETER(corrhist_clamp, 176, 64, 320, 12.8)
-TUNE_PARAMETER(corrhist_weight, 484, 256, 1024, 38.4)
+TUNE_PARAMETER(aw_margin, 14, 6, 36, 1.5)
+TUNE_PARAMETER(corrhist_dd_clamp, 70, 32, 156, 6.2)
+TUNE_PARAMETER(corrhist_clamp, 175, 64, 320, 12.8)
+TUNE_PARAMETER(corrhist_weight, 502, 256, 1024, 38.4)
 TUNE_PARAMETER(history_bonus, 10, 5, 20, 0.75)
 
 G(121, S(0) EvalParamsMerged eval_params;)
@@ -1106,7 +1106,7 @@ enum : u64 { tt_length = 1ULL << 23 }; // 80MB
 // enum : u64 { tt_length = 1ULL << 31 }; // 20GB
 #endif
 enum { Upper = 0, Lower = 1, Exact = 2 };
-enum { max_ply = 96 };
+enum { max_ply = 80 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
 enum { thread_count = 1 };
