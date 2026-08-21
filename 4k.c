@@ -1199,9 +1199,9 @@ get_hash(const Position *const pos) {
 }
 
 S(1)
-void get_piece_hashes(H(300, 1, const Position *const pos), H(300, 1, u64 hashes[4])) {
+void get_piece_hashes(H(300, 1, const Position *const pos), H(300, 1, u64 hashes[8])) {
   for (A(7, i8, u8, i16, u16, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
-    hashes[p / 2] ^= (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
+    hashes[p] ^= (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
   }
 }
 
@@ -1253,15 +1253,15 @@ search(
   }
 
   // STATIC EVAL WITH CORRECTION HISTORY
-  u64 corr_hashes[6] = {0};
+  u64 corr_hashes[8] = {0};
   G(197, get_piece_hashes(H(300, 2, pos), H(300, 2, corr_hashes));)
-  G(197, i32 * corr_entries[6];)
-  G(197, corr_hashes[3] = get_material_hash(pos);)
+  G(197, i32 * corr_entries[8];)
+  G(197, corr_hashes[0] = get_material_hash(pos);)
   G(197, const A(1, i16, i32, i64) raw_eval = tt_hit ? tt_entry->static_eval : eval(pos); A(1, i16, i32, i64) static_eval = raw_eval;
     assert(static_eval < mate); assert(static_eval > -mate);)
-  G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) | G(272, ss->prev_move.to << 8))) + G(271, 16384);)
-  G(197, corr_hashes[4] = G(270, ss[1].prev_move.from) | G(270, ss[1].prev_move.to << 8);)
-  for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
+  G(197, corr_hashes[7] = G(271, (G(272, ss->prev_move.from) | G(272, ss->prev_move.to << 8))) + G(271, 16384);)
+  G(197, corr_hashes[6] = G(270, ss[1].prev_move.from) | G(270, ss[1].prev_move.to << 8);)
+  for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 8; i++) {
     corr_entries[i] = &data->corrhist[corr_hashes[i] % corrhist_size];
     static_eval += *corr_entries[i] / 256;
     assert(static_eval < mate);
@@ -1459,7 +1459,7 @@ search(
         G(246, A(1, i32, i64) dd = depth * depth; if (dd > 70) { dd = 70; })
         G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -175) { target = -175; }) G(247, if (target > 175) { target = 175; }))
 
-        for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
+        for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 8; i++) {
           *corr_entries[i] = (G(248, G(249, *corr_entries[i]) * G(249, (502 - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / 502;
         }
       })
