@@ -1,6 +1,7 @@
 import re
 import sys
 import itertools
+import json
 import math
 import subprocess
 import os
@@ -55,6 +56,12 @@ persist_binary_cache = True
 persist_source_asm_map = True
 cache_backup_dir = '/mnt/c/shared/chess6/picklejar'
 errors_dir = 'errors'
+# Save every adopted source (and each run's initial source) to
+# snapshots_dir, content-addressed by md5, and reference the hashes plus a
+# machine-readable move descriptor from the adoptions log — together they
+# make the log fully replayable (see replay.py).
+save_snapshots = True
+snapshots_dir = 'snapshots'
 
 class CountdownEvent:
     def __init__(self):
@@ -141,18 +148,62 @@ adoptions_dir = 'adoptions'
 adoptions_log_path = os.path.join(
     adoptions_dir, time.strftime('%Y-%m-%d_%H-%M-%S') + '.log')
 
-def journal_adoption(kind, detail, old_size, new_size, is_global):
+def journal_adoption(kind, detail, old_size, new_size, is_global,
+                     parent_hash=None, child_hash=None, move=None):
     """Append an adopted run-best improvement to the adoptions log
-    (best-effort)."""
+    (best-effort).
+
+    parent_hash/child_hash reference snapshots_dir sources; move is a
+    machine-readable descriptor such that applying it to the parent source
+    reproduces the child exactly (see replay.py).
+    """
     g = '\tGLOBAL' if is_global else ''
+    extra = ''
+    if parent_hash:
+        extra += f'\tparent={parent_hash}'
+    if child_hash:
+        extra += f'\tchild={child_hash}'
+    if move is not None:
+        extra += f'\tmove={json.dumps(move, separators=(",", ":"))}'
     try:
         os.makedirs(adoptions_dir, exist_ok=True)
         with _journal_lock, open(adoptions_log_path, 'a') as f:
             f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")}\t{kind}\t'
                     f'{old_size} -> {new_size} ({new_size - old_size:+})\t'
-                    f'{detail}{g}\n')
+                    f'{detail}{extra}{g}\n')
     except OSError:
         pass
+
+def journal_event(kind, detail):
+    """Append a non-adoption event line (session/run headers) to the
+    adoptions log (best-effort)."""
+    try:
+        os.makedirs(adoptions_dir, exist_ok=True)
+        with _journal_lock, open(adoptions_log_path, 'a') as f:
+            f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")}\t{kind}\t{detail}\n')
+    except OSError:
+        pass
+
+def save_snapshot(content):
+    """Write content to snapshots_dir under its md5 (when enabled).
+
+    Returns the md5 hex either way so log lines stay linkable; the
+    content-addressed name makes concurrent/duplicate saves harmless.
+    """
+    md5_hex = hashlib.md5(content.encode()).hexdigest()
+    if not save_snapshots:
+        return md5_hex
+    try:
+        os.makedirs(snapshots_dir, exist_ok=True)
+        path = os.path.join(snapshots_dir, md5_hex + '.c')
+        if not os.path.exists(path):
+            tmp = f'{path}.{threading.get_ident()}.tmp'
+            with open(tmp, 'w') as f:
+                f.write(content)
+            os.replace(tmp, path)
+    except OSError:
+        pass
+    return md5_hex
 
 files_to_copy = [
     'Makefile',
@@ -227,11 +278,22 @@ def _save_cache(cache, lock, path, persist):
             pickle.dump(data, f)
         os.replace(path + '.tmp', path)
 
-source_cache = _load_cache(SOURCE_CACHE_PATH, 'source', persist_source_cache)
-asm_cache = _load_cache(ASM_CACHE_PATH, 'asm', persist_asm_cache)
-binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary', persist_binary_cache)
-source_asm_map = _load_cache(SOURCE_ASM_MAP_PATH, 'source->asm',
-                             persist_source_asm_map)
+# Loaded by load_persistent_caches() from main() — kept empty at import
+# time so tools like replay.py can import this module cheaply.
+source_cache = {}
+asm_cache = {}
+binary_cache = {}
+source_asm_map = {}
+
+def load_persistent_caches():
+    global source_cache, asm_cache, binary_cache, source_asm_map
+    source_cache = _load_cache(SOURCE_CACHE_PATH, 'source',
+                               persist_source_cache)
+    asm_cache = _load_cache(ASM_CACHE_PATH, 'asm', persist_asm_cache)
+    binary_cache = _load_cache(BINARY_CACHE_PATH, 'binary',
+                               persist_binary_cache)
+    source_asm_map = _load_cache(SOURCE_ASM_MAP_PATH, 'source->asm',
+                                 persist_source_asm_map)
 
 def backup_caches():
     """Copy the persisted cache files to cache_backup_dir, if configured.
@@ -663,7 +725,7 @@ class SpeculativeEngine:
         return False
 
     def _build_task(self, group_id, corr_ids, perm, task_group_versions,
-                    snap_nodes, snap_groups, worker_id):
+                    snap_nodes, snap_groups, snap_hash, worker_id):
         # Check 1: before rendering (optimization — callback handles correctness)
         if self._is_cross_group_stale(group_id, task_group_versions):
             return None
@@ -683,7 +745,8 @@ class SpeculativeEngine:
             save_error_source(content, e)
             raise
 
-        return (size, cache_tag, content, group_id, perm, task_group_versions)
+        return (size, cache_tag, content, group_id, corr_ids, perm,
+                task_group_versions, snap_hash)
 
     def _on_done(self, future, worker_id, total_bar, group_bar, stats_bar,
                  stats_prefix, iteration):
@@ -712,7 +775,8 @@ class SpeculativeEngine:
                 total_bar.update(1)
                 return
 
-            size, cache_tag, content, group_id, perm, task_group_versions = result
+            (size, cache_tag, content, group_id, corr_ids, perm,
+             task_group_versions, snap_hash) = result
 
             is_run_best = False
             is_global_best = False
@@ -759,7 +823,10 @@ class SpeculativeEngine:
             if is_run_best:
                 journal_adoption(
                     'permute', f'{stats_prefix} pass {iteration} {group_id}',
-                    prev_best, size, is_global_best)
+                    prev_best, size, is_global_best,
+                    parent_hash=snap_hash, child_hash=save_snapshot(content),
+                    move={'op': 'permute', 'group': group_id,
+                          'corr_ids': corr_ids, 'perm': list(perm)})
 
             if is_run_best and stats_bar is not None:
                 with self.lock:
@@ -788,6 +855,10 @@ class SpeculativeEngine:
         snap_group_versions = dict(self.group_versions)
         snap_nodes = root_nodes
         snap_groups = groups
+        # Hash of the exact source string the snapshot trees were parsed
+        # from — the replay parent of any variant rendered against them.
+        snap_hash = hashlib.md5(
+            pass_best['best_content'].encode()).hexdigest()
 
         group_order = []
 
@@ -880,12 +951,15 @@ class SpeculativeEngine:
 
                 if needs_resnap:
                     snap_nodes, snap_groups, _ = parse_content(latest_content)
+                    snap_hash = hashlib.md5(
+                        latest_content.encode()).hexdigest()
 
                 self._drain.increment()
                 fut = self.executor.submit(
                     self._build_task,
                     gid, corr_ids, perm,
-                    snap_group_versions, snap_nodes, snap_groups, wid
+                    snap_group_versions, snap_nodes, snap_groups, snap_hash,
+                    wid
                 )
 
                 fut.add_done_callback(
@@ -974,7 +1048,7 @@ def baseline_asm_hash(baseline, src_path, worker_slot_queue):
 
 def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                     stats_prefix, round_desc, kind_label, worker_slot_queue,
-                    want_asm_hash=False):
+                    want_asm_hash=False, move_meta=None):
     """Build every (flips, label) variant, adopting improvements greedily.
 
     Each flip is (site_index, replacement_text); site spans are re-resolved
@@ -1048,7 +1122,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
             raise
         return size, cache_tag, variant, asm_hash, version
 
-    def on_done(future, wid, idx, label, sites):
+    def on_done(future, wid, idx, label, sites, flips, parent_hash):
         # The enclosing function's global statement does not reach nested
         # scopes; without this the assignments below make these names local
         # and the earlier reads raise UnboundLocalError.
@@ -1109,8 +1183,12 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
             else:
                 tag = ''
             if run_improved:
+                move = dict(move_meta or {'op': kind_label})
+                move['flips'] = [list(fl) for fl in flips]
                 journal_adoption(kind_label, f'{stats_prefix} {label}',
-                                 prev_best, size, global_improved)
+                                 prev_best, size, global_improved,
+                                 parent_hash=parent_hash,
+                                 child_hash=save_snapshot(variant), move=move)
             if run_improved or global_improved:
                 header_bar.set_description(
                     f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
@@ -1138,11 +1216,13 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                 content = state['content']
                 spans = state['spans']
                 version = len(state['adoptions'])
+            parent_hash = hashlib.md5(content.encode()).hexdigest()
             drain.increment()
             future = execr.submit(task, wid, flips, sites, content, spans,
                                   version)
             future.add_done_callback(
-                lambda f, w=wid, i=idx, l=label, s=sites: on_done(f, w, i, l, s))
+                lambda f, w=wid, i=idx, l=label, s=sites, fl=flips,
+                       p=parent_hash: on_done(f, w, i, l, s, fl, p))
         drain.wait()
 
     progress_bar.close()
@@ -1186,7 +1266,8 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
         improved, results = run_patch_round(
             singles, baseline, find_spans, src_path, pass_best, stats_prefix,
             f'{stats_prefix} {label} noop-prune singles',
-            f'{label.lower()} toggle', worker_slot_queue, want_asm_hash=True)
+            f'{label.lower()} toggle', worker_slot_queue, want_asm_hash=True,
+            move_meta={'op': 'toggle', 'macro': macro})
         if improved:
             with open(src_path, 'w') as f:
                 f.write(pass_best['best_content'])
@@ -1207,7 +1288,8 @@ def stage_toggle(macro, label, combo_size, prune_noops, src_path, pass_best,
     improved, _ = run_patch_round(
         variants, baseline, find_spans, src_path, pass_best, stats_prefix,
         f'{stats_prefix} {label} toggles (x{combo_size})',
-        f'{label.lower()} toggle', worker_slot_queue)
+        f'{label.lower()} toggle', worker_slot_queue,
+        move_meta={'op': 'toggle', 'macro': macro})
     if improved:
         with open(src_path, 'w') as f:
             f.write(pass_best['best_content'])
@@ -1253,7 +1335,7 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
         improved, results = run_patch_round(
             singles, baseline, alt_find_spans, src_path, pass_best,
             stats_prefix, f'{stats_prefix} Alt noop-prune singles', 'alt',
-            worker_slot_queue, want_asm_hash=True)
+            worker_slot_queue, want_asm_hash=True, move_meta={'op': 'alt'})
         if improved:
             with open(src_path, 'w') as f:
                 f.write(pass_best['best_content'])
@@ -1307,7 +1389,7 @@ def stage_alt(src_path, pass_best, stats_prefix, worker_slot_queue):
     improved, _ = run_patch_round(
         variants, baseline, alt_find_spans, src_path, pass_best, stats_prefix,
         f'{stats_prefix} Alt toggles (x{alt_combo_size})', 'alt',
-        worker_slot_queue)
+        worker_slot_queue, move_meta={'op': 'alt'})
     if improved:
         with open(src_path, 'w') as f:
             f.write(pass_best['best_content'])
@@ -1387,6 +1469,23 @@ def _on_sigint(signum, frame):
     _shutting_down = True
     raise KeyboardInterrupt
 
+def toolchain_fingerprint():
+    """One line naming everything a logged size depends on, so replay can
+    detect measurements taken under a different ruler."""
+    parts = [f'bprob={compress_bprob}', f'direct_bits={compress_direct_bits}']
+    try:
+        with open('compressor', 'rb') as f:
+            parts.append('compressor=' + hashlib.md5(f.read()).hexdigest())
+    except OSError:
+        pass
+    try:
+        ver = subprocess.run(['gcc', '--version'], stdout=subprocess.PIPE,
+                             text=True).stdout.splitlines()[0]
+        parts.append(f'gcc={ver}')
+    except Exception:
+        pass
+    return ' '.join(parts)
+
 def main():
     global global_best_size, global_best_src, _uid_counter
 
@@ -1445,6 +1544,10 @@ def main():
         subprocess.run(['make', 'compressor'], check=True)
         os.chmod('compressor', 0o755)
 
+    load_persistent_caches()
+    journal_event('session-start',
+                  f'{toolchain_fingerprint()} snapshots={save_snapshots}')
+
     setup_workers()
 
     engine = SpeculativeEngine(src_filename, max_parallelism)
@@ -1466,6 +1569,9 @@ def main():
         with open(src_filename, 'w') as f:
             f.write(text)
         initial_size, _, _ = run_make_and_get_size(cwd=None)
+        journal_event('run-start',
+                      f'run={run}\tinitial={save_snapshot(text)}\t'
+                      f'size={initial_size}')
 
         pass_best = {
             'initial': initial_size,
