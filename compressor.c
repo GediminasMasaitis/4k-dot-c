@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifdef __linux__
+#include <sys/mman.h>
+#endif
 
 /* CRC-32C (Castagnoli): _mm_crc32_u8 and __crc32cb use the same polynomial,
    so hashes and compressed output are identical across architectures. */
@@ -651,6 +654,36 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb, u
   }
 }
 
+/* The direct-mapped table is huge (2^30 slots = 2 GB) but the input is tiny,
+   so its hashes touch ~370k scattered 4K pages; faulting those in costs more
+   kernel time than the encode itself. Ask for transparent huge pages so the
+   table faults in 2 MB chunks instead. */
+static unsigned char *table_alloc(size_t bytes) {
+#ifdef __linux__
+  void *p = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (p == MAP_FAILED)
+    return NULL;
+  madvise(p, bytes, MADV_HUGEPAGE); /* best-effort */
+  /* Pre-fault with one WRITE per huge page: the encode reads slots before
+     writing them, and a read fault maps the shared zero page whose first
+     write then CoW-splits the region into 4K pages — the slow path. */
+  for (size_t off = 0; off < bytes; off += 2u << 20)
+    ((volatile unsigned char *)p)[off] = 0;
+  return (unsigned char *)p;
+#else
+  return (unsigned char *)calloc(bytes, 1);
+#endif
+}
+
+static void table_free(unsigned char *p, size_t bytes) {
+#ifdef __linux__
+  munmap(p, bytes);
+#else
+  (void)bytes;
+  free(p);
+#endif
+}
+
 static int compress_4k(const unsigned char *data, int size, unsigned char *out, const ModelSet *ml, int base_prob) {
   unsigned char ctx[MAX_CTX] = {};
   HashBitStream hb = compute_hash_stream(data, size, ctx, ml, 1, 1);
@@ -661,9 +694,9 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out, 
   {
     unsigned int dmask = (1u << direct_bits) - 1u;
     size_t dbytes = ((size_t)dmask + 1) * 2;
-    unsigned char *dt = (unsigned char *)calloc(dbytes, 1);
+    unsigned char *dt = table_alloc(dbytes);
     if (!dt) {
-      fprintf(stderr, "calloc(%zu) failed for direct-mapped table\n", dbytes);
+      fprintf(stderr, "alloc(%zu) failed for direct-mapped table\n", dbytes);
       exit(1);
     }
     if (verbose)
@@ -678,7 +711,7 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out, 
     }
     g_encode_ms = (mono_sec() - t0) / reps * 1000.0;
     total = arith_finish(&ac);
-    free(dt);
+    table_free(dt, dbytes);
   }
 
   hbs_free(&hb);
@@ -715,9 +748,10 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out, 
   unsigned char *dp = buf + MAX_CTX;
 
   unsigned int dmask = (1u << direct_bits) - 1u;
-  unsigned char *dt = (unsigned char *)calloc((size_t)dmask + 1, 2);
+  size_t dbytes = ((size_t)dmask + 1) * 2;
+  unsigned char *dt = table_alloc(dbytes);
   if (!dt) {
-    fprintf(stderr, "calloc failed for direct-mapped table\n");
+    fprintf(stderr, "alloc failed for direct-mapped table\n");
     exit(1);
   }
 
@@ -769,7 +803,7 @@ static int decompress_4k_direct(const unsigned char *cdata, unsigned char *out, 
 
   memcpy(out, dp, data_bytes);
   free(buf);
-  free(dt);
+  table_free(dt, dbytes);
   return data_bytes;
 }
 

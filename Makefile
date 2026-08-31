@@ -64,7 +64,7 @@ all:
 	@$(MAP_CHECK)
 	$(MD5)
 
-compressor:
+compressor: compressor.c
 	$(CC) -march=native -O3 -std=gnu2x -lm -o compressor compressor.c
 
 compile_asm:
