@@ -1,3 +1,4 @@
+import atexit
 import re
 import sys
 import itertools
@@ -62,6 +63,16 @@ errors_dir = 'errors'
 # make the log fully replayable (see replay.py).
 save_snapshots = True
 snapshots_dir = 'snapshots'
+# Compressor server: one persistent './compressor -S' per worker dir keeps
+# the 2 GB direct-mapped table allocated across jobs (undo-log reset).
+use_compressor_server = True
+# Warm-started model search: screen variants with the search restricted to
+# the incumbent model set's masks (plus warm_extra_masks). Screening sizes
+# are seed-dependent, so every would-be adoption is re-verified with a
+# from-scratch full search before being accepted, and the persistent caches
+# only ever store full-search sizes.
+warm_start_search = True
+warm_extra_masks = ''  # extra hex masks for the warm sweep, e.g. '2C 85 79'
 
 class CountdownEvent:
     def __init__(self):
@@ -120,19 +131,19 @@ def print_cache_stats(prefix=''):
         src_total = source_cache_hits + source_cache_misses
         if src_total > 0:
             lines.append(f'{prefix}Source cache: {source_cache_hits} hits, {source_cache_misses} misses, '
-                         f'{len(source_cache)} unique sources '
+                         f'{len(source_cache)} full + {len(warm_source_cache)} warm sources '
                          f'({100*source_cache_hits/src_total:.1f}% hit rate)')
     with asm_cache_lock:
         asm_total = asm_cache_hits + asm_cache_misses
         if asm_total > 0:
             lines.append(f'{prefix}Asm cache: {asm_cache_hits} hits, {asm_cache_misses} misses, '
-                         f'{len(asm_cache)} unique assemblies '
+                         f'{len(asm_cache)} full + {len(warm_asm_cache)} warm assemblies '
                          f'({100*asm_cache_hits/asm_total:.1f}% hit rate)')
     with binary_cache_lock:
         bin_total = binary_cache_hits + binary_cache_misses
         if bin_total > 0:
             lines.append(f'{prefix}Binary cache: {binary_cache_hits} hits, {binary_cache_misses} misses, '
-                         f'{len(binary_cache)} unique binaries '
+                         f'{len(binary_cache)} full + {len(warm_binary_cache)} warm binaries '
                          f'({100*binary_cache_hits/bin_total:.1f}% hit rate)')
     if lines:
         tqdm.write('\n'.join(lines))
@@ -297,6 +308,107 @@ def load_persistent_caches():
                                persist_binary_cache)
     source_asm_map = _load_cache(SOURCE_ASM_MAP_PATH, 'source->asm',
                                  persist_source_asm_map)
+
+# =============================================
+# Compressor server management (one per worker dir) and warm-start state
+# =============================================
+_servers = {}          # cwd key -> CompressorServer
+_servers_lock = threading.Lock()
+_warm_seed = None      # incumbent model set (authoritative full-search result)
+_warm_seed_lock = threading.Lock()
+
+# Screening caches for warm (seed-dependent) sizes: in-memory only, keyed
+# (digest, seed_tag) so entries from different seed epochs never mix. The
+# persistent pickle caches hold only full-search sizes.
+warm_source_cache = {}
+warm_asm_cache = {}
+warm_binary_cache = {}
+
+class CompressorServer:
+    """Client for one './compressor -S' process rooted in a worker dir."""
+
+    def __init__(self, cwd):
+        self.cwd = cwd or '.'
+        self.lock = threading.Lock()
+        self.proc = None
+
+    def _spawn(self):
+        self.proc = subprocess.Popen(
+            ['./compressor', '-b', str(compress_bprob),
+             '-H', str(compress_direct_bits), '-S'],
+            cwd=self.cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True, bufsize=1)
+
+    def _request_once(self, line):
+        if self.proc is None or self.proc.poll() is not None:
+            self._spawn()
+        self.proc.stdin.write(line + '\n')
+        self.proc.stdin.flush()
+        reply = self.proc.stdout.readline()
+        if not reply:
+            raise RuntimeError('compressor server died')
+        parts = reply.rstrip('\n').split('\t')
+        if parts[0] != 'OK' or len(parts) < 3:
+            raise RuntimeError(f'compressor server error: {reply.strip()}')
+        return int(parts[1]), parts[2]
+
+    def compress(self, exe_rel, seed=None):
+        """Returns (size_bits, models). seed=None runs the full search."""
+        if seed is not None:
+            line = f'warm\t{exe_rel}\t{seed}'
+            if warm_extra_masks:
+                line += f'\t{warm_extra_masks}'
+        else:
+            line = f'full\t{exe_rel}'
+        with self.lock:
+            try:
+                return self._request_once(line)
+            except (RuntimeError, OSError, BrokenPipeError):
+                self.kill()
+                return self._request_once(line)
+
+    def kill(self):
+        if self.proc is not None:
+            try:
+                self.proc.kill()
+            except OSError:
+                pass
+            self.proc = None
+
+def _get_server(cwd):
+    key = cwd or '.'
+    with _servers_lock:
+        srv = _servers.get(key)
+        if srv is None:
+            srv = CompressorServer(cwd)
+            _servers[key] = srv
+        return srv
+
+def shutdown_servers():
+    with _servers_lock:
+        for srv in _servers.values():
+            srv.kill()
+        _servers.clear()
+
+atexit.register(shutdown_servers)
+
+def get_warm_seed():
+    with _warm_seed_lock:
+        return _warm_seed
+
+def set_warm_seed(models):
+    global _warm_seed
+    if not models:
+        return
+    with _warm_seed_lock:
+        _warm_seed = models
+
+def warm_active():
+    return (use_compressor_server and warm_start_search and use_compression
+            and get_warm_seed() is not None)
+
+def _seed_tag(seed):
+    return hashlib.md5(seed.encode()).hexdigest()[:8]
 
 def backup_caches():
     """Copy the persisted cache files to cache_backup_dir, if configured.
@@ -494,7 +606,8 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
         rendered.append(render_node(node, group_id, correlated_ids, perm, original_groups, occurrence_counters))
     return ''.join(rendered)
 
-def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
+def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False,
+                          mode='auto'):
     """Returns (size, cache_tag, asm_hash, models).
 
     asm_hash is None unless it happened to be computed, or want_asm_hash is
@@ -502,24 +615,43 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
     source->asm map already knows the hash (otherwise we compile for it).
     models is the compressor's chosen model set string, known only when the
     compressor actually ran (None on cache hits and without compression).
+
+    mode 'auto' screens with the warm-started search when active; those
+    sizes are seed-dependent and cached in-memory only, keyed by the seed
+    epoch. mode 'full' bypasses every cache lookup and measures with the
+    from-scratch search — its sizes feed the persistent caches and its
+    models are authoritative.
     """
     global source_cache_hits, source_cache_misses
     global asm_cache_hits, asm_cache_misses
     global binary_cache_hits, binary_cache_misses
 
-    # Source-level cache: skip compile + compress entirely
+    warm = mode != 'full' and warm_active()
+    seed = get_warm_seed() if warm else None
+    tag = _seed_tag(seed) if warm else None
+    src_cache = warm_source_cache if warm else source_cache
+    a_cache = warm_asm_cache if warm else asm_cache
+    b_cache = warm_binary_cache if warm else binary_cache
+
+    def key(h):
+        return (h, tag) if warm else h
+
     if enable_source_cache and use_compression and source_content is not None:
         src_hash = hashlib.md5(source_content.encode()).digest()
+    else:
+        src_hash = None
+
+    # Source-level cache: skip compile + compress entirely ('full' always
+    # rebuilds so its size and models are authoritative)
+    if src_hash is not None and mode != 'full':
         with source_asm_map_lock:
             known_asm = source_asm_map.get(src_hash)
         with source_cache_lock:
-            if src_hash in source_cache and \
+            if key(src_hash) in src_cache and \
                     (not want_asm_hash or known_asm is not None):
                 source_cache_hits += 1
-                return source_cache[src_hash], '(S)', known_asm, None
+                return src_cache[key(src_hash)], '(S)', known_asm, None
             source_cache_misses += 1
-    else:
-        src_hash = None
 
     if not use_compression:
         # No compression — just build and measure raw size
@@ -576,15 +708,15 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
     else:
         asm_hash = None
 
-    if asm_hash is not None and enable_asm_cache:
+    if asm_hash is not None and enable_asm_cache and mode != 'full':
         with asm_cache_lock:
-            if asm_hash in asm_cache:
+            if key(asm_hash) in a_cache:
                 asm_cache_hits += 1
-                size = asm_cache[asm_hash]
+                size = a_cache[key(asm_hash)]
                 # Backfill source cache
                 if src_hash is not None:
                     with source_cache_lock:
-                        source_cache[src_hash] = size
+                        src_cache[key(src_hash)] = size
                 return size, '(A)', asm_hash, None
             asm_cache_misses += 1
 
@@ -610,63 +742,69 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
         with open(exe_abs, 'rb') as f:
             binary_hash = hashlib.md5(f.read()).digest()
 
-        with binary_cache_lock:
-            if binary_hash in binary_cache:
-                binary_cache_hits += 1
-                size = binary_cache[binary_hash]
-                # Backfill source and asm caches
-                if src_hash is not None:
-                    with source_cache_lock:
-                        source_cache[src_hash] = size
-                if asm_hash is not None:
-                    with asm_cache_lock:
-                        asm_cache[asm_hash] = size
-                return size, '(B)', asm_hash, None
-            binary_cache_misses += 1
+        if mode != 'full':
+            with binary_cache_lock:
+                if key(binary_hash) in b_cache:
+                    binary_cache_hits += 1
+                    size = b_cache[key(binary_hash)]
+                    # Backfill source and asm caches
+                    if src_hash is not None:
+                        with source_cache_lock:
+                            src_cache[key(src_hash)] = size
+                    if asm_hash is not None:
+                        with asm_cache_lock:
+                            a_cache[key(asm_hash)] = size
+                    return size, '(B)', asm_hash, None
+                binary_cache_misses += 1
     else:
         binary_hash = None
 
-    # Step 5: Cache miss — run compressor (paths relative to cwd)
+    # Step 5: Cache miss — run compressor (server when enabled, else a
+    # one-shot subprocess; paths relative to cwd)
     exe_rel = './build/4kc'
-    try:
-        proc = subprocess.run(
-            ['./compressor', '-b', str(compress_bprob),
-             '-H', str(compress_direct_bits), '-o', exe_rel + '.paq', exe_rel],
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            check=True
-        )
-    except subprocess.CalledProcessError as e:
-        print("Compressor failed with output:")
-        print(e.output)
-        print("cwd:", cwd)
-        raise
-    m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
-    if not m:
-        raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
-    size = int(m.group(1))
-    model_lines = re.findall(r'Models:\s+(.+)', proc.stdout)
-    models = model_lines[-1].strip() if model_lines else None
+    if use_compressor_server:
+        size, models = _get_server(cwd).compress(exe_rel, seed)
+    else:
+        try:
+            proc = subprocess.run(
+                ['./compressor', '-b', str(compress_bprob),
+                 '-H', str(compress_direct_bits), '-o', exe_rel + '.paq', exe_rel],
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print("Compressor failed with output:")
+            print(e.output)
+            print("cwd:", cwd)
+            raise
+        m = re.search(r'Compressed:\s+\d+\s+bytes\s+(\d+)\s+bits', proc.stdout)
+        if not m:
+            raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
+        size = int(m.group(1))
+        model_lines = re.findall(r'Models:\s+(.+)', proc.stdout)
+        models = model_lines[-1].strip() if model_lines else None
 
-    # Step 6: Store in caches and persist periodically
+    # Step 6: Store in caches; persist periodically (full-search sizes only
+    # — warm screening sizes never reach the pickles)
     if binary_hash is not None:
         with binary_cache_lock:
-            binary_cache[binary_hash] = size
-            should_save = (binary_cache_misses % 10 == 0)
+            b_cache[key(binary_hash)] = size
+            should_save = not warm and (binary_cache_misses % 10 == 0)
         if should_save:
             _save_cache(binary_cache, binary_cache_lock, BINARY_CACHE_PATH, persist_binary_cache)
     if asm_hash is not None:
         with asm_cache_lock:
-            asm_cache[asm_hash] = size
-            should_save_asm = (asm_cache_misses % 10 == 0)
+            a_cache[key(asm_hash)] = size
+            should_save_asm = not warm and (asm_cache_misses % 10 == 0)
         if should_save_asm:
             _save_cache(asm_cache, asm_cache_lock, ASM_CACHE_PATH, persist_asm_cache)
     if src_hash is not None:
         with source_cache_lock:
-            source_cache[src_hash] = size
-            should_save_src = (source_cache_misses % 10 == 0)
+            src_cache[key(src_hash)] = size
+            should_save_src = not warm and (source_cache_misses % 10 == 0)
         if should_save_src:
             _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
             _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH, persist_source_asm_map)
@@ -678,13 +816,52 @@ def read_file(path):
         return f.read()
 
 def setup_workers():
-    for wid in range(max_parallelism):
-        workdir = f'worker_{wid}'
+    # worker_verify is the dedicated dir for authoritative full-search
+    # measurements (adoption gating), separate from the screening workers.
+    names = [f'worker_{wid}' for wid in range(max_parallelism)]
+    names.append('worker_verify')
+    for workdir in names:
         if os.path.exists(workdir):
             shutil.rmtree(workdir)
         os.makedirs(workdir)
         for fname in files_to_copy:
             shutil.copy2(fname, os.path.join(workdir, fname))
+
+_verify_lock = threading.Lock()
+
+def measure_in_verify_dir(content, src_path, mode):
+    """Measure content in the dedicated verify worker dir."""
+    with _verify_lock:
+        with open(os.path.join('worker_verify', src_path), 'w') as f:
+            f.write(content)
+        return run_make_and_get_size(cwd='worker_verify',
+                                     source_content=content, mode=mode)
+
+def adjudicate_adoption(content, src_path, still_worth_it=None):
+    """Authoritative measurement gating an adoption while warm screening is
+    active: a from-scratch search plus a warm job on the same binary. Both
+    produce real encodes, and the from-scratch greedy sometimes lands in a
+    worse local optimum than the warm-seeded search — the achievable size
+    is the better of the two. Returns (size, models) for the winner, a
+    consistent pair the adoptions log can certify.
+
+    Candidates queue on the verify lock; still_worth_it() is re-checked
+    after acquiring it so candidates beaten by an adoption that landed
+    while they waited skip the expensive search — returns (None, None)."""
+    with _verify_lock:
+        if still_worth_it is not None and not still_worth_it():
+            return None, None
+        with open(os.path.join('worker_verify', src_path), 'w') as f:
+            f.write(content)
+        fsize, _, _, fmodels = run_make_and_get_size(
+            cwd='worker_verify', source_content=content, mode='full')
+        seed = get_warm_seed()
+        if use_compressor_server and seed is not None:
+            wsize, wmodels = _get_server('worker_verify').compress(
+                './build/4kc', seed)
+            if wsize < fsize:
+                return wsize, wmodels
+        return fsize, fmodels
 
 def parse_content(content):
     global _uid_counter
@@ -707,7 +884,8 @@ class SpeculativeEngine:
 
         self.lock = threading.Lock()
         self.group_versions = {}   # group_id -> int, bumped on each improvement
-        self.best_size = float('inf')
+        self.best_size = float('inf')   # screening-ruler size of best_content
+        self.best_full = float('inf')   # authoritative (full-search) size
         self.best_content = None
 
         self.worker_slots = Queue()
@@ -789,32 +967,93 @@ class SpeculativeEngine:
             is_run_best = False
             is_global_best = False
             is_stale = False
+            verify_rejected = False
             prev_best = None
+            full_size = None
+            full_models = models
+            wa = warm_active()
 
+            # Screening check: is this a candidate at all?
             with self.lock:
                 if self._is_cross_group_stale(group_id, task_group_versions):
                     # A different group improved since this task was dispatched
                     self._stale_discards += 1
                     is_stale = True
-                elif size < self.best_size:
-                    prev_best = self.best_size
-                    self.best_size = size
-                    self.best_content = content
-                    self.group_versions[group_id] = self.group_versions.get(group_id, 0) + 1
-                    self._improvements += 1
-                    is_run_best = True
+                candidate = not is_stale and size < self.best_size
 
-                if not is_stale:
-                    with global_best_lock:
-                        if size < global_best_size:
-                            global_best_size = size
-                            global_best_src = content
-                            is_global_best = True
-                            try:
-                                with open('global_best.c', 'w') as gf:
-                                    gf.write(content)
-                            except Exception:
-                                pass
+            superseded = False
+            if candidate and wa:
+                # The screening ruler is seed-dependent; gate the adoption on
+                # an authoritative from-scratch measurement.
+                def _still_worth_it():
+                    with self.lock:
+                        return (not self._is_cross_group_stale(
+                                    group_id, task_group_versions) and
+                                size < self.best_size)
+                try:
+                    full_size, full_models = adjudicate_adoption(
+                        content, self.src_path, _still_worth_it)
+                except Exception as e:
+                    group_bar.write(f'  Adoption verify failed: {e}')
+                    candidate = False
+                if candidate and full_size is None:
+                    candidate = False
+                    superseded = True
+
+            if not is_stale:
+                with self.lock:
+                    if candidate and self._is_cross_group_stale(
+                            group_id, task_group_versions):
+                        self._stale_discards += 1
+                        is_stale = True
+                    elif candidate and size < self.best_size and \
+                            (full_size is None or full_size < self.best_full):
+                        prev_best = self.best_full
+                        self.best_size = size
+                        self.best_full = full_size if full_size is not None \
+                            else size
+                        self.best_content = content
+                        self.group_versions[group_id] = \
+                            self.group_versions.get(group_id, 0) + 1
+                        self._improvements += 1
+                        is_run_best = True
+                    elif candidate and full_size is not None:
+                        verify_rejected = True
+
+                    if not is_stale:
+                        with global_best_lock:
+                            # Global best is tracked in the authoritative
+                            # ruler: screening sizes only qualify when they
+                            # ARE authoritative (warm inactive).
+                            gsize = self.best_full if is_run_best else \
+                                (None if wa else size)
+                            if gsize is not None and gsize < global_best_size:
+                                global_best_size = gsize
+                                global_best_src = content
+                                is_global_best = True
+                                try:
+                                    with open('global_best.c', 'w') as gf:
+                                        gf.write(content)
+                                except Exception:
+                                    pass
+
+            if is_run_best and wa:
+                # Re-anchor: the adoption's full search refreshes the seed;
+                # re-screen the new best under the new seed so subsequent
+                # screening comparisons share its ruler.
+                set_warm_seed(full_models)
+                try:
+                    new_screen = measure_in_verify_dir(
+                        content, self.src_path, 'auto')[0]
+                    with self.lock:
+                        if self.best_content is content:
+                            self.best_size = new_screen
+                            # The re-screen is a real encode too; it can
+                            # beat the adjudicated size.
+                            if new_screen < self.best_full:
+                                self.best_full = new_screen
+                except Exception as e:
+                    group_bar.write(f'  Re-screen after adoption failed: {e}')
 
             if is_stale:
                 tag = "(stale)"
@@ -822,6 +1061,13 @@ class SpeculativeEngine:
                 tag = "NEW GLOBAL BEST!"
             elif is_run_best:
                 tag = "NEW RUN BEST!"
+            elif verify_rejected:
+                with self.lock:
+                    tag = (f"(verify rejected: full {fmt_size(full_size)} vs "
+                           f"best {fmt_size(self.best_size)}/"
+                           f"{fmt_size(self.best_full)})")
+            elif superseded:
+                tag = "(superseded during verify)"
             else:
                 tag = ""
             group_bar.write(
@@ -831,11 +1077,12 @@ class SpeculativeEngine:
             if is_run_best:
                 journal_adoption(
                     'permute', f'{stats_prefix} pass {iteration} {group_id}',
-                    prev_best, size, is_global_best,
+                    prev_best, full_size if full_size is not None else size,
+                    is_global_best,
                     parent_hash=snap_hash, child_hash=save_snapshot(content),
                     move={'op': 'permute', 'group': group_id,
                           'corr_ids': corr_ids, 'perm': list(perm)},
-                    models=models)
+                    models=full_models)
 
             if is_run_best and stats_bar is not None:
                 with self.lock:
@@ -1000,6 +1247,7 @@ class SpeculativeEngine:
             with open(self.src_path, 'w') as f:
                 f.write(self.best_content)
             pass_best['best'] = self.best_size
+            pass_best['best_full'] = self.best_full
             pass_best['best_content'] = self.best_content
 
         return improved
@@ -1152,30 +1400,71 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
             run_improved = False
             global_improved = False
             stale = False
+            verify_rejected = False
             prev_best = None
+            full_size = None
+            full_models = models
+            wa = warm_active()
+
             with lock:
                 if is_stale_locked(sites, version):
                     state['stale'] += 1
                     stale = True
                 else:
                     results[idx] = (size, asm_hash)
-                    if size < pass_best['best']:
+                candidate = not stale and size < pass_best['best']
+
+            superseded = False
+            if candidate and wa:
+                # Screening sizes are seed-dependent; gate the adoption on an
+                # authoritative from-scratch measurement.
+                def _still_worth_it():
+                    with lock:
+                        return (not is_stale_locked(sites, version) and
+                                size < pass_best['best'])
+                try:
+                    full_size, full_models = adjudicate_adoption(
+                        variant, src_path, _still_worth_it)
+                except Exception as e:
+                    progress_bar.write(
+                        f'  Adoption verify failed ({label}): {e}')
+                    candidate = False
+                if candidate and full_size is None:
+                    candidate = False
+                    superseded = True
+
+            with lock:
+                if not stale:
+                    if candidate and is_stale_locked(sites, version):
+                        state['stale'] += 1
+                        stale = True
+                    elif candidate and size < pass_best['best'] and \
+                            (full_size is None or
+                             full_size < pass_best['best_full']):
                         new_spans = find_spans(variant)
                         if len(new_spans) != nsites:
                             raise RuntimeError(
                                 f'{kind_label}: site count changed on adoption '
                                 f'({nsites} -> {len(new_spans)})')
-                        prev_best = pass_best['best']
+                        prev_best = pass_best['best_full']
                         pass_best['best'] = size
+                        pass_best['best_full'] = full_size \
+                            if full_size is not None else size
                         pass_best['best_content'] = variant
                         state['content'] = variant
                         state['spans'] = new_spans
                         state['adoptions'].append(sites)
                         state['improvements'] += 1
                         run_improved = True
+                    elif candidate and full_size is not None:
+                        verify_rejected = True
                     with global_best_lock:
-                        if size < global_best_size:
-                            global_best_size = size
+                        # Global best tracks the authoritative ruler:
+                        # screening sizes only qualify when warm is inactive.
+                        gsize = pass_best['best_full'] if run_improved else \
+                            (None if wa else size)
+                        if gsize is not None and gsize < global_best_size:
+                            global_best_size = gsize
                             global_best_src = variant
                             with open('global_best.c', 'w') as gf:
                                 gf.write(global_best_src)
@@ -1183,22 +1472,48 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                 cur_best = pass_best['best']
                 cur_saved = pass_best['initial'] - cur_best
 
+            if run_improved and wa:
+                # Re-anchor the screening ruler on the adopted content.
+                set_warm_seed(full_models)
+                try:
+                    new_screen = measure_in_verify_dir(
+                        variant, src_path, 'auto')[0]
+                    with lock:
+                        if state['content'] is variant:
+                            pass_best['best'] = new_screen
+                            # The re-screen is a real encode too; it can
+                            # beat the adjudicated size.
+                            if new_screen < pass_best['best_full']:
+                                pass_best['best_full'] = new_screen
+                except Exception as e:
+                    progress_bar.write(
+                        f'  Re-screen after adoption failed ({label}): {e}')
+
             if stale:
                 tag = '(stale)'
             elif global_improved:
                 tag = 'NEW GLOBAL'
             elif run_improved:
                 tag = 'NEW RUN'
+            elif verify_rejected:
+                with lock:
+                    tag = (f'(verify rejected: full {fmt_size(full_size)} vs '
+                           f'best {fmt_size(pass_best["best"])}/'
+                           f'{fmt_size(pass_best["best_full"])})')
+            elif superseded:
+                tag = '(superseded during verify)'
             else:
                 tag = ''
             if run_improved:
                 move = dict(move_meta or {'op': kind_label})
                 move['flips'] = [list(fl) for fl in flips]
                 journal_adoption(kind_label, f'{stats_prefix} {label}',
-                                 prev_best, size, global_improved,
+                                 prev_best,
+                                 full_size if full_size is not None else size,
+                                 global_improved,
                                  parent_hash=parent_hash,
                                  child_hash=save_snapshot(variant), move=move,
-                                 models=models)
+                                 models=full_models)
             if run_improved or global_improved:
                 header_bar.set_description(
                     f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
@@ -1575,27 +1890,43 @@ def main():
             text = shuffle_tree(root_nodes, src_filename)
             text = shuffle_choice_macros(text)
 
-        # Get initial size
+        # Get initial size: an authoritative full-search measurement, which
+        # also provides the seed model set for warm screening.
         with open(src_filename, 'w') as f:
             f.write(text)
-        initial_size, _, _, _ = run_make_and_get_size(cwd=None)
+        initial_size, _, _, init_models = measure_in_verify_dir(
+            text, src_filename, 'full')
         journal_event('run-start',
                       f'run={run}\tinitial={save_snapshot(text)}\t'
                       f'size={initial_size}')
+        if use_compressor_server and warm_start_search and init_models:
+            set_warm_seed(init_models)
 
+        screen_initial = initial_size
+        if warm_active():
+            screen_initial = measure_in_verify_dir(
+                text, src_filename, 'auto')[0]
+            print(f'Warm screening active (seed: {len(init_models.split())} '
+                  f'models); screening initial: {fmt_size(screen_initial)}')
+
+        # Both measurements are real encodes; the achievable size of the
+        # starting point is the better of the two.
+        initial_full = min(initial_size, screen_initial)
         pass_best = {
-            'initial': initial_size,
-            'best': initial_size,
+            'initial': screen_initial,
+            'best': screen_initial,
+            'best_full': initial_full,
             'best_content': text,
         }
 
-        engine.best_size = initial_size
+        engine.best_size = screen_initial
+        engine.best_full = initial_full
         engine.best_content = text
         engine.group_versions = {}
 
         with global_best_lock:
             if global_best_size == float('inf'):
-                global_best_size = initial_size
+                global_best_size = initial_full
                 global_best_src = text
                 with open('global_best.c', 'w') as gf:
                     gf.write(text)
@@ -1628,6 +1959,7 @@ def main():
                         if improved:
                             any_improved = True
                             engine.best_size = pass_best['best']
+                            engine.best_full = pass_best['best_full']
                             engine.best_content = pass_best['best_content']
                             # Alt flips are cross-cutting; bump a special
                             # group to invalidate in-flight permutation tasks
@@ -1655,6 +1987,7 @@ def main():
                     if improved:
                         any_improved = True
                         engine.best_size = pass_best['best']
+                        engine.best_full = pass_best['best_full']
                         engine.best_content = pass_best['best_content']
                         # Toggles are cross-cutting; bump a special group to
                         # invalidate all in-flight permutation tasks
@@ -1670,7 +2003,8 @@ def main():
                 break
             iteration += 1
 
-        print(f'\nRun {run} completed. Run-best: {fmt_size(pass_best["best"])}')
+        print(f'\nRun {run} completed. '
+              f'Run-best: {fmt_size(pass_best["best_full"])}')
         print(f'Global best after run {run}: {fmt_size(global_best_size)}')
         print_cache_stats()
 
