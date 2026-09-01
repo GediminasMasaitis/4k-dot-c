@@ -149,7 +149,8 @@ adoptions_log_path = os.path.join(
     adoptions_dir, time.strftime('%Y-%m-%d_%H-%M-%S') + '.log')
 
 def journal_adoption(kind, detail, old_size, new_size, is_global,
-                     parent_hash=None, child_hash=None, move=None):
+                     parent_hash=None, child_hash=None, move=None,
+                     models=None):
     """Append an adopted run-best improvement to the adoptions log
     (best-effort).
 
@@ -165,6 +166,8 @@ def journal_adoption(kind, detail, old_size, new_size, is_global,
         extra += f'\tchild={child_hash}'
     if move is not None:
         extra += f'\tmove={json.dumps(move, separators=(",", ":"))}'
+    if models is not None:
+        extra += f'\tmodels={models}'
     try:
         os.makedirs(adoptions_dir, exist_ok=True)
         with _journal_lock, open(adoptions_log_path, 'a') as f:
@@ -492,11 +495,13 @@ def render_tree(nodes, group_id=None, correlated_ids=None, perm=None, original_g
     return ''.join(rendered)
 
 def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
-    """Returns (size, cache_tag, asm_hash).
+    """Returns (size, cache_tag, asm_hash, models).
 
     asm_hash is None unless it happened to be computed, or want_asm_hash is
     set — in which case the source-cache shortcut is only taken when the
     source->asm map already knows the hash (otherwise we compile for it).
+    models is the compressor's chosen model set string, known only when the
+    compressor actually ran (None on cache hits and without compression).
     """
     global source_cache_hits, source_cache_misses
     global asm_cache_hits, asm_cache_misses
@@ -511,7 +516,7 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
             if src_hash in source_cache and \
                     (not want_asm_hash or known_asm is not None):
                 source_cache_hits += 1
-                return source_cache[src_hash], '(S)', known_asm
+                return source_cache[src_hash], '(S)', known_asm, None
             source_cache_misses += 1
     else:
         src_hash = None
@@ -541,7 +546,7 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
             if os.path.exists(asm_abs):
                 with open(asm_abs, 'rb') as f:
                     asm_hash = hashlib.md5(f.read()).digest()
-        return int(m.group(1)), '', asm_hash
+        return int(m.group(1)), '', asm_hash, None
 
     # Step 1: Compile to assembly
     try:
@@ -580,7 +585,7 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
                 if src_hash is not None:
                     with source_cache_lock:
                         source_cache[src_hash] = size
-                return size, '(A)', asm_hash
+                return size, '(A)', asm_hash, None
             asm_cache_misses += 1
 
     # Step 3: Assemble and link
@@ -616,7 +621,7 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
                 if asm_hash is not None:
                     with asm_cache_lock:
                         asm_cache[asm_hash] = size
-                return size, '(B)', asm_hash
+                return size, '(B)', asm_hash, None
             binary_cache_misses += 1
     else:
         binary_hash = None
@@ -642,6 +647,8 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
     if not m:
         raise RuntimeError("Failed to parse 'Compressed: N bytes M bits' from compressor output:\n" + proc.stdout)
     size = int(m.group(1))
+    model_lines = re.findall(r'Models:\s+(.+)', proc.stdout)
+    models = model_lines[-1].strip() if model_lines else None
 
     # Step 6: Store in caches and persist periodically
     if binary_hash is not None:
@@ -664,7 +671,7 @@ def run_make_and_get_size(cwd=None, source_content=None, want_asm_hash=False):
             _save_cache(source_cache, source_cache_lock, SOURCE_CACHE_PATH, persist_source_cache)
             _save_cache(source_asm_map, source_asm_map_lock, SOURCE_ASM_MAP_PATH, persist_source_asm_map)
 
-    return size, '', asm_hash
+    return size, '', asm_hash, models
 
 def read_file(path):
     with open(path, 'r') as f:
@@ -740,13 +747,14 @@ class SpeculativeEngine:
         with open(os.path.join(workdir, self.src_path), 'w') as f:
             f.write(content)
         try:
-            size, cache_tag, _ = run_make_and_get_size(cwd=workdir, source_content=content)
+            size, cache_tag, _, models = run_make_and_get_size(
+                cwd=workdir, source_content=content)
         except Exception as e:
             save_error_source(content, e)
             raise
 
         return (size, cache_tag, content, group_id, corr_ids, perm,
-                task_group_versions, snap_hash)
+                task_group_versions, snap_hash, models)
 
     def _on_done(self, future, worker_id, total_bar, group_bar, stats_bar,
                  stats_prefix, iteration):
@@ -776,7 +784,7 @@ class SpeculativeEngine:
                 return
 
             (size, cache_tag, content, group_id, corr_ids, perm,
-             task_group_versions, snap_hash) = result
+             task_group_versions, snap_hash, models) = result
 
             is_run_best = False
             is_global_best = False
@@ -826,7 +834,8 @@ class SpeculativeEngine:
                     prev_best, size, is_global_best,
                     parent_hash=snap_hash, child_hash=save_snapshot(content),
                     move={'op': 'permute', 'group': group_id,
-                          'corr_ids': corr_ids, 'perm': list(perm)})
+                          'corr_ids': corr_ids, 'perm': list(perm)},
+                    models=models)
 
             if is_run_best and stats_bar is not None:
                 with self.lock:
@@ -1031,13 +1040,13 @@ def build_patch_option(baseline, patches, src_path, worker_slot_queue,
         with open(os.path.join(workdir, src_path), 'w') as f:
             f.write(variant)
         try:
-            size, cache_tag, asm_hash = run_make_and_get_size(
+            size, cache_tag, asm_hash, models = run_make_and_get_size(
                 cwd=workdir, source_content=variant,
                 want_asm_hash=want_asm_hash)
         except Exception as e:
             save_error_source(variant, e)
             raise
-        return size, cache_tag, variant, asm_hash
+        return size, cache_tag, variant, asm_hash, models
     finally:
         worker_slot_queue.put(worker_id)
 
@@ -1114,13 +1123,13 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
         with open(os.path.join(workdir, src_path), 'w') as f:
             f.write(variant)
         try:
-            size, cache_tag, asm_hash = run_make_and_get_size(
+            size, cache_tag, asm_hash, models = run_make_and_get_size(
                 cwd=workdir, source_content=variant,
                 want_asm_hash=want_asm_hash)
         except Exception as e:
             save_error_source(variant, e)
             raise
-        return size, cache_tag, variant, asm_hash, version
+        return size, cache_tag, variant, asm_hash, version, models
 
     def on_done(future, wid, idx, label, sites, flips, parent_hash):
         # The enclosing function's global statement does not reach nested
@@ -1138,7 +1147,7 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                 with lock:
                     state['stale'] += 1
                 return
-            size, cache_tag, variant, asm_hash, version = result
+            size, cache_tag, variant, asm_hash, version, models = result
 
             run_improved = False
             global_improved = False
@@ -1188,7 +1197,8 @@ def run_patch_round(variants, baseline, find_spans, src_path, pass_best,
                 journal_adoption(kind_label, f'{stats_prefix} {label}',
                                  prev_best, size, global_improved,
                                  parent_hash=parent_hash,
-                                 child_hash=save_snapshot(variant), move=move)
+                                 child_hash=save_snapshot(variant), move=move,
+                                 models=models)
             if run_improved or global_improved:
                 header_bar.set_description(
                     f'{stats_prefix}   Run best: {fmt_size(cur_best)}'
@@ -1568,7 +1578,7 @@ def main():
         # Get initial size
         with open(src_filename, 'w') as f:
             f.write(text)
-        initial_size, _, _ = run_make_and_get_size(cwd=None)
+        initial_size, _, _, _ = run_make_and_get_size(cwd=None)
         journal_event('run-start',
                       f'run={run}\tinitial={save_snapshot(text)}\t'
                       f'size={initial_size}')
