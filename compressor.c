@@ -60,6 +60,15 @@ static int direct_bits = 24;   /* direct-mapped table of 2^direct_bits 2-byte
 static int timing_reps = 1;    /* repeat the encode pass for stable timing */
 static double g_encode_ms = 0; /* last encode pass time, ms/iteration */
 static int large_field = 0;
+static int server_mode = 0; /* -S: persistent job loop on stdin/stdout */
+
+/* Server-mode persistent state: the direct-mapped table survives across
+   jobs; every touched slot is recorded in the undo log and re-zeroed after
+   the job, so each encode still starts from an all-zero table without
+   re-faulting/re-zeroing 2 GB per invocation. */
+static unsigned char *serv_dt = NULL;
+static unsigned int *serv_undo = NULL;
+static size_t serv_undo_len = 0, serv_undo_cap = 0;
 
 static int hdr_bitlen_bytes(void) { return large_field ? 4 : 2; }
 static int hdr_base_bytes(void) { return large_field ? 8 : 6; }
@@ -539,7 +548,11 @@ static int64_t eval_evaluate(Evaluator *ev, const ModelSet *ml) {
   return ev->cost;
 }
 
-static CompState *state_new(const unsigned char *data, int size, int base_prob, Evaluator *eval, const unsigned char *ctx) {
+/* mask_list restricts the estimator to those masks (NULL = all 256).
+   Unlisted masks get no prediction blocks, so only sets drawn from the
+   list may be evaluated against a restricted state. */
+static CompState *state_new(const unsigned char *data, int size, int base_prob, Evaluator *eval, const unsigned char *ctx, const unsigned char *mask_list,
+                            int num_masks) {
   CompState *cs = (CompState *)calloc(1, sizeof(CompState));
   cs->eval = eval;
   int total_bits = size * 8;
@@ -550,7 +563,7 @@ static CompState *state_new(const unsigned char *data, int size, int base_prob, 
   assert(base_prob >= 9);
 
   int max_blocks_per_model = (total_bits + PKG_BITS - 1) / PKG_BITS;
-  int arena_capacity = 256 * max_blocks_per_model;
+  int arena_capacity = (mask_list ? num_masks : 256) * max_blocks_per_model;
   cs->block_arena = (CompactPredBlock *)alloc_aligned(arena_capacity * sizeof(CompactPredBlock));
   cs->map_arena = (int *)malloc(arena_capacity * sizeof(int));
 
@@ -558,9 +571,11 @@ static CompState *state_new(const unsigned char *data, int size, int base_prob, 
   CtxEntry *ht = (CtxEntry *)calloc(ht_size, sizeof(CtxEntry));
 
   int cursor = 0;
-  for (int m = 0; m < 256; m++) {
+  int count = mask_list ? num_masks : 256;
+  for (int i = 0; i < count; i++) {
+    int m = mask_list ? mask_list[i] : i;
     cs->models[m].offset = cursor;
-    cs->models[m].num_blocks = compute_single_model(dp, total_bits, (unsigned char)m, ht, ht_size, &cs->block_arena[cursor], &cs->map_arena[cursor], m + 1);
+    cs->models[m].num_blocks = compute_single_model(dp, total_bits, (unsigned char)m, ht, ht_size, &cs->block_arena[cursor], &cs->map_arena[cursor], i + 1);
     cursor += cs->models[m].num_blocks;
   }
   free(ht);
@@ -631,6 +646,17 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb, u
   int num = hb->num_weights;
   int total_bits = (num == 0) ? hb->bits_len : (int)hb->hashes_len / num;
 
+  /* Persistent-table mode: log every touched slot (duplicates are fine —
+     re-zeroing a slot twice is harmless) so the caller can reset. */
+  if (dt == serv_dt && serv_dt) {
+    size_t need = (size_t)total_bits * (num ? num : 1);
+    if (need > serv_undo_cap) {
+      serv_undo_cap = need;
+      serv_undo = (unsigned int *)realloc(serv_undo, serv_undo_cap * sizeof(unsigned int));
+    }
+    serv_undo_len = 0;
+  }
+
   unsigned char *matched[MAX_SEARCH];
   int hpos = 0;
   for (int bp = 0; bp < total_bits; bp++) {
@@ -638,7 +664,10 @@ static void encode_from_stream_direct(ArithCoder *ac, const HashBitStream *hb, u
     unsigned int probs[2] = {(unsigned)base_prob, (unsigned)base_prob};
     for (int m = 0; m < num; m++) {
       unsigned int h = hb->hashes[hpos++];
-      unsigned char *e = &dt[2u * (h >> (32 - direct_bits))];
+      unsigned int slot = h >> (32 - direct_bits);
+      if (dt == serv_dt && serv_dt)
+        serv_undo[serv_undo_len++] = slot;
+      unsigned char *e = &dt[2u * slot];
       unsigned int shift = (1 - (((e[0] + 255) & (e[1] + 255)) >> 8)) * 2 + hb->weights[m];
       probs[0] += (unsigned)e[0] << shift;
       probs[1] += (unsigned)e[1] << shift;
@@ -694,10 +723,13 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out, 
   {
     unsigned int dmask = (1u << direct_bits) - 1u;
     size_t dbytes = ((size_t)dmask + 1) * 2;
-    unsigned char *dt = table_alloc(dbytes);
+    unsigned char *dt = serv_dt;
     if (!dt) {
-      fprintf(stderr, "alloc(%zu) failed for direct-mapped table\n", dbytes);
-      exit(1);
+      dt = table_alloc(dbytes);
+      if (!dt) {
+        fprintf(stderr, "alloc(%zu) failed for direct-mapped table\n", dbytes);
+        exit(1);
+      }
     }
     if (verbose)
       printf("  Direct-mapped table: %u slots (%zu bytes, 2 B/slot)\n", dmask + 1, dbytes);
@@ -711,7 +743,18 @@ static int compress_4k(const unsigned char *data, int size, unsigned char *out, 
     }
     g_encode_ms = (mono_sec() - t0) / reps * 1000.0;
     total = arith_finish(&ac);
-    table_free(dt, dbytes);
+    if (dt == serv_dt) {
+      /* Reset only the touched slots; the table stays mapped for the next
+         job. Duplicate undo entries just zero a slot twice. */
+      for (size_t i = 0; i < serv_undo_len; i++) {
+        unsigned char *e = &dt[2u * (size_t)serv_undo[i]];
+        e[0] = 0;
+        e[1] = 0;
+      }
+      serv_undo_len = 0;
+    } else {
+      table_free(dt, dbytes);
+    }
   }
 
   hbs_free(&hb);
@@ -873,13 +916,17 @@ static int model_set_cmp(const void *a, const void *b) {
   return (sa > sb) - (sa < sb);
 }
 
+/* mask_list restricts both the estimator and the sweep to those masks
+   (NULL = full sweep over all 256). With a seed whose masks are all in the
+   list, this is the warm-start search: same add/remove/weight machinery,
+   candidate masks limited to the plausible vocabulary. */
 static ModelSet search_best_models(const unsigned char *data, int size, const unsigned char ctx[MAX_CTX], int beam, int simple, int base_prob, int *out_size,
-                                   const ModelSet *seed) {
+                                   const ModelSet *seed, const unsigned char *mask_list, int num_masks) {
   const int EFLAG = INT_MIN;
   const int nsets = beam * 2;
   ModelSet *sets = (ModelSet *)calloc(nsets, sizeof(ModelSet));
   Evaluator eval = {0};
-  CompState *cs = extreme ? NULL : state_new(data, size, base_prob, &eval, ctx);
+  CompState *cs = extreme ? NULL : state_new(data, size, base_prob, &eval, ctx, mask_list, num_masks);
 
   unsigned char rev_masks[256];
   for (int m = 0; m <= 255; m++) {
@@ -910,9 +957,10 @@ static ModelSet search_best_models(const unsigned char *data, int size, const un
     sets[s].size = INT_MAX;
 
   int masks_tried = 0, masks_accepted = 0;
+  int sweep = mask_list ? num_masks : 256;
 
-  for (int mi = 0; mi <= 255; mi++) {
-    int mask = rev_masks[mi];
+  for (int mi = 0; mi < sweep; mi++) {
+    int mask = mask_list ? mask_list[mi] : rev_masks[mi];
     int mask_helped = 0;
 
     for (int s = 0; s < beam; s++) {
@@ -987,8 +1035,8 @@ static ModelSet search_best_models(const unsigned char *data, int size, const un
     qsort(sets, nsets, sizeof(ModelSet), model_set_cmp);
     if (mask_helped)
       masks_accepted++;
-    if (!verbose) {
-      printf("\rCalculating models... %d/%d", mi + 1, 256);
+    if (!verbose && !server_mode) {
+      printf("\rCalculating models... %d/%d", mi + 1, sweep);
       fflush(stdout);
     }
   }
@@ -1089,9 +1137,128 @@ static void print_usage(const char *prog) {
   printf("               >~8KB. Not stored in file; pass -L to both compress\n");
   printf("               and decompress\n");
   printf("  -R <n>       Repeat encode pass n times for stable timing\n");
+  printf("  -S           Server mode: read jobs from stdin (full/warm/quit),\n");
+  printf("               reply \"OK <bits> <models>\"; table persists across jobs\n");
   printf("  -v           Verbose output (use -vv for very verbose)\n");
   printf("  -p <n>       Max search passes (default: 1)\n");
   printf("  -h           Show this help\n");
+}
+
+/* Server mode (-S): persistent job loop on stdin/stdout. The direct-mapped
+   table is allocated once and reset via the undo log between jobs. Requests
+   are tab-separated lines:
+     full\t<path>                          from-scratch search over all 256 masks
+     warm\t<path>\t<seed models>[\t<extra hex masks>]   restricted sweep
+     quit
+   Replies: OK\t<total_bits>\t<models>  or  ERR\t<message>. The table is
+   scanned for leaked state every 256 jobs; a dirty table aborts loudly. */
+static int serve(int beam, int simple, int base_prob) {
+  unsigned int dmask = (1u << direct_bits) - 1u;
+  size_t dbytes = ((size_t)dmask + 1) * 2;
+  serv_dt = table_alloc(dbytes);
+  if (!serv_dt) {
+    fprintf(stderr, "server: failed to allocate %zu-byte table\n", dbytes);
+    return 1;
+  }
+  fprintf(stderr, "server: ready (2^%d slots, bprob %d)\n", direct_bits, base_prob);
+
+  long jobs = 0;
+  char line[8192];
+  while (fgets(line, sizeof(line), stdin)) {
+    line[strcspn(line, "\r\n")] = 0;
+    if (!line[0])
+      continue;
+    if (!strcmp(line, "quit"))
+      break;
+
+    char *save = NULL;
+    char *cmd = strtok_r(line, "\t", &save);
+    char *path = strtok_r(NULL, "\t", &save);
+    if (!cmd || !path) {
+      printf("ERR\tbad request\n");
+      fflush(stdout);
+      continue;
+    }
+
+    int data_size = 0;
+    unsigned char *data = read_file(path, &data_size);
+    if (!data) {
+      printf("ERR\tcannot read %s\n", path);
+      fflush(stdout);
+      continue;
+    }
+    if (!large_field && data_size * 8 + 1 > 65535) {
+      printf("ERR\tinput too large for 16-bit bitlength\n");
+      free(data);
+      fflush(stdout);
+      continue;
+    }
+
+    ModelSet ml;
+    int est = 0;
+    unsigned char ctx[MAX_CTX] = {};
+    if (!strcmp(cmd, "warm")) {
+      char *seed_str = strtok_r(NULL, "\t", &save);
+      char *extra = strtok_r(NULL, "\t", &save);
+      ModelSet seed = {0};
+      if (!seed_str || parse_models(seed_str, &seed) < 1) {
+        printf("ERR\tbad seed models\n");
+        free(data);
+        fflush(stdout);
+        continue;
+      }
+      unsigned char list[256];
+      int seen[256] = {0};
+      int n = 0;
+      for (int i = 0; i < seed.num_models; i++) {
+        int m = seed.models[i].mask;
+        if (!seen[m]) {
+          seen[m] = 1;
+          list[n++] = (unsigned char)m;
+        }
+      }
+      if (extra) {
+        char *sv2 = NULL;
+        for (char *t = strtok_r(extra, " ", &sv2); t; t = strtok_r(NULL, " ", &sv2)) {
+          unsigned int m;
+          if (sscanf(t, "%x", &m) == 1 && m <= 255 && !seen[m]) {
+            seen[m] = 1;
+            list[n++] = (unsigned char)m;
+          }
+        }
+      }
+      ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est, &seed, list, n);
+    } else if (!strcmp(cmd, "full")) {
+      ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est, NULL, NULL, 0);
+    } else {
+      printf("ERR\tunknown command '%s'\n", cmd);
+      free(data);
+      fflush(stdout);
+      continue;
+    }
+
+    int max_out = data_size + 1024;
+    unsigned char *out_buf = (unsigned char *)calloc(max_out, 1);
+    int comp_bits = compress_4k(data, data_size, out_buf, &ml, base_prob);
+    int total_bits = (hdr_base_bytes() + ml.num_models) * 8 + comp_bits;
+    free(out_buf);
+    free(data);
+
+    char setbuf[512] = "";
+    model_set_sprint(&ml, setbuf, sizeof(setbuf));
+    printf("OK\t%d\t%s\n", total_bits, setbuf);
+    fflush(stdout);
+
+    if (++jobs % 256 == 0) {
+      for (size_t i = 0; i < dbytes; i++) {
+        if (serv_dt[i]) {
+          fprintf(stderr, "server: FATAL: table dirty at byte %zu after reset (job %ld)\n", i, jobs);
+          exit(2);
+        }
+      }
+    }
+  }
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -1106,8 +1273,11 @@ int main(int argc, char *argv[]) {
   int optimize_explicit_weights = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehvL")) != -1) {
+  while ((opt = getopt(argc, argv, "o:m:b:p:k:H:R:sdwehvLS")) != -1) {
     switch (opt) {
+    case 'S':
+      server_mode = 1;
+      break;
     case 'o':
       output_file = optarg;
       break;
@@ -1182,6 +1352,9 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
+  if (server_mode)
+    return serve(beam, simple, base_prob);
+
   if (optind >= argc) {
     fprintf(stderr, "Error: no input file specified\n");
     print_usage(argv[0]);
@@ -1280,8 +1453,11 @@ int main(int argc, char *argv[]) {
     model_set_print(&ml, stdout);
     if (optimize_explicit_weights) {
       printf("Optimizing weights for %d explicit models...\n", ml.num_models);
+      unsigned char wmasks[MAX_SEARCH];
+      for (int i = 0; i < ml.num_models; i++)
+        wmasks[i] = ml.models[i].mask;
       Evaluator eval = {0};
-      CompState *cs = extreme ? NULL : state_new(data, data_size, base_prob, &eval, ctx);
+      CompState *cs = extreme ? NULL : state_new(data, data_size, base_prob, &eval, ctx, wmasks, ml.num_models);
       est_size = optimize_weights(cs, &ml, data, data_size, base_prob);
       if (!extreme) {
         state_destroy(cs);
@@ -1294,13 +1470,13 @@ int main(int argc, char *argv[]) {
       printf("Skipping search, using %d explicit models\n", ml.num_models);
     }
   } else {
-    ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est_size, NULL);
+    ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est_size, NULL, NULL, 0);
 
     for (int pass = 2; pass <= max_passes; pass++) {
       int prev_size = est_size;
       if (verbose)
         printf("\n  Pass %d (seeded with %d models):\n", pass, ml.num_models);
-      ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est_size, &ml);
+      ml = search_best_models(data, data_size, ctx, beam, simple, base_prob, &est_size, &ml, NULL, 0);
       if (est_size >= prev_size) {
         if (verbose)
           printf("  No improvement, stopping.\n");
