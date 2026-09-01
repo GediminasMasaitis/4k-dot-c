@@ -80,7 +80,7 @@ compress_source: compile_asm link_asm
 
 compress: compressor compress_source
 	@$(MAP_CHECK)
-	./compressor -b $(BPROB) $(COMPRESS_HASH) -o $(EXE).paq $(EXE)
+	./compressor -b $(BPROB) $(COMPRESS_HASH) $(if $(MODELS),-m "$(MODELS)") -o $(EXE).paq $(EXE)
 
 loader: compress
 	nasm -f bin -DSTART_LOCATION=$$(grep '_start' $(EXE).map | awk '{print $$1}') $(LOADER_HASH) -o $(EXE) loader.asm
