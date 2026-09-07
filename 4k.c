@@ -1349,7 +1349,7 @@ search(
     G(
         222, // FORWARD FUTILITY PRUNING / DELTA PRUNING
         if (G(225, depth < 5) &&
-            G(225, G(226, static_eval) + G(226, G(227, 189) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
+            G(225, G(226, static_eval) + (depth > 0) * G(226, G(227, 189) * G(227, depth)) + G(226, initial_params.eg.material[moves[move_index].promo]) +
                            G(226, initial_params.eg.material[moves[move_index].takes_piece]) <
                        alpha) &&
             G(225, !in_check) && G(225, moves_evaluated)) { break; })
