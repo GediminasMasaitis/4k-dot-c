@@ -1302,7 +1302,7 @@ search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      G(211, A(0, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 98; if (nmp_red > 3) { nmp_red = 3; })
+      G(211, A(0, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 98; if (nmp_red > 4) { nmp_red = 4; })
       const A(2, i16, i32, i64) score = -search(
 #ifdef FULL
           nodes,
