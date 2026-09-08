@@ -1223,7 +1223,9 @@ search(
 
   G(305, // IN-CHECK EXTENSION
     const A(0, bool, i8, u8, i16, u16, i32) in_check = find_in_check(pos);
-    depth += in_check;)
+    if(in_check){
+      depth = depth < 0 ? 1 : depth + 1;
+    })
 
   G(305, // FULL REPETITION DETECTION
     const u64 tt_hash = get_hash(pos);)
