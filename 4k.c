@@ -1316,7 +1316,7 @@ search(
   }
 
   G(213, G(214, ss)[G(214, 2)].position_hash = tt_hash;)
-  G(213, Move moves[max_moves]; ss->num_moves = movegen(H(95, 3, pos), H(95, 3, in_qsearch), H(95, 3, moves));)
+  G(213, Move moves[max_moves]; ss->num_moves = movegen(H(95, 3, pos), H(95, 3, in_qsearch && !in_check), H(95, 3, moves));)
   G(213, A(3, u8, i16, u16, i32, u32, i64, u64) moves_evaluated = 0;)
   G(213, A(1, i16, i32, i64) best_score = in_qsearch ? static_eval : -inf;)
   G(213, A(3, u8, i16, u16, i32, u32, i64, u64) quiets_evaluated = 0;)
