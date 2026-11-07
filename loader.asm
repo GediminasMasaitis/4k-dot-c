@@ -32,12 +32,12 @@ _entry:
     bts     ebx, 22
     inc     ebp
 top:
-    push    10
+    push    20
     pop     r10
     push    rcx
     AT 0x0F
     mov     esi, 0x3E0002
-    push    20
+    push    40
     jmp     short rest
     AT 0x18
     dq      _entry
@@ -54,18 +54,22 @@ phdr:
     db      1, 0
     times   5 db 0
     dq      0x3E0100
-adv:
-    inc     ebx
-    jmp     short wr
-fix:
-    rcl     byte [rcx], 1
-    jmp     short ul
-    AT 0x4F
+ul: pop     rcx
+    jrcxz   top
+    add     ecx, edi
+    nop
+    AT 0x4D
+    db      0x49, 0xB8
     dq      0xF00
-incw:
-    inc     ch
-    jmp     short wl
-    db      1, 0, 0, 0
+upd:
+    inc     byte [rcx]
+    xchg    eax, ecx
+    db      0x35
+    dd      1
+    shr     byte [rax], 1
+    jnz     ul
+    rcl     byte [rax], 1
+    jmp     short ul
 rl: add     ebp, ebp
     bt      [rsi], r14d
     adc     r15d, r15d
@@ -80,15 +84,9 @@ re: test    ebp, ebp
     jnc     zero
     xchg    eax, ebp
 wr: rcl     byte [rbx], 1
-    jc      adv
-ul: pop     rcx
-    jrcxz   top
-    add     ecx, edi
-    inc     byte [rcx]
-    xor     ecx, 1
-    shr     byte [rcx], 1
-    jz      fix
-    jmp     short ul
+    jnc     ul
+    inc     ebx
+    jmp     short wr
 rest:
     pop     r11
     mov     sil, masks - ehdr
@@ -96,9 +94,11 @@ rest:
     incbin  PAQ, 2, 4
     cmp     bx, IMAGE_SIZE & 0xFFFF
     jae     START_LOCATION
+incw:
+    inc     ch
 wl: add     edx, edx
-    jz      re
     jc      incw
+    jz      re
     mov     eax, edx
     lodsb
     mov     cl, al

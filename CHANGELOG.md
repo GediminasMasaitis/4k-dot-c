@@ -12223,3 +12223,12 @@ MD5: 32a67f7caf079f84dc754ce538b569c9
 
 1 thread: 4033 bytes (-1)
 MD5: 5131788e9ef872c61e1581a0e1d2ec91
+
+### 9.58
+Run loader update loop through program header fields
+
+4  thread: 4017 bytes (-2)
+MD5: cd05c73e91559293e5dac2b88dd1545e
+
+1 thread: 4031 bytes (-2)
+MD5: 4a07343cf1f3e1a3875108a3eba88649
