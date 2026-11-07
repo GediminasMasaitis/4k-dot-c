@@ -1076,7 +1076,7 @@ enum { thread_count = 1 };
 #else
 static i32 thread_count = 1;
 #endif
-enum { thread_stack_size = 1024 * 1024 };
+enum { thread_stack_size = 2 * 1024 * 1024 };
 enum { corrhist_size = 65536 };
 
 typedef struct [[nodiscard]] {
@@ -1084,7 +1084,6 @@ typedef struct [[nodiscard]] {
   G(119, Move prev_move;)
   G(119, u64 position_hash;)
   G(119, A(3, u8, i16, u16, i32, u32, i64, u64) num_moves;)
-  G(119, Move killer;)
   G(119, A(1, i16, i32, i64) static_eval;)
 } SearchStack;
 
@@ -1105,7 +1104,7 @@ typedef struct [[nodiscard]] {
 #endif
   G(179, Position pos;)
   G(179, u64 max_time;)
-  G(179, Move counter_moves[2][64][64];)
+  G(179, i32 cont_hist[7][64][7][64];)
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
@@ -1219,7 +1218,8 @@ search(
   SearchStack *const stack = data->stack;
   SearchStack *const ss = stack + ply;
   G(305, i32(*const move_history)[6][64][64] = data->move_history;)
-  G(305, Move counter = data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to];)
+  G(305, // CONTINUATION HISTORY, THE LAST MOVED PIECE SITS ON THE FLIPPED TO SQUARE
+    i32(*const cont_hist)[64] = data->cont_hist[piece_on(H(55, 11, pos), H(55, 11, G(331, ss[1].prev_move.to) ^ G(331, 56)))][ss[1].prev_move.to];)
 
   G(305, // IN-CHECK EXTENSION
     const A(0, bool, i8, u8, i16, u16, i32) in_check = find_in_check(pos);
@@ -1332,10 +1332,8 @@ search(
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
                                               G(187, // MOST VALUABLE VICTIM
                                                 G(219, moves[order_index].takes_piece) * G(219, 512)) +
-                                              G(187, // KILLER MOVE
-                                                G(216, move_equal(G(217, &moves[order_index]), G(217, &ss->killer))) * G(216, 722)) +
-                                              G(187, // COUNTER MOVE
-                                                G(327, move_equal(G(328, &moves[order_index]), G(328, &counter))) * G(327, 550)) +
+                                              G(187, // CONTINUATION HISTORY
+                                                cont_hist[piece_on(H(55, 12, pos), H(55, 12, moves[order_index].from))][moves[order_index].to]) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30));
       if (order_move_score > move_score) {
@@ -1416,21 +1414,23 @@ search(
         if (score >= beta) {
           assert(ss->best_move.takes_piece == piece_on(H(55, 8, pos), H(55, 8, ss->best_move.to)));
           G(233, tt_flag = Lower;)
-          G(233, if (ss->best_move.takes_piece == None) { ss->killer = ss->best_move; })
-          G(
-              233, // COUNTER MOVE UPDATE
-              if (ss->best_move.takes_piece == None) { data->counter_moves[pos->flipped][ss[1].prev_move.from][ss[1].prev_move.to] = ss->best_move; })
           G(
               233, if (!in_qsearch) {
                 const A(3, i16, u16, i32, i64) bonus = 10 * depth;
                 G(234, i32 *const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
 
                   *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
+                G(234, // CONTINUATION HISTORY UPDATE
+                  i32 *const this_cont = &cont_hist[piece_on(H(55, 13, pos), H(55, 13, ss->best_move.from))][ss->best_move.to];
+
+                  *this_cont += bonus - G(332, bonus) * G(332, *this_cont) / 1024;)
                 G(
                     234, for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index < move_index; prev_index++) {
                       const Move prev = moves[prev_index];
-                      i32 *const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
-                      *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;
+                      G(333, i32 *const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
+                        *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;)
+                      G(333, i32 *const prev_cont = &cont_hist[piece_on(H(55, 14, pos), H(55, 14, prev.from))][prev.to];
+                        *prev_cont -= bonus + G(334, bonus) * G(334, *prev_cont) / 1024;)
                     })
               })
           break;
