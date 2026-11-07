@@ -12196,3 +12196,12 @@ info depth 21 score cp 31 time 4613 nodes 7217525 nps 1564560 pv e2e4
 info depth 22 score cp 22 time 7179 nodes 11636132 nps 1620844 pv e2e4 c7c5 g1f3 b8c6 b1c3 c6d4 f1e2 e7e6 d2d3 f8e7 e1g1 d7d6
 11636132 nodes 1620820 nps
 ```
+
+### 9.55
+Stop loader at image end instead of counting bits
+
+4  thread: 4023 bytes (-5)
+MD5: 131bc0235460111d979701e6dc68595f
+
+1 thread: 4037 bytes (-5)
+MD5: 204ba20ff75fbc35aa04c0d11749a063

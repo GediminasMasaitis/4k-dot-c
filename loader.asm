@@ -9,103 +9,107 @@ org 0x3E0000
 %error "START_LOCATION must be defined"
 %endif
 
+%ifndef IMAGE_SIZE
+%error "IMAGE_SIZE (uncompressed image size in bytes) must be defined"
+%endif
+
 %ifndef DIRECT_BITS
   %define DIRECT_BITS 24
 %endif
 
 %define PAQ './build/4kc.paq'
 
+%macro AT 1
+  %if ($-ehdr) > %1
+    %error "loader layout overflow before offset %1"
+  %endif
+  times %1-($-ehdr) db 0
+%endmacro
+
 ehdr:
     db      0x7F, "ELF"
 _entry:
     bts     r9d, 22
-    db      0x66, 0x41, 0xBA
-    incbin  PAQ, 0, 2
-    push    rax
-    db      0xBE
-    dw      2
-    dw      0x3E
     inc     ebp
-    jmp     short _c
+top:
+    push    10
+    pop     rbx
+    push    rcx
+    AT 0x0F
+    mov     esi, 0x3E0002
+    push    rbx
+    nop
+    jmp     short rest
+    AT 0x18
     dq      _entry
-    dq      0x31
-_c:
-    push    START_LOCATION
-    jmp     short decompress4kc.top
-_done:
-    ret
-    times   0x31-($-ehdr) db 0
+    dq      phdr - ehdr
+zero:
+    sub     r15d, eax
+    sub     ebp, eax
+    jmp     short wr
 phdr:
     db      1, 0, 0, 0
     db      7
+    db      0, 0
     db      0x38, 0
-    db      1
-    times   8 db 0
-    dq      0x3E0000
-decompress4kc:
-.adv:
+    db      1, 0
+    times   5 db 0
+    dq      0x3E0100
+adv:
     inc     r9d
-    jmp     short .wr
-.one:
-    xchg    eax, ebp
-    jmp     short .wr
-    times   0x51-($-ehdr) db 0
-    dq      (filesize + 4095) & ~4095
-.incw:
+    jmp     short wr
+    AT 0x4F
+    dq      0xF00
+incw:
     inc     ch
-    jmp     short .wl
+    jmp     short wl
     db      1, 0, 0, 0
-.rl:
-    add     ebp, ebp
+rl: add     ebp, ebp
     bt      [rsi], r14d
     adc     r15d, r15d
     inc     r14d
-.re:test    ebp, ebp
-    jns     .rl
+re: test    ebp, ebp
+    jns     rl
     mov     eax, ebp
     mul     ebx
     add     ebx, r11d
     div     ebx
     cmp     r15d, eax
     sbb     edi, edi
-    jc      .one
-    sub     r15d, eax
-    sub     ebp, eax
-.wr:rcl     byte [r9], 1
-    jc      .adv
-.ul:pop     rcx
-    jrcxz   .ud
+    jnc     zero
+    xchg    eax, ebp
+wr: rcl     byte [r9], 1
+    jc      adv
+ul: pop     rcx
+    jrcxz   top
     add     ecx, edi
     inc     byte [rcx]
     xor     ecx, 1
     shr     byte [rcx], 1
-    jnz     .ul
+    jnz     ul
     rcl     byte [rcx], 1
-    jmp     short .ul
-.ud:dec     r10d
-    jz      _done
-.top:
-    push    10
-    pop     rbx
-    mov     r11d, ebx
-    mov     si, masks - ehdr
+    jmp     short ul
+rest:
+    pop     r11
+    mov     sil, masks - ehdr
     db      0xBA
     incbin  PAQ, 2, 4
-    push    rcx
-.wl:add     edx, edx
-    jz      .re
-    jc      .incw
+    cmp     r9w, IMAGE_SIZE & 0xFFFF
+    jae     START_LOCATION
+wl: add     edx, edx
+    jz      re
+    jc      incw
     mov     eax, edx
     lodsb
     mov     cl, al
     mov     edi, r9d
-.hash:
+hash:
     crc32   eax, byte [rdi]
-.next:
+next:
     dec     edi
     add     cl, cl
-    jc      .hash
-    jnz     .next
+    jc      hash
+    jnz     next
 %if DIRECT_BITS < 30
     shr     eax, 30 - DIRECT_BITS
 %endif
@@ -116,17 +120,15 @@ decompress4kc:
     movzx   eax, byte [rax]
     mov     cl, ch
     test    eax, eax
-    jz      .bo
+    jz      bo
     test    edi, edi
-    jnz     .nb
-.bo:add     ecx, 2
-.nb:shl     eax, cl
+    jnz     nb
+bo: add     ecx, 2
+nb: shl     eax, cl
     add     r11d, eax
     shl     edi, cl
     add     ebx, edi
-    jmp     short .wl
+    jmp     short wl
 
 masks:
     incbin  PAQ, 6
-
-filesize equ $ - ehdr
