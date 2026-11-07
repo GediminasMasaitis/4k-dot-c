@@ -29,16 +29,15 @@ org 0x3E0000
 ehdr:
     db      0x7F, "ELF"
 _entry:
-    bts     r9d, 22
+    bts     ebx, 22
     inc     ebp
 top:
     push    10
-    pop     rbx
+    pop     r10
     push    rcx
     AT 0x0F
     mov     esi, 0x3E0002
-    push    rbx
-    nop
+    push    20
     jmp     short rest
     AT 0x18
     dq      _entry
@@ -56,8 +55,11 @@ phdr:
     times   5 db 0
     dq      0x3E0100
 adv:
-    inc     r9d
+    inc     ebx
     jmp     short wr
+fix:
+    rcl     byte [rcx], 1
+    jmp     short ul
     AT 0x4F
     dq      0xF00
 incw:
@@ -71,14 +73,13 @@ rl: add     ebp, ebp
 re: test    ebp, ebp
     jns     rl
     mov     eax, ebp
-    mul     ebx
-    add     ebx, r11d
-    div     ebx
+    mul     r10d
+    div     r11d
     cmp     r15d, eax
     sbb     edi, edi
     jnc     zero
     xchg    eax, ebp
-wr: rcl     byte [r9], 1
+wr: rcl     byte [rbx], 1
     jc      adv
 ul: pop     rcx
     jrcxz   top
@@ -86,15 +87,14 @@ ul: pop     rcx
     inc     byte [rcx]
     xor     ecx, 1
     shr     byte [rcx], 1
-    jnz     ul
-    rcl     byte [rcx], 1
+    jz      fix
     jmp     short ul
 rest:
     pop     r11
     mov     sil, masks - ehdr
     db      0xBA
     incbin  PAQ, 2, 4
-    cmp     r9w, IMAGE_SIZE & 0xFFFF
+    cmp     bx, IMAGE_SIZE & 0xFFFF
     jae     START_LOCATION
 wl: add     edx, edx
     jz      re
@@ -102,7 +102,7 @@ wl: add     edx, edx
     mov     eax, edx
     lodsb
     mov     cl, al
-    mov     edi, r9d
+    mov     edi, ebx
 hash:
     crc32   eax, byte [rdi]
 next:
@@ -124,10 +124,11 @@ next:
     test    edi, edi
     jnz     nb
 bo: add     ecx, 2
-nb: shl     eax, cl
+nb: add     eax, edi
+    shl     eax, cl
     add     r11d, eax
     shl     edi, cl
-    add     ebx, edi
+    add     r10d, edi
     jmp     short wl
 
 masks:

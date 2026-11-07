@@ -12205,3 +12205,12 @@ MD5: 131bc0235460111d979701e6dc68595f
 
 1 thread: 4037 bytes (-5)
 MD5: 204ba20ff75fbc35aa04c0d11749a063
+
+### 9.56
+Fewer REX prefixes in loader
+
+4  thread: 4020 bytes (-3)
+MD5: e3c669eb8fbf2a06636de7300e0c8287
+
+1 thread: 4034 bytes (-3)
+MD5: 7a54006f1f95609b4328229435d181da
