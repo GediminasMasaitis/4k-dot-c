@@ -1104,7 +1104,7 @@ typedef struct [[nodiscard]] {
 #endif
   G(179, Position pos;)
   G(179, u64 max_time;)
-  G(179, i32 cont_hist[7][64][7][64];)
+  G(179, i32 cont_hist[64][8][64][8];)
   G(179, SearchStack stack[1024];)
   G(179, i32 corrhist[corrhist_size];)
   G(179, i32 move_history[2][6][64][64];)
@@ -1219,7 +1219,9 @@ search(
   SearchStack *const ss = stack + ply;
   G(305, i32(*const move_history)[6][64][64] = data->move_history;)
   G(305, // CONTINUATION HISTORY, THE LAST MOVED PIECE SITS ON THE FLIPPED TO SQUARE
-    i32(*const cont_hist)[64] = data->cont_hist[piece_on(H(55, 11, pos), H(55, 11, G(331, ss[1].prev_move.to) ^ G(331, 56)))][ss[1].prev_move.to];)
+    i32 *const cont_hist = *data->cont_hist[ss[1].prev_move.to][piece_on(H(55, 11, pos), H(55, 11, G(331, ss[1].prev_move.to) ^ G(331, 56)))];)
+  G(305, // FOLLOW-UP HISTORY, OUR OWN PREVIOUS MOVE, SAME BOARD ORIENTATION AS NOW
+    i32 *const cont_hist2 = *data->cont_hist[ss->prev_move.to][piece_on(H(55, 15, pos), H(55, 15, ss->prev_move.to))];)
 
   G(305, // IN-CHECK EXTENSION
     const A(0, bool, i8, u8, i16, u16, i32) in_check = find_in_check(pos);
@@ -1302,8 +1304,6 @@ search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
-      G(211, // NO PREVIOUS MOVE AFTER A NULL MOVE
-        ss[2].prev_move = (Move){0};)
       G(211, A(0, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 98; if (nmp_red > 3) { nmp_red = 3; })
       const A(2, i16, i32, i64) score = -search(
 #ifdef FULL
@@ -1330,12 +1330,13 @@ search(
     G(215, A(6, u8, i16, u16, i32, u32, i64, u64) best_index = 0;)
     for (A(5, u8, i16, u16, i32, u32, i64, u64) order_index = move_index; order_index < ss->num_moves; order_index++) {
       assert(moves[order_index].takes_piece == piece_on(H(55, 7, pos), H(55, 7, moves[order_index].to)));
+      const A(1, i32, i64) cont_index = G(347, piece_on(H(55, 12, pos), H(55, 12, moves[order_index].from))) + G(347, moves[order_index].to * 8);
       const A(1, i32, i64) order_move_score = G(187, // HISTORY HEURISTIC
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
                                               G(187, // MOST VALUABLE VICTIM
                                                 G(219, moves[order_index].takes_piece) * G(219, 512)) +
-                                              G(187, // CONTINUATION HISTORY, DOUBLE WEIGHT
-                                                2 * cont_hist[piece_on(H(55, 12, pos), H(55, 12, moves[order_index].from))][moves[order_index].to]) +
+                                              G(187, // CONTINUATION AND FOLLOW-UP HISTORY
+                                                G(346, cont_hist[cont_index]) + G(346, cont_hist2[cont_index])) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30));
       if (order_move_score > move_score) {
@@ -1419,25 +1420,20 @@ search(
           G(
               233, if (!in_qsearch) {
                 const A(3, i16, u16, i32, i64) bonus = 10 * depth;
-                G(234, i32 *const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
 
-                  *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
-                G(234, // CONTINUATION HISTORY UPDATE, QUIETS ONLY
-                  if (ss->best_move.takes_piece == None) {
-                    i32 *const this_cont = &cont_hist[piece_on(H(55, 13, pos), H(55, 13, ss->best_move.from))][ss->best_move.to];
-
-                    *this_cont += bonus - G(332, bonus) * G(332, *this_cont) / 1024;
-                  })
-                G(
-                    234, for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index < move_index; prev_index++) {
-                      const Move prev = moves[prev_index];
-                      G(333, i32 *const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
-                        *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;)
-                      G(333, if (prev.takes_piece == None) {
-                        i32 *const prev_cont = &cont_hist[piece_on(H(55, 14, pos), H(55, 14, prev.from))][prev.to];
-                        *prev_cont -= bonus + G(334, bonus) * G(334, *prev_cont) / 1024;
-                      })
+                // HISTORY UPDATES: BONUS FOR THE CUTOFF MOVE, PENALTY FOR THE MOVES SEARCHED BEFORE IT
+                for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index <= move_index; prev_index++) {
+                  G(344, const Move prev = moves[prev_index];)
+                  G(344, const i32 prev_bonus = prev_index < move_index ? -bonus : bonus;)
+                  G(333, i32 *const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
+                    *prev_hist += prev_bonus - G(236, bonus) * G(236, *prev_hist) / 1024;)
+                  G(333, // CONTINUATION AND FOLLOW-UP HISTORY, QUIETS ONLY
+                    if (prev.takes_piece == None) {
+                      const A(1, i32, i64) cont_index = G(348, piece_on(H(55, 14, pos), H(55, 14, prev.from))) + G(348, prev.to * 8);
+                      G(345, cont_hist[cont_index] += prev_bonus - G(334, bonus) * G(334, cont_hist[cont_index]) / 1024;)
+                      G(345, cont_hist2[cont_index] += prev_bonus - G(339, bonus) * G(339, cont_hist2[cont_index]) / 1024;)
                     })
+                }
               })
           break;
         }
