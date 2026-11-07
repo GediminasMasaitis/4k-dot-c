@@ -12214,3 +12214,12 @@ MD5: e3c669eb8fbf2a06636de7300e0c8287
 
 1 thread: 4034 bytes (-3)
 MD5: 7a54006f1f95609b4328229435d181da
+
+### 9.57
+Swap instead of move before multiply in loader
+
+4  thread: 4019 bytes (-1)
+MD5: 32a67f7caf079f84dc754ce538b569c9
+
+1 thread: 4033 bytes (-1)
+MD5: 5131788e9ef872c61e1581a0e1d2ec91

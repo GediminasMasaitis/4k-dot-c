@@ -72,8 +72,8 @@ rl: add     ebp, ebp
     inc     r14d
 re: test    ebp, ebp
     jns     rl
-    mov     eax, ebp
-    mul     r10d
+    xchg    eax, r10d
+    mul     ebp
     div     r11d
     cmp     r15d, eax
     sbb     edi, edi
