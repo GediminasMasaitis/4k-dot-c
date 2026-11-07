@@ -1302,6 +1302,8 @@ search(
       Position npos = *pos;
       G(211, flip_pos(&npos);)
       G(211, npos.ep = 0;)
+      G(211, // NO PREVIOUS MOVE AFTER A NULL MOVE
+        ss[2].prev_move = (Move){0};)
       G(211, A(0, i16, u16, i32, i64) nmp_red = (static_eval - beta) / 98; if (nmp_red > 3) { nmp_red = 3; })
       const A(2, i16, i32, i64) score = -search(
 #ifdef FULL
@@ -1332,8 +1334,8 @@ search(
                                                 move_history[pos->flipped][moves[order_index].takes_piece][moves[order_index].from][moves[order_index].to]) +
                                               G(187, // MOST VALUABLE VICTIM
                                                 G(219, moves[order_index].takes_piece) * G(219, 512)) +
-                                              G(187, // CONTINUATION HISTORY
-                                                cont_hist[piece_on(H(55, 12, pos), H(55, 12, moves[order_index].from))][moves[order_index].to]) +
+                                              G(187, // CONTINUATION HISTORY, DOUBLE WEIGHT
+                                                2 * cont_hist[piece_on(H(55, 12, pos), H(55, 12, moves[order_index].from))][moves[order_index].to]) +
                                               G(187, // PREVIOUS BEST MOVE FIRST
                                                 (move_equal(G(218, &ss->best_move), G(218, &moves[order_index])) << 30));
       if (order_move_score > move_score) {
@@ -1420,17 +1422,21 @@ search(
                 G(234, i32 *const this_hist = &move_history[pos->flipped][ss->best_move.takes_piece][ss->best_move.from][ss->best_move.to];
 
                   *this_hist += bonus - G(235, bonus) * G(235, *this_hist) / 1024;)
-                G(234, // CONTINUATION HISTORY UPDATE
-                  i32 *const this_cont = &cont_hist[piece_on(H(55, 13, pos), H(55, 13, ss->best_move.from))][ss->best_move.to];
+                G(234, // CONTINUATION HISTORY UPDATE, QUIETS ONLY
+                  if (ss->best_move.takes_piece == None) {
+                    i32 *const this_cont = &cont_hist[piece_on(H(55, 13, pos), H(55, 13, ss->best_move.from))][ss->best_move.to];
 
-                  *this_cont += bonus - G(332, bonus) * G(332, *this_cont) / 1024;)
+                    *this_cont += bonus - G(332, bonus) * G(332, *this_cont) / 1024;
+                  })
                 G(
                     234, for (A(3, u8, i16, u16, i32, u32, i64, u64) prev_index = 0; prev_index < move_index; prev_index++) {
                       const Move prev = moves[prev_index];
                       G(333, i32 *const prev_hist = &move_history[pos->flipped][prev.takes_piece][prev.from][prev.to];
                         *prev_hist -= bonus + G(236, bonus) * G(236, *prev_hist) / 1024;)
-                      G(333, i32 *const prev_cont = &cont_hist[piece_on(H(55, 14, pos), H(55, 14, prev.from))][prev.to];
-                        *prev_cont -= bonus + G(334, bonus) * G(334, *prev_cont) / 1024;)
+                      G(333, if (prev.takes_piece == None) {
+                        i32 *const prev_cont = &cont_hist[piece_on(H(55, 14, pos), H(55, 14, prev.from))][prev.to];
+                        *prev_cont -= bonus + G(334, bonus) * G(334, *prev_cont) / 1024;
+                      })
                     })
               })
           break;
