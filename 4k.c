@@ -1270,7 +1270,7 @@ search(
 
   ss->static_eval = static_eval;
   const A(1, bool, i8, u8, i16, u16, i32) improving = ply > 1 && static_eval > ss[-2].static_eval;
-  if (G(199, tt_hit) && G(199, G(201, tt_entry->flag) != G(201, static_eval) > tt_entry->score)) {
+  if (G(199, tt_hit) && G(199, G(201, tt_entry->flag) != G(201, (static_eval > tt_entry->score)))) {
     static_eval = tt_entry->score;
   }
 
