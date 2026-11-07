@@ -1130,6 +1130,7 @@ __attribute__((section(".bss.zztt"))) S(0) TTEntry tt[tt_length];
 #endif
 G(180, S(1) u64 start_time;)
 G(180, S(1) volatile bool stop;)
+G(180, S(1) i32 optimism;)
 
 #if defined(__x86_64__) || defined(_M_X64)
 typedef long long __attribute__((__vector_size__(16))) i128;
@@ -1258,7 +1259,7 @@ search(
   G(197, i32 * corr_entries[6];)
   G(197, corr_hashes[3] = get_material_hash(pos);)
   G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) | G(272, ss->prev_move.to << 8))) + G(271, 16384);)
-  G(197, const A(1, i16, i32, i64) raw_eval = tt_hit ? tt_entry->static_eval : eval(pos); A(1, i16, i32, i64) static_eval = raw_eval;
+  G(197, const A(1, i16, i32, i64) raw_eval = tt_hit ? tt_entry->static_eval : eval(pos); A(1, i16, i32, i64) static_eval = raw_eval + (ply & 1 ? -optimism : optimism);
     assert(static_eval < mate); assert(static_eval > -mate);)
   G(197, corr_hashes[4] = G(270, ss[1].prev_move.from) | G(270, ss[1].prev_move.to << 8);)
   for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 6; i++) {
@@ -1646,6 +1647,9 @@ void iteratively_deepen(
     if (G(303, elapsed > data->max_time / 10) || G(303, stop)) {
       break;
     }
+
+    // OPTIMISM
+    optimism = 56 * score / (__builtin_abs(score) + 95);
   }
 }
 
