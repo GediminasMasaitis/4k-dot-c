@@ -1205,6 +1205,12 @@ void get_piece_hashes(H(300, 1, const Position *const pos), H(300, 1, u64 hashes
   }
 }
 
+// MATE SCORE TT ADJUSTMENT
+// Mate scores are stored as distance from the node rather than from the root: pass ply when storing, -ply when probing
+S(1) i32 mate_adjust(H(334, 1, const i32 score), H(334, 1, const i32 ply)) {
+  return G(332, score) + G(332, G(333, ply) * G(333, ((score > mate - 1024) - (score < 1024 - mate))));
+}
+
 S(1)
 A(1, i16, i32, i64)
 search(
@@ -1238,13 +1244,14 @@ search(
   G(192, ss->best_move = (Move){0};)
   G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
-  const A(0, bool, i8, u8, i16, u16, i32) tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);
+  G(331, const A(0, bool, i8, u8, i16, u16, i32) tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);)
+  G(331, const A(1, i16, i32, i64) tt_score = mate_adjust(H(334, 2, tt_entry->score), H(334, 2, -ply));)
   if (tt_hit) {
     ss->best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(194, tt_entry->depth >= depth) && G(194, G(195, tt_entry->flag) != G(195, tt_entry->score <= alpha)) && G(194, G(196, alpha) == G(196, beta - 1))) {
-      return tt_entry->score;
+    if (G(194, tt_entry->depth >= depth) && G(194, G(195, tt_entry->flag) != G(195, tt_score <= alpha)) && G(194, G(196, alpha) == G(196, beta - 1))) {
+      return tt_score;
     }
   } else if (depth > 3) {
 
@@ -1270,8 +1277,8 @@ search(
 
   ss->static_eval = static_eval;
   const A(1, bool, i8, u8, i16, u16, i32) improving = ply > 1 && static_eval > ss[-2].static_eval;
-  if (G(199, tt_hit) && G(199, G(201, tt_entry->flag) != G(201, (static_eval > tt_entry->score)))) {
-    static_eval = tt_entry->score;
+  if (G(199, tt_hit) && G(199, G(201, tt_entry->flag) != G(201, (static_eval > tt_score)))) {
+    static_eval = tt_score;
   }
 
   // QUIESCENCE
@@ -1466,7 +1473,7 @@ search(
 
   G(242, // UPDATE TRANSPOSITION TABLE
         *tt_entry =
-            (TTEntry){.partial_hash = tt_hash_partial, .move = ss->best_move, .score = best_score, .static_eval = raw_eval, .depth = depth, .flag = tt_flag};)
+            (TTEntry){.partial_hash = tt_hash_partial, .move = ss->best_move, .score = mate_adjust(H(334, 3, best_score), H(334, 3, ply)), .static_eval = raw_eval, .depth = depth, .flag = tt_flag};)
 
   return best_score;
 }
