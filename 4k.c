@@ -1374,9 +1374,14 @@ search(
 
     // LATE MOVE REDUCTION
     A(1, i32, i64)
-    reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 10) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
-                                                                   G(229, moves_evaluated / 10) + G(229, (move_score / -370))
-                                                             : 0;
+    // Also killers, counter moves and positive-history quiets: their history term turns negative and reduces less
+    reduction = G(228, depth > 3) && G(228, move_score < 1024) ? G(229, depth / 10) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
+                                                                     G(229, moves_evaluated / 10) + G(229, (move_score / -370))
+                                                               : 0;
+    // Never extend through LMR
+    if (reduction < 0) {
+      reduction = 0;
+    }
 
     A(2, i16, i32, i64) score;
     while (true) {
