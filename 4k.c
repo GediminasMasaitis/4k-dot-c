@@ -1205,12 +1205,6 @@ void get_piece_hashes(H(300, 1, const Position *const pos), H(300, 1, u64 hashes
   }
 }
 
-// MATE SCORE TT ADJUSTMENT
-// Mate scores are stored as distance from the node rather than from the root: pass ply when storing, -ply when probing
-S(1) i32 mate_adjust(H(334, 1, const i32 score), H(334, 1, const i32 ply)) {
-  return G(332, score) + G(332, G(333, ply) * G(333, ((score > mate - 1024) - (score < 1024 - mate))));
-}
-
 S(1)
 A(1, i16, i32, i64)
 search(
@@ -1245,7 +1239,9 @@ search(
   G(192, TTEntry *tt_entry = &tt[tt_hash % tt_length];)
   G(192, const u16 tt_hash_partial = tt_hash / tt_length;)
   G(331, const A(0, bool, i8, u8, i16, u16, i32) tt_hit = G(200, tt_entry->partial_hash) == G(200, tt_hash_partial);)
-  G(331, const A(1, i16, i32, i64) tt_score = mate_adjust(H(334, 2, tt_entry->score), H(334, 2, -ply));)
+  G(331, // MATE SCORE ADJUSTMENT: TT stores mate scores relative to the node, convert back to relative to the root
+         // (s + 16384) >> 15 is 1 for mate scores, -1 for mated scores, 0 otherwise
+    const A(1, i16, i32, i64) tt_score = tt_entry->score - G(332, ply) * G(332, ((tt_entry->score + 16384) >> 15));)
   if (tt_hit) {
     ss->best_move = tt_entry->move;
 
@@ -1472,8 +1468,12 @@ search(
       })
 
   G(242, // UPDATE TRANSPOSITION TABLE
-        *tt_entry =
-            (TTEntry){.partial_hash = tt_hash_partial, .move = ss->best_move, .score = mate_adjust(H(334, 3, best_score), H(334, 3, ply)), .static_eval = raw_eval, .depth = depth, .flag = tt_flag};)
+        *tt_entry = (TTEntry){.partial_hash = tt_hash_partial,
+                              .move = ss->best_move,
+                              .score = G(333, best_score) + G(333, G(334, ply) * G(334, ((best_score + 16384) >> 15))),
+                              .static_eval = raw_eval,
+                              .depth = depth,
+                              .flag = tt_flag};)
 
   return best_score;
 }
