@@ -1072,7 +1072,7 @@ enum { Upper = 0, Lower = 1, Exact = 2 };
 enum { max_ply = 96 };
 enum { mate = 31744, inf = 32256 };
 #ifdef NOSTDLIB
-enum { thread_count = 1 };
+enum { thread_count = 4 };
 #else
 static i32 thread_count = 1;
 #endif
@@ -1212,7 +1212,7 @@ search(
     u64 *nodes,
 #endif
     H(186, 1, H(187, 1, Position *const pos), H(187, 1, ThreadData *data), H(187, 1, const A(0, i32, i64) beta), H(187, 1, A(1, i16, i32, i64) depth)),
-    H(186, 1, H(188, 1, const A(2, i16, u16, i32, i64) ply), H(188, 1, A(0, i32, i64) alpha), H(188, 1, const A(0, bool, i8, u8, i16, u16, i32) do_null))) {
+    H(186, 1, H(188, 1, const A(2, i16, u16, i32, i64) ply), H(188, 1, A(0, i32, i64) alpha), H(188, 1, const A(0, i8, u8, i16, u16, i32) do_null))) {
   assert(alpha < beta);
   assert(ply >= 0);
 
@@ -1243,7 +1243,8 @@ search(
     ss->best_move = tt_entry->move;
 
     // TT PRUNING
-    if (G(194, tt_entry->depth >= depth) && G(194, G(195, tt_entry->flag) != G(195, tt_entry->score <= alpha)) && G(194, G(196, alpha) == G(196, beta - 1))) {
+    if (G(194, tt_entry->depth >= depth) && G(194, G(195, tt_entry->flag) != G(195, tt_entry->score <= alpha)) && G(194, G(196, alpha) == G(196, beta - 1)) &&
+        G(194, do_null < 2)) {
       return tt_entry->score;
     }
   } else if (depth > 3) {
@@ -1282,7 +1283,7 @@ search(
     alpha = static_eval;
   }
 
-  if (G(203, !in_check) && G(203, G(204, alpha) == G(204, beta - 1))) {
+  if (G(203, !in_check) && G(203, G(204, alpha) == G(204, beta - 1)) && G(203, do_null < 2)) {
     if (G(205, depth < 10) && G(205, !in_qsearch)) {
 
       G(206, {
@@ -1366,8 +1367,6 @@ search(
       continue;
     }
 
-    G(274, G(275, ss)[G(275, 2)].prev_move = moves[move_index];)
-
     // PRINCIPAL VARIATION SEARCH
     A(0, i32, i64) low = moves_evaluated == 0 ? -beta : -alpha - 1;
     moves_evaluated++;
@@ -1377,6 +1376,34 @@ search(
     reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 10) + G(229, !improving) + G(229, (G(230, alpha) == G(230, beta - 1))) +
                                                                    G(229, moves_evaluated / 10) + G(229, (move_score / -370))
                                                              : 0;
+
+    // SINGULAR EXTENSION
+    if (move_equal(G(360, &moves[move_index]), G(360, &ss->best_move))) {
+      // The singular search itself (do_null == 2) skips the excluded TT move
+      if (do_null > 1) {
+        continue;
+      }
+      if (G(361, ply) && G(361, depth > 5) && G(361, tt_entry->depth > depth - 4) && G(361, tt_entry->flag) && G(361, !in_qsearch)) {
+        const A(0, i32, i64) singular_beta = tt_entry->score - depth;
+        const A(2, i16, i32, i64) singular_score = search(
+#ifdef FULL
+            nodes,
+#endif
+            H(186, 5, H(187, 5, pos), H(187, 5, data), H(187, 5, singular_beta), H(187, 5, depth / 2)),
+            H(186, 5, H(188, 5, ply), H(188, 5, singular_beta - 1), H(188, 5, 2)));
+        // The singular search shares this ply's stack entry and may leave its cutoff move there
+        ss->best_move = moves[move_index];
+        if (singular_score < singular_beta) {
+          // Negative reduction = extension, no reduced re-search
+          reduction = -1;
+        } else if (singular_score >= beta) {
+          // Multicut
+          return singular_score;
+        }
+      }
+    }
+
+    G(274, G(275, ss)[G(275, 2)].prev_move = moves[move_index];)
 
     A(2, i16, i32, i64) score;
     while (true) {
@@ -1393,7 +1420,7 @@ search(
       }
 
       if (score > alpha) {
-        if (reduction != 0) {
+        if (reduction > 0) {
           reduction = 0;
           continue;
         }
@@ -1446,6 +1473,11 @@ search(
     if (G(237, quiets_evaluated > (G(239, 1) + G(239, depth * depth)) >> !improving) && G(237, G(238, alpha) == G(238, beta - 1)) && G(237, !in_check)) {
       break;
     }
+  }
+
+  // SINGULAR SEARCH RESULT: no mate detection, correction history or TT store
+  if (do_null > 1) {
+    return best_score;
   }
 
   // MATE / STALEMATE DETECTION
