@@ -42,14 +42,15 @@ top:
     AT 0x18
     dq      _entry
     dq      phdr - ehdr
-zero:
-    sub     r15d, eax
-    sub     ebp, eax
-    jmp     short wr
+one:
+    xchg    eax, ebp
+wr: rcl     byte [rbx], 1
+    jnc     ul
+    db      0x8D, 0x9B
 phdr:
-    db      1, 0, 0, 0
-    db      7
-    db      0, 0
+    dd      1
+    jmp     short wr
+    db      0
     db      0x38, 0
     db      1, 0
     times   5 db 0
@@ -81,11 +82,9 @@ re: test    ebp, ebp
     div     r11d
     cmp     r15d, eax
     sbb     edi, edi
-    jnc     zero
-    xchg    eax, ebp
-wr: rcl     byte [rbx], 1
-    jnc     ul
-    inc     ebx
+    jc      one
+    sub     r15d, eax
+    sub     ebp, eax
     jmp     short wr
 rest:
     pop     r11

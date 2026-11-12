@@ -12232,3 +12232,12 @@ MD5: cd05c73e91559293e5dac2b88dd1545e
 
 1 thread: 4031 bytes (-2)
 MD5: 4a07343cf1f3e1a3875108a3eba88649
+
+### 9.59
+Run loader write loop through program header type and flags
+
+4  thread: 4015 bytes (-2)
+MD5: 92619e97681eaca8154294ca73da5f0e
+
+1 thread: 4029 bytes (-2)
+MD5: 29f7c3eceb06984493d03b5e84851ff7
