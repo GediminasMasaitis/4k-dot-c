@@ -1246,9 +1246,10 @@ search(
     if (G(194, tt_entry->depth >= depth) && G(194, G(195, tt_entry->flag) != G(195, tt_entry->score <= alpha)) && G(194, G(196, alpha) == G(196, beta - 1))) {
       return tt_entry->score;
     }
-  } else if (depth > 3) {
+  }
 
-    // INTERNAL ITERATIVE REDUCTION
+  // INTERNAL ITERATIVE REDUCTION
+  if (depth > 3 && !*(u32a *)&ss->best_move) {
     depth--;
   }
 
