@@ -28,16 +28,14 @@ org 0x3E0000
 
 ehdr:
     db      0x7F, "ELF"
-_entry:
-    bts     ebx, 22
-    inc     ebp
 top:
+    cmp     bx, IMAGE_SIZE & 0xFFFF
     push    20
     pop     r10
-    push    rcx
+    push    40
     AT 0x0F
     mov     esi, 0x3E0002
-    push    40
+    pop     r11
     jmp     short rest
     AT 0x18
     dq      _entry
@@ -55,12 +53,11 @@ phdr:
     db      1, 0
     times   5 db 0
     dq      0x3E0100
-ul: pop     rcx
-    jrcxz   top
-    add     ecx, edi
-    nop
-    AT 0x4D
-    db      0x49, 0xB8
+_entry:
+    bts     ebx, 22
+    inc     ebp
+    jmp     short top
+    AT 0x4F
     dq      0xF00
 upd:
     inc     byte [rcx]
@@ -70,7 +67,10 @@ upd:
     shr     byte [rax], 1
     jnz     ul
     rcl     byte [rax], 1
-    jmp     short ul
+ul: pop     rcx
+    jrcxz   top
+    add     ecx, edi
+    jmp     short upd
 rl: add     ebp, ebp
     bt      [rsi], r14d
     adc     r15d, r15d
@@ -87,11 +87,10 @@ re: test    ebp, ebp
     sub     ebp, eax
     jmp     short wr
 rest:
-    pop     r11
     mov     sil, masks - ehdr
     db      0xBA
     incbin  PAQ, 2, 4
-    cmp     bx, IMAGE_SIZE & 0xFFFF
+    push    rcx
     jae     START_LOCATION
 incw:
     inc     ch
@@ -117,13 +116,13 @@ next:
     push    rax
     movzx   edi, byte [rax-1]
     movzx   eax, byte [rax]
-    mov     cl, ch
     test    eax, eax
     jz      bo
     test    edi, edi
     jnz     nb
-bo: add     ecx, 2
-nb: add     eax, edi
+bo: mov     cl, 2
+nb: add     cl, ch
+    add     eax, edi
     shl     eax, cl
     add     r11d, eax
     shl     edi, cl

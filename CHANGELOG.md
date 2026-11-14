@@ -12241,3 +12241,12 @@ MD5: 92619e97681eaca8154294ca73da5f0e
 
 1 thread: 4029 bytes (-2)
 MD5: 29f7c3eceb06984493d03b5e84851ff7
+
+### 9.60
+Move loader entry into program header and drop update loop padding
+
+4  thread: 4013 bytes (-2)
+MD5: c8be78c66c10a3c36d22a961b9677667
+
+1 thread: 4027 bytes (-2)
+MD5: b36ec216f1e288eeae813d8bfba50ac8
