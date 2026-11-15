@@ -12250,3 +12250,12 @@ MD5: c8be78c66c10a3c36d22a961b9677667
 
 1 thread: 4027 bytes (-2)
 MD5: b36ec216f1e288eeae813d8bfba50ac8
+
+### 9.61
+Stop loader at 256-byte boundary past image end
+
+4  thread: 4011 bytes (-2)
+MD5: 885f6d2df4cdddfd56ce0524f3043b03
+
+1 thread: 4025 bytes (-2)
+MD5: 8643f9beb22653cc62c1fe38338b6536

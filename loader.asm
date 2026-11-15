@@ -29,13 +29,15 @@ org 0x3E0000
 ehdr:
     db      0x7F, "ELF"
 top:
-    cmp     bx, IMAGE_SIZE & 0xFFFF
+    ; decodes on to the next 256-byte boundary; .bss must not start before it
+    cmp     bh, (IMAGE_SIZE + 255) >> 8
+    db      0xBA
+    incbin  PAQ, 2, 4
+    push    rcx
     push    20
-    pop     r10
-    push    40
     AT 0x0F
     mov     esi, 0x3E0002
-    pop     r11
+    pop     r10
     jmp     short rest
     AT 0x18
     dq      _entry
@@ -87,10 +89,9 @@ re: test    ebp, ebp
     sub     ebp, eax
     jmp     short wr
 rest:
+    push    40
+    pop     r11
     mov     sil, masks - ehdr
-    db      0xBA
-    incbin  PAQ, 2, 4
-    push    rcx
     jae     START_LOCATION
 incw:
     inc     ch
