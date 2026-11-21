@@ -1295,7 +1295,7 @@ search(
       G(206, {
         // REVERSE FUTILITY PRUNING
         if (static_eval - G(207, 39) * G(207, (depth - improving)) >= beta) {
-          return static_eval;
+          return (G(331, static_eval) + G(331, beta)) / 2;
         }
       })
 
