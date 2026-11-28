@@ -1413,7 +1413,7 @@ search(
         G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -182) { target = -182; }) G(247, if (target > 182) { target = 182; }))
 
         for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 8; i++) {
-          *corr_entries[i] = (G(248, G(249, *corr_entries[i]) * G(249, (505 - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / 505;
+          *corr_entries[i] += G(248, target) * G(248, dd) / 2 - G(249, *corr_entries[i]) * G(249, __builtin_abs(G(250, target) * G(250, dd))) / 65536;
         }
     })
 
