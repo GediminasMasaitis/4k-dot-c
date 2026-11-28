@@ -1147,16 +1147,15 @@ typedef long long __attribute__((__vector_size__(16))) i128;
   return hash;
 }
 
-S(1) __attribute__((noinline)) void get_nonpawn_hashes(u64 hashes[8], const Position* const pos) {
-  for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) c = 0; c < 2; c++) {
-    hashes[6 + c] = ((G(331, pos->colour[c]) & G(331, ~pos->pieces[Pawn])) * 0x9E3779B97F4A7C15ULL) >> 48;
-  }
-}
-
 S(1)
 void get_piece_hashes(H(300, 1, const Position* const pos), H(300, 1, u64 hashes[8])) {
-  for (A(7, i8, u8, i16, u16, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
-    hashes[p / 2] ^= (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
+  for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) c = 0; c < 2; c++) {
+    for (A(7, i8, u8, i16, u16, i32, u32, i64, u64) p = Pawn; p <= King; p++) {
+      // Salt each (piece, colour) so XOR-combined keys tell colours and piece types apart
+      const u64 hash = (G(185, ((G(331, pos->pieces[p]) & G(331, pos->colour[c])) + p * 2 + c)) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
+      G(335, if (p < King) { hashes[p / 2] ^= hash; })
+      G(335, if (p > Pawn) { hashes[6 + c] ^= hash; })
+    }
   }
 }
 
@@ -1213,7 +1212,6 @@ search(
   G(197, i32 * corr_entries[8];)
     G(197, corr_hashes[3] = get_material_hash(pos);)
     G(197, corr_hashes[5] = G(271, (G(272, ss->prev_move.from) | G(272, ss->prev_move.to << 8))) + G(271, 16384);)
-    G(197, get_nonpawn_hashes(corr_hashes, pos);)
     G(197, get_piece_hashes(H(300, 2, pos), H(300, 2, corr_hashes));)
     G(197, const A(1, i16, i32, i64) raw_eval = tt_hit ? tt_entry->static_eval : eval(pos); A(1, i16, i32, i64) static_eval = raw_eval;
   assert(static_eval < mate); assert(static_eval > -mate);)
