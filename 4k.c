@@ -1331,9 +1331,11 @@ search(
 
       // LATE MOVE REDUCTION
       A(1, i32, i64)
-        reduction = G(228, depth > 3) && G(228, move_score <= 0) ? G(229, depth / 10) + G(229, moves_evaluated / 10) + G(229, (move_score / -370)) +
-        G(229, (G(230, alpha) == G(230, beta - 1))) + G(229, !improving)
-        : 0;
+        reduction = (G(229, (G(333, depth) + G(333, (i32)moves_evaluated)) * 37) +
+          G(229, (G(334, (G(230, alpha) == G(230, beta - 1))) + G(334, !improving) - 1) * 370) - move_score) / 370;
+      if (G(228, depth < 4) || G(228, reduction < 0)) {
+        reduction = 0;
+      }
 
       A(2, i16, i32, i64) score;
       while (true) {
