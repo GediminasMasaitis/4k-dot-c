@@ -1077,7 +1077,7 @@ enum { thread_count = 1 };
 static i32 thread_count = 1;
 #endif
 enum { thread_stack_size = 1024 * 1024 };
-enum { corrhist_size = 65536 };
+enum { corrhist_size = 131072 };
 
 typedef struct [[nodiscard]] {
   G(119, Move best_move;)
@@ -1200,14 +1200,14 @@ get_hash(const Position *const pos) {
 
 S(1) __attribute__((noinline)) void get_nonpawn_hashes(u64 hashes[8], const Position *const pos) {
   for (A(4, i8, u8, i16, u16, i32, u32, i64, u64) c = 0; c < 2; c++) {
-    hashes[6 + c] = ((G(331, pos->colour[c]) & G(331, ~pos->pieces[Pawn])) * 0x9E3779B97F4A7C15ULL) >> 48;
+    hashes[6 + c] = ((G(331, pos->colour[c]) & G(331, ~pos->pieces[Pawn])) * 0x9E3779B97F4A7C15ULL) >> 47;
   }
 }
 
 S(1)
 void get_piece_hashes(H(300, 1, const Position *const pos), H(300, 1, u64 hashes[8])) {
   for (A(7, i8, u8, i16, u16, i32, u32, i64, u64) p = Pawn; p <= Queen; p++) {
-    hashes[p / 2] ^= (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 48;
+    hashes[p / 2] ^= (G(185, pos->pieces[p]) * G(185, 0x9E3779B97F4A7C15ULL)) >> 47;
   }
 }
 
