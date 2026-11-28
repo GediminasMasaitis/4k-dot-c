@@ -1410,7 +1410,7 @@ search(
   G(242, // UPDATE CORRECTION HISTORY
     if (G(243, G(245, ss->best_move.takes_piece) == G(245, None)) && G(243, G(244, tt_flag) != G(244, (best_score < ss->static_eval)))) {
       G(246, A(0, i32, i64) dd = depth * depth; if (dd > 65) { dd = 65; })
-        G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -182) { target = -182; }) G(247, if (target > 182) { target = 182; }))
+        G(246, A(0, i32, i64) target = best_score - ss->static_eval; G(247, if (target < -240) { target = -240; }) G(247, if (target > 128) { target = 128; }))
 
         for (A(6, i8, u8, i16, u16, i32, u32, i64, u64) i = 0; i < 8; i++) {
           *corr_entries[i] = (G(248, G(249, *corr_entries[i]) * G(249, (505 - dd))) + G(248, G(250, target) * G(250, 256) * G(250, dd))) / 505;
